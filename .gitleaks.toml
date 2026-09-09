@@ -1,0 +1,24 @@
+# gitleaks configuration for InfluenceOS.
+# Extends the built-in ruleset and allowlists the intentional placeholder
+# secrets that live in example/CI files, so the scan flags REAL leaked
+# credentials without drowning in false positives.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholders and test fixtures — not real secrets."
+paths = [
+  '''\.env\.example$''',
+  '''\.env\.production\.example$''',
+  '''(^|/)docs/''',
+  '''(^|/)deploy/''',
+]
+regexes = [
+  # Documented placeholders and the CI/test secret literal.
+  '''change-me[a-z0-9-]*''',
+  '''__[A-Z0-9_]+__''',
+  '''ci-secret-value-at-least-16-chars''',
+  '''minioadmin''',
+  '''postgres:postgres''',
+]

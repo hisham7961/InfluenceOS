@@ -11,6 +11,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  security:
+    name: Secret scan · Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Secret scanning (BLOCKING) — no real credential may live in the tree.
+      # Scans the checked-out working tree (--no-git) so the result is
+      # deterministic and reflects exactly what would deploy.
+      - name: Secret scan (gitleaks)
+        run: |
+          VERSION=8.18.4
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /tmp gitleaks
+          chmod +x /tmp/gitleaks
+          /tmp/gitleaks detect --no-git --source . --config .gitleaks.toml --redact --verbose --exit-code 1
+
+      # --- Dependency / supply-chain audit (REPORT-ONLY) --------------------
+      # Surfaces advisories on every run. It does NOT fail the build: the known
+      # advisories are transitive through the Next.js/SSR build toolchain and
+      # cannot be resolved without a framework major bump (out of scope). Track
+      # them here and in docs/PRODUCTION_READINESS.md; revisit on dependency
+      # upgrades. Runtime exposure is limited (build/SSR-time packages).
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Dependency audit (report-only)
+        run: |
+          echo "::group::Production dependency audit (advisory)"
+          pnpm audit --prod --audit-level high || true
+          echo "::endgroup::"
+          echo "Dependency audit is advisory — see docs/PRODUCTION_READINESS.md for the tracked-advisories rationale."
+
   build:
     name: Lint · Typecheck · Tests (incl. MinIO) · Build
     runs-on: ubuntu-latest
@@ -116,6 +155,57 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  images:
+    name: Build production images (api · worker · web)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.api
+          push: false
+          load: true
+          tags: influenceos-api:ci
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+      - name: Build worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.worker
+          push: false
+          load: true
+          tags: influenceos-worker:ci
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,scope=worker,mode=max
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.web
+          push: false
+          load: true
+          tags: influenceos-web:ci
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+      - name: Smoke the API image (env fail-fast is enforced in the built image)
+        run: |
+          # Starting the API image with NO mandatory env must exit non-zero
+          # (fail-fast) and print the config report — proving the env contract
+          # ships enforced. A clean start would instead hang waiting for a DB.
+          set +e
+          OUT=$(docker run --rm -e NODE_ENV=production influenceos-api:ci 2>&1)
+          CODE=$?
+          echo "$OUT"
+          if [ "$CODE" -eq 0 ]; then echo "Expected non-zero exit on missing env"; exit 1; fi
+          echo "$OUT" | grep -qi "Invalid API environment configuration" \
+            || { echo "Image did not fail-fast with the expected config report"; exit 1; }
+          echo "API image enforces the env contract at startup."
 
   e2e:
     name: Full stack E2E (pg · redis · minio · api · worker · web)
