@@ -1,48 +1,25 @@
 'use client';
 
-import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import {
-  BadgeCheck,
-  Building2,
-  Coins,
-  ExternalLink,
-  Languages,
-  Megaphone,
-  Minus,
-  PackageCheck,
-  RefreshCw,
-  TrendingDown,
-  TrendingUp,
-  Users,
-} from 'lucide-react';
+import { Building2, Coins, Languages, Megaphone, PackageCheck } from 'lucide-react';
 import type {
   BrandInfluencerDTO,
   InfluencerDetailDTO,
   NoteDTO,
   PublishedContentDTO,
-  SocialAccountDTO,
 } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
-import { api } from '@/lib/api-browser';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Avatar } from '@/components/ui/avatar';
-import { PlatformBadge } from '@/components/ui/platform-badge';
-import { DataSourceBadge, ProvenanceTooltip } from '@/components/ui/provenance';
 import { AudienceHealthBadge, RelationshipStatusBadge } from '@/components/ui/status-badges';
 import { StatCard } from '@/components/ui/stat-card';
 import { ContentGrid } from '@/components/content/content-grid';
-import { formatCompact, formatCurrency, relativeTime, shortDate } from '@/lib/format';
+import { formatCurrency, relativeTime, shortDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { NotesPanel } from './notes-panel';
-import { FollowerChart } from './follower-chart';
+import { SocialAccountsPanel } from './social-accounts-panel';
 
 const SEVERITY_DOT: Record<string, string> = {
   positive: 'bg-success',
@@ -152,31 +129,8 @@ export function ProfileTabs({
       </TabsContent>
 
       {/* Social Profiles */}
-      <TabsContent value="social" className="space-y-6">
-        {influencer.socialAccounts.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title="No social accounts linked"
-            description="Add a social profile to start tracking growth and content."
-          />
-        ) : (
-          <>
-            <Card>
-              <CardHeader>
-                <CardTitle>Follower Growth</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <FollowerChart influencerId={influencer.id} accounts={influencer.socialAccounts} />
-              </CardContent>
-            </Card>
-
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {influencer.socialAccounts.map((account) => (
-                <SocialAccountCard key={account.id} account={account} />
-              ))}
-            </div>
-          </>
-        )}
+      <TabsContent value="social">
+        <SocialAccountsPanel influencerId={influencer.id} initialAccounts={influencer.socialAccounts} />
       </TabsContent>
 
       {/* Campaign History */}
@@ -311,76 +265,5 @@ export function ProfileTabs({
         )}
       </TabsContent>
     </Tabs>
-  );
-}
-
-function SocialAccountCard({ account }: { account: SocialAccountDTO }) {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-
-  const sync = useMutation({
-    mutationFn: () => api.socialAccounts.sync(account.id),
-    onSuccess: (res) => {
-      toast.success(res.message || (res.synced ? 'Account synced' : 'Sync ran, nothing new'));
-      queryClient.invalidateQueries();
-      router.refresh();
-    },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Something went wrong'),
-  });
-
-  const delta = account.followerDelta7d;
-  const DeltaIcon = !delta ? Minus : delta > 0 ? TrendingUp : TrendingDown;
-  const deltaTone = !delta ? 'text-muted-foreground' : delta > 0 ? 'text-success' : 'text-danger';
-
-  return (
-    <Card className="flex flex-col gap-4 p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <Avatar name={account.displayName ?? account.username} src={account.avatarUrl} size="sm" />
-          <div className="min-w-0">
-            <div className="flex items-center gap-1">
-              <p className="truncate text-sm font-semibold">@{account.username}</p>
-              {account.isVerified ? <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-info" /> : null}
-            </div>
-            <PlatformBadge platform={account.platform} size="sm" />
-          </div>
-        </div>
-        {account.isPrimary ? <Badge tone="accent">Primary</Badge> : null}
-      </div>
-
-      <div className="flex items-end justify-between">
-        <div>
-          <p className="text-2xl font-semibold tracking-tight">
-            {account.followers != null ? formatCompact(account.followers) : '—'}
-          </p>
-          <p className="text-xs text-muted-foreground">followers</p>
-        </div>
-        {delta != null ? (
-          <span className={cn('inline-flex items-center gap-0.5 text-xs font-medium', deltaTone)}>
-            <DeltaIcon className="h-3.5 w-3.5" />
-            {delta > 0 ? '+' : ''}
-            {formatCompact(delta)} · 7d
-          </span>
-        ) : null}
-      </div>
-
-      <div className="flex items-center justify-between border-t border-border pt-3">
-        <ProvenanceTooltip provenance={account.provenance}>
-          <DataSourceBadge source={account.provenance.source} className="cursor-default" />
-        </ProvenanceTooltip>
-        <div className="flex items-center gap-1">
-          {account.profileUrl ? (
-            <Button asChild variant="ghost" size="icon-sm" title="Open profile">
-              <a href={account.profileUrl} target="_blank" rel="noreferrer">
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            </Button>
-          ) : null}
-          <Button variant="ghost" size="icon-sm" title="Sync now" disabled={sync.isPending} onClick={() => sync.mutate()}>
-            <RefreshCw className={cn('h-4 w-4', sync.isPending && 'animate-spin')} />
-          </Button>
-        </div>
-      </div>
-    </Card>
   );
 }

@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { StatCard } from '@/components/ui/stat-card';
 import { MissionControl } from '@/components/dashboard/mission-control';
 import { formatCurrency } from '@/lib/format';
+import { BrandEditDialog } from './brand-edit-dialog';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,6 +88,8 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
                 ) : null}
               </div>
             </div>
+
+            <BrandEditDialog brand={brand} />
           </div>
         </div>
       </Card>

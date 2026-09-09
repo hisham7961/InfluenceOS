@@ -12,6 +12,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { AudienceHealthBadge, RelationshipStatusBadge } from '@/components/ui/status-badges';
 import { formatCompact, formatCurrency } from '@/lib/format';
 import { ProfileTabs } from './profile-tabs';
+import { InfluencerEditDialog } from './influencer-edit-dialog';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,6 +98,7 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
           </div>
 
           <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col">
+            <InfluencerEditDialog influencer={influencer} />
             {contact.whatsapp ? (
               <Button asChild variant="secondary" size="sm">
                 <a href={waHref(contact.whatsapp)} target="_blank" rel="noreferrer">

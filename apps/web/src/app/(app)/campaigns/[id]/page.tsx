@@ -12,6 +12,7 @@ import { StatCard } from '@/components/ui/stat-card';
 import { Avatar } from '@/components/ui/avatar';
 import { formatCurrency, shortDate } from '@/lib/format';
 import { Workspace } from './workspace';
+import { CampaignActions } from './campaign-actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,7 +81,8 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             ) : null}
           </div>
 
-          <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
+          <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+            <CampaignActions campaign={campaign} />
             <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
               <CalendarClock className="h-4 w-4 text-muted-foreground" />
               {campaign.startDate ? shortDate(campaign.startDate) : 'No start date'} –{' '}
