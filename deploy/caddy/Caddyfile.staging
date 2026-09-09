@@ -1,0 +1,105 @@
+# ---------------------------------------------------------------------------
+# InfluenceOS — STAGING Caddy reverse proxy
+#
+# Caddy is the ONLY publicly-published service (80/443). It terminates TLS
+# (automatic Let's Encrypt), redirects HTTP→HTTPS automatically, adds security
+# headers, enforces an upload ceiling, and proxies to the internal web/api/minio
+# services on the private Docker network. PostgreSQL, Redis, the worker, the API
+# internal port and the MinIO console are NOT reachable from the internet.
+#
+# Env (from .env.staging, injected by docker-compose.staging.yml):
+#   SITE_ADDRESS   e.g. staging.influenceos.example.com   (web + API)
+#   FILES_ADDRESS  e.g. staging-files.influenceos.example.com  (browser → MinIO)
+#   CADDY_ACME_EMAIL
+#
+# If staging uses MANAGED S3 instead of the bundled MinIO, point
+# S3_PUBLIC_ENDPOINT at the managed endpoint and delete the files site block
+# below (the browser then talks to the managed endpoint directly).
+# ---------------------------------------------------------------------------
+
+{
+	email {$CADDY_ACME_EMAIL:staging-ops@example.com}
+	# While validating DNS/TLS you may switch to the ACME staging CA to avoid
+	# rate limits:
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# --- Staging application (web + API) ---------------------------------------
+{$SITE_ADDRESS:staging.influenceos.example.com} {
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# Upload ceiling at the edge (keep >= MAX_UPLOAD_MB).
+	request_body {
+		max_size 120MB
+	}
+
+	# The versioned API + docs go to the API service; the browser normally
+	# reaches the API through the same-origin BFF at /api/bff (served by web).
+	# /health and /ready are exposed for external staging monitoring + the smoke
+	# test (non-secret liveness/readiness). /metrics is deliberately NOT routed
+	# here — it stays internal (Prometheus scrapes it on the private network).
+	@api path /api/v1/* /api/docs* /api/openapi.json /health /ready
+	handle @api {
+		reverse_proxy api:4000 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 30s
+			}
+		}
+	}
+
+	# Everything else → the Next.js web app (SSR + BFF proxy). BFF cookies pass
+	# through unchanged (same origin), so the httpOnly token transport works.
+	handle {
+		reverse_proxy web:3000 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 60s
+			}
+		}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+# --- Browser-facing object storage (private MinIO behind the proxy) --------
+# Presigned PUT/GET URLs are signed by the API for this host (S3_PUBLIC_ENDPOINT).
+# We MUST preserve the Host header so MinIO's SigV4 validation matches the
+# signature. MinIO keeps objects private; the presigned URL is the only access.
+# CORS for the browser's cross-origin PUT is handled by MinIO
+# (MINIO_API_CORS_ALLOW_ORIGIN in the compose file).
+{$FILES_ADDRESS:staging-files.influenceos.example.com} {
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		-Server
+	}
+	request_body {
+		max_size 120MB
+	}
+	reverse_proxy minio:9000 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+	log {
+		output stdout
+		format json
+	}
+}

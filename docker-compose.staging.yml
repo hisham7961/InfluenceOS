@@ -1,0 +1,226 @@
+# ---------------------------------------------------------------------------
+# InfluenceOS — STAGING stack
+#
+# Mirrors docker-compose.full.yml (same Dockerfiles, same migrate one-shot, same
+# service graph) but is a SELF-CONTAINED staging deployment: a Caddy reverse
+# proxy is the ONLY publicly-published service (80/443); postgres, redis, minio,
+# api, worker and web are reachable only on the internal Docker network.
+#
+# It is deliberately not a compose "override" of the full file: Compose merges
+# `ports` additively, so an override cannot un-publish the base file's host
+# ports — they would leak to the host. A dedicated file keeps the "only the
+# proxy is public" guarantee unambiguous.
+#
+# Deploy with scripts/deploy-staging.sh (which sets the project name and
+# env-file). Manually:
+#   docker compose -p influenceos-staging --env-file .env.staging \
+#     -f docker-compose.staging.yml up -d --build
+#
+# Every secret is required from the environment (${VAR:?}) — the stack refuses
+# to start if a staging secret is missing.
+# ---------------------------------------------------------------------------
+x-staging-env: &staging-env
+  NODE_ENV: production
+  APP_ENV: staging
+  DATABASE_URL: postgresql://influenceos_staging:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-influenceos_staging}
+  DIRECT_DATABASE_URL: postgresql://influenceos_staging:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-influenceos_staging}
+  REDIS_URL: redis://redis:6379
+  AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required (staging-only, >=32 chars)}
+  STORAGE_DRIVER: s3
+  S3_INTERNAL_ENDPOINT: http://minio:9000
+  S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?S3_PUBLIC_ENDPOINT is required (browser-facing)}
+  S3_REGION: us-east-1
+  S3_BUCKET: ${S3_BUCKET:-influenceos-staging}
+  S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+  S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+  S3_FORCE_PATH_STYLE: 'true'
+  MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-100}
+  RATE_LIMIT_REDIS: 'true'
+  APP_VERSION: ${APP_VERSION:-staging}
+  GIT_SHA: ${GIT_SHA:-unknown}
+  BUILD_TIME: ${BUILD_TIME:-}
+
+services:
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?SITE_ADDRESS is required (staging hostname)}
+      FILES_ADDRESS: ${FILES_ADDRESS:-}
+      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:-staging-ops@example.com}
+    volumes:
+      - ./deploy/caddy/Caddyfile.staging:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_started
+      api:
+        condition: service_healthy
+    networks: [edge, internal]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: influenceos_staging
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-influenceos_staging}
+    volumes:
+      - staging_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U influenceos_staging']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - staging_redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [internal]
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      # Allow the staging web origin to perform the browser's cross-origin
+      # presigned PUT/GET. Do NOT publish MinIO's ports — the browser reaches it
+      # only via the proxy's files route (see Caddyfile.staging).
+      MINIO_API_CORS_ALLOW_ORIGIN: ${WEB_ORIGIN:?WEB_ORIGIN is required}
+    volumes:
+      - staging_miniodata:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [internal]
+
+  # Create the PRIVATE staging bucket (objects stay private — no anonymous policy).
+  minio-setup:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      until (mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}) do echo 'waiting for minio'; sleep 2; done;
+      mc mb --ignore-existing local/${S3_BUCKET:-influenceos-staging};
+      exit 0;
+      "
+    networks: [internal]
+
+  # One-shot: apply migrations (migrate deploy — never db push), then bootstrap
+  # the first staging admin (idempotent — no-op if a user already exists).
+  # The demo seed is NEVER invoked here.
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    environment:
+      <<: *staging-env
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?BOOTSTRAP_ADMIN_EMAIL is required}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?BOOTSTRAP_ADMIN_PASSWORD is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      /bin/sh -c "
+      pnpm --filter @influenceos/database exec prisma migrate deploy &&
+      pnpm --filter @influenceos/database exec tsx prisma/bootstrap.ts
+      "
+    restart: 'no'
+    networks: [internal]
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    restart: unless-stopped
+    environment:
+      <<: *staging-env
+      API_PORT: '4000'
+      API_HOST: 0.0.0.0
+      WEB_ORIGIN: ${WEB_ORIGIN:?WEB_ORIGIN is required}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?NEXT_PUBLIC_APP_URL is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD-SHELL', 'node -e "fetch(\"http://localhost:4000/ready\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      <<: *staging-env
+      WORKER_PORT: '4100'
+      MONITOR_CRON: ${MONITOR_CRON:-*/5 * * * *}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD-SHELL', 'node -e "fetch(\"http://localhost:4100/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      APP_ENV: staging
+      INTERNAL_API_URL: http://api:4000
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?NEXT_PUBLIC_APP_URL is required}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?S3_PUBLIC_ENDPOINT is required}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [internal]
+
+networks:
+  # Public-facing network the proxy lives on; everything else stays internal.
+  edge:
+  internal:
+
+volumes:
+  staging_pgdata:
+  staging_redisdata:
+  staging_miniodata:
+  caddy_data:
+  caddy_config:
