@@ -1,0 +1,45 @@
+# ---------------------------------------------------------------------------
+# InfluenceOS — Prometheus scrape configuration
+#
+# Scrapes the API's /metrics endpoint (Prometheus text exposition). /metrics is
+# only reachable on the private network — Prometheus must run inside that
+# network (e.g. the same docker network / VPC), never over the public proxy.
+#
+# Point Prometheus at this file:  prometheus --config.file=prometheus.yml
+# Rules live in alerts.yml (loaded below).
+# ---------------------------------------------------------------------------
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    app: influenceos
+
+rule_files:
+  - alerts.yml
+
+scrape_configs:
+  - job_name: influenceos-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['api:4000']
+        labels:
+          service: api
+
+  # The worker exposes JSON health at :4100/health (not Prometheus text). Use a
+  # blackbox/JSON exporter for it, or rely on the healthcheck + logs. Left here
+  # as a documented target for when a worker /metrics is added.
+  # - job_name: influenceos-worker
+  #   metrics_path: /metrics
+  #   static_configs:
+  #     - targets: ['worker:4100']
+
+  # Host/node metrics (optional): run node_exporter and uncomment.
+  # - job_name: node
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']
+
+# Alerting via Alertmanager (optional but recommended for production).
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']

@@ -58,6 +58,22 @@ describe('operational endpoints', () => {
     expect(String(generated.headers['x-request-id'] ?? '')).toMatch(/^req_/);
   });
 
+  it('GET /metrics exposes Prometheus text with build info and request counters', async () => {
+    // Generate at least one counted request first.
+    await app.inject({ method: 'GET', url: '/health' });
+    const res = await app.inject({ method: 'GET', url: '/metrics' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('text/plain');
+    const body = res.body;
+    expect(body).toContain('influenceos_build_info');
+    expect(body).toContain('influenceos_up');
+    expect(body).toContain('influenceos_db_up');
+    expect(body).toContain('influenceos_http_requests_total');
+    expect(body).toContain('process_uptime_seconds');
+    // No secret must ever appear in the exposition.
+    expect(body).not.toContain(process.env.AUTH_SECRET ?? '__no_secret__');
+  });
+
   it('error responses carry the same requestId in the body and header', async () => {
     const res = await app.inject({
       method: 'GET',

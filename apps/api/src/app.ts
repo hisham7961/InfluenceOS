@@ -21,6 +21,7 @@ import { registerRoutes } from './routes/index';
 import { installCaching } from './cache';
 import { checkDatabase } from './health';
 import { releaseInfo } from './release';
+import { recordHttp, renderMetrics } from './metrics';
 
 /** Build the optional Redis store for distributed rate limiting. Only used when
  *  RATE_LIMIT_REDIS is truthy and REDIS_URL is set (multi-instance deploys);
@@ -71,8 +72,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(rateLimit, {
     max: env.RATE_LIMIT_MAX,
     timeWindow: env.RATE_LIMIT_WINDOW,
-    // Liveness/readiness probes must never be rate-limited.
-    allowList: (req) => req.url === '/health' || req.url === '/ready',
+    // Liveness/readiness/metrics probes must never be rate-limited.
+    allowList: (req) => req.url === '/health' || req.url === '/ready' || req.url === '/metrics',
     ...(redisStore ? { redis: redisStore, skipOnError: true } : {}),
   });
   // Raw binary body for the file blob-upload proxy (two-phase signed uploads).
@@ -141,13 +142,18 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   // Structured access log with the resolved actor attached. One line per
-  // request; secrets are already redacted by the logger config above.
+  // request; secrets are already redacted by the logger config above. Also feed
+  // the metrics counter using the matched route template (low cardinality),
+  // never the raw URL.
   app.addHook('onResponse', async (request, reply) => {
+    const route = request.routeOptions?.url ?? 'unmatched';
+    recordHttp(request.method, route, reply.statusCode);
     request.log.info(
       {
         reqId: request.id,
         method: request.method,
         url: request.url,
+        route,
         statusCode: reply.statusCode,
         responseTimeMs: Math.round(reply.elapsedTime),
         actorId: request.actor?.id ?? null,
@@ -213,6 +219,16 @@ export async function buildApp(): Promise<FastifyInstance> {
       status: ready ? 'ready' : 'not_ready',
       checks,
     });
+  });
+
+  // Prometheus metrics. MUST stay internal — the reverse proxy only exposes
+  // /api/v1, /api/docs and /api/openapi.json publicly, so /metrics is reachable
+  // only on the private network where the scraper lives. No secrets, low
+  // cardinality (route templates + status classes only).
+  app.get('/metrics', { schema: { hide: true } }, async (_req, reply) => {
+    const db = await checkDatabase();
+    reply.header('content-type', 'text/plain; version=0.0.4; charset=utf-8');
+    return renderMetrics(db.status === 'ok');
   });
 
   // OpenAPI JSON for SDK generation (addendum §8).

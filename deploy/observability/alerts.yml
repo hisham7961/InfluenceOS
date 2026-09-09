@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# InfluenceOS — Prometheus alerting rules
+#
+# These fire on the metrics exposed by the API /metrics endpoint. Wire them to
+# Alertmanager (Slack/email/PagerDuty) for real notifications. Thresholds are
+# sensible defaults for a small internal platform — tune to your traffic.
+# ---------------------------------------------------------------------------
+groups:
+  - name: influenceos-availability
+    rules:
+      - alert: InfluenceOSAPIDown
+        expr: up{job="influenceos-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'InfluenceOS API is down'
+          description: 'Prometheus cannot scrape the API (/metrics) for 2 minutes. Check the api container and the reverse proxy.'
+
+      - alert: InfluenceOSDatabaseDown
+        expr: influenceos_db_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'InfluenceOS database unreachable'
+          description: 'The API reports the database is not reachable. /ready is returning 503 and requests will fail.'
+
+  - name: influenceos-errors
+    rules:
+      - alert: InfluenceOSHigh5xxRate
+        expr: |
+          sum(rate(influenceos_http_requests_total{status="5xx"}[5m]))
+            /
+          clamp_min(sum(rate(influenceos_http_requests_total[5m])), 0.001)
+            > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Elevated 5xx error rate (>5%)'
+          description: 'More than 5% of requests are returning 5xx over the last 5 minutes. Check API logs (correlate by reqId).'
+
+  - name: influenceos-resources
+    rules:
+      - alert: InfluenceOSHighMemory
+        expr: process_resident_memory_bytes{job="influenceos-api"} > 1.5e9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'API memory usage high (>1.5GB RSS)'
+          description: 'Resident memory has exceeded 1.5GB for 10 minutes. Investigate for leaks or under-provisioning.'
