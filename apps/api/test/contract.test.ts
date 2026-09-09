@@ -4,11 +4,17 @@ import { FEATURES } from '@influenceos/contracts';
 import { makeApp } from './helpers.ts';
 
 /**
- * Contract tests — the OpenAPI document IS the product contract for Web and
- * future mobile clients. These assert (a) the spec is well-formed and versioned
- * and (b) every endpoint the Feature Registry advertises as READY actually
- * exists in the running API. That makes the registry honest by construction:
- * you cannot mark a feature READY and ship a doc that lies about its routes.
+ * Contract tests — the OpenAPI document IS the API contract for Web and future
+ * mobile clients. These machine-verify ONE readiness dimension: that every
+ * endpoint the Feature Registry advertises as READY actually exists in the
+ * running API's OpenAPI document, and that the typed client exposes a method
+ * for the core ones.
+ *
+ * This does NOT prove Web implementation, mobile readiness, authorization
+ * correctness, or semantic completeness — those are verified elsewhere
+ * (authz.test.ts for admin enforcement, the integration/DoD suites and the
+ * Playwright browser journey for behavior) or by manual review. See
+ * docs/FINAL_VERIFICATION.md → "Readiness dimensions" for which is which.
  */
 
 /** Normalize a route to method + path with param names erased ({id} ≡ :id ≡ {x}). */
@@ -80,5 +86,45 @@ describe('contract — OpenAPI document', () => {
     expect(available.has(normalize('POST', '/api/v1/files'))).toBe(true);
     expect(available.has(normalize('POST', '/api/v1/files/complete'))).toBe(true);
     expect(available.has(normalize('GET', '/api/v1/files/{}/blob'))).toBe(true);
+  });
+
+  it('has a real Web page for each READY web feature that claims a route', async () => {
+    const { existsSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const webApp = join(process.cwd(), '..', 'web', 'src', 'app', '(app)');
+    // Curated feature → expected web page directory (machine-checked existence).
+    const WEB_ROUTES: Record<string, string> = {
+      auth: '../login',
+      brands: 'brands',
+      influencers: 'influencers',
+      campaigns: 'campaigns',
+      content: 'content',
+      calendar: 'calendar',
+      reports: 'reports',
+      files: 'campaigns', // attachments surface inside the campaign workspace
+      storage_admin: 'settings/storage',
+      audit_admin: 'settings/audit',
+    };
+    const missing: string[] = [];
+    for (const [key, route] of Object.entries(WEB_ROUTES)) {
+      const feature = FEATURES.find((f) => f.key === key);
+      if (!feature || feature.webStatus !== 'READY') continue;
+      if (!existsSync(join(webApp, route, 'page.tsx'))) missing.push(`${key} → ${route}/page.tsx`);
+    }
+    expect(missing, `READY web features without a page:\n${missing.join('\n')}`).toEqual([]);
+  });
+
+  it('exposes the core operations through the typed client (client-method availability)', async () => {
+    const { createClient } = await import('@influenceos/api-client');
+    const client = createClient({ baseUrl: 'http://localhost:4000' });
+    // A representative slice across modules — the Web and mobile clients depend
+    // on these existing.
+    expect(typeof client.auth.login).toBe('function');
+    expect(typeof client.auth.refresh).toBe('function');
+    expect(typeof client.auth.changePassword).toBe('function');
+    expect(typeof client.files.initiate).toBe('function');
+    expect(typeof client.files.complete).toBe('function');
+    expect(typeof client.platform.storage).toBe('function');
+    expect(typeof client.platform.audit).toBe('function');
   });
 });

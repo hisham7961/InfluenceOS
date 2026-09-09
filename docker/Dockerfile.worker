@@ -11,4 +11,5 @@ RUN pnpm install --frozen-lockfile \
   && pnpm --filter @influenceos/database generate
 
 ENV NODE_ENV=production
+EXPOSE 4100
 CMD ["pnpm", "--filter", "@influenceos/worker", "exec", "tsx", "src/index.ts"]
