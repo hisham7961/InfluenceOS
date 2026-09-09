@@ -1,0 +1,910 @@
+// InfluenceOS — PostgreSQL schema
+// Strong, normalized relational model. JSON is used ONLY for raw provider
+// metadata, provider capability details and optional platform-specific fields.
+// See docs/DATABASE.md for the annotated model reference.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// ===========================================================================
+// ENUMS
+// ===========================================================================
+
+enum UserRole {
+  ADMIN
+  STAFF
+}
+
+enum Platform {
+  INSTAGRAM
+  TIKTOK
+  YOUTUBE
+  SNAPCHAT
+  X
+}
+
+/// Provenance of an externally-sourced value.
+enum DataSource {
+  MANUAL
+  OFFICIAL_API
+  EMBED
+  UNAVAILABLE
+}
+
+enum RelationshipStatus {
+  PROSPECT
+  CONTACTED
+  NEGOTIATING
+  ACTIVE
+  RECURRING
+  PAST
+  DECLINED
+  BLACKLISTED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ContactMethod {
+  WHATSAPP
+  EMAIL
+  PHONE
+  INSTAGRAM_DM
+  OTHER
+}
+
+enum AudienceHealthLabel {
+  HEALTHY
+  REVIEW
+  LIMITED_DATA
+}
+
+enum CampaignStatus {
+  DRAFT
+  PLANNING
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum CampaignObjective {
+  AWARENESS
+  ENGAGEMENT
+  CONVERSIONS
+  LAUNCH
+  UGC
+  OTHER
+}
+
+enum DealType {
+  FREE
+  PAID
+  GIFTED_PRODUCT
+  PAID_PLUS_GIFTED
+}
+
+enum ParticipationStatus {
+  INVITED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  DECLINED
+  DROPPED
+}
+
+enum DeliverableType {
+  POST
+  STORY
+  REEL
+  SHORT
+  VIDEO
+  LIVE
+  TWEET
+  SNAP
+  CAROUSEL
+  OTHER
+}
+
+enum DeliverableStatus {
+  PLANNED
+  SENT_TO_INFLUENCER
+  AWAITING_PUBLICATION
+  PUBLISHED
+  VERIFIED
+  MISSED
+  CANCELLED
+}
+
+/// Availability / health state of a piece of published content.
+enum ContentStatus {
+  LIVE
+  REMOVED
+  PRIVATE
+  UNAVAILABLE
+  BROKEN_LINK
+  UNKNOWN
+}
+
+enum PaymentStatus {
+  NOT_APPLICABLE
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+}
+
+enum ExpenseType {
+  INFLUENCER_FEE
+  GIFT_PRODUCT
+  PRODUCTION
+  ADS
+  SHIPPING
+  OTHER
+}
+
+enum NotificationCategory {
+  CONTENT_REMOVED
+  CONTENT_UNAVAILABLE
+  DELIVERABLE_OVERDUE
+  DELIVERABLE_DUE_SOON
+  CAMPAIGN_ENDING
+  SYNC_FAILURE
+  NEW_CONTENT
+  FOLLOWER_MILESTONE
+  GENERAL
+}
+
+enum ActivityType {
+  BRAND_CREATED
+  BRAND_UPDATED
+  INFLUENCER_ADDED
+  INFLUENCER_UPDATED
+  SOCIAL_ACCOUNT_ADDED
+  INFLUENCER_ADDED_TO_CAMPAIGN
+  CAMPAIGN_CREATED
+  CAMPAIGN_STATUS_CHANGED
+  CAMPAIGN_UPDATED
+  DELIVERABLE_ADDED
+  DELIVERABLE_STATUS_CHANGED
+  SCRIPT_ADDED
+  SCRIPT_UPDATED
+  CONTENT_PUBLISHED
+  CONTENT_STATUS_CHANGED
+  COST_ADDED
+  COST_UPDATED
+  NOTE_ADDED
+  FOLLOWER_MILESTONE
+  GENERIC
+}
+
+enum MonitoringEventType {
+  CHECK_OK
+  STATUS_CHANGED
+  CHECK_FAILED
+  RATE_LIMITED
+}
+
+enum IntegrationStatus {
+  ENABLED
+  DISABLED
+  NOT_CONFIGURED
+  ERROR
+}
+
+/// Client type for device sessions and feature targeting (mobile-readiness).
+enum ClientType {
+  WEB
+  IOS
+  ANDROID
+  API
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum FeatureFlagScope {
+  PLATFORM
+  WEB
+  MOBILE
+  BRAND
+}
+
+enum MobilePlatform {
+  IOS
+  ANDROID
+}
+
+// ===========================================================================
+// CORE
+// ===========================================================================
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         UserRole @default(STAFF)
+  avatarUrl    String?
+  locale       String   @default("en")
+  theme        String   @default("system")
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ownedCampaigns   Campaign[]               @relation("CampaignOwner")
+  activities       ActivityLog[]            @relation("ActivityActor")
+  notes            Note[]
+  scriptVersions   ScriptReferenceVersion[]
+  attachments      Attachment[]
+  expenses         CampaignExpense[]
+  notifications    Notification[]
+  savedViews       SavedView[]
+  deviceSessions   DeviceSession[]
+
+  @@index([role])
+}
+
+model Brand {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  description    String?
+  logoUrl        String?
+  iconUrl        String?
+  coverUrl       String?
+  primaryColor   String   @default("#6366F1")
+  accentColor    String?
+  secondaryColor String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  campaigns        Campaign[]
+  brandInfluencers BrandInfluencer[]
+  publishedContent PublishedContent[]
+  notes            Note[]
+  notifications    Notification[]
+  activities       ActivityLog[]
+
+  @@index([isActive])
+}
+
+model Influencer {
+  id               String              @id @default(cuid())
+  displayName      String
+  fullName         String?
+  primaryUsername  String?
+  primaryPlatform  Platform?
+  avatarOverrideUrl String?
+  resolvedAvatarUrl String?
+  bio              String?
+  country          String?
+  city             String?
+  category         String?
+  languages        String[]
+  email            String?
+  mobile           String?
+  whatsapp         String?
+  managerName      String?
+  managerContact   String?
+  preferredContact ContactMethod?
+  priority         Priority            @default(MEDIUM)
+  relationshipStatus RelationshipStatus @default(PROSPECT)
+  audienceHealth   AudienceHealthLabel @default(LIMITED_DATA)
+  pricingNotes     String?
+  internalNotes    String?
+  isActive         Boolean             @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  socialAccounts      SocialAccount[]
+  brandInfluencers    BrandInfluencer[]
+  campaignInfluencers CampaignInfluencer[]
+  publishedContent    PublishedContent[]
+  tags                InfluencerTag[]
+  notes               Note[]
+  attachments         Attachment[]
+  activities          ActivityLog[]
+  notifications       Notification[]
+
+  @@index([relationshipStatus])
+  @@index([primaryPlatform])
+  @@index([country])
+  @@index([category])
+  @@index([isActive])
+}
+
+model SocialAccount {
+  id             String     @id @default(cuid())
+  influencerId   String
+  platform       Platform
+  username       String
+  profileUrl     String?
+  platformUserId String?
+  displayName    String?
+  avatarUrl      String?
+  bio            String?
+  followers      Int?
+  following      Int?
+  postCount      Int?
+  isVerified     Boolean?
+  isPrimary      Boolean    @default(false)
+  dataSource     DataSource @default(MANUAL)
+  lastSyncedAt   DateTime?
+  rawMetadata    Json?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  influencer      Influencer             @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  metricSnapshots SocialMetricSnapshot[]
+
+  @@unique([platform, username])
+  @@index([influencerId])
+  @@index([platform])
+}
+
+/// Periodic follower/growth snapshot. Historical values are NEVER overwritten.
+model SocialMetricSnapshot {
+  id              String     @id @default(cuid())
+  socialAccountId String
+  followers       Int?
+  following       Int?
+  postCount       Int?
+  engagementRate  Float?
+  capturedAt      DateTime   @default(now())
+  source          DataSource @default(MANUAL)
+
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+
+  @@index([socialAccountId, capturedAt])
+}
+
+/// Brand-specific relationship layer so one global influencer can work with
+/// many brands without duplicating the influencer record.
+model BrandInfluencer {
+  id                  String             @id @default(cuid())
+  brandId             String
+  influencerId        String
+  relationshipStatus  RelationshipStatus @default(PROSPECT)
+  priority            Priority           @default(MEDIUM)
+  internalNotes       String?
+  defaultRate         Decimal?           @db.Decimal(14, 2)
+  currency            String?
+  firstCollaborationAt DateTime?
+  lastCampaignAt      DateTime?
+  totalCollaborations Int                @default(0)
+  isActive            Boolean            @default(true)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  brand      Brand      @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  influencer Influencer @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, influencerId])
+  @@index([brandId])
+  @@index([influencerId])
+}
+
+// ===========================================================================
+// CAMPAIGNS
+// ===========================================================================
+
+model Campaign {
+  id            String             @id @default(cuid())
+  brandId       String
+  name          String
+  slug          String
+  coverUrl      String?
+  description   String?
+  brief         String?
+  objective     CampaignObjective?
+  status        CampaignStatus     @default(DRAFT)
+  startDate     DateTime?
+  endDate       DateTime?
+  currency      String             @default("KWD")
+  plannedBudget Decimal?           @db.Decimal(14, 2)
+  targetMarket  String?
+  ownerId       String?
+  internalNotes String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  brand               Brand                @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  owner               User?                @relation("CampaignOwner", fields: [ownerId], references: [id])
+  campaignInfluencers CampaignInfluencer[]
+  scripts             ScriptReference[]
+  publishedContent    PublishedContent[]
+  expenses            CampaignExpense[]
+  activities          ActivityLog[]
+  notifications       Notification[]
+
+  @@unique([brandId, slug])
+  @@index([brandId])
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+model CampaignInfluencer {
+  id                 String              @id @default(cuid())
+  campaignId         String
+  influencerId       String
+  dealType           DealType            @default(PAID)
+  agreedCost         Decimal?            @db.Decimal(14, 2)
+  currency           String?
+  giftedProductValue Decimal?            @db.Decimal(14, 2)
+  dateContacted      DateTime?
+  expectedPublishAt  DateTime?
+  participationStatus ParticipationStatus @default(INVITED)
+  paymentStatus      PaymentStatus       @default(NOT_APPLICABLE)
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  campaign         Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  influencer       Influencer         @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  deliverables     Deliverable[]
+  publishedContent PublishedContent[]
+  expenses         CampaignExpense[]
+
+  @@unique([campaignId, influencerId])
+  @@index([campaignId])
+  @@index([influencerId])
+}
+
+model Deliverable {
+  id                   String            @id @default(cuid())
+  campaignInfluencerId String
+  platform             Platform
+  type                 DeliverableType
+  quantity             Int               @default(1)
+  dueDate              DateTime?
+  requirements         String?
+  requiredHashtags     String[]
+  requiredMentions     String[]
+  scriptReferenceId    String?
+  status               DeliverableStatus @default(PLANNED)
+  publishedUrl         String?
+  publishedAt          DateTime?
+  internalNotes        String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  campaignInfluencer CampaignInfluencer @relation(fields: [campaignInfluencerId], references: [id], onDelete: Cascade)
+  scriptReference    ScriptReference?   @relation(fields: [scriptReferenceId], references: [id])
+  publishedContent   PublishedContent[]
+  attachments        Attachment[]
+  activities         ActivityLog[]
+
+  @@index([campaignInfluencerId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([platform])
+}
+
+// ===========================================================================
+// SCRIPTS & REFERENCES
+// ===========================================================================
+
+model ScriptReference {
+  id               String   @id @default(cuid())
+  campaignId       String?
+  title            String
+  currentVersion   Int      @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  campaign    Campaign?                @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  versions    ScriptReferenceVersion[]
+  deliverables Deliverable[]
+  attachments Attachment[]
+
+  @@index([campaignId])
+}
+
+model ScriptReferenceVersion {
+  id                String   @id @default(cuid())
+  scriptReferenceId String
+  version           Int
+  body              String?
+  captionSuggestion String?
+  talkingPoints     String[]
+  dos               String[]
+  donts             String[]
+  requiredClaims    String[]
+  hashtags          String[]
+  mentions          String[]
+  referenceLinks    String[]
+  internalComments  String?
+  createdById       String?
+  createdAt         DateTime @default(now())
+
+  scriptReference ScriptReference @relation(fields: [scriptReferenceId], references: [id], onDelete: Cascade)
+  createdBy       User?           @relation(fields: [createdById], references: [id])
+
+  @@unique([scriptReferenceId, version])
+  @@index([scriptReferenceId])
+}
+
+// ===========================================================================
+// PUBLISHED CONTENT & METRICS
+// ===========================================================================
+
+model PublishedContent {
+  id                   String        @id @default(cuid())
+  platform             Platform
+  externalId           String?
+  originalUrl          String
+  embedUrl             String?
+  embedConfig          Json?
+  thumbnailUrl         String?
+  caption              String?
+  publishedAt          DateTime?
+  detectedAt           DateTime      @default(now())
+  brandId              String?
+  campaignId           String?
+  influencerId         String?
+  campaignInfluencerId String?
+  deliverableId        String?
+  availabilityStatus   ContentStatus @default(UNKNOWN)
+  lastCheckedAt        DateTime?
+  nextCheckAt          DateTime?
+  lastMetricsSyncAt    DateTime?
+  checkFailureCount    Int           @default(0)
+  dataSource           DataSource    @default(MANUAL)
+  rawMetadata          Json?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  brand              Brand?                  @relation(fields: [brandId], references: [id])
+  campaign           Campaign?               @relation(fields: [campaignId], references: [id])
+  influencer         Influencer?             @relation(fields: [influencerId], references: [id])
+  campaignInfluencer CampaignInfluencer?     @relation(fields: [campaignInfluencerId], references: [id])
+  deliverable        Deliverable?            @relation(fields: [deliverableId], references: [id])
+  metricSnapshots    ContentMetricSnapshot[]
+  monitoringEvents   ContentMonitoringEvent[]
+  notifications      Notification[]
+  activities         ActivityLog[]
+
+  @@unique([platform, originalUrl])
+  @@index([campaignId])
+  @@index([brandId])
+  @@index([influencerId])
+  @@index([availabilityStatus])
+  @@index([publishedAt])
+  @@index([detectedAt])
+  @@index([nextCheckAt])
+}
+
+/// Point-in-time content performance snapshot. NULL means "not available" for
+/// that platform/metric — never a fabricated zero.
+model ContentMetricSnapshot {
+  id                 String     @id @default(cuid())
+  publishedContentId String
+  views              Int?
+  likes              Int?
+  comments           Int?
+  shares             Int?
+  reposts            Int?
+  favorites          Int?
+  saves              Int?
+  engagement         Int?
+  engagementRate     Float?
+  capturedAt         DateTime   @default(now())
+  source             DataSource @default(MANUAL)
+
+  publishedContent PublishedContent @relation(fields: [publishedContentId], references: [id], onDelete: Cascade)
+
+  @@index([publishedContentId, capturedAt])
+}
+
+model ContentMonitoringEvent {
+  id                 String              @id @default(cuid())
+  publishedContentId String
+  type               MonitoringEventType
+  fromStatus         ContentStatus?
+  toStatus           ContentStatus?
+  message            String?
+  httpStatus         Int?
+  success            Boolean             @default(true)
+  checkedAt          DateTime            @default(now())
+
+  publishedContent PublishedContent @relation(fields: [publishedContentId], references: [id], onDelete: Cascade)
+
+  @@index([publishedContentId, checkedAt])
+  @@index([type])
+}
+
+// ===========================================================================
+// COSTS
+// ===========================================================================
+
+model CampaignExpense {
+  id                   String        @id @default(cuid())
+  campaignId           String
+  campaignInfluencerId String?
+  type                 ExpenseType
+  label                String?
+  amount               Decimal       @db.Decimal(14, 2)
+  currency             String        @default("KWD")
+  paymentStatus        PaymentStatus @default(UNPAID)
+  incurredAt           DateTime?
+  notes                String?
+  createdById          String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  campaign           Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignInfluencer CampaignInfluencer? @relation(fields: [campaignInfluencerId], references: [id])
+  createdBy          User?               @relation(fields: [createdById], references: [id])
+
+  @@index([campaignId])
+  @@index([campaignInfluencerId])
+}
+
+// ===========================================================================
+// SUPPORTING ENTITIES
+// ===========================================================================
+
+model Attachment {
+  id                String   @id @default(cuid())
+  fileName          String
+  mimeType          String
+  sizeBytes         Int
+  storageKey        String
+  url               String?
+  kind              String?
+  influencerId      String?
+  campaignId        String?
+  deliverableId     String?
+  scriptReferenceId String?
+  noteId            String?
+  uploadedById      String?
+  createdAt         DateTime @default(now())
+
+  influencer      Influencer?      @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  deliverable     Deliverable?     @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  scriptReference ScriptReference? @relation(fields: [scriptReferenceId], references: [id], onDelete: Cascade)
+  note            Note?            @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  uploadedBy      User?            @relation(fields: [uploadedById], references: [id])
+
+  @@index([influencerId])
+  @@index([campaignId])
+  @@index([deliverableId])
+}
+
+model Tag {
+  id        String          @id @default(cuid())
+  name      String          @unique
+  color     String?
+  createdAt DateTime        @default(now())
+
+  influencers InfluencerTag[]
+}
+
+model InfluencerTag {
+  id           String @id @default(cuid())
+  influencerId String
+  tagId        String
+
+  influencer Influencer @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  tag        Tag        @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([influencerId, tagId])
+  @@index([tagId])
+}
+
+model Note {
+  id           String   @id @default(cuid())
+  body         String
+  influencerId String?
+  brandId      String?
+  authorId     String?
+  pinned       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  influencer  Influencer?  @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  brand       Brand?       @relation(fields: [brandId], references: [id])
+  author      User?        @relation(fields: [authorId], references: [id])
+  attachments Attachment[]
+
+  @@index([influencerId])
+  @@index([brandId])
+}
+
+model Notification {
+  id                 String               @id @default(cuid())
+  category           NotificationCategory
+  title              String
+  body               String?
+  targetUrl          String?
+  isRead             Boolean              @default(false)
+  readAt             DateTime?
+  userId             String?
+  brandId            String?
+  influencerId       String?
+  campaignId         String?
+  publishedContentId String?
+  createdAt          DateTime             @default(now())
+
+  user             User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand            Brand?            @relation(fields: [brandId], references: [id])
+  influencer       Influencer?       @relation(fields: [influencerId], references: [id])
+  campaign         Campaign?         @relation(fields: [campaignId], references: [id])
+  publishedContent PublishedContent? @relation(fields: [publishedContentId], references: [id])
+  deliveries       NotificationDelivery[]
+
+  @@index([userId])
+  @@index([isRead, createdAt])
+  @@index([category])
+}
+
+/// Independent delivery channel record so notification logic never needs to be
+/// rewritten when PUSH/EMAIL are added for mobile (spec addendum §22). The
+/// current product only produces IN_APP deliveries.
+model NotificationDelivery {
+  id             String                     @id @default(cuid())
+  notificationId String
+  channel        NotificationChannel        @default(IN_APP)
+  status         NotificationDeliveryStatus @default(SENT)
+  target         String?
+  error          String?
+  createdAt      DateTime                   @default(now())
+  deliveredAt    DateTime?
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@index([channel, status])
+}
+
+/// Mobile-safe auth: one record per authenticated client session (web cookie
+/// session or a future device). Holds the hashed refresh token so refresh
+/// tokens can rotate and sessions can be revoked server-side (addendum §20-21).
+model DeviceSession {
+  id               String     @id @default(cuid())
+  userId           String
+  client           ClientType @default(WEB)
+  deviceId         String?
+  deviceName       String?
+  appVersion       String?
+  userAgent        String?
+  ip               String?
+  refreshTokenHash String
+  pushToken        String?
+  lastActiveAt     DateTime   @default(now())
+  createdAt        DateTime   @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([revokedAt])
+}
+
+/// Central feature flag (addendum §18). Flags target the whole platform and/or
+/// specific clients, and optionally a single brand. Resolved centrally.
+model FeatureFlag {
+  id          String           @id @default(cuid())
+  key         String
+  description String?
+  scope       FeatureFlagScope @default(PLATFORM)
+  enabled     Boolean          @default(true)
+  brandId     String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([key, scope, brandId])
+  @@index([key])
+}
+
+/// Singleton server-owned client configuration surfaced to clients via
+/// GET /api/v1/client-config (addendum §16). Never contains secrets.
+model ClientConfig {
+  id                String   @id @default(cuid())
+  maintenanceMode   Boolean  @default(false)
+  maintenanceMessage String?
+  defaultLanguage   String   @default("en")
+  supportedLanguages String[] @default(["en", "ar"])
+  maxUploadMb       Int      @default(50)
+  supportInfo       String?
+  extra             Json?
+  updatedAt         DateTime @updatedAt
+}
+
+/// Per-mobile-platform version rules (addendum §17). The mobile app is not
+/// built now; this is the server-side capability it will later read.
+model AppVersion {
+  id                 String         @id @default(cuid())
+  platform           MobilePlatform @unique
+  recommendedVersion String?
+  minimumVersion     String?
+  storeUrl           String?
+  forceUpdate        Boolean        @default(false)
+  maintenanceMessage String?
+  updatedAt          DateTime       @updatedAt
+}
+
+model ActivityLog {
+  id                 String       @id @default(cuid())
+  type               ActivityType
+  message            String
+  actorId            String?
+  brandId            String?
+  campaignId         String?
+  influencerId       String?
+  deliverableId      String?
+  publishedContentId String?
+  meta               Json?
+  createdAt          DateTime     @default(now())
+
+  actor            User?             @relation("ActivityActor", fields: [actorId], references: [id])
+  brand            Brand?            @relation(fields: [brandId], references: [id])
+  campaign         Campaign?         @relation(fields: [campaignId], references: [id])
+  influencer       Influencer?       @relation(fields: [influencerId], references: [id])
+  deliverable      Deliverable?      @relation(fields: [deliverableId], references: [id])
+  publishedContent PublishedContent? @relation(fields: [publishedContentId], references: [id])
+
+  @@index([createdAt])
+  @@index([brandId])
+  @@index([campaignId])
+  @@index([influencerId])
+  @@index([type])
+}
+
+/// Central provider integration state for the Admin Integrations screen and
+/// observability. Capability details are stored as JSON (provider-specific).
+model IntegrationSetting {
+  id                String            @id @default(cuid())
+  platform          Platform          @unique
+  status            IntegrationStatus @default(NOT_CONFIGURED)
+  isEnabled         Boolean           @default(true)
+  monitoringEnabled Boolean           @default(true)
+  capabilities      Json?
+  config            Json?
+  lastTestAt        DateTime?
+  lastSuccessAt     DateTime?
+  lastError         String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+/// Future-proof: saved filters / views for directories and feeds.
+model SavedView {
+  id        String   @id @default(cuid())
+  userId    String?
+  scope     String
+  name      String
+  filters   Json
+  isShared  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([scope])
+  @@index([userId])
+}

@@ -1,0 +1,12 @@
+export * from './types';
+export * from './url';
+export * from './embeds';
+export * from './capability-matrix';
+export * from './registry';
+export { BaseAdapter } from './adapters/base';
+export { YouTubeAdapter } from './adapters/youtube';
+export { XAdapter } from './adapters/x';
+export { InstagramAdapter } from './adapters/instagram';
+export { TikTokAdapter } from './adapters/tiktok';
+export { SnapchatAdapter } from './adapters/snapchat';
+export { ManualAdapterFallback } from './adapters/manual';

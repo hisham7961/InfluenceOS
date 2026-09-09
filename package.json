@@ -1,0 +1,43 @@
+{
+  "name": "influenceos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "InfluenceOS — internal influencer campaign management command center",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:generate": "pnpm --filter @influenceos/database generate",
+    "db:migrate": "pnpm --filter @influenceos/database migrate:dev",
+    "db:deploy": "pnpm --filter @influenceos/database migrate:deploy",
+    "db:seed": "pnpm --filter @influenceos/database seed",
+    "db:reset": "pnpm --filter @influenceos/database migrate:reset",
+    "db:studio": "pnpm --filter @influenceos/database studio",
+    "worker:dev": "pnpm --filter @influenceos/worker dev",
+    "web:dev": "pnpm --filter @influenceos/web dev",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "devDependencies": {
+    "prettier": "3.4.2",
+    "prettier-plugin-tailwindcss": "0.6.11",
+    "turbo": "2.5.8",
+    "typescript": "5.7.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "esbuild",
+      "@node-rs/argon2",
+      "sharp"
+    ]
+  }
+}
