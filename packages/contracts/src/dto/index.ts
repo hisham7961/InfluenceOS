@@ -656,6 +656,26 @@ export interface StorageStatusDTO {
   totalBytes: number;
 }
 
+/** Admin audit-log entry (GET /platform/audit) — richer than the activity feed. */
+export type AuditEntityType = 'brand' | 'campaign' | 'influencer' | 'deliverable' | 'content';
+
+export interface AuditEntryDTO {
+  id: string;
+  type: string;
+  message: string;
+  actorId: string | null;
+  actorName: string | null;
+  entityType: AuditEntityType | null;
+  entityId: string | null;
+  brandId: string | null;
+  brandName: string | null;
+  campaignId: string | null;
+  campaignName: string | null;
+  meta: Record<string, unknown> | null;
+  createdAt: string;
+  link: string | null;
+}
+
 export interface ApiEndpointDTO {
   method: string;
   path: string;

@@ -798,6 +798,10 @@ model DeviceSession {
   prevRefreshTokenHash String?
   /// When the current refresh token was last rotated (bounds the grace window).
   refreshRotatedAt DateTime?
+  /// AES-GCM-sealed copy of the current refresh token, kept only for the grace
+  /// window so concurrent refreshes of the same token return the SAME rotated
+  /// token (idempotent, race-free). Cleared once the grace window elapses.
+  graceTokenSealed String?
   pushToken        String?
   lastActiveAt     DateTime   @default(now())
   createdAt        DateTime   @default(now())

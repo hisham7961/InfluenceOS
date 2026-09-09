@@ -43,25 +43,39 @@ export interface StorageDriver {
 class S3Driver implements StorageDriver {
   readonly name = 's3' as const;
   readonly presignedUpload = true;
+  /** Used for server-side operations (API/worker → storage). */
   private client: S3Client;
+  /** Used ONLY to construct presigned URLs the browser will call. Its endpoint
+   *  is the browser-reachable origin, which in a containerized deployment
+   *  differs from the internal service DNS name. */
+  private presignClient: S3Client;
   private bucket: string;
 
   constructor(env: NodeJS.ProcessEnv) {
     this.bucket = env.S3_BUCKET ?? 'influenceos';
-    this.client = new S3Client({
-      endpoint: env.S3_ENDPOINT,
+    // Internal endpoint: how the API/worker reach storage. Falls back to the
+    // legacy S3_ENDPOINT for backward compatibility.
+    const internalEndpoint = env.S3_INTERNAL_ENDPOINT ?? env.S3_ENDPOINT;
+    // Browser-facing endpoint used only for signing. Falls back to the internal
+    // one for single-host setups where they are the same.
+    const presignEndpoint = env.S3_PUBLIC_ENDPOINT ?? env.S3_PRESIGN_ENDPOINT ?? internalEndpoint;
+
+    const common = {
       region: env.S3_REGION ?? 'us-east-1',
       forcePathStyle: env.S3_FORCE_PATH_STYLE !== 'false',
       credentials:
         env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY
           ? { accessKeyId: env.S3_ACCESS_KEY_ID, secretAccessKey: env.S3_SECRET_ACCESS_KEY }
           : undefined,
-    });
+    } as const;
+
+    this.client = new S3Client({ ...common, endpoint: internalEndpoint });
+    this.presignClient = new S3Client({ ...common, endpoint: presignEndpoint });
   }
 
   presignPut(key: string, contentType: string, expiresIn: number): Promise<string | null> {
     return getSignedUrl(
-      this.client,
+      this.presignClient,
       new PutObjectCommand({ Bucket: this.bucket, Key: key, ContentType: contentType }),
       { expiresIn },
     );
@@ -69,7 +83,7 @@ class S3Driver implements StorageDriver {
 
   presignGet(key: string, fileName: string, expiresIn: number): Promise<string | null> {
     return getSignedUrl(
-      this.client,
+      this.presignClient,
       new GetObjectCommand({
         Bucket: this.bucket,
         Key: key,

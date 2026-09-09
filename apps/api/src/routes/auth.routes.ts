@@ -64,6 +64,24 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  r.post(
+    '/auth/change-password',
+    {
+      preHandler: [requireAuth],
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+      schema: {
+        tags: ['Auth'],
+        summary: 'Change your own password (revokes all sessions)',
+        body: requests.changePasswordSchema,
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (req, reply) => {
+      await servicesFor(req).auth.changePassword(req.body);
+      reply.status(204).send();
+    },
+  );
+
   // --- User administration ---
   r.get(
     '/users',

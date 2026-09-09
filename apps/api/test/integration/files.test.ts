@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import type { AttachmentDTO, UploadTicketDTO } from '@influenceos/contracts';
+import { resetStorage } from '@influenceos/domain';
 import { deleteUser, loginFresh, makeApp } from '../helpers.ts';
 
 /**
@@ -17,6 +18,7 @@ describe('files — two-phase signed uploads (local driver)', () => {
 
   beforeAll(async () => {
     process.env.STORAGE_DRIVER = 'local';
+    resetStorage(); // ignore any driver a prior test file may have cached
     app = await makeApp();
     const session = await loginFresh(app);
     auth = session.auth;

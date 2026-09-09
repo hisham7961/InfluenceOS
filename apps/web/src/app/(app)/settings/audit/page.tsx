@@ -1,5 +1,4 @@
 import { ShieldAlert } from 'lucide-react';
-import { ApiError } from '@influenceos/api-client';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -10,7 +9,8 @@ export const dynamic = 'force-dynamic';
 export default async function AuditLogPage() {
   const api = getServerApi();
 
-  // Admin-gate on the current user; the audit feed itself is workspace-wide.
+  // Admin-gate on the current user. The audit API itself ALSO enforces ADMIN —
+  // this page check is only for a friendly message, never the security boundary.
   const me = await api.auth.me();
   if (me.role !== 'ADMIN') {
     return (
@@ -26,21 +26,15 @@ export default async function AuditLogPage() {
     );
   }
 
-  let initial;
-  try {
-    initial = await api.activity.feed({ limit: 40 });
-  } catch (e) {
-    if (e instanceof ApiError) throw e;
-    throw e;
-  }
+  const [initial, users] = await Promise.all([api.platform.audit({ limit: 50 }), api.users.list()]);
 
   return (
     <div>
       <PageHeader
         title="Audit Log"
-        description="A chronological, workspace-wide record of who did what and when."
+        description="A chronological, workspace-wide record of who did what and when — filterable and searchable."
       />
-      <AuditLogClient initial={initial} />
+      <AuditLogClient initial={initial} actors={users.map((u) => ({ id: u.id, name: u.name }))} />
     </div>
   );
 }

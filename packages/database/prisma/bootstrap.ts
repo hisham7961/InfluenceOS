@@ -33,6 +33,19 @@ async function main(): Promise<void> {
   }
 
   const provided = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+  const isProd = process.env.NODE_ENV === 'production';
+
+  // In production we NEVER generate-and-log a password (deployment logs are not
+  // a secret channel): the operator must supply BOOTSTRAP_ADMIN_PASSWORD from a
+  // real secret source. Only outside production do we fall back to a generated
+  // one printed once, for local convenience.
+  if (isProd && !provided) {
+    throw new Error(
+      'BOOTSTRAP_ADMIN_PASSWORD is required in production — supply it from a secret store. ' +
+        'A password is never generated and printed to deployment logs.',
+    );
+  }
+
   const generated = provided ? null : randomBytes(18).toString('base64url');
   const password = provided ?? generated!;
   if (password.length < 10) {
@@ -46,10 +59,13 @@ async function main(): Promise<void> {
 
   console.log(`✅ Created first admin: ${email}`);
   if (generated) {
+    // Non-production only. Rotate it via POST /api/v1/auth/change-password.
     console.log('──────────────────────────────────────────────────────────────');
-    console.log(`  Generated temporary password (shown once): ${generated}`);
-    console.log('  Sign in and change it immediately.');
+    console.log(`  Generated temporary password (dev only, shown once): ${generated}`);
+    console.log('  Sign in and change it immediately (Settings → Security).');
     console.log('──────────────────────────────────────────────────────────────');
+  } else {
+    console.log('  Using the supplied BOOTSTRAP_ADMIN_PASSWORD. Rotate it on first sign-in.');
   }
 }
 

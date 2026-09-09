@@ -37,10 +37,27 @@ async function guardDestructiveSeed(): Promise<void> {
         `For a production-safe first admin use: pnpm --filter @influenceos/database bootstrap`,
     );
   }
-  const existingUsers = await prisma.user.count().catch(() => 0);
-  if (existingUsers > 0 && process.env.CONFIRM_WIPE !== 'true') {
+  // "Empty" must mean empty of APPLICATION data, not merely zero users — a
+  // database full of brands/influencers/campaigns/config but with no user rows
+  // is NOT safe to wipe. Probe every critical table.
+  const counts = await Promise.all([
+    prisma.user.count().catch(() => 0),
+    prisma.brand.count().catch(() => 0),
+    prisma.influencer.count().catch(() => 0),
+    prisma.campaign.count().catch(() => 0),
+    prisma.publishedContent.count().catch(() => 0),
+    prisma.integrationSetting.count().catch(() => 0),
+    prisma.featureFlag.count().catch(() => 0),
+    prisma.clientConfig.count().catch(() => 0),
+  ]);
+  const labels = ['users', 'brands', 'influencers', 'campaigns', 'content', 'integrations', 'flags', 'clientConfig'];
+  const populated = counts
+    .map((n, i) => (n > 0 ? `${labels[i]}=${n}` : null))
+    .filter((x): x is string => x != null);
+
+  if (populated.length > 0 && process.env.CONFIRM_WIPE !== 'true') {
     throw new Error(
-      `Database ${target} already contains ${existingUsers} user(s). Refusing to wipe it. ` +
+      `Database ${target} already contains application data (${populated.join(', ')}). Refusing to wipe it. ` +
         `Re-run with CONFIRM_WIPE=true if you really intend to erase and reseed this database.`,
     );
   }

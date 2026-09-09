@@ -57,6 +57,22 @@ export const registerUserSchema = z.object({
   role: z.enum(USER_ROLES).default('STAFF'),
 });
 
+/** Strong-password rule for user-chosen passwords: length + mixed character
+ *  classes. Kept deliberately simple (no external dependency). */
+const strongPassword = z
+  .string()
+  .min(10, 'Use at least 10 characters.')
+  .max(200)
+  .refine((v) => /[a-z]/.test(v) && /[A-Z]/.test(v) && /[0-9]/.test(v), {
+    message: 'Include upper- and lower-case letters and a number.',
+  });
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: strongPassword,
+});
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
 // --- Common query ----------------------------------------------------------
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -364,6 +380,23 @@ export const activityFilterSchema = z.object({
   campaignId: cuid.optional(),
   influencerId: cuid.optional(),
 });
+
+// --- Admin audit log -------------------------------------------------------
+/** Server-side filters for GET /platform/audit (admin only). */
+export const auditFilterSchema = z.object({
+  cursor: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  actorId: cuid.optional(),
+  type: z.string().trim().max(64).optional(),
+  entityType: z.enum(['brand', 'campaign', 'influencer', 'deliverable', 'content']).optional(),
+  entityId: z.string().trim().max(64).optional(),
+  brandId: cuid.optional(),
+  campaignId: cuid.optional(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+  q: z.string().trim().max(200).optional(),
+});
+export type AuditFilter = z.infer<typeof auditFilterSchema>;
 
 // --- Reports ---------------------------------------------------------------
 export const reportFilterSchema = z.object({

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { hash as argonHash, verify as argonVerify } from '@node-rs/argon2';
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, decodeJwt, jwtVerify } from 'jose';
 import {
   requests,
   type AuthResultDTO,
@@ -13,6 +13,7 @@ import type { ClientType, User } from '@influenceos/database';
 import type { Actor, DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireAdmin } from '../lib/authz';
+import { open, seal } from '../lib/crypto';
 
 const ACCESS_TTL_SEC = 60 * 15; // 15 minutes
 /** Grace window during which a just-rotated refresh token is still accepted,
@@ -86,30 +87,16 @@ export function makeAuthService(ctx: DomainContext) {
     return { token, expiresAt };
   }
 
-  /**
-   * Issue an access+refresh pair and rotate the session's refresh lineage.
-   * `previousHash` (the hash of the token just consumed) is retained as the
-   * grace-window predecessor so a genuinely concurrent refresh from the same
-   * client isn't mistaken for token reuse.
-   */
-  async function issueTokens(
+  /** Mint an access+refresh pair. Pure — performs NO database writes, so it is
+   *  safe to call inside a transaction before the atomic lineage update. */
+  async function mintPair(
     user: { id: string; role: string; name: string },
-    session: { id: string },
-    previousHash: string | null = null,
+    sessionId: string,
   ): Promise<AuthTokensDTO> {
     const [access, refresh] = await Promise.all([
       signAccessToken(user),
-      signRefreshToken(session.id, user.id),
+      signRefreshToken(sessionId, user.id),
     ]);
-    await prisma.deviceSession.update({
-      where: { id: session.id },
-      data: {
-        refreshTokenHash: sha256(refresh.token),
-        prevRefreshTokenHash: previousHash,
-        refreshRotatedAt: new Date(),
-        lastActiveAt: new Date(),
-      },
-    });
     return {
       accessToken: access.token,
       refreshToken: refresh.token,
@@ -140,22 +127,41 @@ export function makeAuthService(ctx: DomainContext) {
         expiresAt: new Date(Date.now() + refreshTtlSec() * 1000),
       },
     });
-    const tokens = await issueTokens(user, session);
+    const tokens = await mintPair(user, session.id);
+    // The login token is NOT sealed into grace storage — only rotations need
+    // that — so a fresh login never persists a live token in plaintext form.
+    await prisma.deviceSession.update({
+      where: { id: session.id },
+      data: {
+        refreshTokenHash: sha256(tokens.refreshToken),
+        prevRefreshTokenHash: null,
+        refreshRotatedAt: new Date(),
+        graceTokenSealed: null,
+        lastActiveAt: new Date(),
+      },
+    });
     await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     return { user: toUserDTO(user), tokens };
   }
 
   /**
-   * Rotate a refresh token with reuse detection (addendum §mobile-safe auth).
+   * Rotate a refresh token — atomically and concurrency-safe (addendum
+   * §mobile-safe auth). The whole read-decide-rotate sequence runs inside a
+   * transaction that holds a `SELECT … FOR UPDATE` row lock on the session, so
+   * two concurrent refreshes cannot interleave and clobber each other's
+   * lineage.
    *
-   * A refresh token is a single-use capability. On each refresh we mint a new
-   * token and retire the old one. Because the JWT signature proves WE issued a
-   * token, any correctly-signed refresh token for an active session whose hash
-   * matches neither the current token nor the (grace-window) predecessor must
-   * be a previously-rotated token being replayed — the classic sign of theft.
-   * We respond by revoking the whole session (the token family), which
-   * invalidates the attacker's and the victim's tokens alike and forces a
-   * fresh login.
+   * Three outcomes, evaluated under the lock:
+   *  (a) the presented token is the live one → rotate: mint a new pair, seal
+   *      the new token into grace storage, advance the lineage.
+   *  (b) the presented token is the one just consumed, replayed inside the
+   *      grace window (a genuinely concurrent refresh) → return the SAME token
+   *      the winner minted (decrypted from grace storage) plus a fresh access
+   *      token. This is idempotent: every concurrent caller converges on ONE
+   *      live token, so no legitimately-returned token is ever later flagged
+   *      as reuse.
+   *  (c) any other correctly-signed token for an active session is a retired
+   *      token being replayed → revoke the whole family.
    */
   async function refresh(refreshToken: string): Promise<AuthResultDTO> {
     let payload: { sub?: string; sid?: string; typ?: string };
@@ -168,32 +174,79 @@ export function makeAuthService(ctx: DomainContext) {
     if (payload.typ !== 'refresh' || !payload.sid || !payload.sub) {
       throw new AppError('UNAUTHORIZED', 'Invalid refresh token.');
     }
-    const session = await prisma.deviceSession.findUnique({ where: { id: payload.sid } });
-    if (!session || session.revokedAt || session.expiresAt < new Date()) {
-      throw new AppError('UNAUTHORIZED', 'Session is no longer valid.');
-    }
-
+    const sid = payload.sid;
     const presented = sha256(refreshToken);
-    const isCurrent = presented === session.refreshTokenHash;
-    const withinGrace =
-      session.refreshRotatedAt != null &&
-      Date.now() - session.refreshRotatedAt.getTime() <= REFRESH_GRACE_MS;
-    const isGracePredecessor = presented === session.prevRefreshTokenHash && withinGrace;
 
-    if (!isCurrent && !isGracePredecessor) {
-      // Signed by us, for an active session, but not a live token → reuse.
-      await prisma.deviceSession.update({
+    const outcome = await prisma.$transaction(async (tx) => {
+      // Serialize concurrent refreshes of this session (Postgres row lock).
+      await tx.$queryRaw`SELECT id FROM "DeviceSession" WHERE id = ${sid} FOR UPDATE`;
+      const session = await tx.deviceSession.findUnique({ where: { id: sid } });
+      if (!session || session.revokedAt || session.expiresAt < new Date()) {
+        throw new AppError('UNAUTHORIZED', 'Session is no longer valid.');
+      }
+      const user = await tx.user.findUnique({ where: { id: session.userId } });
+      if (!user || !user.isActive) throw new AppError('UNAUTHORIZED', 'Account is inactive.');
+
+      const withinGrace =
+        session.refreshRotatedAt != null &&
+        Date.now() - session.refreshRotatedAt.getTime() <= REFRESH_GRACE_MS;
+
+      // (a) Live token → rotate atomically (we hold the row lock).
+      if (presented === session.refreshTokenHash) {
+        const tokens = await mintPair(user, session.id);
+        await tx.deviceSession.update({
+          where: { id: session.id },
+          data: {
+            refreshTokenHash: sha256(tokens.refreshToken),
+            prevRefreshTokenHash: presented,
+            refreshRotatedAt: new Date(),
+            graceTokenSealed: seal(tokens.refreshToken),
+            lastActiveAt: new Date(),
+          },
+        });
+        return { kind: 'ok' as const, user, tokens };
+      }
+
+      // (b) The just-consumed token, replayed within the grace window →
+      //     idempotently return the winner's token (access tokens are
+      //     independent of the refresh lineage, so a fresh one is fine).
+      if (presented === session.prevRefreshTokenHash && withinGrace && session.graceTokenSealed) {
+        const graceRefresh = open(session.graceTokenSealed);
+        if (graceRefresh) {
+          const access = await signAccessToken(user);
+          const exp = (decodeJwt(graceRefresh).exp ?? 0) * 1000;
+          return {
+            kind: 'ok' as const,
+            user,
+            tokens: {
+              accessToken: access.token,
+              refreshToken: graceRefresh,
+              accessTokenExpiresAt: access.expiresAt.toISOString(),
+              refreshTokenExpiresAt: new Date(exp).toISOString(),
+              tokenType: 'Bearer' as const,
+            } satisfies AuthTokensDTO,
+          };
+        }
+      }
+
+      // (c) A retired token being replayed → revoke the whole family. We must
+      //     COMMIT the revoke, so return a marker and throw AFTER the
+      //     transaction rather than throwing here (which would roll it back).
+      await tx.deviceSession.update({
         where: { id: session.id },
-        data: { revokedAt: new Date(), revokedReason: 'refresh_token_reuse_detected' },
+        data: {
+          revokedAt: new Date(),
+          revokedReason: 'refresh_token_reuse_detected',
+          graceTokenSealed: null,
+        },
       });
+      return { kind: 'reuse' as const };
+    });
+
+    if (outcome.kind === 'reuse') {
       throw new AppError('UNAUTHORIZED', 'This session was ended for security reasons. Please sign in again.');
     }
-
-    const user = await prisma.user.findUnique({ where: { id: session.userId } });
-    if (!user || !user.isActive) throw new AppError('UNAUTHORIZED', 'Account is inactive.');
-    // Retain the consumed token's hash as the grace predecessor.
-    const tokens = await issueTokens(user, session, presented);
-    return { user: toUserDTO(user), tokens };
+    return { user: toUserDTO(outcome.user), tokens: outcome.tokens };
   }
 
   async function logout(refreshToken?: string): Promise<void> {
@@ -201,7 +254,7 @@ export function makeAuthService(ctx: DomainContext) {
       try {
         const { payload } = await jwtVerify(refreshToken, secret());
         const sid = (payload as { sid?: string }).sid;
-        if (sid) await prisma.deviceSession.updateMany({ where: { id: sid }, data: { revokedAt: new Date() } });
+        if (sid) await prisma.deviceSession.updateMany({ where: { id: sid }, data: { revokedAt: new Date(), graceTokenSealed: null } });
         return;
       } catch {
         /* fall through */
@@ -213,7 +266,7 @@ export function makeAuthService(ctx: DomainContext) {
         where: { userId: ctx.actor.id, revokedAt: null },
         orderBy: { lastActiveAt: 'desc' },
       });
-      if (last) await prisma.deviceSession.update({ where: { id: last.id }, data: { revokedAt: new Date() } });
+      if (last) await prisma.deviceSession.update({ where: { id: last.id }, data: { revokedAt: new Date(), graceTokenSealed: null } });
     }
   }
 
@@ -260,7 +313,7 @@ export function makeAuthService(ctx: DomainContext) {
     if (!ctx.actor) throw AppError.unauthorized();
     const session = await prisma.deviceSession.findUnique({ where: { id } });
     if (!session || session.userId !== ctx.actor.id) throw AppError.notFound('Session');
-    await prisma.deviceSession.update({ where: { id }, data: { revokedAt: new Date() } });
+    await prisma.deviceSession.update({ where: { id }, data: { revokedAt: new Date(), graceTokenSealed: null } });
   }
 
   // --- User administration (admin only) -----------------------------------
@@ -286,6 +339,33 @@ export function makeAuthService(ctx: DomainContext) {
     return toUserDTO(user);
   }
 
+  /**
+   * Change the authenticated user's own password. Requires the current
+   * password. **Session policy:** on success ALL of the user's sessions are
+   * revoked (including the caller's), so any token derived from the old
+   * credentials — anywhere — is immediately dead and the user must sign in
+   * again everywhere. This makes the bootstrap "change it immediately" step a
+   * real, enforced workflow.
+   */
+  async function changePassword(input: z.infer<typeof requests.changePasswordSchema>): Promise<void> {
+    if (!ctx.actor) throw AppError.unauthorized();
+    const user = await prisma.user.findUnique({ where: { id: ctx.actor.id } });
+    if (!user) throw AppError.unauthorized();
+    const ok = await argonVerify(user.passwordHash, input.currentPassword).catch(() => false);
+    if (!ok) throw AppError.badRequest('Your current password is incorrect.');
+    if (input.newPassword === input.currentPassword) {
+      throw AppError.badRequest('Your new password must be different from your current one.');
+    }
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: await hashPassword(input.newPassword) },
+    });
+    await prisma.deviceSession.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date(), revokedReason: 'password_changed', graceTokenSealed: null },
+    });
+  }
+
   return {
     login,
     refresh,
@@ -294,6 +374,7 @@ export function makeAuthService(ctx: DomainContext) {
     me,
     sessions,
     revokeSession,
+    changePassword,
     listUsers,
     createUser,
     hashPassword,

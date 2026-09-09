@@ -37,6 +37,19 @@ export async function platformRoutes(app: FastifyInstance): Promise<void> {
   );
 
   r.get(
+    '/platform/audit',
+    {
+      preHandler: [requireAdmin],
+      schema: {
+        tags: ['Platform'],
+        summary: 'Admin audit log with server-side filters (admin only)',
+        querystring: requests.auditFilterSchema,
+      },
+    },
+    async (req) => servicesFor(req).platform.auditLog(req.query),
+  );
+
+  r.get(
     '/platform/flags',
     { preHandler: [requireAdmin], schema: { tags: ['Platform'], summary: 'All feature flags, platform + brand-scoped (admin)' } },
     async (req) => servicesFor(req).platform.getFlags(),

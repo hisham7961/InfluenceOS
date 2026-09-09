@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Database,
   Flag,
+  KeyRound,
   Languages,
   Mail,
   Moon,
@@ -74,6 +75,13 @@ export default async function SettingsPage() {
             </div>
           </div>
         </NavCard>
+
+        <NavCard
+          href="/settings/security"
+          icon={KeyRound}
+          title="Security"
+          description="Change your password. Changing it signs you out of all sessions."
+        />
 
         <NavCard
           href="/settings/integrations"

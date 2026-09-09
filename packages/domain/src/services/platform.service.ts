@@ -13,11 +13,14 @@ import {
   type ClientConfigDTO,
   type FeatureDTO,
   type FeatureFlagScope,
+  type AuditEntryDTO,
+  type AuditEntityType,
+  type CursorPage,
   type HealthComponentDTO,
   type PlatformStatusDTO,
   type StorageStatusDTO,
 } from '@influenceos/contracts';
-import { Prisma } from '@influenceos/database';
+import { ActivityType, Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { requireAdmin } from '../lib/authz';
 import { getStorage } from '../lib/storage';
@@ -102,7 +105,10 @@ export function makePlatformService(ctx: DomainContext) {
       dbDetail ? { name: 'Database', status: dbStatus, detail: dbDetail } : { name: 'Database', status: dbStatus },
       { name: 'Redis', status: 'unknown' },
       { name: 'Worker', status: 'unknown' },
-      { name: 'Storage', status: process.env.S3_ENDPOINT ? 'ok' : 'unknown' },
+      {
+        name: 'Storage',
+        status: (process.env.STORAGE_DRIVER ?? 'local') === 'local' || process.env.S3_INTERNAL_ENDPOINT || process.env.S3_ENDPOINT ? 'ok' : 'unknown',
+      },
     ];
 
     const coverage = computeCoverage();
@@ -134,7 +140,7 @@ export function makePlatformService(ctx: DomainContext) {
       driver: driver.name,
       privateByDefault: true,
       bucket: driver.name === 's3' ? process.env.S3_BUCKET ?? 'influenceos' : null,
-      endpoint: driver.name === 's3' ? process.env.S3_ENDPOINT ?? null : null,
+      endpoint: driver.name === 's3' ? process.env.S3_INTERNAL_ENDPOINT ?? process.env.S3_ENDPOINT ?? null : null,
       maxUploadMb: Math.round(maxUploadBytes() / (1024 * 1024)),
       allowedMimeTypes: [
         'image/png',
@@ -155,6 +161,100 @@ export function makePlatformService(ctx: DomainContext) {
       objectCount: agg._count._all,
       totalBytes: agg._sum.sizeBytes ?? 0,
     };
+  }
+
+  /**
+   * Admin audit log (finding #5). ADMIN-only at the API layer — the UI check is
+   * NOT the security boundary. Backed by ActivityLog with real server-side
+   * filtering (actor, action type, entity, brand/campaign, date range,
+   * free-text) and cursor pagination.
+   */
+  async function auditLog(filter: z.infer<typeof requests.auditFilterSchema>): Promise<CursorPage<AuditEntryDTO>> {
+    requireAdmin(ctx);
+
+    const entityColumn: Record<AuditEntityType, keyof Prisma.ActivityLogWhereInput> = {
+      brand: 'brandId',
+      campaign: 'campaignId',
+      influencer: 'influencerId',
+      deliverable: 'deliverableId',
+      content: 'publishedContentId',
+    };
+
+    const and: Prisma.ActivityLogWhereInput[] = [];
+    if (filter.actorId) and.push({ actorId: filter.actorId });
+    if (filter.type && (Object.values(ActivityType) as string[]).includes(filter.type)) {
+      and.push({ type: filter.type as ActivityType });
+    }
+    if (filter.brandId) and.push({ brandId: filter.brandId });
+    if (filter.campaignId) and.push({ campaignId: filter.campaignId });
+    if (filter.entityType && filter.entityId) {
+      and.push({ [entityColumn[filter.entityType]]: filter.entityId });
+    }
+    if (filter.from || filter.to) {
+      and.push({ createdAt: { ...(filter.from ? { gte: filter.from } : {}), ...(filter.to ? { lte: filter.to } : {}) } });
+    }
+    if (filter.q) and.push({ message: { contains: filter.q, mode: 'insensitive' } });
+
+    const rows = await prisma.activityLog.findMany({
+      where: and.length ? { AND: and } : {},
+      include: {
+        actor: { select: { name: true } },
+        brand: { select: { name: true } },
+        campaign: { select: { name: true } },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: filter.limit + 1,
+      ...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),
+    });
+
+    const hasMore = rows.length > filter.limit;
+    const page = hasMore ? rows.slice(0, filter.limit) : rows;
+
+    const data: AuditEntryDTO[] = page.map((r) => {
+      // Derive the primary entity by specificity.
+      let entityType: AuditEntityType | null = null;
+      let entityId: string | null = null;
+      let link: string | null = null;
+      if (r.publishedContentId) {
+        entityType = 'content';
+        entityId = r.publishedContentId;
+        link = '/content';
+      } else if (r.deliverableId) {
+        entityType = 'deliverable';
+        entityId = r.deliverableId;
+        link = r.campaignId ? `/campaigns/${r.campaignId}` : null;
+      } else if (r.campaignId) {
+        entityType = 'campaign';
+        entityId = r.campaignId;
+        link = `/campaigns/${r.campaignId}`;
+      } else if (r.influencerId) {
+        entityType = 'influencer';
+        entityId = r.influencerId;
+        link = `/influencers/${r.influencerId}`;
+      } else if (r.brandId) {
+        entityType = 'brand';
+        entityId = r.brandId;
+        link = null;
+      }
+      return {
+        id: r.id,
+        type: r.type,
+        message: r.message,
+        actorId: r.actorId,
+        actorName: r.actor?.name ?? null,
+        entityType,
+        entityId,
+        brandId: r.brandId,
+        brandName: r.brand?.name ?? null,
+        campaignId: r.campaignId,
+        campaignName: r.campaign?.name ?? null,
+        meta: (r.meta ?? null) as Record<string, unknown> | null,
+        createdAt: r.createdAt.toISOString(),
+        link,
+      };
+    });
+
+    return { data, nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null, hasMore };
   }
 
   /** Flattened endpoint list (from the feature registry) with derived auth level. */
@@ -391,6 +491,7 @@ export function makePlatformService(ctx: DomainContext) {
     modules,
     status,
     storageStatus,
+    auditLog,
     endpoints,
     clientConfig,
     getFlags,

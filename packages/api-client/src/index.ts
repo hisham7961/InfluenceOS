@@ -4,6 +4,7 @@ import type {
   ApiEndpointDTO,
   ApiModuleDTO,
   AttachmentDTO,
+  AuditEntryDTO,
   AuthResultDTO,
   BrandDashboardDTO,
   BrandDetailDTO,
@@ -71,6 +72,8 @@ export function createClient(config: ClientConfig) {
       me: () => http.get<UserDTO>(`${V}/auth/me`),
       sessions: () => http.get<DeviceSessionDTO[]>(`${V}/auth/sessions`),
       revokeSession: (id: string) => http.del<void>(`${V}/auth/sessions/${id}`),
+      changePassword: (body: In<typeof requests.changePasswordSchema>) =>
+        http.post<void>(`${V}/auth/change-password`, body),
     },
 
     users: {
@@ -257,6 +260,7 @@ export function createClient(config: ClientConfig) {
       modules: () => http.get<ApiModuleDTO[]>(`${V}/platform/modules`),
       status: () => http.get<PlatformStatusDTO>(`${V}/platform/status`),
       storage: () => http.get<StorageStatusDTO>(`${V}/platform/storage`),
+      audit: (params?: QueryParams) => http.get<CursorPage<AuditEntryDTO>>(`${V}/platform/audit`, { query: params }),
       endpoints: () => http.get<ApiEndpointDTO[]>(`${V}/platform/endpoints`),
       flags: () => http.get<{ key: string; description: string | null; scope: string; enabled: boolean }[]>(`${V}/platform/flags`),
       setFlag: (key: string, enabled: boolean) =>
