@@ -13,19 +13,37 @@ const FRAME_SRC = [
 
 const isProd = process.env.NODE_ENV === 'production';
 
+// The browser uploads (presigned PUT) and downloads (presigned GET) directly to
+// the object store, so its public origin must be allowed by connect-src/img-src.
+// In real production this is an https host (already covered by `https:`), but
+// making it explicit also permits a non-https store (e.g. a MinIO endpoint on a
+// private network, or http://localhost:9000 in CI/dev). Derived from the
+// server-side S3_PUBLIC_ENDPOINT so no browser secret is involved.
+function originOf(url) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+const s3Origin = originOf(process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT || '');
+const s3Src = s3Origin ? ` ${s3Origin}` : '';
+
 const csp = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
-  "img-src 'self' data: blob: https:",
-  "media-src 'self' https:",
+  `img-src 'self' data: blob: https:${s3Src}`,
+  `media-src 'self' https:${s3Src}`,
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
   // Next.js requires 'unsafe-inline'/'unsafe-eval' for its runtime; dev also
   // needs eval for fast refresh. Production keeps unsafe-inline for Next's
   // inline bootstrap but drops the dev-only websocket/localhost connect sources.
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  isProd ? "connect-src 'self' https:" : "connect-src 'self' https: http://localhost:4000 ws: wss:",
+  isProd
+    ? `connect-src 'self' https:${s3Src}`
+    : `connect-src 'self' https: http://localhost:4000 ws: wss:${s3Src}`,
   `frame-src ${FRAME_SRC}`,
   "frame-ancestors 'self'",
 ].join('; ');
