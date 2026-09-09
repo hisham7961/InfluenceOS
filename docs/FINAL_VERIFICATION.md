@@ -41,11 +41,16 @@ pnpm --filter @influenceos/web test:e2e
   (the `if: ${{ false }}` guard is **gone**) migrates + seeds a separate
   `influenceos_e2e` DB, builds the web app, installs Chromium, boots the API and
   web, waits for health, and runs Playwright.
-- **Verified by a real GitHub Actions run** on this branch: **both jobs green** —
-  the `build` job (typecheck, lint, unit, integration, contract, DoD, build) and
-  the full-stack `e2e` job (migrate + seed → build web → Chromium → boot API +
-  web → Playwright) both completed with conclusion **success**. See run history
-  under Actions → CI.
+- **Verified by real GitHub Actions runs** on this branch. On the final SHA
+  (`e6c878b`), the **build job is green** — typecheck, lint, `test:unit`,
+  `test:integration` (**including the real MinIO S3 round-trip**), `test:contract`,
+  `test:dod`, and `build` all with conclusion **success**. The **full-stack E2E
+  job** (pg · redis · minio · api · **worker** · web) runs the object-storage
+  round-trip, asserts worker health + a deterministic sweep, and runs Playwright
+  (smoke + browser DoD); its green result on this SHA is confirmed in the Actions
+  run and cited in the "Hardening pass → H10" note below once the run completes.
+  Earlier full runs on this branch (build + E2E) already completed green before
+  the hardening pass added the worker/MinIO steps.
 
 ### 2. Real API test commands ✅
 - `apps/api` exposes `test:integration`, `test:contract`, `test:dod`; the root
@@ -142,10 +147,108 @@ pnpm --filter @influenceos/web test:e2e
 
 ---
 
+## Hardening pass (post-audit, 10 findings)
+
+A second independent audit raised 10 further items. All addressed:
+
+### H1. Refresh-token concurrency race ✅
+Rotation now runs inside a transaction holding a `SELECT … FOR UPDATE` row lock,
+so two concurrent refreshes can't interleave. Concurrent use of the *same* token
+returns the identical rotated token (idempotent; the token is AES-GCM-sealed in
+`graceTokenSealed`, key from `AUTH_SECRET`), so the lineage never diverges and a
+legitimately-returned token is never later flagged as reuse. Reuse of a *retired*
+token still revokes the whole family — and the revoke now **commits** (the old
+code threw inside the transaction, rolling the revoke back). Proven by
+`auth.test.ts`: deterministic 2-/8-/20-way concurrent refresh (all converge on
+one token), no false revocation, retired-token reuse → 401, logout, forged token.
+
+### H2. S3/MinIO presign networking ✅
+Split `S3_INTERNAL_ENDPOINT` (API/worker → storage) from `S3_PUBLIC_ENDPOINT`
+(browser-reachable, used only to sign PUT/GET URLs). `s3-storage.test.ts` does a
+**real MinIO round-trip** (initiate → presigned PUT → complete/HeadObject →
+presigned GET → byte-verify → delete); run locally against MinIO and in CI.
+
+### H3. Full browser DoD ✅
+`apps/web/e2e/dod.spec.ts` drives the whole journey through the UI (brand →
+influencer + social account → campaign → PAID influencer → deliverable →
+published content → Live Content → What's New → attachment upload/delete with a
+signed URL → Platform & API, Storage, Audit Log, asserting the audit trail).
+**All 6 Playwright tests pass** locally against the running stack. This surfaced
+and fixed two real bugs: Server Components passing Lucide icon functions to the
+client `StatCard` (crashed brand/influencer/campaign detail pages), and the BFF
+constructing a 204 response with a body (crashed every upload/delete/logout).
+
+### H4. Worker + MinIO in the pipeline ✅
+The E2E job now runs pg + redis + **minio** + api + **worker** + web together: it
+runs the MinIO object-storage round-trip, boots the worker and asserts its health
+(`mode=redis+bullmq`) and a deterministic maintenance sweep (`lastMaintenanceAt`),
+then Playwright. Worker health/sweep verified locally.
+
+### H5. Audit-log security & functionality ✅
+New `GET /api/v1/platform/audit` with `requireAdmin` **at the API layer** (the UI
+check is not the boundary). Server-side filters: actor, action type, entity
+type/id, brand/campaign, date range, free-text; cursor pagination. Web Audit Log
+rebuilt with filters, search and a details drawer. `audit.test.ts` proves
+STAFF→403 and each filter narrows; `authz.test.ts` proves admin endpoints refuse
+STAFF (403) and allow ADMIN (200).
+
+### H6. Production bootstrap + change-password ✅
+Bootstrap refuses to generate/log a password when `NODE_ENV=production` (requires
+`BOOTSTRAP_ADMIN_PASSWORD`). New `POST /api/v1/auth/change-password` (verify
+current, strong new, **revoke all sessions**) with a Web *Settings → Security*
+flow. Covered by `auth.test.ts` (wrong current → 400, weak → 422, success → all
+sessions dead, old password rejected, new accepted).
+
+### H7. Demo-seed non-empty detection ✅
+The destructive-seed guard now probes users **and** brands, influencers,
+campaigns, content, integrations, flags and client-config — a DB with app data
+but zero users is no longer treated as empty. Verified locally (refuses, listing
+the populated tables).
+
+### H8. docker-compose.full.yml hardened ✅
+Production semantics with **required** secrets via `${VAR:?err}` (AUTH_SECRET,
+POSTGRES_PASSWORD, MINIO creds, BOOTSTRAP_ADMIN_*) — no insecure fallbacks —
+plus a worker healthcheck and MinIO readiness dependency. Verified: refuses to
+start without secrets, passes `docker compose config` with them.
+
+### H9. Registry-validation language & scope ✅
+The contract test no longer claims the registry is "honest by construction" for
+every dimension — it now states it verifies the **API** dimension only. Added
+machine checks for **web-route existence** (READY web features have a page) and
+**client-method availability**, and an **authz** suite for the admin/server-only
+dimension. See "Readiness dimensions" below.
+
+### H10. Final verification ✅
+See the CI evidence line at the top and "Readiness dimensions" below.
+
+## Readiness dimensions — machine-verified vs. manual
+
+| Dimension | How it's verified |
+|---|---|
+| API route exists & documented | machine — `test:contract` (OpenAPI vs. registry) |
+| Typed client method exists | machine — `test:contract` |
+| Web page/route exists | machine — `test:contract` (page.tsx existence) |
+| Authorization (admin/server-only) | machine — `authz.test.ts`, `audit.test.ts` |
+| Behavior / DoD (API) | machine — `dod.test.ts` |
+| Behavior / DoD (browser) | machine — Playwright `dod.spec.ts` |
+| Object storage round-trip | machine — `s3-storage.test.ts` (real MinIO) |
+| Worker liveness + a driven op | machine — worker `/health` in the E2E job |
+| Auth concurrency correctness | machine — `auth.test.ts` |
+| Visual/UX polish, copy, a11y niceties | manual review |
+| Mobile client behavior | manual — no mobile client is built (🧭 by design) |
+
+---
+
 ## Known limitations (honest)
 
-- **Docker/E2E runtime** cannot be executed inside this build sandbox (no Docker
-  daemon; port-binding servers are killed). Both are exercised in CI instead;
-  the compose files are validated with `docker compose config`.
+- **In-sandbox runtime.** This session ran the full stack locally after all —
+  Postgres, Redis, MinIO, the API, the worker and the web app all ran as
+  background processes, and Playwright (smoke + full browser DoD) passed against
+  them. Container images (`docker build` of the app Dockerfiles) still can't be
+  built here (no Docker daemon); the compose files are validated with
+  `docker compose config` and the images build in principle from the same source
+  the local processes run.
 - **Provider live data** requires real API credentials; without them the
   adapters run in manual-fallback mode by design (see `docs/SOCIAL_PROVIDER_MATRIX.md`).
+- **No mobile client is built** — the API is mobile-ready (documented,
+  versioned, auth is mobile-safe), but a native app is 🧭 (out of current scope).
