@@ -793,11 +793,18 @@ model DeviceSession {
   userAgent        String?
   ip               String?
   refreshTokenHash String
+  /// Previous rotated refresh-token hash, honored only within a short grace
+  /// window so genuinely concurrent refreshes don't false-positive as reuse.
+  prevRefreshTokenHash String?
+  /// When the current refresh token was last rotated (bounds the grace window).
+  refreshRotatedAt DateTime?
   pushToken        String?
   lastActiveAt     DateTime   @default(now())
   createdAt        DateTime   @default(now())
   expiresAt        DateTime
   revokedAt        DateTime?
+  /// Set when the session is force-revoked (e.g. refresh-token reuse detected).
+  revokedReason    String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

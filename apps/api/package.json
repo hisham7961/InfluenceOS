@@ -8,7 +8,10 @@
     "start": "dotenv -e ../../.env -- tsx src/index.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "dotenv -e ../../.env -- vitest run",
+    "test:integration": "dotenv -e ../../.env -- vitest run test/integration",
+    "test:contract": "dotenv -e ../../.env -- vitest run test/contract.test.ts",
+    "test:dod": "dotenv -e ../../.env -- vitest run test/dod.test.ts",
     "lint": "echo \"(api) no lint\"",
     "clean": "rm -rf node_modules .turbo dist"
   },
@@ -17,7 +20,6 @@
     "@fastify/cors": "10.0.2",
     "@fastify/etag": "6.0.3",
     "@fastify/helmet": "13.0.1",
-    "@fastify/multipart": "9.0.3",
     "@fastify/rate-limit": "10.2.2",
     "@fastify/swagger": "9.4.2",
     "@fastify/swagger-ui": "5.2.2",
@@ -30,6 +32,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@node-rs/argon2": "2.0.2",
     "@types/node": "22.10.5",
     "dotenv-cli": "7.4.4",
     "tsx": "4.19.2",

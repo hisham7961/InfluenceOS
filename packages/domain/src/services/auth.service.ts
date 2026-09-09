@@ -15,6 +15,10 @@ import { AppError } from '../errors';
 import { requireAdmin } from '../lib/authz';
 
 const ACCESS_TTL_SEC = 60 * 15; // 15 minutes
+/** Grace window during which a just-rotated refresh token is still accepted,
+ *  so genuinely concurrent refreshes from one client don't trip reuse
+ *  detection. Configurable for tests via AUTH_REFRESH_GRACE_MS. */
+const REFRESH_GRACE_MS = Number(process.env.AUTH_REFRESH_GRACE_MS) || 30_000;
 function refreshTtlSec(): number {
   const v = Number(process.env.AUTH_SESSION_TTL);
   return Number.isFinite(v) && v > 0 ? v : 60 * 60 * 24 * 7;
@@ -70,7 +74,10 @@ export function makeAuthService(ctx: DomainContext) {
 
   async function signRefreshToken(sessionId: string, userId: string): Promise<{ token: string; expiresAt: Date }> {
     const expiresAt = new Date(Date.now() + refreshTtlSec() * 1000);
-    const token = await new SignJWT({ sid: sessionId, typ: 'refresh' })
+    // A unique jti guarantees every rotated token is a distinct string (and
+    // hash), even when two are minted within the same second — essential for
+    // single-use rotation and reuse detection.
+    const token = await new SignJWT({ sid: sessionId, typ: 'refresh', jti: randomUUID() })
       .setProtectedHeader({ alg: 'HS256' })
       .setSubject(userId)
       .setIssuedAt()
@@ -79,9 +86,16 @@ export function makeAuthService(ctx: DomainContext) {
     return { token, expiresAt };
   }
 
+  /**
+   * Issue an access+refresh pair and rotate the session's refresh lineage.
+   * `previousHash` (the hash of the token just consumed) is retained as the
+   * grace-window predecessor so a genuinely concurrent refresh from the same
+   * client isn't mistaken for token reuse.
+   */
   async function issueTokens(
     user: { id: string; role: string; name: string },
     session: { id: string },
+    previousHash: string | null = null,
   ): Promise<AuthTokensDTO> {
     const [access, refresh] = await Promise.all([
       signAccessToken(user),
@@ -89,7 +103,12 @@ export function makeAuthService(ctx: DomainContext) {
     ]);
     await prisma.deviceSession.update({
       where: { id: session.id },
-      data: { refreshTokenHash: sha256(refresh.token), lastActiveAt: new Date() },
+      data: {
+        refreshTokenHash: sha256(refresh.token),
+        prevRefreshTokenHash: previousHash,
+        refreshRotatedAt: new Date(),
+        lastActiveAt: new Date(),
+      },
     });
     return {
       accessToken: access.token,
@@ -126,6 +145,18 @@ export function makeAuthService(ctx: DomainContext) {
     return { user: toUserDTO(user), tokens };
   }
 
+  /**
+   * Rotate a refresh token with reuse detection (addendum §mobile-safe auth).
+   *
+   * A refresh token is a single-use capability. On each refresh we mint a new
+   * token and retire the old one. Because the JWT signature proves WE issued a
+   * token, any correctly-signed refresh token for an active session whose hash
+   * matches neither the current token nor the (grace-window) predecessor must
+   * be a previously-rotated token being replayed — the classic sign of theft.
+   * We respond by revoking the whole session (the token family), which
+   * invalidates the attacker's and the victim's tokens alike and forces a
+   * fresh login.
+   */
   async function refresh(refreshToken: string): Promise<AuthResultDTO> {
     let payload: { sub?: string; sid?: string; typ?: string };
     try {
@@ -141,13 +172,27 @@ export function makeAuthService(ctx: DomainContext) {
     if (!session || session.revokedAt || session.expiresAt < new Date()) {
       throw new AppError('UNAUTHORIZED', 'Session is no longer valid.');
     }
-    // Note: the token JWT is verified and the session must be active. We rotate
-    // the stored hash on each refresh but do not hard-revoke on a hash mismatch,
-    // so concurrent refreshes from the web client cannot accidentally log a user
-    // out. Revocation is driven by explicit logout / session expiry.
+
+    const presented = sha256(refreshToken);
+    const isCurrent = presented === session.refreshTokenHash;
+    const withinGrace =
+      session.refreshRotatedAt != null &&
+      Date.now() - session.refreshRotatedAt.getTime() <= REFRESH_GRACE_MS;
+    const isGracePredecessor = presented === session.prevRefreshTokenHash && withinGrace;
+
+    if (!isCurrent && !isGracePredecessor) {
+      // Signed by us, for an active session, but not a live token → reuse.
+      await prisma.deviceSession.update({
+        where: { id: session.id },
+        data: { revokedAt: new Date(), revokedReason: 'refresh_token_reuse_detected' },
+      });
+      throw new AppError('UNAUTHORIZED', 'This session was ended for security reasons. Please sign in again.');
+    }
+
     const user = await prisma.user.findUnique({ where: { id: session.userId } });
     if (!user || !user.isActive) throw new AppError('UNAUTHORIZED', 'Account is inactive.');
-    const tokens = await issueTokens(user, session); // rotates refresh hash
+    // Retain the consumed token's hash as the grace predecessor.
+    const tokens = await issueTokens(user, session, presented);
     return { user: toUserDTO(user), tokens };
   }
 
