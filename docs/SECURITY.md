@@ -458,9 +458,43 @@ platform's public/official surface allows (`.env.example`, `packages/shared/src/
   credentials configured, so there's never a need to fake data or bypass a
   provider's terms to keep a feature looking functional.
 
+## 11. Production security review
+
+A repo-wide review performed for production readiness. Each item lists what was
+checked and the finding.
+
+| Area | Check | Finding |
+| --- | --- | --- |
+| SQL injection | All DB access is Prisma; the only raw query (`auth.service.ts` row lock) is a tagged `$queryRaw` template, so `${sid}` is bound as a parameter, not interpolated. | **OK** — no string-built SQL. |
+| XSS | No `dangerouslySetInnerHTML` anywhere in `apps/web`; React escapes by default; CSP is set (§4). | **OK.** |
+| Code execution | No `eval`, `new Function`, or `child_process`/`exec` in application code. | **OK.** |
+| Path traversal | Storage keys are server-generated (cuid-based); the local driver additionally strips `..` and leading slashes before joining under the upload dir (`storage.ts` `pathFor`). | **OK** (defence in depth). |
+| Authorization | Every mutating/reading route declares `requireAuth`/`requireAdmin` except the intentionally public ones: `/auth/login`, `/auth/refresh`, `/auth/logout`, the capability-token file download `/files/:id/blob?token=…`, and the client-safe `/client-config`. | **OK** — public surface is minimal and deliberate. |
+| SSRF | Provider adapters call fixed provider hosts (`googleapis.com`, `youtube.com/oembed`, etc.); user input is `encodeURIComponent`-ed into query strings, never used as the request host. | **OK** — no arbitrary-host fetch. |
+| Secrets | gitleaks runs in CI (blocking); provider credentials are read server-side only and never reach the client bundle (verified against `.next/static`); provider secrets are AES-GCM envelope-encrypted at rest (§8). | **OK.** |
+| Transport | httpOnly + `sameSite=lax` + `secure`-in-production cookies (§2); CSP, HSTS (prod), `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` (§4); only 80/443 exposed via the reverse proxy. | **OK.** |
+| Abuse | Configurable rate limiting (Redis-backed option) with `/health`,`/ready`,`/metrics` allow-listed; per-IP login limit plus account-level time-boxed lockout (§1). | **OK.** |
+| Error hygiene | The standardized error handler never leaks stack traces or DB errors; every response carries a correlatable `x-request-id` (§7). | **OK.** |
+| Operational surface | `/metrics` is internal-only (never proxied publicly) and emits no secrets and only low-cardinality labels. | **OK.** |
+
+### Residual items (accepted, tracked)
+
+- **Transitive dependency advisories.** `pnpm audit` reports advisories that are
+  transitive through the Next.js / SSR build toolchain (e.g. `sharp`, `postcss`,
+  `esbuild`) and cannot be resolved without a framework major upgrade, which is
+  out of scope for this pass. The CI `security` job runs the audit in
+  **report-only** mode so the advisories stay visible on every run; runtime
+  exposure is limited (largely build/SSR-time packages). Revisit on dependency
+  upgrades. Tracked in `docs/PRODUCTION_READINESS.md`.
+- **CSP `unsafe-inline` / `unsafe-eval`.** The web CSP retains these for Next.js's
+  runtime. Tightening to a nonce/hash-based policy is a follow-up; the production
+  CSP already drops the dev-only `localhost`/websocket `connect-src` sources.
+
 ## Related docs
 
 - `docs/ARCHITECTURE.md` — overall layering (API-first core, BFF, worker).
+- `docs/PRODUCTION_ARCHITECTURE.md` — production topology, trust boundary, ports.
+- `docs/PRODUCTION_READINESS.md` — the production-readiness matrix and blockers.
 - `docs/MOBILE_READINESS.md` — how the mobile client is expected to consume the
   same `/api/v1` contract described in §2 here.
 - `docs/SOCIAL_PROVIDER_MATRIX.md` — per-platform capability detail referenced by
