@@ -46,14 +46,15 @@ export function normalizeProfileInput(
   const raw = input.trim();
   if (!raw) return null;
 
-  const url = parseUrl(raw);
-  const detected = detectPlatform(raw) ?? platformHint ?? null;
-
-  // Bare handle (no dots / not a url) with an explicit platform hint.
-  if (!url && platformHint && HANDLE_RE.test(raw)) {
+  // A bare handle (no protocol, no path) plus a platform hint — resolve directly.
+  const isExplicitUrl = /^https?:\/\//i.test(raw) || raw.includes('/');
+  if (!isExplicitUrl && platformHint && HANDLE_RE.test(raw)) {
     const username = raw.replace(/^@/, '');
     return { platform: platformHint, username, profileUrl: profileUrl(platformHint, username) };
   }
+
+  const url = parseUrl(raw);
+  const detected = detectPlatform(raw) ?? platformHint ?? null;
 
   if (!url || !detected) {
     // Bare handle without hint — cannot know platform.

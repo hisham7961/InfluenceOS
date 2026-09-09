@@ -22,11 +22,16 @@
     "db:studio": "pnpm --filter @influenceos/database studio",
     "worker:dev": "pnpm --filter @influenceos/worker dev",
     "web:dev": "pnpm --filter @influenceos/web dev",
+    "api:dev": "pnpm --filter @influenceos/api dev",
+    "docs:generate": "tsx tools/generate-docs.mts",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "devDependencies": {
+    "@influenceos/contracts": "workspace:*",
+    "@influenceos/shared": "workspace:*",
     "prettier": "3.4.2",
     "prettier-plugin-tailwindcss": "0.6.11",
+    "tsx": "4.19.2",
     "turbo": "2.5.8",
     "typescript": "5.7.3"
   },

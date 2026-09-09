@@ -8,12 +8,21 @@ importers:
 
   .:
     devDependencies:
+      '@influenceos/contracts':
+        specifier: workspace:*
+        version: link:packages/contracts
+      '@influenceos/shared':
+        specifier: workspace:*
+        version: link:packages/shared
       prettier:
         specifier: 3.4.2
         version: 3.4.2
       prettier-plugin-tailwindcss:
         specifier: 0.6.11
         version: 0.6.11(prettier@3.4.2)
+      tsx:
+        specifier: 4.19.2
+        version: 4.19.2
       turbo:
         specifier: 2.5.8
         version: 2.5.8
