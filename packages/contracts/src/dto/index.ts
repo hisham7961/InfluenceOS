@@ -186,6 +186,24 @@ export interface InfluencerDetailDTO extends InfluencerSummaryDTO {
   createdAt: string;
 }
 
+/** Result of resolving a pasted profile URL/handle (add-influencer preview). */
+export interface ResolveProfileResultDTO {
+  platform: Platform;
+  username: string;
+  profileUrl: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  bio: string | null;
+  followers: number | null;
+  following: number | null;
+  postCount: number | null;
+  isVerified: boolean | null;
+  platformUserId: string | null;
+  source: DataSource;
+  manual: boolean;
+  message: string | null;
+}
+
 export interface BrandInfluencerDTO {
   id: string;
   brand: BrandSummaryDTO;
@@ -396,6 +414,32 @@ export interface ActivityDTO {
   actorName: string | null;
   createdAt: string;
   link: string | null;
+}
+
+// --- Notes -----------------------------------------------------------------
+export interface NoteDTO {
+  id: string;
+  body: string;
+  influencerId: string | null;
+  brandId: string | null;
+  authorName: string | null;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Calendar --------------------------------------------------------------
+export interface CalendarEventDTO {
+  id: string;
+  kind: 'CAMPAIGN_START' | 'CAMPAIGN_END' | 'DELIVERABLE_DUE' | 'EXPECTED_PUBLISH' | 'PUBLISHED';
+  title: string;
+  date: string;
+  platform: Platform | null;
+  brandName: string | null;
+  brandColor: string | null;
+  campaignId: string | null;
+  influencerName: string | null;
+  link: string;
 }
 
 // --- Search ----------------------------------------------------------------

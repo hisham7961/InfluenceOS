@@ -351,6 +351,17 @@ export const reportFilterSchema = z.object({
 });
 export type ReportFilter = z.infer<typeof reportFilterSchema>;
 
+// --- Calendar --------------------------------------------------------------
+export const calendarQuerySchema = z.object({
+  from: z.coerce.date(),
+  to: z.coerce.date(),
+  brandId: cuid.optional(),
+  campaignId: cuid.optional(),
+  influencerId: cuid.optional(),
+  platform: platformEnum.optional(),
+});
+export type CalendarQuery = z.infer<typeof calendarQuerySchema>;
+
 // --- Search ----------------------------------------------------------------
 export const searchSchema = z.object({
   q: z.string().trim().min(1).max(200),

@@ -50,8 +50,19 @@ export class InstagramAdapter extends BaseAdapter {
       );
       if (res.status === 400) return this.manualFallback('ACCOUNT_NOT_ELIGIBLE');
       if (!res.ok) return this.manualFallback('PROVIDER_ERROR');
-      const data = await res.json();
-      const bd = data.business_discovery;
+      const data = (await res.json()) as { business_discovery?: Record<string, unknown> };
+      const bd = data.business_discovery as
+        | {
+            id?: string;
+            username?: string;
+            name?: string;
+            biography?: string;
+            followers_count?: number;
+            follows_count?: number;
+            media_count?: number;
+            profile_picture_url?: string;
+          }
+        | undefined;
       if (!bd) return this.manualFallback('ACCOUNT_NOT_ELIGIBLE');
       return {
         ok: true,
