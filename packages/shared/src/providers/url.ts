@@ -146,7 +146,15 @@ export function normalizeContentUrl(url: string): NormalizedContentUrl | null {
   const parsed = parseUrl(url);
   if (!parsed) return null;
   const externalId = parseContentId(url, platform);
-  // Canonical URL: strip tracking query params but keep the essential path.
+
+  // YouTube carries the video id in the `v` query param, so stripping the query
+  // would erase the content identity. Rebuild a canonical watch URL from the id.
+  if (platform === 'YOUTUBE' && externalId) {
+    return { platform, canonicalUrl: `https://www.youtube.com/watch?v=${externalId}`, externalId };
+  }
+
+  // Every other supported platform carries the id in the path; strip tracking
+  // query params but keep the essential path.
   parsed.search = '';
   parsed.hash = '';
   const canonicalUrl = parsed.toString().replace(/\/+$/, '');

@@ -33,7 +33,7 @@ export function InfluencerCard({ influencer }: { influencer: InfluencerSummaryDT
 
       <div className="flex flex-wrap items-center gap-1.5">
         <RelationshipStatusBadge status={influencer.relationshipStatus} />
-        <AudienceHealthBadge label={influencer.audienceHealth} />
+        <AudienceHealthBadge status={influencer.audienceHealth} />
       </div>
 
       <div className="mt-auto flex items-center justify-between text-xs text-muted-foreground">

@@ -9,8 +9,11 @@ Living status of the InfluenceOS implementation. Legend: ✅ done & verified ·
 - ✅ **API-first** layering: Fastify API → `packages/domain` services → Prisma. Web +
   worker are clients/consumers; web holds no business logic.
 - ✅ Verified: API boots, 70 OpenAPI paths, auth + error contract, full read path
-  against seeded data (in-process injection tests); web production build passes;
-  worker notification engine verified; 18 unit tests pass.
+  against seeded data; **full Definition-of-Done scenario passes end-to-end** through
+  the real API (resolve URL → influencer → campaign w/ free+paid → deliverable + script
+  → paste published content → deliverable auto-published, campaign progress advances,
+  content appears in feed + What's New); web production build passes; worker notification
+  engine verified; monorepo typecheck 9/9, web lint clean, 18 unit tests pass.
 
 ## Database (`packages/database`) — ✅
 - Full normalized Prisma schema (all core entities + provenance + snapshots +
@@ -51,7 +54,7 @@ Living status of the InfluenceOS implementation. Legend: ✅ done & verified ·
 ## API client (`packages/api-client`) — ✅
 - Strongly-typed SDK (single client for web + mobile). Typechecks clean.
 
-## Web (`apps/web`) — 🟡
+## Web (`apps/web`) — ✅ (Next.js production build passes)
 - ✅ Foundation: design tokens (light/dark/brand accent), globals, next-intl (en/ar +
   RTL), BFF token transport (httpOnly cookies + `/api/bff` proxy + middleware refresh),
   providers, full UI design system, login.
@@ -60,10 +63,10 @@ Living status of the InfluenceOS implementation. Legend: ✅ done & verified ·
 - ✅ **Mission Control** dashboard (Pulse, What's New, Needs Attention, Active
   Campaigns, Upcoming, Recent Activity); reusable `SocialContentPlayer`, ContentCard/
   Viewer/Grid, CampaignCard, InfluencerCard.
-- 🟡 Feature pages (influencers directory/360/add, campaigns list/workspace/new, live
-  content wall, brands + brand workspace, calendar, reports, notifications, settings
-  incl. Integrations + Platform & API + Users + Feature Flags) — built; final
-  typecheck/build reconciliation + visual polish pass in progress.
+- ✅ Feature pages: influencers directory/360/add, campaigns list/workspace/new, live
+  content wall, brands + brand workspace, calendar, reports (+ CSV/print), notifications,
+  settings incl. **Integrations** + **Platform & API** (API modules, API Explorer,
+  Mobile Readiness) + Users + Feature Flags. All routes build & typecheck; web lint clean.
 
 ## Worker (`apps/worker`) — ✅
 - BullMQ queues (content-check, follower-sync, maintenance) with retry/backoff/rate
