@@ -11,8 +11,10 @@ description = "Placeholders and test fixtures — not real secrets."
 paths = [
   '''\.env\.example$''',
   '''\.env\.production\.example$''',
+  '''\.env\.staging\.example$''',
   '''(^|/)docs/''',
   '''(^|/)deploy/''',
+  '''(^|/)scripts/''',
 ]
 regexes = [
   # Documented placeholders and the CI/test secret literal.
