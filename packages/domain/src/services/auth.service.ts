@@ -16,6 +16,10 @@ import { requireAdmin } from '../lib/authz';
 import { open, seal } from '../lib/crypto';
 
 const ACCESS_TTL_SEC = 60 * 15; // 15 minutes
+/** Consecutive failed logins before a short account lockout kicks in. */
+const LOGIN_MAX_ATTEMPTS = Number(process.env.LOGIN_MAX_ATTEMPTS) || 10;
+/** Lockout window (minutes) after the attempt threshold is crossed. */
+const LOGIN_LOCK_MINUTES = Number(process.env.LOGIN_LOCK_MINUTES) || 15;
 /** Grace window during which a just-rotated refresh token is still accepted,
  *  so genuinely concurrent refreshes from one client don't trip reuse
  *  detection. Configurable for tests via AUTH_REFRESH_GRACE_MS. */
@@ -108,10 +112,31 @@ export function makeAuthService(ctx: DomainContext) {
 
   async function login(input: LoginInput, meta: RequestMeta = {}): Promise<AuthResultDTO> {
     const user = await prisma.user.findUnique({ where: { email: input.email.toLowerCase() } });
+    // Uniform error so login never reveals whether an account exists.
     const invalid = () => new AppError('UNAUTHORIZED', 'Invalid email or password.');
     if (!user || !user.isActive) throw invalid();
+
+    // Account-level, time-boxed lockout — a second line of defence against a
+    // distributed brute force that spreads across IPs to dodge the per-IP route
+    // limit. The window is short so it can't be weaponised to lock a real user
+    // out for long. See LOGIN_MAX_ATTEMPTS / LOGIN_LOCK_MINUTES.
+    if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      throw new AppError('UNAUTHORIZED', 'Too many failed attempts. Please try again shortly.');
+    }
+
     const ok = await argonVerify(user.passwordHash, input.password).catch(() => false);
-    if (!ok) throw invalid();
+    if (!ok) {
+      const attempts = user.failedLoginAttempts + 1;
+      const lock = attempts >= LOGIN_MAX_ATTEMPTS;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: lock ? 0 : attempts,
+          lockedUntil: lock ? new Date(Date.now() + LOGIN_LOCK_MINUTES * 60_000) : user.lockedUntil,
+        },
+      });
+      throw invalid();
+    }
 
     const client = (input.device?.client ?? 'WEB') as ClientType;
     const session = await prisma.deviceSession.create({
@@ -140,7 +165,11 @@ export function makeAuthService(ctx: DomainContext) {
         lastActiveAt: new Date(),
       },
     });
-    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    // Success clears any accumulated failure state.
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null },
+    });
     return { user: toUserDTO(user), tokens };
   }
 

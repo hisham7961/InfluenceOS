@@ -175,3 +175,39 @@ describe('auth — change password', () => {
     expect(res.statusCode).toBe(401);
   });
 });
+
+describe('auth — account lockout (brute-force protection)', () => {
+  let app: FastifyInstance;
+  beforeAll(async () => {
+    app = await makeApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('locks the account after repeated failures and blocks even the correct password', async () => {
+    // Provision a real user (loginFresh performs one successful login, which
+    // resets the counter to a known-clean baseline).
+    const { email, password, userId } = await loginFresh(app);
+
+    const attempt = (pw: string) =>
+      app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password: pw } });
+
+    // LOGIN_MAX_ATTEMPTS (default 10) consecutive failures trip the lockout.
+    let lastBody = '';
+    for (let i = 0; i < 10; i++) {
+      const res = await attempt('definitely-wrong');
+      expect(res.statusCode).toBe(401);
+      lastBody = res.body;
+    }
+    expect(lastBody).toContain('Invalid email or password');
+
+    // Now the correct password is refused while the lock window is open, with a
+    // distinct message — proving the block is account-level, not credential-level.
+    const locked = await attempt(password);
+    expect(locked.statusCode).toBe(401);
+    expect(locked.body).toContain('Too many failed attempts');
+
+    await deleteUser(userId);
+  });
+});

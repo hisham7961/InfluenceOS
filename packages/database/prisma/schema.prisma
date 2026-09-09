@@ -249,6 +249,11 @@ model User {
   theme        String   @default("system")
   isActive     Boolean  @default(true)
   lastLoginAt  DateTime?
+  // Time-boxed brute-force protection (in addition to the per-IP route limit):
+  // consecutive failures raise the counter; crossing the threshold sets a short
+  // lockout window; a successful login clears both.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
