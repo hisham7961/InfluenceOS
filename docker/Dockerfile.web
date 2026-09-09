@@ -11,6 +11,10 @@ RUN pnpm install --frozen-lockfile \
   && pnpm --filter @influenceos/database generate \
   && pnpm --filter @influenceos/web build
 
+# Run as the unprivileged `node` user, not root.
+RUN chown -R node:node /app /pnpm
+USER node
+
 ENV NODE_ENV=production
 EXPOSE 3000
 CMD ["pnpm", "--filter", "@influenceos/web", "start"]

@@ -4,6 +4,7 @@ import { Queue, Worker, type Job } from 'bullmq';
 import { createConnection, isRedisAvailable } from './redis';
 import {
   checkContent,
+  cleanupAbandonedUploads,
   findDueContentIds,
   findStaleAccountIds,
   generateNotifications,
@@ -31,6 +32,7 @@ const stats = {
   contentChecks: 0,
   accountSyncs: 0,
   notifications: 0,
+  abandonedUploadsCleaned: 0,
   lastMaintenanceAt: null as string | null,
 };
 
@@ -52,11 +54,26 @@ async function runMaintenance(enqueue: (kind: Kind, id: string) => Promise<void>
 
   const notif = await generateNotifications();
   stats.notifications += notif.created;
+
+  // Orphaned-upload cleanup is comparatively expensive (lists storage), so run
+  // it at most hourly rather than every sweep. The 24h grace inside it means
+  // in-flight uploads are never touched.
+  let cleaned = 0;
+  if (Date.now() - lastCleanupAt >= 60 * 60 * 1000) {
+    cleaned = await cleanupAbandonedUploads().catch((e) => {
+      console.error('[maintenance] abandoned-upload cleanup failed', e);
+      return 0;
+    });
+    lastCleanupAt = Date.now();
+    stats.abandonedUploadsCleaned += cleaned;
+  }
+
   stats.lastMaintenanceAt = new Date().toISOString();
   console.log(
-    `[maintenance] queued ${dueContent.length} content checks, ${staleAccounts.length} account syncs, created ${notif.created} notifications`,
+    `[maintenance] queued ${dueContent.length} content checks, ${staleAccounts.length} account syncs, created ${notif.created} notifications, cleaned ${cleaned} orphan uploads`,
   );
 }
+let lastCleanupAt = 0;
 
 async function startWithRedis() {
   const connection = createConnection();

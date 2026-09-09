@@ -247,7 +247,48 @@ export function makeAttachmentService(ctx: DomainContext) {
     await prisma.attachment.delete({ where: { id } });
   }
 
-  return { initiate, writeBlob, complete, list, get, readBlobSigned, remove, maxUploadBytes };
+  /**
+   * Cleanup for ABANDONED uploads: objects that were PUT to storage (directly to
+   * S3 via a presigned URL, or through the local proxy) but whose two-phase
+   * upload was never completed, so no Attachment row references them. Such
+   * orphans accumulate silently. This lists objects under the attachments
+   * prefix and deletes those that (a) have no Attachment row and (b) are older
+   * than `olderThanMs` (a grace window so an in-flight upload is never removed).
+   * Idempotent and safe to run repeatedly (worker maintenance). Returns the
+   * number of orphan objects deleted.
+   */
+  async function cleanupAbandonedUploads(olderThanMs = 24 * 60 * 60 * 1000): Promise<number> {
+    const objects = await storage.list('attachments/');
+    if (objects.length === 0) return 0;
+    // The set of keys that are legitimately referenced by an Attachment row.
+    const known = new Set(
+      (await prisma.attachment.findMany({ select: { storageKey: true } })).map((r) => r.storageKey),
+    );
+    const cutoff = Date.now() - olderThanMs;
+    let deleted = 0;
+    for (const obj of objects) {
+      if (known.has(obj.key)) continue;
+      // Only remove objects old enough to be certainly abandoned. If we can't
+      // tell the age, leave it (conservative — never delete a possibly-live one).
+      const age = obj.lastModified ? obj.lastModified.getTime() : Date.now();
+      if (age > cutoff) continue;
+      await storage.remove(obj.key).catch(() => undefined);
+      deleted += 1;
+    }
+    return deleted;
+  }
+
+  return {
+    initiate,
+    writeBlob,
+    complete,
+    list,
+    get,
+    readBlobSigned,
+    remove,
+    cleanupAbandonedUploads,
+    maxUploadBytes,
+  };
 }
 
 export type AttachmentService = ReturnType<typeof makeAttachmentService>;

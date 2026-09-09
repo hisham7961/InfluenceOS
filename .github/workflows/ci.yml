@@ -50,6 +50,20 @@ jobs:
           echo "::endgroup::"
           echo "Dependency audit is advisory — see docs/PRODUCTION_READINESS.md for the tracked-advisories rationale."
 
+      # --- Compose validation (BLOCKING) — every compose file must parse/merge.
+      - name: Validate docker compose files
+        run: |
+          docker compose version
+          # Dummy values satisfy the ${VAR:?} required-secret guards so config
+          # can parse; nothing is started.
+          export POSTGRES_PASSWORD=x AUTH_SECRET=0123456789012345678901234567890123 \
+            S3_PUBLIC_ENDPOINT=https://files.example.com MINIO_ROOT_USER=k MINIO_ROOT_PASSWORD=s \
+            WEB_ORIGIN=https://app.example.com NEXT_PUBLIC_APP_URL=https://app.example.com \
+            SITE_ADDRESS=app.example.com BOOTSTRAP_ADMIN_EMAIL=a@b.c BOOTSTRAP_ADMIN_PASSWORD=pw
+          for f in docker-compose.yml docker-compose.full.yml docker-compose.staging.yml; do
+            echo "::group::$f"; docker compose -f "$f" config >/dev/null && echo "OK: $f"; echo "::endgroup::"
+          done
+
   build:
     name: Lint · Typecheck · Tests (incl. MinIO) · Build
     runs-on: ubuntu-latest

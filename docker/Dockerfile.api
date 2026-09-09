@@ -11,6 +11,10 @@ COPY . .
 RUN pnpm install --frozen-lockfile \
   && pnpm --filter @influenceos/database generate
 
+# Run as the unprivileged `node` user (present in the base image), not root.
+RUN chown -R node:node /app /pnpm
+USER node
+
 ENV NODE_ENV=production
 EXPOSE 4000
 # Env (DATABASE_URL, AUTH_SECRET, …) is provided by the container, not a .env file.

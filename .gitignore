@@ -43,3 +43,7 @@ Thumbs.db
 # Uploads (local MinIO/dev storage)
 /uploads/
 /tmp-uploads/
+
+# Local attachment uploads (test/dev artifacts)
+apps/api/uploads/
+uploads/

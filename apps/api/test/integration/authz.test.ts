@@ -66,4 +66,21 @@ describe('authz — admin-only endpoints enforce ADMIN at the API layer', () => 
       expect(res.statusCode, `${path} should refuse STAFF`).toBe(403);
     }
   });
+
+  // Mutating admin operations must ALSO refuse STAFF — hiding a button in the UI
+  // is not the security boundary (item 73: flags, app config, integration
+  // secrets, user creation).
+  const ADMIN_MUTATIONS: Array<{ method: 'POST' | 'PATCH'; url: string; payload: unknown }> = [
+    { method: 'PATCH', url: '/api/v1/platform/flags/some-flag', payload: { enabled: true } },
+    { method: 'PATCH', url: '/api/v1/platform/client-config', payload: { maintenanceMode: true } },
+    { method: 'POST', url: '/api/v1/users', payload: { email: 'nope@example.test', name: 'X', role: 'STAFF', password: 'Str0ng-Passw0rd!' } },
+    { method: 'PATCH', url: '/api/v1/integrations/YOUTUBE', payload: { enabled: false } },
+  ];
+
+  for (const m of ADMIN_MUTATIONS) {
+    it(`${m.method} ${m.url} → 403 for STAFF (mutating admin op)`, async () => {
+      const res = await app.inject({ method: m.method, url: m.url, headers: staffAuth, payload: m.payload });
+      expect(res.statusCode, `${m.url} should refuse STAFF`).toBe(403);
+    });
+  }
 });

@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -38,6 +39,13 @@ export interface StorageDriver {
   /** Read bytes (local download proxy). */
   read(key: string): Promise<Buffer | null>;
   remove(key: string): Promise<void>;
+  /** List objects under a key prefix (for orphan/abandoned-upload cleanup). */
+  list(prefix: string): Promise<StoredObject[]>;
+}
+
+export interface StoredObject {
+  key: string;
+  lastModified: Date | null;
 }
 
 class S3Driver implements StorageDriver {
@@ -115,6 +123,21 @@ class S3Driver implements StorageDriver {
   async remove(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
+
+  async list(prefix: string): Promise<StoredObject[]> {
+    const out: StoredObject[] = [];
+    let token: string | undefined;
+    do {
+      const res = await this.client.send(
+        new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, ContinuationToken: token }),
+      );
+      for (const o of res.Contents ?? []) {
+        if (o.Key) out.push({ key: o.Key, lastModified: o.LastModified ?? null });
+      }
+      token = res.IsTruncated ? res.NextContinuationToken : undefined;
+    } while (token);
+    return out;
+  }
 }
 
 class LocalDriver implements StorageDriver {
@@ -164,6 +187,30 @@ class LocalDriver implements StorageDriver {
 
   async remove(key: string): Promise<void> {
     await rm(this.pathFor(key), { force: true });
+  }
+
+  async list(prefix: string): Promise<StoredObject[]> {
+    const root = this.pathFor(prefix);
+    const out: StoredObject[] = [];
+    const walk = async (dir: string): Promise<void> => {
+      let entries;
+      try {
+        entries = await readdir(dir, { withFileTypes: true });
+      } catch {
+        return; // prefix dir doesn't exist yet
+      }
+      for (const e of entries) {
+        const full = join(dir, e.name);
+        if (e.isDirectory()) {
+          await walk(full);
+        } else {
+          const s = await stat(full).catch(() => null);
+          out.push({ key: full.slice(this.baseDir.length + 1), lastModified: s?.mtime ?? null });
+        }
+      }
+    };
+    await walk(root);
+    return out;
   }
 }
 

@@ -62,6 +62,7 @@ export { AppError } from './errors';
 export { logActivity, createNotification } from './lib/helpers';
 export { maxUploadBytes } from './services/attachment.service';
 export { getStorage, resetStorage, sanitizeFileName, buildStorageKey } from './lib/storage';
+export { signDownloadTicket, verifyDownloadTicket } from './lib/tokens';
 
 export {
   makeAuthService,

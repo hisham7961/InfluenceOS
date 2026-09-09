@@ -15,6 +15,13 @@ export async function syncAccount(id: string): Promise<void> {
   await services.socialAccounts.sync(id);
 }
 
+/** Delete storage objects from uploads that were never completed (orphans).
+ *  Idempotent; a 24h grace window means an in-flight upload is never removed. */
+export async function cleanupAbandonedUploads(): Promise<number> {
+  const services = createServices(systemContext());
+  return services.attachments.cleanupAbandonedUploads();
+}
+
 /** Content whose next scheduled check is due, filtered by monitoring settings. */
 export async function findDueContentIds(limit: number): Promise<string[]> {
   const now = new Date();
