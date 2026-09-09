@@ -394,7 +394,7 @@ model BrandInfluencer {
   relationshipStatus  RelationshipStatus @default(PROSPECT)
   priority            Priority           @default(MEDIUM)
   internalNotes       String?
-  defaultRate         Decimal?           @db.Decimal(14, 2)
+  defaultRate         Decimal?           @db.Decimal(18, 3)
   currency            String?
   firstCollaborationAt DateTime?
   lastCampaignAt      DateTime?
@@ -428,7 +428,7 @@ model Campaign {
   startDate     DateTime?
   endDate       DateTime?
   currency      String             @default("KWD")
-  plannedBudget Decimal?           @db.Decimal(14, 2)
+  plannedBudget Decimal?           @db.Decimal(18, 3)
   targetMarket  String?
   ownerId       String?
   internalNotes String?
@@ -456,9 +456,9 @@ model CampaignInfluencer {
   campaignId         String
   influencerId       String
   dealType           DealType            @default(PAID)
-  agreedCost         Decimal?            @db.Decimal(14, 2)
+  agreedCost         Decimal?            @db.Decimal(18, 3)
   currency           String?
-  giftedProductValue Decimal?            @db.Decimal(14, 2)
+  giftedProductValue Decimal?            @db.Decimal(18, 3)
   dateContacted      DateTime?
   expectedPublishAt  DateTime?
   participationStatus ParticipationStatus @default(INVITED)
@@ -651,7 +651,7 @@ model CampaignExpense {
   campaignInfluencerId String?
   type                 ExpenseType
   label                String?
-  amount               Decimal       @db.Decimal(14, 2)
+  amount               Decimal       @db.Decimal(18, 3)
   currency             String        @default("KWD")
   paymentStatus        PaymentStatus @default(UNPAID)
   incurredAt           DateTime?

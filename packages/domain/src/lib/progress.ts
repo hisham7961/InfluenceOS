@@ -1,6 +1,7 @@
+import { Prisma } from '@influenceos/database';
 import type { CampaignProgressDTO, CostSummaryDTO } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
-import { dec } from './helpers';
+import { percentOf, toDecimal, toMoneyNumber } from './money';
 
 const PUBLISHED_DELIVERABLE_STATUSES = ['PUBLISHED', 'VERIFIED'] as const;
 
@@ -34,7 +35,7 @@ export async function computeCampaignProgress(
       prisma.campaignInfluencer.count({
         where: { campaignId: campaign.id, participationStatus: 'COMPLETED' },
       }),
-      computeCostSummary(ctx, campaign.id, campaign.currency, dec(campaign.plannedBudget as never)),
+      computeCostSummary(ctx, campaign.id, campaign.currency, toMoneyNumber(campaign.plannedBudget as never)),
     ]);
 
   const deliverableCompletion =
@@ -92,47 +93,47 @@ export async function computeCostSummary(
     }),
   ]);
 
-  let influencerFees = 0;
-  let giftValue = 0;
-  let paid = 0;
-  let unpaid = 0;
+  // All accumulation is exact Decimal arithmetic — never JS float (§ money.ts).
+  let influencerFees = new Prisma.Decimal(0);
+  let giftValue = new Prisma.Decimal(0);
+  let paid = new Prisma.Decimal(0);
+  let unpaid = new Prisma.Decimal(0);
 
   for (const ci of cis) {
-    const fee = dec(ci.agreedCost) ?? 0;
-    const gift = dec(ci.giftedProductValue) ?? 0;
+    // FREE deals keep an exact 0; a missing cost contributes nothing (not 0-as-fact).
+    const fee = toDecimal(ci.agreedCost) ?? new Prisma.Decimal(0);
+    const gift = toDecimal(ci.giftedProductValue) ?? new Prisma.Decimal(0);
     if (ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED') {
-      influencerFees += fee;
-      if (ci.paymentStatus === 'PAID') paid += fee;
-      else if (ci.paymentStatus !== 'NOT_APPLICABLE') unpaid += fee;
+      influencerFees = influencerFees.plus(fee);
+      if (ci.paymentStatus === 'PAID') paid = paid.plus(fee);
+      else if (ci.paymentStatus !== 'NOT_APPLICABLE') unpaid = unpaid.plus(fee);
     }
-    giftValue += gift;
+    giftValue = giftValue.plus(gift);
   }
 
-  let otherExpenses = 0;
+  let otherExpenses = new Prisma.Decimal(0);
   for (const e of expenses) {
-    const amount = dec(e.amount) ?? 0;
+    const amount = toDecimal(e.amount) ?? new Prisma.Decimal(0);
     if (e.type === 'GIFT_PRODUCT') {
-      giftValue += amount;
+      giftValue = giftValue.plus(amount);
     } else {
-      otherExpenses += amount;
+      otherExpenses = otherExpenses.plus(amount);
     }
-    if (e.paymentStatus === 'PAID') paid += amount;
-    else if (e.paymentStatus !== 'NOT_APPLICABLE') unpaid += amount;
+    if (e.paymentStatus === 'PAID') paid = paid.plus(amount);
+    else if (e.paymentStatus !== 'NOT_APPLICABLE') unpaid = unpaid.plus(amount);
   }
 
-  const totalSpend = influencerFees + otherExpenses;
-  const budgetUsedPercent =
-    plannedBudget && plannedBudget > 0 ? Math.round((totalSpend / plannedBudget) * 100) : null;
+  const totalSpend = influencerFees.plus(otherExpenses);
 
   return {
     currency,
     plannedBudget,
-    totalSpend,
-    influencerFees,
-    giftValue,
-    otherExpenses,
-    paid,
-    unpaid,
-    budgetUsedPercent,
+    totalSpend: totalSpend.toNumber(),
+    influencerFees: influencerFees.toNumber(),
+    giftValue: giftValue.toNumber(),
+    otherExpenses: otherExpenses.toNumber(),
+    paid: paid.toNumber(),
+    unpaid: unpaid.toNumber(),
+    budgetUsedPercent: percentOf(totalSpend, plannedBudget),
   };
 }

@@ -4,7 +4,8 @@ import type { z } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireAdmin } from '../lib/authz';
-import { dec, logActivity, uniqueSlug } from '../lib/helpers';
+import { logActivity, uniqueSlug } from '../lib/helpers';
+import { moneyNumberOr0, sumMoney } from '../lib/money';
 import { toBrandSummary } from '../lib/mappers';
 
 const summarySelect = {
@@ -59,7 +60,7 @@ export function makeBrandService(ctx: DomainContext) {
         }),
       ]);
 
-    const totalSpend = (dec(fees._sum.agreedCost) ?? 0) + (dec(expenses._sum.amount) ?? 0);
+    const totalSpend = moneyNumberOr0(sumMoney([fees._sum.agreedCost, expenses._sum.amount]));
 
     return {
       ...toBrandSummary(brand),

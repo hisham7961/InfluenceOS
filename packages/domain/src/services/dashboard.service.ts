@@ -9,7 +9,7 @@ import type {
   WhatsNewItemDTO,
 } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
-import { dec } from '../lib/helpers';
+import { moneyNumberOr0, sumMoney } from '../lib/money';
 import { toActivityDTO } from '../lib/mappers';
 import { makeBrandService } from './brand.service';
 import { makeCampaignService } from './campaign.service';
@@ -39,7 +39,7 @@ export function makeDashboardService(ctx: DomainContext) {
         where: { ...campaignWhere, type: { not: 'GIFT_PRODUCT' } },
       }),
     ]);
-    return (dec(fees._sum.agreedCost) ?? 0) + (dec(expenses._sum.amount) ?? 0);
+    return moneyNumberOr0(sumMoney([fees._sum.agreedCost, expenses._sum.amount]));
   }
 
   async function pulse(brandId?: string): Promise<PulseDTO> {

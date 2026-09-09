@@ -12,7 +12,8 @@ import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor } from '../lib/authz';
-import { dec, iso, logActivity } from '../lib/helpers';
+import { iso, logActivity } from '../lib/helpers';
+import { sumMoney, toDecimal } from '../lib/money';
 import { toInfluencerSummary, toSocialAccountDTO } from '../lib/mappers';
 
 const { assessAudienceHealth } = sharedMetrics;
@@ -191,8 +192,8 @@ export function makeInfluencerService(ctx: DomainContext) {
     const brandsMap = new Map<string, string>();
     let firstAt: Date | null = null;
     let lastAt: Date | null = null;
-    let totalPaid = 0;
-    const paidRates: number[] = [];
+    let totalPaid = new Prisma.Decimal(0);
+    const paidRates: Prisma.Decimal[] = [];
     let deliverablesTotal = 0;
     let deliverablesPublished = 0;
     let activeCampaigns = 0;
@@ -203,10 +204,10 @@ export function makeInfluencerService(ctx: DomainContext) {
       if (!firstAt || at < firstAt) firstAt = at;
       if (!lastAt || at > lastAt) lastAt = at;
       if (ci.campaign.status === 'ACTIVE') activeCampaigns += 1;
-      const cost = dec(ci.agreedCost);
+      const cost = toDecimal(ci.agreedCost);
       if (cost != null && (ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED')) {
         paidRates.push(cost);
-        if (ci.paymentStatus === 'PAID') totalPaid += cost;
+        if (ci.paymentStatus === 'PAID') totalPaid = totalPaid.plus(cost);
       }
       for (const d of ci.deliverables) {
         deliverablesTotal += 1;
@@ -247,9 +248,10 @@ export function makeInfluencerService(ctx: DomainContext) {
         lastCollaborationAt: iso(lastAt),
         campaignCount: cis.length,
         brandsWorkedWith: Array.from(brandsMap.entries()).map(([bid, name]) => ({ id: bid, name })),
-        totalPaid: paidRates.length ? totalPaid : null,
+        totalPaid: paidRates.length ? totalPaid.toNumber() : null,
+        // Exact Decimal sum ÷ count; averageRate is a whole-unit display figure.
         averageRate: paidRates.length
-          ? Math.round(paidRates.reduce((a, b) => a + b, 0) / paidRates.length)
+          ? Math.round(sumMoney(paidRates).dividedBy(paidRates.length).toNumber())
           : null,
         deliverablesPublished,
         deliverablesTotal,

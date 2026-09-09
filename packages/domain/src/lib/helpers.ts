@@ -1,11 +1,9 @@
 import { Prisma, type ActivityType, type NotificationCategory } from '@influenceos/database';
 import type { DomainContext } from '../context';
 
-/** Prisma Decimal | null → number | null. */
-export function dec(value: Prisma.Decimal | null | undefined): number | null {
-  if (value == null) return null;
-  return typeof value === 'number' ? value : Number(value.toString());
-}
+// Money conversion lives in ./money (exact Decimal arithmetic). Do not add a
+// generic Decimal→number helper here — every monetary value must go through the
+// money module so no code path does floating-point financial arithmetic.
 
 /** Date | null → ISO string | null. */
 export function iso(value: Date | null | undefined): string | null {

@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "lint": "echo \"(domain) no lint\"",
     "clean": "rm -rf node_modules .turbo dist"
   },

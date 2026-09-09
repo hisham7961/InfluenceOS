@@ -12,7 +12,8 @@ import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor } from '../lib/authz';
-import { dec, iso, logActivity, uniqueSlug } from '../lib/helpers';
+import { iso, logActivity, uniqueSlug } from '../lib/helpers';
+import { toMoneyNumber, type MoneyInput } from '../lib/money';
 import { toBrandSummary } from '../lib/mappers';
 import { computeCampaignProgress } from '../lib/progress';
 
@@ -42,7 +43,7 @@ interface CampaignRow {
   startDate: Date | null;
   endDate: Date | null;
   currency: string;
-  plannedBudget: unknown;
+  plannedBudget: MoneyInput;
   brand: {
     id: string;
     name: string;
@@ -71,7 +72,7 @@ export function makeCampaignService(ctx: DomainContext) {
       startDate: iso(c.startDate),
       endDate: iso(c.endDate),
       currency: c.currency,
-      plannedBudget: dec(c.plannedBudget as never),
+      plannedBudget: toMoneyNumber(c.plannedBudget),
       progress,
     };
   }

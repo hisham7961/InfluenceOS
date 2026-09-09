@@ -4,7 +4,7 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { dec } from '../lib/helpers';
+import { moneyNumberOr0, subtractMoney, sumMoney, toMoneyNumber, type MoneyInput } from '../lib/money';
 import { computeCostSummary } from '../lib/progress';
 
 /**
@@ -21,21 +21,21 @@ const PAID_DEAL_TYPES = ['PAID', 'PAID_PLUS_GIFTED'] as const;
 const MAX_ROWS = 500;
 const CURRENCY = 'KWD';
 
-/** Sum numeric/currency columns across rows; skip string/date/percent columns. */
+/** Sum numeric/currency columns across rows; skip string/date/percent columns.
+ *  Currency columns are summed as exact Decimals (never JS float) so a totals
+ *  footer of many rows stays penny/fils-accurate; count columns are integers. */
 function sumTotals(columns: ReportColumnDTO[], rows: ReportRow[]): Record<string, number | null> {
   const totals: Record<string, number | null> = {};
   for (const col of columns) {
     if (col.type !== 'number' && col.type !== 'currency') continue;
-    let sum = 0;
-    let any = false;
-    for (const row of rows) {
-      const v = row[col.key];
-      if (typeof v === 'number') {
-        sum += v;
-        any = true;
-      }
+    const values = rows.map((r) => r[col.key]).filter((v): v is number => typeof v === 'number');
+    if (values.length === 0) {
+      totals[col.key] = null;
+    } else if (col.type === 'currency') {
+      totals[col.key] = toMoneyNumber(sumMoney(values));
+    } else {
+      totals[col.key] = values.reduce((a, b) => a + b, 0);
     }
-    totals[col.key] = any ? sum : null;
   }
   return totals;
 }
@@ -93,7 +93,8 @@ export function makeReportService(ctx: DomainContext) {
         where: { campaign: where, type: { not: 'GIFT_PRODUCT' } },
       }),
     ]);
-    return (dec(fees._sum.agreedCost) ?? 0) + (dec(expenses._sum.amount) ?? 0);
+    // Both operands are DB-side Decimal aggregates; add them as Decimals.
+    return moneyNumberOr0(sumMoney([fees._sum.agreedCost, expenses._sum.amount]));
   }
 
   async function campaignReport(filter: ReportFilter): Promise<ReportDTO> {
@@ -132,7 +133,7 @@ export function makeReportService(ctx: DomainContext) {
           prisma.deliverable.count({
             where: { campaignInfluencer: ciWhere, status: { in: [...PUBLISHED_DELIVERABLE_STATUSES] } },
           }),
-          computeCostSummary(ctx, c.id, c.currency, dec(c.plannedBudget)),
+          computeCostSummary(ctx, c.id, c.currency, toMoneyNumber(c.plannedBudget)),
         ]);
         return {
           name: c.name,
@@ -194,7 +195,7 @@ export function makeReportService(ctx: DomainContext) {
       const followers = followerValues.length ? followerValues.reduce((a, b) => a + b, 0) : null;
 
       let publishedDeliverables = 0;
-      let totalPaid = 0;
+      const paidCosts: MoneyInput[] = [];
       for (const ci of inf.campaignInfluencers) {
         for (const d of ci.deliverables) {
           if (d.status === 'PUBLISHED' || d.status === 'VERIFIED') publishedDeliverables += 1;
@@ -203,9 +204,11 @@ export function makeReportService(ctx: DomainContext) {
           (ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED') &&
           ci.paymentStatus === 'PAID'
         ) {
-          totalPaid += dec(ci.agreedCost) ?? 0;
+          paidCosts.push(ci.agreedCost);
         }
       }
+      // Exact Decimal sum of paid fees (never JS float accumulation).
+      const totalPaid = moneyNumberOr0(sumMoney(paidCosts));
 
       return {
         name: inf.displayName,
@@ -313,10 +316,10 @@ export function makeReportService(ctx: DomainContext) {
 
     const rows = await Promise.all(
       campaigns.map(async (c): Promise<ReportRow> => {
-        const cost = await computeCostSummary(ctx, c.id, c.currency, dec(c.plannedBudget));
+        const cost = await computeCostSummary(ctx, c.id, c.currency, toMoneyNumber(c.plannedBudget));
         const budget = cost.plannedBudget;
         const spend = cost.totalSpend;
-        return { name: c.name, budget, spend, variance: budget != null ? budget - spend : null };
+        return { name: c.name, budget, spend, variance: subtractMoney(budget, spend) };
       }),
     );
 

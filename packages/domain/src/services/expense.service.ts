@@ -3,7 +3,8 @@ import type { z } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor } from '../lib/authz';
-import { dec, logActivity } from '../lib/helpers';
+import { logActivity } from '../lib/helpers';
+import { moneyNumberOr0, toMoneyNumber } from '../lib/money';
 import { toExpenseDTO } from '../lib/mappers';
 import { computeCostSummary } from '../lib/progress';
 
@@ -27,7 +28,7 @@ export function makeExpenseService(ctx: DomainContext) {
         where: { campaignId },
         orderBy: { createdAt: 'desc' },
       }),
-      computeCostSummary(ctx, campaignId, campaign.currency, dec(campaign.plannedBudget)),
+      computeCostSummary(ctx, campaignId, campaign.currency, toMoneyNumber(campaign.plannedBudget)),
     ]);
 
     return { expenses: rows.map(toExpenseDTO), summary };
@@ -71,7 +72,7 @@ export function makeExpenseService(ctx: DomainContext) {
       type: 'COST_ADDED',
       message: `${actor.name} added a ${expense.type.toLowerCase().replace(/_/g, ' ')} expense of ${expense.amount} ${expense.currency}.`,
       campaignId: expense.campaignId,
-      meta: { amount: dec(expense.amount) ?? 0, currency: expense.currency, type: expense.type },
+      meta: { amount: moneyNumberOr0(expense.amount), currency: expense.currency, type: expense.type },
     });
 
     return toExpenseDTO(expense);
@@ -111,7 +112,7 @@ export function makeExpenseService(ctx: DomainContext) {
       type: 'COST_UPDATED',
       message: `${actor.name} updated a ${expense.type.toLowerCase().replace(/_/g, ' ')} expense of ${expense.amount} ${expense.currency}.`,
       campaignId: expense.campaignId,
-      meta: { amount: dec(expense.amount) ?? 0, currency: expense.currency, type: expense.type },
+      meta: { amount: moneyNumberOr0(expense.amount), currency: expense.currency, type: expense.type },
     });
 
     return toExpenseDTO(expense);

@@ -3,7 +3,8 @@ import type { z } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor } from '../lib/authz';
-import { dec, iso, logActivity } from '../lib/helpers';
+import { iso, logActivity } from '../lib/helpers';
+import { toMoneyNumber, type MoneyInput } from '../lib/money';
 import { toBrandSummary } from '../lib/mappers';
 
 type BrandInfluencerInput = z.infer<typeof requests.brandInfluencerSchema>;
@@ -33,7 +34,7 @@ interface BrandInfluencerRow {
   };
   relationshipStatus: BrandInfluencerDTO['relationshipStatus'];
   priority: BrandInfluencerDTO['priority'];
-  defaultRate: unknown;
+  defaultRate: MoneyInput;
   currency: string | null;
   totalCollaborations: number;
   lastCampaignAt: Date | null;
@@ -47,7 +48,7 @@ function toBrandInfluencerDTO(bi: BrandInfluencerRow): BrandInfluencerDTO {
     brand: toBrandSummary(bi.brand),
     relationshipStatus: bi.relationshipStatus,
     priority: bi.priority,
-    defaultRate: dec(bi.defaultRate as never),
+    defaultRate: toMoneyNumber(bi.defaultRate),
     currency: bi.currency,
     totalCollaborations: bi.totalCollaborations,
     lastCampaignAt: iso(bi.lastCampaignAt),

@@ -8,7 +8,8 @@ import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor } from '../lib/authz';
-import { dec, iso, logActivity } from '../lib/helpers';
+import { iso, logActivity } from '../lib/helpers';
+import { toMoneyNumber, type MoneyInput } from '../lib/money';
 import { toInfluencerSummary } from '../lib/mappers';
 import { toDeliverableDTO } from './deliverable.service';
 
@@ -31,9 +32,9 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
     id: string;
     campaignId: string;
     dealType: CampaignInfluencerDTO['dealType'];
-    agreedCost: unknown;
+    agreedCost: MoneyInput;
     currency: string | null;
-    giftedProductValue: unknown;
+    giftedProductValue: MoneyInput;
     participationStatus: CampaignInfluencerDTO['participationStatus'];
     paymentStatus: CampaignInfluencerDTO['paymentStatus'];
     expectedPublishAt: Date | null;
@@ -51,9 +52,9 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
       campaignId: ci.campaignId,
       influencer: toInfluencerSummary(ci.influencer) as InfluencerSummaryDTO,
       dealType: ci.dealType,
-      agreedCost: dec(ci.agreedCost as never),
+      agreedCost: toMoneyNumber(ci.agreedCost),
       currency: ci.currency,
-      giftedProductValue: dec(ci.giftedProductValue as never),
+      giftedProductValue: toMoneyNumber(ci.giftedProductValue),
       participationStatus: ci.participationStatus,
       paymentStatus: ci.paymentStatus,
       expectedPublishAt: iso(ci.expectedPublishAt),
