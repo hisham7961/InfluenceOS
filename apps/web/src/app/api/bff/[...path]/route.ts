@@ -45,7 +45,10 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
   const store = await cookies();
   const target = `${apiBaseUrl()}/${path.join('/')}${req.nextUrl.search}`;
   const method = req.method;
-  const rawBody = method === 'GET' || method === 'HEAD' ? undefined : await req.text();
+  // Forward the body as raw bytes so binary uploads (octet-stream) pass through
+  // intact; JSON bodies survive equally as their UTF-8 byte representation.
+  const rawBody =
+    method === 'GET' || method === 'HEAD' ? undefined : Buffer.from(await req.arrayBuffer());
 
   const fwd = (token: string | undefined) => {
     const headers: Record<string, string> = { accept: 'application/json' };

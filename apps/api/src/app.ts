@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
+import etag from '@fastify/etag';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
@@ -11,11 +12,12 @@ import {
   serializerCompiler,
   validatorCompiler,
 } from 'fastify-type-provider-zod';
-import { AppError } from '@influenceos/domain';
+import { AppError, maxUploadBytes } from '@influenceos/domain';
 import { API_PREFIX, type ApiErrorBody, type ApiErrorCode } from '@influenceos/contracts';
 import { corsOrigins, loadEnv } from './env';
 import { resolveActor } from './http';
 import { registerRoutes } from './routes/index';
+import { installCaching } from './cache';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const env = loadEnv();
@@ -43,6 +45,16 @@ export async function buildApp(): Promise<FastifyInstance> {
     timeWindow: '1 minute',
     allowList: (req) => req.url === '/health',
   });
+  // Raw binary body for the file blob-upload proxy (two-phase signed uploads).
+  // Bounded to the max upload size; JSON is still parsed by the default parser.
+  app.addContentTypeParser(
+    'application/octet-stream',
+    { parseAs: 'buffer', bodyLimit: maxUploadBytes() },
+    (_req, body, done) => done(null, body),
+  );
+  // ETag + conditional-request (304) support, plus per-route Cache-Control.
+  await app.register(etag, { weak: true });
+  installCaching(app);
 
   await app.register(swagger, {
     openapi: {

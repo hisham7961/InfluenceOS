@@ -5,6 +5,7 @@
 
 import type { DomainContext } from './context';
 import { makeActivityService } from './services/activity.service';
+import { makeAttachmentService } from './services/attachment.service';
 import { makeAuthService } from './services/auth.service';
 import { makeBrandService } from './services/brand.service';
 import { makeBrandInfluencerService } from './services/brand-influencer.service';
@@ -43,6 +44,7 @@ export function createServices(ctx: DomainContext) {
     expenses: makeExpenseService(ctx),
     notes: makeNoteService(ctx),
     activity: makeActivityService(ctx),
+    attachments: makeAttachmentService(ctx),
     notifications: makeNotificationService(ctx),
     search: makeSearchService(ctx),
     calendar: makeCalendarService(ctx),
@@ -58,6 +60,8 @@ export type Services = ReturnType<typeof createServices>;
 export * from './context';
 export { AppError } from './errors';
 export { logActivity, createNotification } from './lib/helpers';
+export { maxUploadBytes } from './services/attachment.service';
+export { getStorage, resetStorage, sanitizeFileName, buildStorageKey } from './lib/storage';
 
 export {
   makeAuthService,

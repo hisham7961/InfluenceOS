@@ -9,6 +9,7 @@ export * from './dto';
 export * from './client-config';
 export * from './registry/features';
 export * as requests from './requests';
+export type { AttachmentTarget } from './requests';
 export { z } from 'zod';
 
 export const API_VERSION = 'v1' as const;

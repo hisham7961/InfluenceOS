@@ -416,6 +416,36 @@ export interface ActivityDTO {
   link: string | null;
 }
 
+// --- Attachments -----------------------------------------------------------
+export type AttachmentKind = 'image' | 'video' | 'pdf' | 'document' | 'other';
+
+export interface AttachmentDTO {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  kind: AttachmentKind;
+  /** Presigned S3 URL (absolute) or an API proxy path for the local driver. */
+  downloadUrl: string;
+  isImage: boolean;
+  uploadedByName: string | null;
+  createdAt: string;
+}
+
+/** Phase-1 upload ticket returned by POST /files (two-phase signed upload). */
+export interface UploadTicketDTO {
+  /** Opaque signed token to present to the blob endpoint and to /files/complete. */
+  uploadToken: string;
+  /** Where to PUT the bytes: an absolute presigned S3 URL, or a relative API path. */
+  uploadUrl: string;
+  method: 'PUT';
+  /** true when uploadUrl is a direct-to-storage presigned URL (S3), false for the local proxy. */
+  direct: boolean;
+  /** Headers the client must send on the PUT (e.g. Content-Type for S3). */
+  headers: Record<string, string>;
+  maxBytes: number;
+}
+
 // --- Notes -----------------------------------------------------------------
 export interface NoteDTO {
   id: string;

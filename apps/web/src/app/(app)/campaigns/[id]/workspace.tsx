@@ -82,6 +82,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { AttachmentsPanel } from '@/components/common/attachments-panel';
 import { AddInfluencerDialog } from './add-influencer-dialog';
 
 /** Sentinel for "no influencer attributed" in the expense form's Select (Radix forbids an empty-string value). */
@@ -111,6 +112,7 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
         <TabsTrigger value="content">Live Content</TabsTrigger>
         <TabsTrigger value="costs">Costs</TabsTrigger>
         <TabsTrigger value="performance">Performance</TabsTrigger>
+        <TabsTrigger value="files">Files</TabsTrigger>
         <TabsTrigger value="activity">Activity</TabsTrigger>
       </TabsList>
 
@@ -143,6 +145,17 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
 
       <TabsContent value="performance">
         <PerformanceTab contentFeed={contentFeed} costs={costs.summary} />
+      </TabsContent>
+
+      <TabsContent value="files">
+        <Card>
+          <CardHeader>
+            <CardTitle>Campaign files</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AttachmentsPanel target={{ campaignId: campaign.id }} compact />
+          </CardContent>
+        </Card>
       </TabsContent>
 
       <TabsContent value="activity">

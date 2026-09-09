@@ -3,6 +3,7 @@ import type {
   ActivityDTO,
   ApiEndpointDTO,
   ApiModuleDTO,
+  AttachmentDTO,
   AuthResultDTO,
   BrandDashboardDTO,
   BrandDetailDTO,
@@ -36,6 +37,7 @@ import type {
   ScriptDTO,
   SearchResultDTO,
   SocialAccountDTO,
+  UploadTicketDTO,
   UserDTO,
 } from '@influenceos/contracts';
 import { HttpCore, type ClientConfig } from './core';
@@ -226,6 +228,19 @@ export function createClient(config: ClientConfig) {
 
     search: {
       query: (params: QueryParams) => http.get<SearchResultDTO[]>(`${V}/search`, { query: params }),
+    },
+
+    files: {
+      /** Phase 1 — reserve a key and get a signed upload ticket. */
+      initiate: (body: In<typeof requests.attachmentInitiateSchema>) =>
+        http.post<UploadTicketDTO>(`${V}/files`, body),
+      /** Phase 2 — confirm the object landed and create the record. */
+      complete: (uploadToken: string) =>
+        http.post<AttachmentDTO>(`${V}/files/complete`, { uploadToken }),
+      list: (params: In<typeof requests.attachmentTargetSchema>) =>
+        http.get<AttachmentDTO[]>(`${V}/files`, { query: params as QueryParams }),
+      get: (id: string) => http.get<AttachmentDTO>(`${V}/files/${id}`),
+      remove: (id: string) => http.del<void>(`${V}/files/${id}`),
     },
 
     integrations: {

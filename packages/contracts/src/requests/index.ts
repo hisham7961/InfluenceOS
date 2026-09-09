@@ -311,6 +311,32 @@ export const expenseCreateSchema = z.object({
 });
 export const expenseUpdateSchema = expenseCreateSchema.partial().omit({ campaignId: true });
 
+// --- Attachments ------------------------------------------------------------
+/** Target association for an attachment (at least one is required). */
+export const attachmentTargetSchema = z.object({
+  campaignId: cuid.optional().nullable(),
+  deliverableId: cuid.optional().nullable(),
+  scriptReferenceId: cuid.optional().nullable(),
+  influencerId: cuid.optional().nullable(),
+  noteId: cuid.optional().nullable(),
+});
+export const attachmentListQuerySchema = attachmentTargetSchema;
+export type AttachmentTarget = z.infer<typeof attachmentTargetSchema>;
+
+/** Phase-1 request: declare the file, get back a signed upload ticket. */
+export const attachmentInitiateSchema = z.object({
+  fileName: z.string().trim().min(1).max(200),
+  mimeType: z.string().trim().min(1).max(120),
+  sizeBytes: z.coerce.number().int().positive().max(500 * 1024 * 1024),
+  target: attachmentTargetSchema,
+});
+export type AttachmentInitiate = z.infer<typeof attachmentInitiateSchema>;
+
+/** Phase-2 request: confirm the upload landed and create the record. */
+export const attachmentCompleteSchema = z.object({
+  uploadToken: z.string().min(1),
+});
+
 // --- Note ------------------------------------------------------------------
 export const noteCreateSchema = z.object({
   body: z.string().trim().min(1).max(5000),
