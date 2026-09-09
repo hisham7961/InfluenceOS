@@ -11,6 +11,8 @@ const FRAME_SRC = [
   'https://platform.twitter.com',
 ].join(' ');
 
+const isProd = process.env.NODE_ENV === 'production';
+
 const csp = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -19,12 +21,27 @@ const csp = [
   "media-src 'self' https:",
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
-  // Next.js requires 'unsafe-inline'/'unsafe-eval' for its runtime in dev.
+  // Next.js requires 'unsafe-inline'/'unsafe-eval' for its runtime; dev also
+  // needs eval for fast refresh. Production keeps unsafe-inline for Next's
+  // inline bootstrap but drops the dev-only websocket/localhost connect sources.
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-  "connect-src 'self' https: http://localhost:4000 ws: wss:",
+  isProd ? "connect-src 'self' https:" : "connect-src 'self' https: http://localhost:4000 ws: wss:",
   `frame-src ${FRAME_SRC}`,
   "frame-ancestors 'self'",
 ].join('; ');
+
+// HSTS is only meaningful (and only safe) over HTTPS, so it is production-only.
+// The TLS-terminating reverse proxy also sets it; this is defence in depth.
+const securityHeaders = [
+  { key: 'Content-Security-Policy', value: csp },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  ...(isProd
+    ? [{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' }]
+    : []),
+];
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -34,18 +51,7 @@ const nextConfig = {
     remotePatterns: [{ protocol: 'https', hostname: '**' }],
   },
   async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          { key: 'Content-Security-Policy', value: csp },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-        ],
-      },
-    ];
+    return [{ source: '/:path*', headers: securityHeaders }];
   },
 };
 

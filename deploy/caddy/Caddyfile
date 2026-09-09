@@ -1,0 +1,78 @@
+# ---------------------------------------------------------------------------
+# InfluenceOS — Caddy reverse proxy (recommended)
+#
+# Caddy is the ONLY process bound to the public internet. It terminates TLS
+# (automatic Let's Encrypt certificates), adds security headers, and proxies to
+# the internal web and API containers, which listen only on the private network.
+#
+# Expose ONLY ports 80 and 443 on the host firewall. The API (4000), worker
+# health (4100), Postgres (5432), Redis (6379) and MinIO (9000/9001) MUST NOT
+# be reachable from outside the private network.
+#
+# Usage:
+#   caddy run --config /etc/caddy/Caddyfile
+# or with the provided compose file:
+#   docker compose -f docker-compose.full.yml --profile proxy up -d caddy
+#
+# Replace the site address with your real domain and set an ops email for ACME.
+# ---------------------------------------------------------------------------
+
+{
+	# Email used by Let's Encrypt for expiry notices. Override via CADDY_ACME_EMAIL.
+	email {$CADDY_ACME_EMAIL:ops@example.com}
+	# Uncomment to use the staging CA while testing to avoid rate limits:
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# Public site. Caddy obtains and renews the certificate automatically.
+{$SITE_ADDRESS:influenceos.example.com} {
+
+	# --- Security headers (belt-and-braces with the app's own headers) ------
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		# Never advertise the upstream server software.
+		-Server
+	}
+
+	# Sensible upload ceiling at the edge (keep >= MAX_UPLOAD_MB). Blocks
+	# oversized bodies before they reach the app.
+	request_body {
+		max_size 120MB
+	}
+
+	# --- API — the API is the source of truth; the browser reaches it via the
+	# web BFF, but the versioned API and docs are also proxied for SDK/mobile
+	# clients. ---------------------------------------------------------------
+	@api path /api/v1/* /api/docs* /api/openapi.json
+	handle @api {
+		reverse_proxy web-api:4000 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	# --- Everything else → the Next.js web app (SSR + BFF proxy). ------------
+	handle {
+		reverse_proxy web:3000 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	# Structured access logs to stdout (scrape/ship as needed).
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Redirect the apex/naked or www variants if you use them (edit to taste):
+# www.influenceos.example.com {
+# 	redir https://influenceos.example.com{uri} permanent
+# }
