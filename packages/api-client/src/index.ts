@@ -37,6 +37,7 @@ import type {
   ScriptDTO,
   SearchResultDTO,
   SocialAccountDTO,
+  StorageStatusDTO,
   UploadTicketDTO,
   UserDTO,
 } from '@influenceos/contracts';
@@ -255,6 +256,7 @@ export function createClient(config: ClientConfig) {
       features: () => http.get<FeatureDTO[]>(`${V}/platform/features`),
       modules: () => http.get<ApiModuleDTO[]>(`${V}/platform/modules`),
       status: () => http.get<PlatformStatusDTO>(`${V}/platform/status`),
+      storage: () => http.get<StorageStatusDTO>(`${V}/platform/storage`),
       endpoints: () => http.get<ApiEndpointDTO[]>(`${V}/platform/endpoints`),
       flags: () => http.get<{ key: string; description: string | null; scope: string; enabled: boolean }[]>(`${V}/platform/flags`),
       setFlag: (key: string, enabled: boolean) =>

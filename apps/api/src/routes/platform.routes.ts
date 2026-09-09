@@ -31,6 +31,12 @@ export async function platformRoutes(app: FastifyInstance): Promise<void> {
   );
 
   r.get(
+    '/platform/storage',
+    { preHandler: [requireAdmin], schema: { tags: ['Platform'], summary: 'Object storage configuration & usage (admin)' } },
+    async (req) => servicesFor(req).platform.storageStatus(),
+  );
+
+  r.get(
     '/platform/flags',
     { preHandler: [requireAdmin], schema: { tags: ['Platform'], summary: 'All feature flags, platform + brand-scoped (admin)' } },
     async (req) => servicesFor(req).platform.getFlags(),

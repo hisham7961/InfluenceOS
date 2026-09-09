@@ -4,7 +4,7 @@ import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { InfluencerCard } from '@/components/influencers/influencer-card';
+import { DirectoryResults } from '@/components/influencers/directory-results';
 import { DirectoryFilters } from './directory-filters';
 
 export const dynamic = 'force-dynamic';
@@ -88,11 +88,7 @@ export default async function InfluencersPage({
         />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {influencers.map((influencer) => (
-              <InfluencerCard key={influencer.id} influencer={influencer} />
-            ))}
-          </div>
+          <DirectoryResults influencers={influencers} />
 
           {pagination.totalPages > 1 ? (
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">

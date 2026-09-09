@@ -643,6 +643,19 @@ export interface PlatformStatusDTO {
   };
 }
 
+/** Object-storage configuration & usage (admin Settings → Storage). */
+export interface StorageStatusDTO {
+  driver: 's3' | 'local';
+  /** Always true — objects are private; access is via signed, expiring URLs. */
+  privateByDefault: boolean;
+  bucket: string | null;
+  endpoint: string | null;
+  maxUploadMb: number;
+  allowedMimeTypes: string[];
+  objectCount: number;
+  totalBytes: number;
+}
+
 export interface ApiEndpointDTO {
   method: string;
   path: string;

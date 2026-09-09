@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Heart,
   LayoutGrid,
+  LayoutPanelTop,
   MessageCircle,
   PlaySquare,
   Rows3,
@@ -33,12 +34,13 @@ import { PlatformBadge } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { DataSourceBadge } from '@/components/ui/provenance';
 import { ContentGrid } from '@/components/content/content-grid';
+import { ContentMasonry } from '@/components/content/content-masonry';
 import { SocialContentPlayer } from '@/components/content/social-content-player';
 
 /** Sentinel value for Radix Select's "no filter" option (Select forbids an empty-string item value). */
 const ALL = 'all';
 
-type Layout = 'grid' | 'feed';
+type Layout = 'grid' | 'masonry' | 'feed';
 
 interface WallFilters {
   brandId: string;
@@ -146,6 +148,8 @@ export function ContentWall({
         />
       ) : layout === 'grid' ? (
         <ContentGrid items={items} />
+      ) : layout === 'masonry' ? (
+        <ContentMasonry items={items} />
       ) : (
         <FeedLayout items={items} />
       )}
@@ -255,6 +259,9 @@ function FilterBar({
         <TabsList>
           <TabsTrigger value="grid" aria-label="Grid layout">
             <LayoutGrid className="h-4 w-4" /> Grid
+          </TabsTrigger>
+          <TabsTrigger value="masonry" aria-label="Masonry layout">
+            <LayoutPanelTop className="h-4 w-4" /> Masonry
           </TabsTrigger>
           <TabsTrigger value="feed" aria-label="Feed layout">
             <Rows3 className="h-4 w-4" /> Feed

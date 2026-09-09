@@ -2,12 +2,14 @@ import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import {
   ArrowRight,
+  Database,
   Flag,
   Languages,
   Mail,
   Moon,
   Palette,
   Plug,
+  ScrollText,
   ServerCog,
   ShieldCheck,
   Sun,
@@ -93,6 +95,26 @@ export default async function SettingsPage() {
             icon={Users}
             title="Users"
             description="Invite teammates and manage roles and access across the workspace."
+            badge="Admin"
+          />
+        ) : null}
+
+        {isAdmin ? (
+          <NavCard
+            href="/settings/storage"
+            icon={Database}
+            title="Storage"
+            description="Object storage driver, upload limits, and file usage. Private by default."
+            badge="Admin"
+          />
+        ) : null}
+
+        {isAdmin ? (
+          <NavCard
+            href="/settings/audit"
+            icon={ScrollText}
+            title="Audit Log"
+            description="A chronological record of actions taken across the workspace."
             badge="Admin"
           />
         ) : null}

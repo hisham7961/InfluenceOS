@@ -15,10 +15,13 @@ import {
   type FeatureFlagScope,
   type HealthComponentDTO,
   type PlatformStatusDTO,
+  type StorageStatusDTO,
 } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { requireAdmin } from '../lib/authz';
+import { getStorage } from '../lib/storage';
+import { maxUploadBytes } from './attachment.service';
 import { iso, logActivity } from '../lib/helpers';
 import { makeProviderService } from './provider.service';
 
@@ -119,6 +122,38 @@ export function makePlatformService(ctx: DomainContext) {
         mobileReady: coverage.mobileReady,
         adminOnly: coverage.adminOnly,
       },
+    };
+  }
+
+  /** Object-storage configuration & usage (admin-only Settings → Storage). */
+  async function storageStatus(): Promise<StorageStatusDTO> {
+    requireAdmin(ctx);
+    const driver = getStorage(process.env);
+    const agg = await prisma.attachment.aggregate({ _count: { _all: true }, _sum: { sizeBytes: true } });
+    return {
+      driver: driver.name,
+      privateByDefault: true,
+      bucket: driver.name === 's3' ? process.env.S3_BUCKET ?? 'influenceos' : null,
+      endpoint: driver.name === 's3' ? process.env.S3_ENDPOINT ?? null : null,
+      maxUploadMb: Math.round(maxUploadBytes() / (1024 * 1024)),
+      allowedMimeTypes: [
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+        'image/gif',
+        'application/pdf',
+        'video/mp4',
+        'video/webm',
+        'video/quicktime',
+        'text/plain',
+        'text/csv',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ],
+      objectCount: agg._count._all,
+      totalBytes: agg._sum.sizeBytes ?? 0,
     };
   }
 
@@ -355,6 +390,7 @@ export function makePlatformService(ctx: DomainContext) {
     features,
     modules,
     status,
+    storageStatus,
     endpoints,
     clientConfig,
     getFlags,
