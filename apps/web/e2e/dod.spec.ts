@@ -115,8 +115,12 @@ test('operator can run a campaign end-to-end through the browser', async ({ page
   // The uploaded file lands as a row with a download link (not the toast).
   const fileLink = page.getByRole('link', { name: fileName });
   await expect(fileLink).toBeVisible({ timeout: 15_000 });
-  // Its download URL is a signed link (private storage — no public URL).
-  await expect(fileLink).toHaveAttribute('href', /token=/);
+  // Its download URL is a signed link (private storage — no public URL). This
+  // holds under BOTH storage drivers: the local proxy issues a `token=` signed
+  // path, and S3/MinIO issues an `X-Amz-…` presigned URL. Same suite verifies
+  // the browser upload→download→delete journey against whichever backend the
+  // stack is running (see the e2e and e2e-s3 CI jobs).
+  await expect(fileLink).toHaveAttribute('href', /token=|X-Amz-/);
   // Delete it, and the row disappears.
   await page.getByRole('button', { name: `Delete ${fileName}` }).click();
   await expect(fileLink).toBeHidden({ timeout: 15_000 });

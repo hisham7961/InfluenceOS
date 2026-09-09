@@ -340,3 +340,132 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report
           retention-days: 7
+
+  e2e-s3:
+    name: Browser S3 E2E (DoD journey against MinIO/S3)
+    runs-on: ubuntu-latest
+    needs: build
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: influenceos_e2e_s3
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/influenceos_e2e_s3?schema=public
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/influenceos_e2e_s3?schema=public
+      REDIS_URL: redis://localhost:6379
+      AUTH_SECRET: ci-secret-value-at-least-16-chars
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      INTERNAL_API_URL: http://localhost:4000
+      API_PORT: '4000'
+      API_HOST: 0.0.0.0
+      WORKER_PORT: '4100'
+      WEB_ORIGIN: http://localhost:3000
+      E2E_BASE_URL: http://localhost:3000
+      CI: 'true'
+      # The whole stack runs on the S3 driver so the browser exercises presigned
+      # PUT/GET against MinIO (internal == public endpoint on localhost in CI).
+      STORAGE_DRIVER: s3
+      S3_INTERNAL_ENDPOINT: http://localhost:9000
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: influenceos
+      S3_ACCESS_KEY_ID: minioadmin
+      S3_SECRET_ACCESS_KEY: minioadmin
+      S3_FORCE_PATH_STYLE: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio server /data
+          for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break || sleep 1; done
+          curl -sf http://localhost:9000/minio/health/live || { echo "MinIO failed"; docker logs minio; exit 1; }
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm db:generate
+      - name: Apply migrations
+        run: pnpm db:deploy
+      - name: Create the private bucket
+        run: |
+          node -e '
+            const { S3Client, CreateBucketCommand } = require("@aws-sdk/client-s3");
+            const c = new S3Client({ endpoint: "http://localhost:9000", region: "us-east-1", forcePathStyle: true, credentials: { accessKeyId: "minioadmin", secretAccessKey: "minioadmin" } });
+            c.send(new CreateBucketCommand({ Bucket: "influenceos" })).then(() => console.log("bucket created")).catch(e => (e.name === "BucketAlreadyOwnedByYou" ? console.log("bucket exists") : Promise.reject(e)));
+          '
+      - name: Write .env (S3 driver)
+        run: |
+          cat > .env <<EOF
+          DATABASE_URL=${DATABASE_URL}
+          DIRECT_DATABASE_URL=${DIRECT_DATABASE_URL}
+          REDIS_URL=${REDIS_URL}
+          AUTH_SECRET=${AUTH_SECRET}
+          STORAGE_DRIVER=s3
+          S3_INTERNAL_ENDPOINT=${S3_INTERNAL_ENDPOINT}
+          S3_PUBLIC_ENDPOINT=${S3_PUBLIC_ENDPOINT}
+          S3_REGION=${S3_REGION}
+          S3_BUCKET=${S3_BUCKET}
+          S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
+          S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+          S3_FORCE_PATH_STYLE=true
+          NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+          INTERNAL_API_URL=${INTERNAL_API_URL}
+          EOF
+      - name: Seed demo data
+        run: SEED_DEMO=true CONFIRM_WIPE=true pnpm --filter @influenceos/database exec tsx prisma/seed.ts
+
+      - name: Build web
+        run: pnpm --filter @influenceos/web build
+      - name: Install Playwright browser
+        run: pnpm --filter @influenceos/web exec playwright install --with-deps chromium
+
+      - name: Start API (S3 driver)
+        run: |
+          pnpm --filter @influenceos/api exec tsx src/index.ts > /tmp/api.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:4000/health && break; sleep 1; done
+          curl -sf http://localhost:4000/health || { echo "API failed"; cat /tmp/api.log; exit 1; }
+      - name: Start web
+        run: |
+          pnpm --filter @influenceos/web start > /tmp/web.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:3000/login && break; sleep 1; done
+          curl -sf http://localhost:3000/login || { echo "Web failed"; cat /tmp/web.log; exit 1; }
+
+      # The DoD journey uploads → lists → downloads (signed) → deletes an
+      # attachment through the browser; on this stack that path is presigned
+      # PUT/GET against MinIO, proving browser object storage end-to-end.
+      - name: Run browser S3 journey (DoD spec)
+        run: pnpm --filter @influenceos/web exec playwright test dod.spec.ts
+
+      - name: Upload Playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-s3
+          path: apps/web/playwright-report
+          retention-days: 7
