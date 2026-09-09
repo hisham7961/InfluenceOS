@@ -1,5 +1,14 @@
 import 'server-only';
 import { cookies } from 'next/headers';
+import {
+  WEB_ACCESS_COOKIE,
+  WEB_ACCESS_MAX_AGE,
+  WEB_BRAND_COOKIE,
+  WEB_LOCALE_COOKIE,
+  WEB_REFRESH_COOKIE,
+  WEB_REFRESH_MAX_AGE,
+  WEB_THEME_COOKIE,
+} from '@influenceos/contracts/transport';
 
 /**
  * Web token transport (BFF). The browser never sees the access/refresh tokens —
@@ -7,16 +16,19 @@ import { cookies } from 'next/headers';
  * access token to call the API directly; client components go through the
  * /api/bff proxy which injects the token. A future mobile app skips all of this
  * and calls the API directly with tokens held in the OS keychain.
+ *
+ * Cookie names/lifetimes come from the shared transport contract
+ * (@influenceos/contracts) so the edge middleware and the API cannot drift.
  */
 
-export const ACCESS_COOKIE = 'io_at';
-export const REFRESH_COOKIE = 'io_rt';
-export const LOCALE_COOKIE = 'locale';
-export const THEME_COOKIE = 'theme';
-export const BRAND_COOKIE = 'io_brand';
+export const ACCESS_COOKIE = WEB_ACCESS_COOKIE;
+export const REFRESH_COOKIE = WEB_REFRESH_COOKIE;
+export const LOCALE_COOKIE = WEB_LOCALE_COOKIE;
+export const THEME_COOKIE = WEB_THEME_COOKIE;
+export const BRAND_COOKIE = WEB_BRAND_COOKIE;
 
-export const ACCESS_MAX_AGE = 60 * 15; // 15 minutes (refreshed by middleware)
-export const REFRESH_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+export const ACCESS_MAX_AGE = WEB_ACCESS_MAX_AGE; // 15 minutes (refreshed by middleware)
+export const REFRESH_MAX_AGE = WEB_REFRESH_MAX_AGE; // 7 days
 
 export function apiBaseUrl(): string {
   return process.env.INTERNAL_API_URL ?? 'http://localhost:4000';

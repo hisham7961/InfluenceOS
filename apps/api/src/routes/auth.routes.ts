@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { requests, z } from '@influenceos/contracts';
+import { API_REFRESH_COOKIE, requests, z } from '@influenceos/contracts';
 import { AppError } from '@influenceos/domain';
 import { requireAdmin, requireAuth, servicesFor } from '../http';
 
@@ -27,7 +27,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     { schema: { tags: ['Auth'], summary: 'Exchange a refresh token for new tokens', body: requests.refreshSchema } },
     async (req) => {
       const services = servicesFor(req);
-      const token = req.body.refreshToken ?? (req as { cookies?: Record<string, string> }).cookies?.refresh_token;
+      const token = req.body.refreshToken ?? (req as { cookies?: Record<string, string> }).cookies?.[API_REFRESH_COOKIE];
       if (!token) throw AppError.badRequest('A refresh token is required.');
       return services.auth.refresh(token);
     },

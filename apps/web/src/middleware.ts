@@ -1,9 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
-
-const ACCESS = 'io_at';
-const REFRESH = 'io_rt';
-const ACCESS_MAX_AGE = 60 * 15;
-const REFRESH_MAX_AGE = 60 * 60 * 24 * 7;
+import {
+  WEB_ACCESS_COOKIE as ACCESS,
+  WEB_ACCESS_MAX_AGE as ACCESS_MAX_AGE,
+  WEB_REFRESH_COOKIE as REFRESH,
+  WEB_REFRESH_MAX_AGE as REFRESH_MAX_AGE,
+} from '@influenceos/contracts/transport';
+// Cookie names/lifetimes come from the shared transport contract — the edge
+// middleware cannot import the `server-only` session module, so this is how it
+// stays in lockstep with it instead of hardcoding the names.
 
 function apiBase(): string {
   return process.env.INTERNAL_API_URL ?? 'http://localhost:4000';

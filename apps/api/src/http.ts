@@ -6,7 +6,7 @@ import {
   type Actor,
   type Services,
 } from '@influenceos/domain';
-import type { ReportDTO } from '@influenceos/contracts';
+import { API_ACCESS_COOKIE, type ReportDTO } from '@influenceos/contracts';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -18,7 +18,7 @@ declare module 'fastify' {
 export function extractToken(request: FastifyRequest): string | null {
   const header = request.headers.authorization;
   if (header && header.startsWith('Bearer ')) return header.slice(7).trim();
-  const cookie = (request as { cookies?: Record<string, string> }).cookies?.access_token;
+  const cookie = (request as { cookies?: Record<string, string> }).cookies?.[API_ACCESS_COOKIE];
   return cookie ?? null;
 }
 

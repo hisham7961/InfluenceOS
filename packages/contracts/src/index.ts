@@ -5,6 +5,7 @@
 export * from './enums';
 export * from './errors';
 export * from './pagination';
+export * from './transport';
 export * from './dto';
 export * from './client-config';
 export * from './registry/features';
