@@ -12,9 +12,14 @@ CI checks on every push.
 | pnpm | **10.33.0** | Pinned via `"packageManager": "pnpm@10.33.0"` in the root `package.json`. Install with `corepack enable && corepack prepare pnpm@10.33.0 --activate`, or use the version pnpm/action-setup installs in CI. |
 | Docker (+ Compose) | any recent version | Runs local Postgres, Redis and MinIO via `docker-compose.yml`. |
 
-There are no Dockerfiles in this repo yet — `docker-compose.yml` only provisions
-infrastructure (Postgres/Redis/MinIO), not the app services. The apps run directly
-with Node/tsx/Next.js (see [Production notes](#4-production-notes)).
+Two compose files are provided:
+
+- **`docker-compose.yml`** — infrastructure only (Postgres/Redis/MinIO), for
+  local development where the apps run on the host with Node/tsx/Next.js.
+- **`docker-compose.full.yml`** — the **whole stack** containerized: infra plus
+  the `api`, `worker` and `web` services built from `docker/Dockerfile.{api,worker,web}`,
+  with a `migrate` one-shot that applies migrations and bootstraps a first admin.
+  Object storage is private (S3 driver against MinIO; no anonymous access).
 
 ## 2. Local development
 
@@ -31,11 +36,21 @@ pnpm install
 # 4. Apply Prisma migrations (dev mode — may create new migrations)
 pnpm db:migrate
 
-# 5. Seed realistic demo data (users, brands, campaigns, content, etc.)
-pnpm db:seed
+# 5. Seed realistic demo data — the demo seed is DESTRUCTIVE and opt-in:
+SEED_DEMO=true CONFIRM_WIPE=true pnpm db:seed:demo
 
 # 6. Run api + web + worker together
 pnpm dev
+```
+
+### Whole stack in Docker
+
+```bash
+# Build and run pg + redis + minio + migrate/bootstrap + api + worker + web
+BOOTSTRAP_ADMIN_EMAIL=admin@influenceos.local \
+BOOTSTRAP_ADMIN_PASSWORD='choose-a-strong-one' \
+docker compose -f docker-compose.full.yml up --build
+# Web → http://localhost:3000 · API → http://localhost:4000
 ```
 
 `pnpm dev` runs `turbo run dev --parallel`, which fans out to each app's own `dev`
@@ -111,19 +126,24 @@ adjust as needed. Grouped below, with which ones are actually required to boot.
 
 | Variable | Required? | Default | Notes |
 |---|---|---|---|
-| `S3_ENDPOINT` | optional | `http://localhost:9000` | Only checked for presence today — `packages/domain/src/services/platform.service.ts` reports storage status as `ok`/`unknown` based on whether it's set. |
+| `STORAGE_DRIVER` | optional | `local` | `s3` to use S3/MinIO, `local` for signed-proxy disk storage. |
+| `S3_ENDPOINT` | s3 only | `http://localhost:9000` | S3-compatible endpoint (MinIO in dev). |
 | `S3_REGION` | optional | `us-east-1` | |
-| `S3_ACCESS_KEY_ID` | optional | `minioadmin` | |
-| `S3_SECRET_ACCESS_KEY` | optional | `minioadmin` | |
-| `S3_BUCKET` | optional | `influenceos` | Matches the bucket the `minio-setup` compose service creates (`mc mb --ignore-existing local/influenceos`). |
+| `S3_ACCESS_KEY_ID` | s3 only | `minioadmin` | |
+| `S3_SECRET_ACCESS_KEY` | s3 only | `minioadmin` | |
+| `S3_BUCKET` | optional | `influenceos` | Matches the bucket the `minio-setup` compose service creates (`mc mb --ignore-existing local/influenceos`). The bucket is **private** — the compose file no longer runs `mc anonymous set`. |
 | `S3_FORCE_PATH_STYLE` | optional | `true` | Needed for MinIO/path-style S3 clients. |
-| `S3_PUBLIC_URL` | optional | `http://localhost:9000/influenceos` | |
+| `MAX_UPLOAD_MB` | optional | `50` | Server-enforced upload size ceiling. |
+| `LOCAL_UPLOAD_DIR` | local only | `./uploads` | Disk location for the local driver (git-ignored, traversal-guarded). |
 
-Per `.env.example` and `docs/BUILD_STATUS.md`, object storage is **provisioned but
-only partially wired**: the attachment/upload schema and API surface exist, but
-actual S3 upload wiring is minimal today — these variables currently only drive the
-health/status indicator, not real uploads. Treat them as forward-looking
-configuration, not a hard production dependency yet.
+> **No `S3_PUBLIC_URL`.** Objects are private; every download is served through a
+> short-lived **presigned GET** (S3) or a **signed proxy link** (local). There is
+> no public bucket and no permanent public file URL — see `docs/SECURITY.md §9`.
+
+Object storage is now **fully implemented**: two-phase signed uploads
+(`POST /files` → `PUT` → `POST /files/complete`), private-by-default buckets, and
+signed downloads for both the `s3` and `local` drivers. These variables drive
+real uploads and downloads, not just a health indicator.
 
 ### Content monitoring worker
 

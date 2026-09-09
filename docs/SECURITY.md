@@ -40,7 +40,23 @@ Both are signed HS256 with `jose`, using a single server secret (`AUTH_SECRET`,
 Both are minted together by `issueTokens()`, which also **rotates** the refresh
 token: on every login and every refresh, `DeviceSession.refreshTokenHash` is
 overwritten with `sha256(newRefreshToken)` and `lastActiveAt` is bumped. The raw
-refresh token is never persisted — only its SHA-256 hash.
+refresh token is never persisted — only its SHA-256 hash. Every refresh token
+carries a unique `jti`, so each rotation is a distinct token (and hash) even
+when two are minted within the same second.
+
+**Reuse detection & family revocation.** A refresh token is single-use. Because
+the JWT signature proves the server minted it, any correctly-signed refresh
+token presented for an active session whose hash matches *neither* the current
+token *nor* the grace-window predecessor must be a previously-rotated token
+being replayed — the classic sign of theft. `refresh()` responds by revoking the
+entire session (`revokedAt` + `revokedReason: 'refresh_token_reuse_detected'`),
+invalidating the attacker's and the victim's tokens alike and forcing a fresh
+login. A short grace window (`AUTH_REFRESH_GRACE_MS`, default 30s) honours the
+previous token (`prevRefreshTokenHash` + `refreshRotatedAt`) so genuinely
+concurrent refreshes from one client are not mistaken for reuse. This is covered
+by the integration suite (`apps/api/test/integration/auth.test.ts`): rotation,
+reuse → family revoke, forged-token rejection, logout, and concurrent-refresh
+grace.
 
 ### DeviceSession: per-device sessions and revocation
 
@@ -344,34 +360,77 @@ use to trigger a re-auth/refresh flow.
   mode without any of these"*) — so there's no incentive to over-provision or
   hardcode credentials to keep the app running.
 
-## 9. File-upload validation (intent, current status)
+### Seeding & first-admin bootstrap (production-safe)
 
-The platform config and contract layers already model upload limits, but there is
-**no multipart/file-upload HTTP route wired up in `apps/api` yet** — this section
-documents the enforced *intent*, not a shipped upload endpoint.
+The **demo seed** (`packages/database/prisma/seed.ts`) is destructive — it wipes
+every table — so it is guarded hard (`guardDestructiveSeed()`):
 
-- `ClientConfigDTO.upload` (`packages/contracts/src/client-config.ts`) declares
-  `maxUploadMb`, `acceptedImageTypes`, `acceptedFileTypes`, populated by
-  `platform.service.ts` from an admin-configurable `maxUploadMb` (Zod-bounded
-  `1–500` in `requests/index.ts`, default `50`) plus fixed allowlists:
-  `DEFAULT_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']`
-  and `DEFAULT_FILE_TYPES = ['application/pdf', 'image/png', 'image/jpeg',
-  'video/mp4']`.
-  Clients (web today, mobile in future) are expected to read this from
-  `GET /api/v1/client-config` and enforce it before/at upload.
-- `.env.example` reserves S3-compatible object storage config
-  (`S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`,
-  `S3_BUCKET`, `S3_PUBLIC_URL`) for this purpose, with a documented local-disk
-  fallback. Today the only live use of these vars is a health/status probe
-  (`platform.service.ts` reports a `Storage` component as `'ok'` when
-  `S3_ENDPOINT` is set) — no upload handler reads or writes to it yet.
-  Present-day "file" fields on records (e.g. `User.avatarUrl`,
-  `avatarOverrideUrl`) are plain URL strings, not uploaded binaries.
-- **When an upload endpoint is added**, it should honor the same
-  `maxUploadMb`/accepted-type contract already published to clients, validate
-  `Content-Type` and actual file size server-side (never trust the client-declared
-  MIME type alone), and continue routing all errors through the standardized error
-  contract (§7) rather than leaking storage-provider errors.
+- **Refuses** to run when `NODE_ENV=production`.
+- **Opt-in only:** requires `SEED_DEMO=true`, so it can never run implicitly.
+- **Refuses to clobber data:** if the target database already has users, it
+  aborts unless `CONFIRM_WIPE=true`, and it echoes the exact `host:port/db` it
+  would erase so you can't wipe the wrong database by accident.
+
+For real environments there is a separate, **non-destructive, idempotent**
+first-admin bootstrap (`prisma/bootstrap.ts`,
+`pnpm --filter @influenceos/database bootstrap`): it creates one ADMIN **only if
+no users exist**, with **no hardcoded password** — the email comes from
+`BOOTSTRAP_ADMIN_EMAIL` and the password from `BOOTSTRAP_ADMIN_PASSWORD`, or a
+strong random one is generated and printed once to be rotated on first login. It
+is safe to run on every deploy.
+
+### Repository hygiene
+
+`.env` and `uploads/` are git-ignored; only `.env.example` (shape, no values) is
+tracked. A scan of tracked files finds no AWS keys or private-key material. This
+repository holds an organization's operational data model and should be kept
+**private**, with branch protection on `main` (required CI + review). Repository
+ownership and visibility are **not** changed by the tooling here — that is an
+explicit human/admin decision.
+
+## 9. File uploads & private object storage
+
+Attachments ship as a **two-phase signed upload** over **private** object
+storage. Nothing is ever served from a public bucket, and no permanent public
+file URL is ever issued. Storage is abstracted behind two drivers
+(`packages/domain/src/lib/storage.ts`), selected by `STORAGE_DRIVER`:
+
+- **`s3`** — any S3-compatible store (MinIO in dev; S3/R2/etc. in prod). Uploads
+  use presigned `PUT` URLs; downloads use presigned `GET` URLs
+  (`ResponseContentDisposition` set). The bucket is created private and left
+  private (the dev compose deliberately does **not** run `mc anonymous set`).
+- **`local`** (default) — local disk under `LOCAL_UPLOAD_DIR`, with traversal
+  guarding. Uploads and downloads go through signed API endpoints, never a
+  static path.
+
+**The flow** (`attachment.service.ts`, `apps/api/src/routes/files.routes.ts`):
+
+1. `POST /api/v1/files` — validates the declared `mimeType` against a fixed
+   server-side allowlist and `sizeBytes` against `MAX_UPLOAD_MB` (default 50),
+   confirms the target record exists, sanitizes the filename, builds a
+   collision-free storage key, and returns a **short-lived HMAC-signed upload
+   ticket** (`jose`, `AUTH_SECRET`, 15-min TTL) plus a presigned `PUT` URL (S3)
+   or a signed proxy path (local). **No DB row is created yet**, so an abandoned
+   upload leaves no orphan record.
+2. Client `PUT`s the bytes (direct to S3, or to the signed local proxy, which
+   re-checks size).
+3. `POST /api/v1/files/complete` — verifies the ticket, confirms the object
+   landed with `HeadObject`/`stat`, re-checks the **actual stored size** against
+   the limit (so a client can't under-declare then upload something larger), and
+   only then creates the `Attachment` row.
+
+**Downloads** never expose a public URL: `downloadUrl` is a presigned S3 `GET`
+(absolute, expiring) or a signed local proxy link
+(`GET /api/v1/files/:id/blob?token=…`, a 10-min HMAC capability that also works
+in an `<img>`/`<a>` tag). Deletes remove the stored object then the row.
+
+Defense-in-depth summary: private-by-default storage, server-side MIME allowlist
++ size ceiling (declared *and* actual), filename sanitization, path-safe
+server-generated keys, expiring signed upload/download URLs, server-side
+existence/authorization checks, and all errors routed through the standardized
+contract (§7). Covered by `apps/api/test/integration/files.test.ts` (upload →
+list → signed download → delete, MIME rejection, oversize rejection, unauthorized
+rejection, and "no public URL" assertions).
 
 ## 10. Responsible data use / provider compliance
 
