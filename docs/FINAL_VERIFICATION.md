@@ -41,16 +41,15 @@ pnpm --filter @influenceos/web test:e2e
   (the `if: ${{ false }}` guard is **gone**) migrates + seeds a separate
   `influenceos_e2e` DB, builds the web app, installs Chromium, boots the API and
   web, waits for health, and runs Playwright.
-- **Verified by real GitHub Actions runs** on this branch. On the final SHA
-  (`e6c878b`), the **build job is green** — typecheck, lint, `test:unit`,
-  `test:integration` (**including the real MinIO S3 round-trip**), `test:contract`,
-  `test:dod`, and `build` all with conclusion **success**. The **full-stack E2E
-  job** (pg · redis · minio · api · **worker** · web) runs the object-storage
-  round-trip, asserts worker health + a deterministic sweep, and runs Playwright
-  (smoke + browser DoD); its green result on this SHA is confirmed in the Actions
-  run and cited in the "Hardening pass → H10" note below once the run completes.
-  Earlier full runs on this branch (build + E2E) already completed green before
-  the hardening pass added the worker/MinIO steps.
+- **Verified by a real GitHub Actions run on the final SHA `f9494e8` — BOTH jobs
+  green** (run #5, `Actions → CI`, both conclusions **success**):
+  - **Build job:** typecheck, lint, `test:unit`, `test:integration`
+    (**including the real MinIO S3 round-trip**), `test:contract`, `test:dod`,
+    and `build`.
+  - **Full-stack E2E job (pg · redis · minio · api · worker · web):** Start
+    MinIO → object-storage round-trip → build web → install Chromium → Start API
+    → **Start worker (health + deterministic maintenance sweep)** → Start web →
+    **Playwright (smoke + full browser DoD)**.
 
 ### 2. Real API test commands ✅
 - `apps/api` exposes `test:integration`, `test:contract`, `test:dod`; the root
@@ -219,7 +218,12 @@ machine checks for **web-route existence** (READY web features have a page) and
 dimension. See "Readiness dimensions" below.
 
 ### H10. Final verification ✅
-See the CI evidence line at the top and "Readiness dimensions" below.
+Fresh GitHub Actions run on the final SHA `f9494e8` is **green on both jobs**
+(see the CI-evidence line at the top): typecheck, lint, unit, integration
+(auth concurrency + real MinIO S3 round-trip), contract, API DoD, production
+build, worker health + deterministic sweep, and Playwright (smoke + full browser
+DoD). Nothing here is marked done on the strength of the build job alone — the
+worker/MinIO/browser-DoD steps all concluded success on this SHA.
 
 ## Readiness dimensions — machine-verified vs. manual
 
