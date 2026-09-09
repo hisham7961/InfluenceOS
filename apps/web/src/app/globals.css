@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.9rem;
+
+    --background: 240 20% 98%;
+    --foreground: 224 24% 16%;
+
+    --surface: 0 0% 100%;
+    --surface-muted: 240 20% 96%;
+    --surface-raised: 0 0% 100%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 24% 16%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 24% 16%;
+
+    --primary: 245 58% 51%;
+    --primary-foreground: 0 0% 100%;
+
+    --accent: 262 60% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --muted: 240 16% 94%;
+    --muted-foreground: 224 12% 46%;
+
+    --success: 152 56% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 33 92% 48%;
+    --warning-foreground: 0 0% 100%;
+    --danger: 356 72% 52%;
+    --danger-foreground: 0 0% 100%;
+    --info: 214 84% 54%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 240 16% 90%;
+    --input: 240 16% 90%;
+    --ring: 245 58% 51%;
+
+    --brand: 245 58% 51%;
+    --brand-foreground: 0 0% 100%;
+    --brand-soft: 245 58% 96%;
+
+    --font-sans: 'Inter', system-ui, sans-serif;
+  }
+
+  .dark {
+    --background: 226 30% 8%;
+    --foreground: 220 22% 92%;
+
+    --surface: 226 26% 11%;
+    --surface-muted: 226 24% 14%;
+    --surface-raised: 226 24% 13%;
+
+    --card: 226 26% 11%;
+    --card-foreground: 220 22% 92%;
+    --popover: 226 26% 12%;
+    --popover-foreground: 220 22% 92%;
+
+    --primary: 245 70% 66%;
+    --primary-foreground: 226 40% 10%;
+
+    --accent: 262 64% 68%;
+    --accent-foreground: 226 40% 10%;
+
+    --muted: 226 22% 17%;
+    --muted-foreground: 220 14% 62%;
+
+    --success: 152 52% 46%;
+    --success-foreground: 226 40% 10%;
+    --warning: 33 90% 56%;
+    --warning-foreground: 226 40% 10%;
+    --danger: 356 72% 60%;
+    --danger-foreground: 226 40% 10%;
+    --info: 214 84% 62%;
+    --info-foreground: 226 40% 10%;
+
+    --border: 226 20% 20%;
+    --input: 226 20% 22%;
+    --ring: 245 70% 66%;
+
+    --brand: 245 70% 66%;
+    --brand-foreground: 226 40% 10%;
+    --brand-soft: 245 40% 18%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+    text-rendering: optimizeLegibility;
+  }
+
+  /* RTL logical adjustments handled by Tailwind logical utilities where used. */
+  [dir='rtl'] .rtl-flip {
+    transform: scaleX(-1);
+  }
+}
+
+@layer components {
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-muted;
+  }
+  .skeleton::after {
+    @apply absolute inset-0;
+    content: '';
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--foreground) / 0.06),
+      transparent
+    );
+    animation: shimmer 1.6s infinite;
+  }
+  .glass {
+    @apply bg-surface/80 backdrop-blur-xl;
+  }
+  .focus-ring {
+    @apply outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring;
+  }
+}
+
+/* Thin, unobtrusive scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.28);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.45);
+  background-clip: content-box;
+}

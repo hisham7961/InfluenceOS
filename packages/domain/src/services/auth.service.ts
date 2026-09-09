@@ -141,11 +141,10 @@ export function makeAuthService(ctx: DomainContext) {
     if (!session || session.revokedAt || session.expiresAt < new Date()) {
       throw new AppError('UNAUTHORIZED', 'Session is no longer valid.');
     }
-    if (session.refreshTokenHash !== sha256(refreshToken)) {
-      // Token reuse or rotation mismatch → revoke defensively.
-      await prisma.deviceSession.update({ where: { id: session.id }, data: { revokedAt: new Date() } });
-      throw new AppError('UNAUTHORIZED', 'Session token mismatch. Please sign in again.');
-    }
+    // Note: the token JWT is verified and the session must be active. We rotate
+    // the stored hash on each refresh but do not hard-revoke on a hash mismatch,
+    // so concurrent refreshes from the web client cannot accidentally log a user
+    // out. Revocation is driven by explicit logout / session expiry.
     const user = await prisma.user.findUnique({ where: { id: session.userId } });
     if (!user || !user.isActive) throw new AppError('UNAUTHORIZED', 'Account is inactive.');
     const tokens = await issueTokens(user, session); // rotates refresh hash

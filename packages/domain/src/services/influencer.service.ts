@@ -353,7 +353,39 @@ export function makeInfluencerService(ctx: DomainContext) {
     }
   }
 
-  return { list, detail, create, update, socialAccountsFor, audienceFor };
+  /** Per-account follower time series for the 360 profile growth charts. */
+  async function followerSeries(influencerId: string): Promise<
+    {
+      accountId: string;
+      platform: Platform;
+      username: string;
+      points: { capturedAt: string; followers: number | null }[];
+    }[]
+  > {
+    const accounts = await prisma.socialAccount.findMany({
+      where: { influencerId },
+      orderBy: [{ isPrimary: 'desc' }, { followers: 'desc' }],
+      select: { id: true, platform: true, username: true },
+    });
+    return Promise.all(
+      accounts.map(async (a) => {
+        const snaps = await prisma.socialMetricSnapshot.findMany({
+          where: { socialAccountId: a.id },
+          orderBy: { capturedAt: 'asc' },
+          take: 365,
+          select: { capturedAt: true, followers: true },
+        });
+        return {
+          accountId: a.id,
+          platform: a.platform,
+          username: a.username,
+          points: snaps.map((s) => ({ capturedAt: s.capturedAt.toISOString(), followers: s.followers })),
+        };
+      }),
+    );
+  }
+
+  return { list, detail, create, update, socialAccountsFor, audienceFor, followerSeries };
 }
 
 export type InfluencerService = ReturnType<typeof makeInfluencerService>;
