@@ -1,0 +1,28 @@
+{
+  "name": "@influenceos/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "dotenv -e ../../.env -- tsx watch src/index.ts",
+    "start": "dotenv -e ../../.env -- tsx src/index.ts",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo \"(worker) no lint\"",
+    "clean": "rm -rf node_modules .turbo dist"
+  },
+  "dependencies": {
+    "@influenceos/contracts": "workspace:*",
+    "@influenceos/database": "workspace:*",
+    "@influenceos/domain": "workspace:*",
+    "@influenceos/shared": "workspace:*",
+    "bullmq": "5.34.10",
+    "ioredis": "5.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.5",
+    "dotenv-cli": "7.4.4",
+    "tsx": "4.19.2",
+    "typescript": "5.7.3"
+  }
+}

@@ -152,9 +152,12 @@ export function makeSocialAccountService(ctx: DomainContext) {
     return toSocialAccountDTO(account);
   }
 
-  /** Attempt an official sync via the platform adapter; graceful on failure. */
+  /**
+   * Attempt an official sync via the platform adapter; graceful on failure.
+   * System-safe (no actor required) so the worker can sync follower snapshots.
+   * API access is still gated by the route's auth guard.
+   */
   async function sync(id: string): Promise<{ account: SocialAccountDTO; synced: boolean; message: string }> {
-    requireActor(ctx);
     const existing = await prisma.socialAccount.findUnique({ where: { id }, select: accountSelect });
     if (!existing) throw AppError.notFound('Social account');
 
