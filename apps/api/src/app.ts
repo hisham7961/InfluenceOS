@@ -181,14 +181,15 @@ export async function buildApp(): Promise<FastifyInstance> {
       return reply.status(422).send(errBody('VALIDATION_ERROR', 'Validation failed.', requestId, { fieldErrors }));
     }
 
-    const statusCode = (error as { statusCode?: number }).statusCode;
-    if (statusCode === 401) return reply.status(401).send(errBody('UNAUTHORIZED', error.message, requestId));
-    if (statusCode === 403) return reply.status(403).send(errBody('FORBIDDEN', error.message, requestId));
+    const { statusCode, message } = error as { statusCode?: number; message?: string };
+    const safeMessage = message ?? 'Request failed.';
+    if (statusCode === 401) return reply.status(401).send(errBody('UNAUTHORIZED', safeMessage, requestId));
+    if (statusCode === 403) return reply.status(403).send(errBody('FORBIDDEN', safeMessage, requestId));
     if (statusCode === 429) {
       return reply.status(429).send(errBody('RATE_LIMITED', 'Too many requests. Please slow down.', requestId));
     }
     if (statusCode && statusCode < 500) {
-      return reply.status(statusCode).send(errBody('BAD_REQUEST', error.message, requestId));
+      return reply.status(statusCode).send(errBody('BAD_REQUEST', safeMessage, requestId));
     }
 
     request.log.error({ err: error, requestId }, 'Unhandled error');

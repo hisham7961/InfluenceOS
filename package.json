@@ -2,7 +2,7 @@
   "name": "influenceos",
   "version": "0.1.0",
   "private": true,
-  "description": "InfluenceOS — internal influencer campaign management command center",
+  "description": "InfluenceOS \u2014 internal influencer campaign management command center",
   "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=20.0.0"
@@ -50,6 +50,9 @@
       "esbuild",
       "@node-rs/argon2",
       "sharp"
-    ]
+    ],
+    "overrides": {
+      "fast-xml-parser": ">=4.5.5"
+    }
   }
 }
