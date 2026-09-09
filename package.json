@@ -52,7 +52,8 @@
       "sharp"
     ],
     "overrides": {
-      "fast-xml-parser": ">=4.5.5"
+      "fast-xml-parser": ">=4.5.5",
+      "postcss": ">=8.5.28"
     }
   }
 }

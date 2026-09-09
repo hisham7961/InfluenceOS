@@ -14,12 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Spinner } from '@/components/ui/spinner';
+import { REPORT_TYPES, type ReportType } from './reports-types';
 
 /** Sentinel value for Radix Select's "no filter" option (Select forbids an empty-string item value). */
 const ALL = 'all';
 
-export const REPORT_TYPES = ['campaign', 'influencer', 'brand', 'content', 'spend'] as const;
-export type ReportType = (typeof REPORT_TYPES)[number];
+export { REPORT_TYPES, type ReportType };
 
 const REPORT_TABS: { value: ReportType; label: string }[] = [
   { value: 'campaign', label: 'Campaigns' },

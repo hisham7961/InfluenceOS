@@ -1,6 +1,7 @@
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
-import { ReportsView, REPORT_TYPES, type ReportType } from './reports-view';
+import { ReportsView } from './reports-view';
+import { REPORT_TYPES, type ReportType } from './reports-types';
 
 export const dynamic = 'force-dynamic';
 
