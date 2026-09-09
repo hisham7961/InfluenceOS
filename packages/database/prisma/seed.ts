@@ -4,6 +4,53 @@ import { PrismaClient, type Platform } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+/** Human-readable "user@host/db" for the configured database (no credentials). */
+function describeDatabase(): string {
+  try {
+    const u = new URL(process.env.DATABASE_URL ?? '');
+    return `${u.hostname}:${u.port || '5432'}${u.pathname}`;
+  } catch {
+    return '(unparseable DATABASE_URL)';
+  }
+}
+
+/**
+ * The demo seed is DESTRUCTIVE — it wipes every table. Guard it hard so it can
+ * never run against a production database or clobber real data by accident
+ * (finding #6):
+ *   - Refuse outright when NODE_ENV=production.
+ *   - Require an explicit opt-in (SEED_DEMO=true) so it can't run implicitly.
+ *   - Refuse to wipe a database that already holds data unless the operator
+ *     confirms with CONFIRM_WIPE=true, echoing which database is targeted.
+ */
+async function guardDestructiveSeed(): Promise<void> {
+  const target = describeDatabase();
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      `Refusing to run the destructive demo seed with NODE_ENV=production (target: ${target}). ` +
+        `Use the safe bootstrap instead: pnpm --filter @influenceos/database bootstrap`,
+    );
+  }
+  if (process.env.SEED_DEMO !== 'true') {
+    throw new Error(
+      `The demo seed wipes ALL data in ${target}. This is opt-in: re-run with SEED_DEMO=true to confirm. ` +
+        `For a production-safe first admin use: pnpm --filter @influenceos/database bootstrap`,
+    );
+  }
+  const existingUsers = await prisma.user.count().catch(() => 0);
+  if (existingUsers > 0 && process.env.CONFIRM_WIPE !== 'true') {
+    throw new Error(
+      `Database ${target} already contains ${existingUsers} user(s). Refusing to wipe it. ` +
+        `Re-run with CONFIRM_WIPE=true if you really intend to erase and reseed this database.`,
+    );
+  }
+  console.warn(`⚠️  Demo seed will ERASE and repopulate ${target}.`);
+}
+
+/** Demo login password — dev-only. The demo seed cannot run in production, so
+ *  this is never a production credential. Override with DEMO_PASSWORD. */
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? 'Password123!';
+
 const now = new Date();
 function daysAgo(n: number): Date {
   return new Date(now.getTime() - n * 864e5);
@@ -46,10 +93,11 @@ async function wipe() {
 }
 
 async function main() {
-  console.log('Seeding InfluenceOS…');
+  await guardDestructiveSeed();
+  console.log('Seeding InfluenceOS demo data…');
   await wipe();
 
-  const passwordHash = await hash('Password123!');
+  const passwordHash = await hash(DEMO_PASSWORD);
   const admin = await prisma.user.create({
     data: { email: 'admin@influenceos.app', name: 'Layla Al-Rashid', role: 'ADMIN', passwordHash },
   });

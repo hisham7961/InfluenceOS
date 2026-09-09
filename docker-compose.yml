@@ -51,7 +51,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # Creates the storage bucket on first boot.
+  # Creates the storage bucket on first boot. The bucket stays PRIVATE — objects
+  # are never publicly readable; all access is through server-minted, expiring
+  # presigned URLs (finding #4). Do NOT add `mc anonymous set ...` here.
   minio-setup:
     image: minio/mc:latest
     depends_on:
@@ -61,7 +63,6 @@ services:
       /bin/sh -c "
       until (mc alias set local http://minio:9000 minioadmin minioadmin) do echo 'waiting for minio'; sleep 2; done;
       mc mb --ignore-existing local/influenceos;
-      mc anonymous set download local/influenceos;
       exit 0;
       "
 
