@@ -11,6 +11,47 @@ otherwise noted.
 
 ---
 
+## Server sizing, DNS & firewall
+
+**Server sizing** (single-host docker-compose; this is an internal tool with a
+small user base — start here and scale up if metrics say so):
+
+| Deployment | vCPU | RAM | Disk | Notes |
+| --- | --- | --- | --- | --- |
+| Minimum (all-in-one) | 2 | 4 GB | 40 GB SSD | Postgres + Redis + MinIO + api + worker + web + proxy on one host. Fine for pilot/low traffic. |
+| Recommended (all-in-one) | 4 | 8 GB | 80 GB SSD | Comfortable headroom; the API alert trips at 1.5 GB RSS, so 8 GB leaves room for Postgres cache + MinIO. |
+| Scaling out | — | — | — | Move PostgreSQL to a managed instance and object storage to managed S3 first; then run the DB/Redis/storage off-box and keep the app host lean. Run 2+ API replicas behind the proxy with `RATE_LIMIT_REDIS=true`. |
+
+Disk is dominated by object storage (attachments) and database growth — size the
+data volumes for your expected attachment footprint, and keep backups off-host
+(they do not count against this disk). Give `/var/backups` its own space if
+backups are staged locally before the S3 upload.
+
+**DNS layout:**
+
+| Record | Type | Points to | Purpose |
+| --- | --- | --- | --- |
+| `influenceos.example.com` | A / AAAA | Reverse-proxy public IP | The platform (web + API via the proxy). |
+| `files.influenceos.example.com` | A / AAAA | Reverse-proxy (or object-store) public IP | Optional: browser-facing object-storage endpoint (`S3_PUBLIC_ENDPOINT`) when presigned URLs must resolve publicly. Only needed with the S3 driver. |
+
+Set `NEXT_PUBLIC_APP_URL` and `WEB_ORIGIN` to the primary HTTPS URL. Caddy obtains
+certificates automatically for the names it serves; with nginx, issue them via
+certbot. Do not change DNS as part of a routine deploy — it is first-time setup.
+
+**Firewall (host):** expose ONLY the proxy's HTTP/HTTPS ports publicly.
+
+| Port | Exposure | Service |
+| --- | --- | --- |
+| 80 | Public | Reverse proxy (redirects to 443 / ACME challenge) |
+| 443 | Public | Reverse proxy (TLS) |
+| 22 | Restricted (admin IPs / VPN) | SSH |
+| 3000, 4000, 4100, 5432, 6379, 9000, 9001 | Private only — **never** public | web, API, worker health, Postgres, Redis, MinIO, MinIO console |
+
+`/metrics` is served by the API on the private network and is never routed by the
+proxy — Prometheus scrapes it over the private network only.
+
+---
+
 ## First deploy
 
 ### 1. Server prerequisites
