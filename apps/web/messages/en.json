@@ -1,0 +1,55 @@
+{
+  "nav": {
+    "missionControl": "Mission Control",
+    "brands": "Brands",
+    "influencers": "Influencers",
+    "campaigns": "Campaigns",
+    "liveContent": "Live Content",
+    "calendar": "Calendar",
+    "reports": "Reports",
+    "notifications": "Notifications",
+    "settings": "Settings"
+  },
+  "common": {
+    "search": "Search everything…",
+    "quickAdd": "Quick add",
+    "viewAll": "View all",
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "create": "Create",
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete",
+    "openOriginal": "Open original",
+    "na": "N/A",
+    "allBrands": "All brands"
+  },
+  "dashboard": {
+    "title": "Mission Control",
+    "subtitle": "Everything happening across your brands, right now.",
+    "whatsNew": "What's New",
+    "needsAttention": "Needs Attention",
+    "activeCampaigns": "Active Campaigns",
+    "upcomingContent": "Upcoming Content",
+    "recentActivity": "Recent Activity",
+    "activeCampaignsStat": "Active Campaigns",
+    "activeInfluencers": "Active Influencers",
+    "contentThisWeek": "Content This Week",
+    "upcomingDeliverables": "Upcoming Deliverables",
+    "overdueDeliverables": "Overdue Deliverables",
+    "totalSpend": "Total Spend",
+    "contentAlerts": "Content Alerts"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "signOut": "Sign out"
+  },
+  "empty": {
+    "noInfluencers": "Build your creator network.",
+    "noContent": "Published campaign content will appear here.",
+    "noCampaigns": "Nothing live right now."
+  }
+}

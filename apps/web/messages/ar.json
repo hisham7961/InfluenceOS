@@ -1,0 +1,55 @@
+{
+  "nav": {
+    "missionControl": "مركز القيادة",
+    "brands": "العلامات التجارية",
+    "influencers": "المؤثرون",
+    "campaigns": "الحملات",
+    "liveContent": "المحتوى المباشر",
+    "calendar": "التقويم",
+    "reports": "التقارير",
+    "notifications": "الإشعارات",
+    "settings": "الإعدادات"
+  },
+  "common": {
+    "search": "ابحث عن أي شيء…",
+    "quickAdd": "إضافة سريعة",
+    "viewAll": "عرض الكل",
+    "loading": "جارٍ التحميل…",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "create": "إنشاء",
+    "add": "إضافة",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "openOriginal": "فتح الأصلي",
+    "na": "غير متوفر",
+    "allBrands": "كل العلامات"
+  },
+  "dashboard": {
+    "title": "مركز القيادة",
+    "subtitle": "كل ما يحدث عبر علاماتك التجارية، الآن.",
+    "whatsNew": "الجديد",
+    "needsAttention": "يحتاج إلى انتباه",
+    "activeCampaigns": "الحملات النشطة",
+    "upcomingContent": "المحتوى القادم",
+    "recentActivity": "النشاط الأخير",
+    "activeCampaignsStat": "الحملات النشطة",
+    "activeInfluencers": "المؤثرون النشطون",
+    "contentThisWeek": "محتوى هذا الأسبوع",
+    "upcomingDeliverables": "المخرجات القادمة",
+    "overdueDeliverables": "المخرجات المتأخرة",
+    "totalSpend": "إجمالي الإنفاق",
+    "contentAlerts": "تنبيهات المحتوى"
+  },
+  "auth": {
+    "signIn": "تسجيل الدخول",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "signOut": "تسجيل الخروج"
+  },
+  "empty": {
+    "noInfluencers": "ابنِ شبكة صنّاع المحتوى.",
+    "noContent": "سيظهر محتوى الحملات المنشور هنا.",
+    "noCampaigns": "لا يوجد شيء مباشر الآن."
+  }
+}
