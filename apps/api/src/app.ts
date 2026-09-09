@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
@@ -18,15 +19,37 @@ import { corsOrigins, loadEnv } from './env';
 import { resolveActor } from './http';
 import { registerRoutes } from './routes/index';
 import { installCaching } from './cache';
+import { checkDatabase } from './health';
+import { releaseInfo } from './release';
+
+/** Build the optional Redis store for distributed rate limiting. Only used when
+ *  RATE_LIMIT_REDIS is truthy and REDIS_URL is set (multi-instance deploys);
+ *  otherwise limits are per-instance in memory. */
+async function buildRateLimitRedis(url: string) {
+  const { default: IORedis } = await import('ioredis');
+  return new IORedis(url, { connectTimeout: 500, maxRetriesPerRequest: 1, enableOfflineQueue: false });
+}
 
 export async function buildApp(): Promise<FastifyInstance> {
   const env = loadEnv();
   const app = Fastify({
     logger: {
-      level: env.NODE_ENV === 'production' ? 'info' : 'warn',
-      redact: ['req.headers.authorization', 'req.headers.cookie'],
+      level: process.env.LOG_LEVEL ?? (env.NODE_ENV === 'production' ? 'info' : 'warn'),
+      // Never let secrets reach the logs (defense-in-depth; bodies aren't logged).
+      redact: {
+        paths: [
+          'req.headers.authorization',
+          'req.headers.cookie',
+          'res.headers["set-cookie"]',
+          'req.headers["x-api-key"]',
+        ],
+        censor: '[redacted]',
+      },
     },
-    genReqId: () => `req_${Math.random().toString(36).slice(2, 12)}`,
+    // Structured request/response logging is emitted by our own onResponse hook
+    // (so we can attach actorId); disable Fastify's default req/res lines.
+    disableRequestLogging: true,
+    genReqId: (req) => (req.headers['x-request-id'] as string | undefined) ?? `req_${randomUUID()}`,
     trustProxy: true,
   });
 
@@ -40,10 +63,17 @@ export async function buildApp(): Promise<FastifyInstance> {
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   });
   await app.register(cookie);
+
+  const redisStore =
+    env.RATE_LIMIT_REDIS && env.RATE_LIMIT_REDIS !== 'false' && env.REDIS_URL
+      ? await buildRateLimitRedis(env.REDIS_URL).catch(() => undefined)
+      : undefined;
   await app.register(rateLimit, {
-    max: 300,
-    timeWindow: '1 minute',
-    allowList: (req) => req.url === '/health',
+    max: env.RATE_LIMIT_MAX,
+    timeWindow: env.RATE_LIMIT_WINDOW,
+    // Liveness/readiness probes must never be rate-limited.
+    allowList: (req) => req.url === '/health' || req.url === '/ready',
+    ...(redisStore ? { redis: redisStore, skipOnError: true } : {}),
   });
   // Raw binary body for the file blob-upload proxy (two-phase signed uploads).
   // Bounded to the max upload size; JSON is still parsed by the default parser.
@@ -104,6 +134,28 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
   });
 
+  // Expose the request id on every response so it can be correlated with logs
+  // (and with the `requestId` returned in error bodies) across the proxy chain.
+  app.addHook('onRequest', async (request, reply) => {
+    reply.header('x-request-id', request.id);
+  });
+
+  // Structured access log with the resolved actor attached. One line per
+  // request; secrets are already redacted by the logger config above.
+  app.addHook('onResponse', async (request, reply) => {
+    request.log.info(
+      {
+        reqId: request.id,
+        method: request.method,
+        url: request.url,
+        statusCode: reply.statusCode,
+        responseTimeMs: Math.round(reply.elapsedTime),
+        actorId: request.actor?.id ?? null,
+      },
+      'request completed',
+    );
+  });
+
   // Standardized error contract (addendum §30) — never leaks DB errors/stacks.
   app.setErrorHandler((error, request, reply) => {
     const requestId = request.id;
@@ -141,7 +193,27 @@ export async function buildApp(): Promise<FastifyInstance> {
     reply.status(404).send(errBody('NOT_FOUND', `No route for ${request.method} ${request.url}`, request.id));
   });
 
-  app.get('/health', async () => ({ status: 'ok', service: 'influenceos-api' }));
+  // Liveness: the process is up and can serve. Cheap, no dependency I/O — a
+  // load balancer / orchestrator uses this to decide whether to restart the
+  // container. Also surfaces the running build so operators can confirm the
+  // deployed SHA. Never returns secrets.
+  app.get('/health', { schema: { hide: true } }, async () => ({
+    status: 'ok',
+    ...releaseInfo(),
+    uptimeSec: Math.round(process.uptime()),
+  }));
+
+  // Readiness: the process can reach its critical dependencies (the database).
+  // Returns 503 when a dependency is down so a rolling deploy / proxy keeps
+  // traffic off an instance that would only error. Not rate-limited.
+  app.get('/ready', { schema: { hide: true } }, async (_req, reply) => {
+    const checks = [await checkDatabase()];
+    const ready = checks.every((c) => c.status === 'ok');
+    return reply.status(ready ? 200 : 503).send({
+      status: ready ? 'ready' : 'not_ready',
+      checks,
+    });
+  });
 
   // OpenAPI JSON for SDK generation (addendum §8).
   app.get('/api/openapi.json', { schema: { hide: true } }, async () => app.swagger());

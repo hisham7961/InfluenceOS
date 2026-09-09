@@ -115,10 +115,13 @@ export function makePlatformService(ctx: DomainContext) {
 
     return {
       apiVersion: API_VERSION,
-      backendVersion: process.env.npm_package_version ?? '0.1.0',
-      webVersion: process.env.npm_package_version ?? '0.1.0',
-      environment: process.env.NODE_ENV ?? 'development',
+      backendVersion: process.env.APP_VERSION ?? process.env.npm_package_version ?? '0.1.0',
+      webVersion: process.env.APP_VERSION ?? process.env.npm_package_version ?? '0.1.0',
+      environment: process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development',
       apiBaseUrl: process.env.NEXT_PUBLIC_APP_URL ?? '',
+      gitSha: process.env.GIT_SHA ?? 'unknown',
+      buildTime: process.env.BUILD_TIME ?? null,
+      uptimeSec: Math.round(process.uptime()),
       health,
       mobileReadinessPercent: coverage.mobileReadinessPercent,
       coverage: {

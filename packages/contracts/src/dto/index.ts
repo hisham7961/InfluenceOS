@@ -632,6 +632,10 @@ export interface PlatformStatusDTO {
   webVersion: string;
   environment: string;
   apiBaseUrl: string;
+  /** Deployed build identity so an admin can confirm exactly which release is live. */
+  gitSha: string;
+  buildTime: string | null;
+  uptimeSec: number;
   health: HealthComponentDTO[];
   mobileReadinessPercent: number;
   coverage: {

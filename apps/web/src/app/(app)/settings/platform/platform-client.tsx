@@ -194,6 +194,16 @@ function ReadinessRing({ percent, size = 132, strokeWidth = 11 }: { percent: num
 
 type CoverageTone = 'neutral' | 'info' | 'accent' | 'success' | 'warning';
 
+function formatUptime(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return '—';
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
 function InfoTile({ label, value, capitalize }: { label: string; value: string; capitalize?: boolean }) {
   return (
     <div>
@@ -253,6 +263,9 @@ function OverviewTab({ status }: { status: PlatformStatusDTO }) {
             <InfoTile label="Environment" value={status.environment} capitalize />
             <InfoTile label="Backend version" value={status.backendVersion} />
             <InfoTile label="Web version" value={status.webVersion} />
+            <InfoTile label="Git SHA" value={status.gitSha === 'unknown' ? '—' : status.gitSha.slice(0, 12)} />
+            <InfoTile label="Built" value={status.buildTime ? new Date(status.buildTime).toLocaleString() : '—'} />
+            <InfoTile label="Uptime" value={formatUptime(status.uptimeSec)} />
           </CardContent>
         </Card>
 
