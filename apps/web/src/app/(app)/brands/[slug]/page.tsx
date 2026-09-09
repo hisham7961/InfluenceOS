@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Megaphone, PlaySquare, Users, Wallet } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import type { BrandDashboardDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import { getServerApi } from '@/lib/api-server';
@@ -91,17 +91,18 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
         </div>
       </Card>
 
-      {/* Stat tiles */}
+      {/* Stat tiles — iconName (not icon) because Server Components can't pass
+          a Lucide icon function across the RSC boundary. */}
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Active Campaigns" value={stats.activeCampaigns} icon={Megaphone} tone="info" hint={`${stats.totalCampaigns} total`} />
-        <StatCard label="Influencers" value={stats.influencers} icon={Users} tone="accent" />
-        <StatCard label="Content Published" value={stats.contentCount} icon={PlaySquare} tone="success" />
+        <StatCard label="Active Campaigns" value={stats.activeCampaigns} iconName="megaphone" tone="info" hint={`${stats.totalCampaigns} total`} />
+        <StatCard label="Influencers" value={stats.influencers} iconName="users" tone="accent" />
+        <StatCard label="Content Published" value={stats.contentCount} iconName="content" tone="success" />
         <StatCard
           label="Total Spend"
           value={stats.totalSpend}
-          icon={Wallet}
+          iconName="wallet"
           tone="warning"
-          format={(n) => formatCurrency(n, stats.currency)}
+          formatted={formatCurrency(stats.totalSpend, stats.currency)}
         />
       </div>
 

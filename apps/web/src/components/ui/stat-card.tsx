@@ -1,11 +1,42 @@
 'use client';
 
-import { ArrowDownRight, ArrowUpRight, type LucideIcon } from 'lucide-react';
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Database,
+  HardDrive,
+  Megaphone,
+  PackageCheck,
+  PlaySquare,
+  Upload,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react';
 import { Card, CardContent } from './card';
 import { AnimatedNumber } from './animated-number';
 import { cn } from '@/lib/cn';
 
 export type StatCardTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'accent';
+
+/**
+ * Named icons a Server Component can request by string. Server Components cannot
+ * pass a Lucide icon (a function) to this client component — that trips React's
+ * "functions cannot be passed to Client Components" boundary — so they pass
+ * `iconName` and the mapping happens here, inside the client boundary.
+ */
+export const STAT_ICONS = {
+  megaphone: Megaphone,
+  users: Users,
+  content: PlaySquare,
+  wallet: Wallet,
+  deliverables: PackageCheck,
+  harddrive: HardDrive,
+  database: Database,
+  upload: Upload,
+} satisfies Record<string, LucideIcon>;
+
+export type StatIconName = keyof typeof STAT_ICONS;
 
 const toneIconStyles: Record<StatCardTone, string> = {
   neutral: 'bg-surface-muted text-muted-foreground',
@@ -26,8 +57,17 @@ export interface StatCardTrend {
 export interface StatCardProps {
   label: string;
   value: number | null;
+  /** Icon component — for CLIENT callers only (a function can't cross the RSC
+   *  boundary). Server Components must use `iconName` instead. */
   icon?: LucideIcon;
+  /** Icon by name — the Server-Component-safe way to set an icon. */
+  iconName?: StatIconName;
+  /** Client-side number formatter. Do NOT pass this from a Server Component —
+   *  functions can't cross the RSC boundary; use `formatted` instead. */
   format?: (n: number) => string;
+  /** Pre-formatted display string. Use this from Server Components (which
+   *  cannot pass a `format` function). Takes precedence over `format`/animation. */
+  formatted?: string;
   hint?: string;
   tone?: StatCardTone;
   trend?: StatCardTrend;
@@ -38,13 +78,16 @@ export interface StatCardProps {
 export function StatCard({
   label,
   value,
-  icon: Icon,
+  icon,
+  iconName,
   format,
+  formatted,
   hint,
   tone = 'neutral',
   trend,
   className,
 }: StatCardProps) {
+  const Icon = icon ?? (iconName ? STAT_ICONS[iconName] : undefined);
   const isPositiveTrend = trend !== undefined ? trend.value >= 0 : null;
   const TrendIcon = isPositiveTrend ? ArrowUpRight : ArrowDownRight;
 
@@ -66,7 +109,7 @@ export function StatCard({
         </div>
 
         <div className="text-3xl font-semibold tracking-tight text-foreground">
-          <AnimatedNumber value={value} format={format} />
+          {formatted != null ? formatted : <AnimatedNumber value={value} format={format} />}
         </div>
 
         {hint || trend ? (

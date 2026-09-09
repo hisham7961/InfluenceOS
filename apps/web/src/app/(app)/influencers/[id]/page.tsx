@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Mail, MapPin, Megaphone, MessageCircle, PackageCheck, Phone, Tag, Users, Wallet } from 'lucide-react';
+import { ArrowLeft, Mail, MapPin, MessageCircle, Phone, Tag } from 'lucide-react';
 import type { InfluencerDetailDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import { getServerApi } from '@/lib/api-server';
@@ -123,27 +123,27 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
         </CardContent>
       </Card>
 
-      {/* Stat row */}
+      {/* Stat row — iconName (not icon) for the RSC boundary. */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Total Followers" value={influencer.totalFollowers} icon={Users} tone="info" format={formatCompact} />
         <StatCard
-          label="Campaigns"
-          value={history.campaignCount}
-          icon={Megaphone}
-          tone="accent"
-          hint={`${influencer.activeCampaigns} active now`}
+          label="Total Followers"
+          value={influencer.totalFollowers}
+          iconName="users"
+          tone="info"
+          formatted={influencer.totalFollowers != null ? formatCompact(influencer.totalFollowers) : 'N/A'}
         />
+        <StatCard label="Campaigns" value={history.campaignCount} iconName="megaphone" tone="accent" hint={`${influencer.activeCampaigns} active now`} />
         <StatCard
           label="Average Rate"
           value={history.averageRate}
-          icon={Wallet}
+          iconName="wallet"
           tone="warning"
-          format={(n) => formatCurrency(n)}
+          formatted={history.averageRate != null ? formatCurrency(history.averageRate) : 'N/A'}
         />
         <StatCard
           label="Deliverables Published"
           value={history.deliverablesPublished}
-          icon={PackageCheck}
+          iconName="deliverables"
           tone="success"
           hint={`of ${history.deliverablesTotal} total`}
         />

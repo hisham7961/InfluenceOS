@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, CalendarClock, PlaySquare, Target, Users, Wallet } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Target, Wallet } from 'lucide-react';
 import type { CampaignDetailDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import { getServerApi } from '@/lib/api-server';
@@ -142,11 +142,11 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         <StatCard
           label="Influencers"
           value={p.influencersTotal}
-          icon={Users}
+          iconName="users"
           tone="info"
           hint={`${p.influencersCompleted} completed`}
         />
-        <StatCard label="Published Content" value={campaign.publishedContentCount} icon={PlaySquare} tone="success" />
+        <StatCard label="Published Content" value={campaign.publishedContentCount} iconName="content" tone="success" />
       </div>
 
       <Workspace

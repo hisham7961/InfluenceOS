@@ -65,9 +65,12 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
   }
 
   const buf = await res.arrayBuffer();
-  const out = new NextResponse(buf, { status: res.status });
+  // 204/205/304 responses MUST have a null body — the Response constructor
+  // throws otherwise (e.g. a 204 from delete/upload/logout).
+  const nullBody = res.status === 204 || res.status === 205 || res.status === 304;
+  const out = new NextResponse(nullBody ? null : buf, { status: res.status });
   const ct = res.headers.get('content-type');
-  if (ct) out.headers.set('content-type', ct);
+  if (ct && !nullBody) out.headers.set('content-type', ct);
   const cd = res.headers.get('content-disposition');
   if (cd) out.headers.set('content-disposition', cd);
   return out;
