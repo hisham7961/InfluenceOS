@@ -2,8 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'claude/**']
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -11,7 +12,7 @@ concurrency:
 
 jobs:
   build:
-    name: Lint · Typecheck · Test · Build
+    name: Lint · Typecheck · Tests · Build
     runs-on: ubuntu-latest
 
     services:
@@ -20,7 +21,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: influenceos
+          POSTGRES_DB: influenceos_test
         ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U postgres"
@@ -33,20 +34,107 @@ jobs:
           --health-interval 5s --health-timeout 3s --health-retries 10
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/influenceos?schema=public
-      DIRECT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/influenceos?schema=public
+      # Isolated CI database — never a real environment (finding #6).
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/influenceos_test?schema=public
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/influenceos_test?schema=public
       REDIS_URL: redis://localhost:6379
       AUTH_SECRET: ci-secret-value-at-least-16-chars
+      AUTH_REFRESH_GRACE_MS: '2000'
+      STORAGE_DRIVER: local
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       INTERNAL_API_URL: http://localhost:4000
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
         with:
           version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
 
+      # Materialize a root .env so the workspace's `dotenv -e ../../.env`
+      # scripts resolve identically to a developer machine.
+      - name: Write .env
+        run: |
+          cat > .env <<EOF
+          DATABASE_URL=${DATABASE_URL}
+          DIRECT_DATABASE_URL=${DIRECT_DATABASE_URL}
+          REDIS_URL=${REDIS_URL}
+          AUTH_SECRET=${AUTH_SECRET}
+          AUTH_REFRESH_GRACE_MS=${AUTH_REFRESH_GRACE_MS}
+          STORAGE_DRIVER=${STORAGE_DRIVER}
+          NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+          INTERNAL_API_URL=${INTERNAL_API_URL}
+          EOF
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm db:generate
+      - name: Apply migrations
+        run: pnpm db:deploy
+
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test:unit
+      - name: Integration tests
+        run: pnpm test:integration
+      - name: Contract tests
+        run: pnpm test:contract
+      - name: DoD scenario
+        run: pnpm test:dod
+
+      - name: Build
+        run: pnpm build
+
+  e2e:
+    name: Playwright E2E (full stack)
+    runs-on: ubuntu-latest
+    needs: build
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: influenceos_e2e
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/influenceos_e2e?schema=public
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/influenceos_e2e?schema=public
+      REDIS_URL: redis://localhost:6379
+      AUTH_SECRET: ci-secret-value-at-least-16-chars
+      STORAGE_DRIVER: local
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      INTERNAL_API_URL: http://localhost:4000
+      API_PORT: '4000'
+      API_HOST: 0.0.0.0
+      WEB_ORIGIN: http://localhost:3000
+      E2E_BASE_URL: http://localhost:3000
+      CI: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -54,34 +142,45 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
-
       - name: Generate Prisma client
         run: pnpm db:generate
-
       - name: Apply migrations
         run: pnpm db:deploy
+      - name: Seed demo data
+        run: SEED_DEMO=true CONFIRM_WIPE=true pnpm --filter @influenceos/database exec tsx prisma/seed.ts
 
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Build web
+        run: pnpm --filter @influenceos/web build
+      - name: Install Playwright browser
+        run: pnpm --filter @influenceos/web exec playwright install --with-deps chromium
 
-      - name: Lint
-        run: pnpm lint
+      - name: Start API
+        run: |
+          pnpm --filter @influenceos/api exec tsx src/index.ts > /tmp/api.log 2>&1 &
+          echo "Waiting for API on :4000…"
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:4000/health && break
+            sleep 1
+          done
+          curl -sf http://localhost:4000/health || { echo "API failed to start"; cat /tmp/api.log; exit 1; }
 
-      - name: Unit tests
-        run: pnpm test
+      - name: Start web
+        run: |
+          pnpm --filter @influenceos/web start > /tmp/web.log 2>&1 &
+          echo "Waiting for web on :3000…"
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3000/login && break
+            sleep 1
+          done
+          curl -sf http://localhost:3000/login || { echo "Web failed to start"; cat /tmp/web.log; exit 1; }
 
-      - name: Seed (smoke)
-        run: pnpm db:seed
+      - name: Run Playwright E2E
+        run: pnpm --filter @influenceos/web exec playwright test
 
-      - name: Build
-        run: pnpm build
-
-  e2e:
-    name: Playwright E2E
-    runs-on: ubuntu-latest
-    needs: build
-    # E2E requires the full stack; enabled once app Docker images are wired.
-    if: ${{ false }}
-    steps:
-      - uses: actions/checkout@v4
-      - run: echo "Playwright E2E placeholder — see apps/web/e2e."
+      - name: Upload Playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7
