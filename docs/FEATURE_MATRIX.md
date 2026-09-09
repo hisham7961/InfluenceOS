@@ -6,7 +6,7 @@ Every major capability, its backend/API/web status, and whether it is **Mobile R
 (business logic server-side, documented API, server-side auth + permissions, stable
 contracts, media represented independently of the web UI — spec addendum §37).
 
-**Coverage:** 22 features · API ready 20 · Web ready 21 · Mobile ready 20 · Admin-desktop-only 2 · **Mobile readiness 100%** (of SHARED features).
+**Coverage:** 23 features · API ready 22 · Web ready 23 · Mobile ready 21 · Admin-desktop-only 2 · **Mobile readiness 100%** (of SHARED features).
 
 | Feature | Module | Class | API | Web | Mobile Ready | Roles | Flag |
 |---|---|---|---|---|:---:|---|---|
@@ -26,9 +26,10 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Notifications | Notifications | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Activity Feed | Activity | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Global Search | Search | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
-| Files & Attachments | Files | SHARED | PARTIAL | PARTIAL | ✅ | ADMIN, STAFF | — |
+| Files & Attachments | Files | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Integration Capabilities | Settings | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Client Config & Feature Flags | Settings | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Storage Administration | Settings | SHARED | READY | READY | ✅ | ADMIN | — |
 | Provider Secrets | Settings | ADMIN_DESKTOP_ONLY | ADMIN_SERVER_ONLY | READY | — | ADMIN | — |
 | User Administration | Settings | ADMIN_DESKTOP_ONLY | READY | READY | — | ADMIN | — |
 | Content Monitoring | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
@@ -133,7 +134,11 @@ contracts, media represented independently of the web UI — spec addendum §37)
 ### Files & Attachments
 
 - `POST /api/v1/files`
+- `POST /api/v1/files/complete`
+- `GET /api/v1/files`
 - `GET /api/v1/files/:id`
+- `GET /api/v1/files/:id/blob`
+- `DELETE /api/v1/files/:id`
 
 ### Integration Capabilities
 
@@ -143,6 +148,10 @@ contracts, media represented independently of the web UI — spec addendum §37)
 
 - `GET /api/v1/client-config`
 - `GET /api/v1/platform/features`
+
+### Storage Administration
+
+- `GET /api/v1/platform/storage`
 
 ### Provider Secrets
 
