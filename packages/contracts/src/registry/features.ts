@@ -52,6 +52,7 @@ export const FEATURES: FeatureEntry[] = [
       'POST /api/v1/auth/logout',
       'POST /api/v1/auth/change-password',
       'GET /api/v1/auth/me',
+      'PATCH /api/v1/auth/me/preferences',
       'GET /api/v1/auth/sessions',
     ],
     deepLink: null,

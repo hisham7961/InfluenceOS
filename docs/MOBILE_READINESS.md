@@ -40,6 +40,7 @@ administration surface).
 
 | Feature | API | Web | Mobile Ready | Deep Link |
 |---|:---:|:---:|:---:|---|
+| Audit Log | ✅ | ✅ | — | — |
 | Provider Secrets | — | ✅ | — | — |
 | User Administration | ✅ | ✅ | — | — |
 
@@ -50,4 +51,4 @@ administration surface).
 6. Request/response contracts stable · 7. Media represented independently of web UI ·
 8. Filtering/pagination server-side · 9. API tests exist · 10. No web-only server behavior.
 
-Total documented endpoints: 61.
+Total documented endpoints: 64.

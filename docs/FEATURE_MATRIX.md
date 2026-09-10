@@ -6,7 +6,7 @@ Every major capability, its backend/API/web status, and whether it is **Mobile R
 (business logic server-side, documented API, server-side auth + permissions, stable
 contracts, media represented independently of the web UI — spec addendum §37).
 
-**Coverage:** 23 features · API ready 22 · Web ready 23 · Mobile ready 21 · Admin-desktop-only 2 · **Mobile readiness 100%** (of SHARED features).
+**Coverage:** 24 features · API ready 23 · Web ready 24 · Mobile ready 21 · Admin-desktop-only 3 · **Mobile readiness 100%** (of SHARED features).
 
 | Feature | Module | Class | API | Web | Mobile Ready | Roles | Flag |
 |---|---|---|---|---|:---:|---|---|
@@ -30,6 +30,7 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Integration Capabilities | Settings | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Client Config & Feature Flags | Settings | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Storage Administration | Settings | SHARED | READY | READY | ✅ | ADMIN | — |
+| Audit Log | Settings | ADMIN_DESKTOP_ONLY | READY | READY | — | ADMIN | — |
 | Provider Secrets | Settings | ADMIN_DESKTOP_ONLY | ADMIN_SERVER_ONLY | READY | — | ADMIN | — |
 | User Administration | Settings | ADMIN_DESKTOP_ONLY | READY | READY | — | ADMIN | — |
 | Content Monitoring | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
@@ -41,7 +42,9 @@ contracts, media represented independently of the web UI — spec addendum §37)
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
+- `POST /api/v1/auth/change-password`
 - `GET /api/v1/auth/me`
+- `PATCH /api/v1/auth/me/preferences`
 - `GET /api/v1/auth/sessions`
 
 ### Brands & Brand Switching
@@ -152,6 +155,10 @@ contracts, media represented independently of the web UI — spec addendum §37)
 ### Storage Administration
 
 - `GET /api/v1/platform/storage`
+
+### Audit Log
+
+- `GET /api/v1/platform/audit`
 
 ### Provider Secrets
 
