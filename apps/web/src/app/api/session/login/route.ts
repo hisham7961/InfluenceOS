@@ -1,7 +1,11 @@
 import { cookies } from 'next/headers';
 import { NextResponse, type NextRequest } from 'next/server';
 import { ApiError, createClient } from '@influenceos/api-client';
-import { apiBaseUrl, writeAuthCookies } from '@/lib/session';
+import { LOCALE_COOKIE, THEME_COOKIE, apiBaseUrl, writeAuthCookies } from '@/lib/session';
+
+// UI-preference cookies are readable/writable by the client toggles, so unlike
+// the token cookies they are not httpOnly. A year keeps the preference sticky.
+const PREF_COOKIE = { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' as const };
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +26,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
     const store = await cookies();
     writeAuthCookies(store, result.tokens.accessToken, result.tokens.refreshToken);
+    // Apply the account's saved UI preferences to this device so theme/locale
+    // follow the user across browsers and devices (the source of truth is the
+    // account; these cookies are the fast local cache the toggles also update).
+    store.set(LOCALE_COOKIE, result.user.locale, PREF_COOKIE);
+    store.set(THEME_COOKIE, result.user.theme, PREF_COOKIE);
     return NextResponse.json({ user: result.user });
   } catch (err) {
     if (err instanceof ApiError) {

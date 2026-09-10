@@ -321,6 +321,23 @@ export function makeAuthService(ctx: DomainContext) {
     return toUserDTO(user);
   }
 
+  /** Persist the current user's UI preferences (locale/theme) on their account
+   *  so they follow the user across devices and to future mobile clients. Only
+   *  the provided fields change. */
+  async function updatePreferences(
+    input: z.infer<typeof requests.updatePreferencesSchema>,
+  ): Promise<UserDTO> {
+    if (!ctx.actor) throw AppError.unauthorized();
+    const user = await prisma.user.update({
+      where: { id: ctx.actor.id },
+      data: {
+        ...(input.locale !== undefined ? { locale: input.locale } : {}),
+        ...(input.theme !== undefined ? { theme: input.theme } : {}),
+      },
+    });
+    return toUserDTO(user);
+  }
+
   async function sessions(): Promise<DeviceSessionDTO[]> {
     if (!ctx.actor) throw AppError.unauthorized();
     const rows = await prisma.deviceSession.findMany({
@@ -401,6 +418,7 @@ export function makeAuthService(ctx: DomainContext) {
     logout,
     authenticate,
     me,
+    updatePreferences,
     sessions,
     revokeSession,
     changePassword,

@@ -144,7 +144,8 @@ export default async function SettingsPage() {
               <p className="text-base font-semibold leading-tight tracking-tight">Appearance & language</p>
               <p className="text-sm text-muted-foreground">
                 Switch between light and dark theme, or toggle English / العربية (RTL), using the
-                controls in the top bar — changes apply instantly and are saved to your profile.
+                controls in the top bar — changes apply instantly and are saved to your account, so
+                they follow you to any device you sign in on.
               </p>
             </div>
           </CardHeader>

@@ -107,7 +107,8 @@ export default async function GeneralSettingsPage() {
               <LocaleToggle />
             </div>
             <p className="text-xs text-muted-foreground">
-              Changes apply instantly and are saved to your profile.
+              Changes apply instantly and are saved to your account, so they follow you to any
+              device you sign in on.
             </p>
           </CardContent>
         </Card>

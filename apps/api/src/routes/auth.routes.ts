@@ -49,6 +49,20 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).auth.me(),
   );
 
+  r.patch(
+    '/auth/me/preferences',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Auth'],
+        summary: 'Update your UI preferences (locale/theme) on your account',
+        body: requests.updatePreferencesSchema,
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (req) => servicesFor(req).auth.updatePreferences(req.body),
+  );
+
   r.get(
     '/auth/sessions',
     { preHandler: [requireAuth], schema: { tags: ['Auth'], summary: 'List active device sessions' } },

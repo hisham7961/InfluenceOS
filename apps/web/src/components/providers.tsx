@@ -11,7 +11,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 30_000,
-            refetchOnWindowFocus: false,
+            // Refresh when the operator returns to the tab so views reflect
+            // background worker/provider changes without manual reload. The 30s
+            // staleTime keeps this from refetching on every focus.
+            refetchOnWindowFocus: true,
             retry: 1,
           },
         },

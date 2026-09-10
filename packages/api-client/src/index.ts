@@ -70,6 +70,8 @@ export function createClient(config: ClientConfig) {
         http.post<AuthResultDTO>(`${V}/auth/refresh`, body ?? {}),
       logout: (body?: { refreshToken?: string }) => http.post<void>(`${V}/auth/logout`, body ?? {}),
       me: () => http.get<UserDTO>(`${V}/auth/me`),
+      updatePreferences: (body: In<typeof requests.updatePreferencesSchema>) =>
+        http.patch<UserDTO>(`${V}/auth/me/preferences`, body),
       sessions: () => http.get<DeviceSessionDTO[]>(`${V}/auth/sessions`),
       revokeSession: (id: string) => http.del<void>(`${V}/auth/sessions/${id}`),
       changePassword: (body: In<typeof requests.changePasswordSchema>) =>

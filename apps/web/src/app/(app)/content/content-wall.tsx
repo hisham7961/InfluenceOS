@@ -95,6 +95,10 @@ export function ContentWall({
     getNextPageParam: (lastPage) => (lastPage.hasMore ? (lastPage.nextCursor ?? undefined) : undefined),
     initialData: isDefaultFilters ? () => ({ pages: [initial], pageParams: [undefined] }) : undefined,
     staleTime: 30_000,
+    // The Live Content wall reflects worker-detected availability/status changes,
+    // so refresh it periodically while it's open (paused when the tab is hidden).
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
 
   const items = React.useMemo(() => query.data?.pages.flatMap((page) => page.data) ?? [], [query.data]);

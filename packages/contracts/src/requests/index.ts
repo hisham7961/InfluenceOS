@@ -73,6 +73,19 @@ export const changePasswordSchema = z.object({
 });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
+/** UI preferences persisted on the user account (so they follow the user across
+ *  devices and to future mobile clients). Both optional — a request updates only
+ *  the fields it carries. */
+export const updatePreferencesSchema = z
+  .object({
+    locale: z.enum(['en', 'ar']).optional(),
+    theme: z.enum(['light', 'dark', 'system']).optional(),
+  })
+  .refine((v) => v.locale !== undefined || v.theme !== undefined, {
+    message: 'Provide a locale and/or a theme.',
+  });
+export type UpdatePreferencesInput = z.infer<typeof updatePreferencesSchema>;
+
 // --- Common query ----------------------------------------------------------
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
