@@ -74,39 +74,49 @@ entry). Two low-severity code-quality findings are tracked in §15 below.
 | Security headers / CSP (HSTS in prod, object-store origin allow-listed) | ✅ READY | |
 | Secret scanning (gitleaks) in CI | ✅ READY | real `.env.*` files git-ignored; only `*.example` tracked |
 | Static security audit (secrets, sinks, SQL, CORS, redaction, token storage) | ✅ READY | no high/medium findings |
-| Dependency vulnerabilities | 🟡 PARTIAL | see §5 — remaining findings are tracked and require a controlled Next.js major-version QA, not a blind bump |
+| Dependency vulnerabilities | ✅ READY | 0 applicable critical, 0 applicable high — see §5. Only 3 moderate + 1 low remain, each classified as not reachable in this app/topology. |
 
-## 5. Dependency vulnerabilities (tracked)
+## 5. Dependency vulnerabilities
 
-Current production audit (`pnpm audit --prod`): **4 critical, 17 high, 25
-moderate, 4 low.**
+Current production audit (`pnpm audit --prod`): **0 critical, 0 high, 3
+moderate, 1 low** (was 4 critical / 17 high / 25 moderate / 4 low at the start of
+the freeze pass).
 
-Fixed safely in this phase (no uncontrolled major upgrades — per the phase
-rule):
+Fixed in the controlled freeze upgrade (smallest safe path; no blind major jump):
 
-- **fastify** 5.2.1 → **5.8.5** (validated by the full API suite + CI).
-- **fast-xml-parser** pinned via `pnpm.overrides` to `>=4.5.5` (transitive, via
-  the AWS SDK) — closes its advisory.
+- **next** 15.1.6 → **15.5.25** (maintained 15.x line) — clears all 4 Next.js
+  criticals and the Next-toolchain highs (sharp/libvips, DoS/SSRF). Validated:
+  typecheck, lint, production build, API suite, Playwright smoke, and the full
+  browser DoD journey.
+- **@fastify/swagger-ui** 5.2.2 → **6.1.1** → pulls **@fastify/static 10.1.3**,
+  clearing its route-guard/path-traversal advisories.
+- **fastify** 5.8.5 → **5.12.3** — clears the schema-coercion and X-Forwarded
+  (trustProxy) moderates.
+- **postcss** → **8.5.28** (+ override) — clears the source-map path-traversal
+  highs (build-time tool).
+- **@playwright/test** 1.49.1 → **1.56.1** — clears the browser-integrity high
+  (dev/test only).
+- Retained: **fast-xml-parser** `>=4.5.5` override.
 
-Remaining, and why they are tracked rather than force-fixed now:
+Remaining, each verified **not reachable** in this application/topology (fix
+needs a major bump with no applicable code path — tracked, not blocking):
 
 | Package | Severity | Assessment |
 | --- | --- | --- |
-| **next** (15.1.6) | 4 critical + several high/moderate | The fix is a Next.js major/minor jump (15.5.x line). It could **not** be validated in this sandbox: the browser Definition-of-Done journey hangs on the client `load` event because the environment has no outbound network for `next/image`/embeds, and the sandbox Playwright/Chromium versions are mismatched — so a bump could not be proven green. The phase rule forbids uncontrolled framework upgrades. **Risk containment:** the two "Unauthenticated RCE" criticals are Windows/dev-server conditions that do not apply to the Linux production container; the "Middleware authorization bypass" does not grant access here because authorization is enforced in the **API** layer, not in Next.js middleware. The Next.js upgrade is the top item for the first controlled maintenance window (with browser QA on real infrastructure). |
-| **sharp / libvips / libheif** | high | Pulled in transitively by Next image optimization; resolves with the Next upgrade. |
-| **@fastify/static** | high/moderate | Route-guard/path-traversal advisories; the API does not serve user-controlled static paths through it. Resolves on its next patch line; tracked. |
-| **postcss** | high | Build-time only (not shipped to runtime). Resolves with the Next toolchain upgrade. |
-| **playwright** | high | Dev/test dependency only; not in the production image. |
+| **next-intl** (3.26.x) | moderate ×2 | Open-redirect lives in next-intl's routing/navigation middleware and prototype-pollution in `experimental.messages.precompile`. We use **only** `next-intl/server` (`getLocale`/`getMessages`/`getRequestConfig`) — no next-intl routing/middleware and not that experimental option — so neither code path exists here. Fix requires next-intl 4.x (breaking i18n); scheduled for a controlled i18n upgrade. |
+| **uuid** (9.0.1) | moderate | Transitive; the advisory triggers only when a caller passes a `buf` argument to v3/v5/v6, which our dependents do not (we use `node:crypto` `randomUUID`). Fix needs a major override. |
+| **@smithy/config-resolver** | low | AWS SDK "defense-in-depth enhancement", not an exploitable defect; resolves on the next AWS SDK bump. |
 
-None of the remaining findings is exploitable in the deployed Linux
-container topology as configured; all are tracked for a controlled upgrade
-window. This is a 🟡, not a 🔴.
+This is a ✅ for the freeze target (0 applicable critical, 0 applicable high);
+the residual moderates/low are documented, not silently accepted.
 
 ## 6. Testing
 
 | Item | Status | Notes |
 | --- | --- | --- |
-| Unit + integration (api via `app.inject()`) | ✅ READY | 50 passed, 1 skipped |
+| Unit + integration (api via `app.inject()`) | ✅ READY | 63 passed, 1 skipped |
+| Money precision (exact Decimal; 0.1+0.2, multi-line totals, deal semantics) | ✅ READY | domain `money.test.ts` + api `money-precision.test.ts` / `deal-semantics.test.ts` |
+| Account preference persistence + shared transport constants | ✅ READY | `preferences.test.ts`, `transport.test.ts` |
 | Access-control tests (ADMIN vs STAFF, mutating ops → 403) | ✅ READY | `authz.test.ts` |
 | Brand-isolation tests (scoped queries don't leak across brands) | ✅ READY | `brand-isolation.test.ts` |
 | File-authorization tests (cross-file / tampered / missing / expired ticket) | ✅ READY | `file-authz.test.ts` |
@@ -197,26 +207,24 @@ window. This is a 🟡, not a 🔴.
 
 ---
 
-## Tracked minor findings (not blockers)
+## Previously-tracked minor findings — now resolved in the freeze pass
 
-These came out of the independent audits. They are safe as-is and are recorded
-so they are not lost:
+The audit findings that were open at pre-deployment have been closed:
 
-1. **Monetary amounts stored as floating point.** Campaign budgets / expenses
-   use floating-point numbers rather than integer minor-units or a decimal type.
-   No correctness issue is currently observed, but for accounting-grade rounding
-   safety a future migration to integer minor-units (or `Prisma.Decimal`) is
-   recommended. Tracked; not a deployment blocker.
-2. **Duplicated session-transport constants.** The cookie/token transport
-   constant names are defined in more than one place (API and web). They agree
-   today; consolidating them into one shared source would remove the risk of
-   future drift. Cosmetic; not a deployment blocker.
-3. **Next.js dependency CVEs** — see §5. Tracked for a controlled upgrade
-   window with browser QA on real infrastructure.
-4. **Low-priority UI copy/refresh** — the theme/locale settings copy says
-   "saved to your profile" where the save is currently client-local, and the
-   content view does not auto-refetch after a background change. Cosmetic;
-   tracked.
+1. **Monetary amounts as floating point** → **RESOLVED.** All money is exact
+   `Prisma.Decimal` arithmetic converted once to a scale-3 `number` DTO; storage
+   widened to `Decimal(18,3)` for KWD fils. Unit + end-to-end precision tests.
+2. **Duplicated session-transport constants** → **RESOLVED.** Consolidated into
+   `@influenceos/contracts/transport`, imported by web BFF, edge middleware, and
+   API; pinned by a contract test.
+3. **Next.js dependency CVEs** → **RESOLVED** (0 applicable critical / 0
+   applicable high). See §5 for the controlled upgrade and the residual, non-
+   reachable moderates/low.
+4. **Theme/locale copy + background refresh** → **RESOLVED.** Preferences are
+   persisted on the account (truthful copy); refresh-on-focus + a Live Content
+   interval + a throttled Mission Control refresh were added.
+
+No open minor findings remain. No 🔴 blockers.
 
 ## Bottom line
 

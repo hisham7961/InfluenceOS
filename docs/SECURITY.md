@@ -479,13 +479,18 @@ checked and the finding.
 
 ### Residual items (accepted, tracked)
 
-- **Transitive dependency advisories.** `pnpm audit` reports advisories that are
-  transitive through the Next.js / SSR build toolchain (e.g. `sharp`, `postcss`,
-  `esbuild`) and cannot be resolved without a framework major upgrade, which is
-  out of scope for this pass. The CI `security` job runs the audit in
-  **report-only** mode so the advisories stay visible on every run; runtime
-  exposure is limited (largely build/SSR-time packages). Revisit on dependency
-  upgrades. Tracked in `docs/PRODUCTION_READINESS.md`.
+- **Dependency advisories.** The freeze-candidate upgrade (Next.js 15.5.25,
+  @fastify/swagger-ui 6 → @fastify/static 10.1.3, fastify 5.12.3, postcss
+  8.5.28, Playwright 1.56.1) took `pnpm audit --prod` from 4 critical / 17 high
+  to **0 applicable critical / 0 applicable high**. Three moderate + one low
+  remain, each verified **not reachable** in this app/topology: `next-intl`
+  (we use only `next-intl/server`, not its routing middleware or the
+  `experimental.messages.precompile` option), `uuid` (only vulnerable when a
+  caller passes `buf`; we use `node:crypto`), and an `@smithy/config-resolver`
+  low "defense-in-depth" note — all needing a major bump with no applicable
+  code path. The CI `security` job still runs the audit in **report-only** mode
+  so the residual advisories stay visible. Full classification in
+  `docs/PRE_DEPLOYMENT_STATUS.md` §5.
 - **CSP `unsafe-inline` / `unsafe-eval`.** The web CSP retains these for Next.js's
   runtime. Tightening to a nonce/hash-based policy is a follow-up; the production
   CSP already drops the dev-only `localhost`/websocket `connect-src` sources.
