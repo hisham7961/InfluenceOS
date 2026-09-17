@@ -47,3 +47,6 @@ Thumbs.db
 # Local attachment uploads (test/dev artifacts)
 apps/api/uploads/
 uploads/
+
+# Redis persistence artifact (written to cwd by a local redis-server during testing)
+*.rdb
