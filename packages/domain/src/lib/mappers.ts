@@ -16,7 +16,7 @@ import type {
   SocialAccountDTO,
 } from '@influenceos/contracts';
 import { iso } from './helpers';
-import { moneyNumberOr0, type MoneyInput } from './money';
+import { moneyNumberOr0, toMoneyNumber, type MoneyInput } from './money';
 
 /*
  * Mappers translate persistence rows into API DTOs. They accept structural
@@ -160,6 +160,8 @@ interface ExpenseLike {
   amount: MoneyInput;
   currency: string;
   paymentStatus: ExpenseDTO['paymentStatus'];
+  paidAmount: MoneyInput;
+  paidAt: Date | null;
   incurredAt: Date | null;
   notes: string | null;
   createdAt: Date;
@@ -175,6 +177,8 @@ export function toExpenseDTO(e: ExpenseLike): ExpenseDTO {
     amount: moneyNumberOr0(e.amount),
     currency: e.currency,
     paymentStatus: e.paymentStatus,
+    paidAmount: toMoneyNumber(e.paidAmount),
+    paidAt: iso(e.paidAt),
     incurredAt: iso(e.incurredAt),
     notes: e.notes,
     createdAt: e.createdAt.toISOString(),

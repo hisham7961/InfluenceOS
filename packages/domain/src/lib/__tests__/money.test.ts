@@ -4,8 +4,10 @@ import {
   MONEY_SCALE,
   moneyNumberOr0,
   percentOf,
+  resolveScopeCurrency,
   subtractMoney,
   sumMoney,
+  sumMoneyByCurrency,
   toDecimal,
   toMoneyNumber,
 } from '../money';
@@ -76,5 +78,31 @@ describe('money — exact Decimal arithmetic, never JS float', () => {
     const a = new Prisma.Decimal('0.1');
     const b = new Prisma.Decimal('0.2');
     expect(toMoneyNumber(sumMoney([a, b]))).toBe(0.3);
+  });
+
+  // W1-5 / DB-03: never collapse different currencies into one figure.
+  it('sumMoneyByCurrency groups by currency and never merges them', () => {
+    const totals = sumMoneyByCurrency([
+      { amount: 1000, currency: 'KWD' },
+      { amount: 500, currency: 'USD' },
+      { amount: 0.1, currency: 'KWD' },
+      { amount: null, currency: 'KWD' }, // missing skipped
+    ]);
+    expect(totals).toEqual({ KWD: 1000.1, USD: 500 });
+  });
+
+  it('sumMoneyByCurrency groups a missing currency under the fallback, not into a real one', () => {
+    const totals = sumMoneyByCurrency([
+      { amount: 10, currency: 'USD' },
+      { amount: 5, currency: null },
+    ], 'KWD');
+    expect(totals).toEqual({ USD: 10, KWD: 5 });
+  });
+
+  it('resolveScopeCurrency detects single vs mixed currency', () => {
+    expect(resolveScopeCurrency(['KWD', 'KWD'])).toEqual({ currency: 'KWD', mixed: false });
+    expect(resolveScopeCurrency([])).toEqual({ currency: 'KWD', mixed: false });
+    expect(resolveScopeCurrency([null, undefined])).toEqual({ currency: 'KWD', mixed: false });
+    expect(resolveScopeCurrency(['KWD', 'USD'])).toEqual({ currency: 'MIXED', mixed: true });
   });
 });

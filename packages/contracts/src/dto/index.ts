@@ -284,6 +284,8 @@ export interface CampaignInfluencerDTO {
   giftedProductValue: number | null;
   participationStatus: ParticipationStatus;
   paymentStatus: PaymentStatus;
+  paidAmount: number | null;
+  paidAt: string | null;
   expectedPublishAt: string | null;
   dateContacted: string | null;
   notes: string | null;
@@ -378,6 +380,8 @@ export interface ExpenseDTO {
   amount: number;
   currency: string;
   paymentStatus: PaymentStatus;
+  paidAmount: number | null;
+  paidAt: string | null;
   incurredAt: string | null;
   notes: string | null;
   createdAt: string;

@@ -61,12 +61,49 @@ const securityHeaders = [
     : []),
 ];
 
+// SEC-02 (SSRF): the Next.js image optimizer will fetch any URL whose host
+// matches `images.remotePatterns`, server-side. A `hostname: '**'` wildcard
+// lets it be pointed at arbitrary hosts (internal services, cloud metadata),
+// so we restrict it to (a) our own object store's public origin and (b) a
+// curated allowlist of social-media image CDNs. Any other host → the optimizer
+// returns 400. Derived from the server-side S3 endpoint; no browser secret.
+const SOCIAL_IMAGE_HOSTS = [
+  '**.cdninstagram.com',
+  '**.fbcdn.net',
+  '**.ytimg.com',
+  '**.ggpht.com',
+  'pbs.twimg.com',
+  '**.twimg.com',
+  '**.tiktokcdn.com',
+  '**.tiktokcdn-us.com',
+  '**.sc-cdn.net',
+];
+
+function s3RemotePattern() {
+  const raw = process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT || '';
+  try {
+    const u = new URL(raw);
+    return {
+      protocol: u.protocol.replace(':', ''),
+      hostname: u.hostname,
+      ...(u.port ? { port: u.port } : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
+const imageRemotePatterns = [
+  ...SOCIAL_IMAGE_HOSTS.map((hostname) => ({ protocol: 'https', hostname })),
+  ...(s3RemotePattern() ? [s3RemotePattern()] : []),
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@influenceos/api-client', '@influenceos/contracts', '@influenceos/shared'],
   images: {
-    remotePatterns: [{ protocol: 'https', hostname: '**' }],
+    remotePatterns: imageRemotePatterns,
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];

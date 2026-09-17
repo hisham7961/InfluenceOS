@@ -3,7 +3,7 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireActor, requireOwnerOrAdmin } from '../lib/authz';
 import { logActivity } from '../lib/helpers';
 import { buildStorageKey, getStorage, sanitizeFileName } from '../lib/storage';
 import {
@@ -240,9 +240,10 @@ export function makeAttachmentService(ctx: DomainContext) {
   }
 
   async function remove(id: string): Promise<void> {
-    requireActor(ctx);
     const row = await prisma.attachment.findUnique({ where: { id } });
     if (!row) throw AppError.notFound('Attachment');
+    // Least privilege (SEC-04): only the uploader or an ADMIN may delete a file.
+    requireOwnerOrAdmin(ctx, row.uploadedById, 'file');
     await storage.remove(row.storageKey).catch(() => undefined);
     await prisma.attachment.delete({ where: { id } });
   }

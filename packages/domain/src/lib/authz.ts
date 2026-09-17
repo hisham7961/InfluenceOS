@@ -16,6 +16,23 @@ export function requireAdmin(ctx: DomainContext): Actor {
   return actor;
 }
 
+/**
+ * Least-privilege gate for a destructive action on a user-owned record
+ * (SEC-04 groundwork). An ADMIN may act on anything; a non-admin may act only
+ * on a record they own. A record with no recorded owner (`ownerId == null`) is
+ * treated as not-yours for a non-admin, so only an ADMIN can remove it.
+ */
+export function requireOwnerOrAdmin(
+  ctx: DomainContext,
+  ownerId: string | null | undefined,
+  label = 'item',
+): Actor {
+  const actor = requireActor(ctx);
+  if (actor.role === 'ADMIN') return actor;
+  if (ownerId && ownerId === actor.id) return actor;
+  throw AppError.forbidden(`You can only delete your own ${label}.`);
+}
+
 /** A system context (worker/seed) bypasses actor requirements. */
 export function isSystem(ctx: DomainContext): boolean {
   return ctx.actor === null;

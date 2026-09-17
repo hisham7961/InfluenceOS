@@ -31,6 +31,51 @@ const isoDate = z.coerce.date().optional().nullable();
 const stringArray = z.array(z.string().trim().min(1).max(120)).max(50).optional().default([]);
 const hexColor = z.string().regex(/^#([0-9a-fA-F]{6})$/);
 
+// --- Safe display URLs (SEC-01: stored-XSS defence) ------------------------
+// User-supplied URL fields (profile links, image/cover URLs, published-post
+// URLs) are later rendered as href/src. A value that declares a dangerous
+// scheme — `javascript:`, `data:`, `vbscript:`, `file:`, … — must never be
+// stored. We reject at write time (defence in depth; the web also sanitises at
+// render). Control/zero-width characters are stripped first so a scheme cannot
+// be smuggled past the check (e.g. `java\tscript:`), then any value that
+// declares a scheme must declare http(s); scheme-less/relative values (which
+// cannot execute script) are allowed.
+const URL_SMUGGLE_CHARS = /[\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g;
+
+export function isSafeDisplayUrl(raw: string): boolean {
+  const s = raw.replace(URL_SMUGGLE_CHARS, '').trim();
+  if (s === '') return true;
+  const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(s);
+  if (!scheme) return true; // relative / scheme-less — cannot execute script
+  const p = (scheme[1] ?? '').toLowerCase();
+  return p === 'http' || p === 'https';
+}
+
+/** True only for an absolute http(s) URL (used where a URL is required). */
+export function isHttpUrl(raw: string): boolean {
+  const s = raw.replace(URL_SMUGGLE_CHARS, '').trim();
+  try {
+    const u = new URL(s);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+const SAFE_URL_MESSAGE = 'Enter a valid link (http/https or a relative path).';
+
+/** Optional, nullable user-supplied display URL, scheme-guarded (SEC-01). */
+const safeUrl = optionalString.refine((v) => v == null || isSafeDisplayUrl(v), {
+  message: SAFE_URL_MESSAGE,
+});
+
+/** Required absolute http(s) URL (rejects `javascript:` which `z.url()` allows). */
+const httpUrl = z
+  .string()
+  .trim()
+  .max(1000)
+  .refine(isHttpUrl, { message: 'Enter a valid http(s) URL.' });
+
 // --- Auth ------------------------------------------------------------------
 export const deviceInfoSchema = z.object({
   client: z.enum(['WEB', 'IOS', 'ANDROID']).default('WEB'),
@@ -101,9 +146,9 @@ export const brandCreateSchema = z.object({
   name: shortString,
   slug: z.string().trim().regex(/^[a-z0-9-]+$/).max(64).optional(),
   description: optionalString,
-  logoUrl: optionalString,
-  iconUrl: optionalString,
-  coverUrl: optionalString,
+  logoUrl: safeUrl,
+  iconUrl: safeUrl,
+  coverUrl: safeUrl,
   primaryColor: hexColor.default('#6366F1'),
   accentColor: hexColor.optional().nullable(),
   secondaryColor: hexColor.optional().nullable(),
@@ -118,7 +163,7 @@ export const influencerCreateSchema = z.object({
   fullName: optionalString,
   primaryUsername: optionalString,
   primaryPlatform: platformEnum.optional().nullable(),
-  avatarOverrideUrl: optionalString,
+  avatarOverrideUrl: safeUrl,
   bio: optionalString,
   country: optionalString,
   city: optionalString,
@@ -166,10 +211,10 @@ export const socialAccountCreateSchema = z.object({
   influencerId: cuid,
   platform: platformEnum,
   username: shortString,
-  profileUrl: optionalString,
+  profileUrl: safeUrl,
   platformUserId: optionalString,
   displayName: optionalString,
-  avatarUrl: optionalString,
+  avatarUrl: safeUrl,
   bio: optionalString,
   followers: z.coerce.number().int().min(0).optional().nullable(),
   following: z.coerce.number().int().min(0).optional().nullable(),
@@ -198,7 +243,7 @@ export const campaignCreateSchema = z.object({
   brandId: cuid,
   name: shortString,
   slug: z.string().trim().regex(/^[a-z0-9-]+$/).max(64).optional(),
-  coverUrl: optionalString,
+  coverUrl: safeUrl,
   description: optionalString,
   brief: optionalString,
   objective: z.enum(CAMPAIGN_OBJECTIVES).optional().nullable(),
@@ -234,6 +279,11 @@ export const campaignInfluencerCreateSchema = z.object({
   expectedPublishAt: isoDate,
   participationStatus: z.enum(PARTICIPATION_STATUSES).default('INVITED'),
   paymentStatus: z.enum(PAYMENT_STATUSES).default('NOT_APPLICABLE'),
+  // How much of the agreed fee has actually been paid — required for correct
+  // AP reporting when paymentStatus is PARTIALLY_PAID (finance P1). Missing =
+  // null (unknown), FREE/NOT_APPLICABLE keeps it null.
+  paidAmount: money,
+  paidAt: isoDate,
   notes: optionalString,
 });
 export const campaignInfluencerUpdateSchema = campaignInfluencerCreateSchema
@@ -252,7 +302,7 @@ export const deliverableCreateSchema = z.object({
   requiredMentions: stringArray,
   scriptReferenceId: cuid.optional().nullable(),
   status: z.enum(DELIVERABLE_STATUSES).default('PLANNED'),
-  publishedUrl: optionalString,
+  publishedUrl: safeUrl,
   publishedAt: isoDate,
   internalNotes: optionalString,
 });
@@ -285,7 +335,7 @@ export type ScriptCreateInput = z.infer<typeof scriptCreateSchema>;
 
 // --- Published content -----------------------------------------------------
 export const publishedContentCreateSchema = z.object({
-  url: z.string().trim().url().max(1000),
+  url: httpUrl,
   campaignId: cuid.optional().nullable(),
   brandId: cuid.optional().nullable(),
   influencerId: cuid.optional().nullable(),
@@ -335,6 +385,8 @@ export const expenseCreateSchema = z.object({
   amount: z.coerce.number().nonnegative().max(1_000_000_000),
   currency: z.string().max(8).default('KWD'),
   paymentStatus: z.enum(PAYMENT_STATUSES).default('UNPAID'),
+  paidAmount: money,
+  paidAt: isoDate,
   incurredAt: isoDate,
   notes: optionalString,
 });
@@ -463,7 +515,7 @@ export const clientConfigUpdateSchema = z.object({
 export const appVersionUpdateSchema = z.object({
   recommendedVersion: optionalString,
   minimumVersion: optionalString,
-  storeUrl: optionalString,
+  storeUrl: safeUrl,
   forceUpdate: z.boolean().optional(),
   maintenanceMessage: optionalString,
 });

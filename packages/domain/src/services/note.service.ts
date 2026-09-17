@@ -2,7 +2,7 @@ import { requests, type NoteDTO } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireActor, requireOwnerOrAdmin } from '../lib/authz';
 import { logActivity } from '../lib/helpers';
 
 type NoteCreate = z.infer<typeof requests.noteCreateSchema>;
@@ -102,9 +102,10 @@ export function makeNoteService(ctx: DomainContext) {
   }
 
   async function remove(id: string): Promise<void> {
-    requireActor(ctx);
     const existing = await prisma.note.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Note');
+    // Least privilege (SEC-04): only the author or an ADMIN may delete a note.
+    requireOwnerOrAdmin(ctx, existing.authorId, 'note');
     await prisma.note.delete({ where: { id } });
   }
 

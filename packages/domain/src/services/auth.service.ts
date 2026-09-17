@@ -66,9 +66,15 @@ export function makeAuthService(ctx: DomainContext) {
     return argonHash(password);
   }
 
-  async function signAccessToken(user: { id: string; role: string; name: string }): Promise<{ token: string; expiresAt: Date }> {
+  async function signAccessToken(
+    user: { id: string; role: string; name: string },
+    sessionId: string,
+  ): Promise<{ token: string; expiresAt: Date }> {
     const expiresAt = new Date(Date.now() + ACCESS_TTL_SEC * 1000);
-    const token = await new SignJWT({ role: user.role, name: user.name, typ: 'access' })
+    // `sid` binds the access token to its device session so a logout/revoke —
+    // or a user deactivation/role change — is honoured on the very next request
+    // (see `authenticate`), not only when the 15-minute token expires (SEC-03).
+    const token = await new SignJWT({ role: user.role, name: user.name, sid: sessionId, typ: 'access' })
       .setProtectedHeader({ alg: 'HS256' })
       .setSubject(user.id)
       .setIssuedAt()
@@ -98,7 +104,7 @@ export function makeAuthService(ctx: DomainContext) {
     sessionId: string,
   ): Promise<AuthTokensDTO> {
     const [access, refresh] = await Promise.all([
-      signAccessToken(user),
+      signAccessToken(user, sessionId),
       signRefreshToken(sessionId, user.id),
     ]);
     return {
@@ -242,7 +248,7 @@ export function makeAuthService(ctx: DomainContext) {
       if (presented === session.prevRefreshTokenHash && withinGrace && session.graceTokenSealed) {
         const graceRefresh = open(session.graceTokenSealed);
         if (graceRefresh) {
-          const access = await signAccessToken(user);
+          const access = await signAccessToken(user, session.id);
           const exp = (decodeJwt(graceRefresh).exp ?? 0) * 1000;
           return {
             kind: 'ok' as const,
@@ -299,16 +305,30 @@ export function makeAuthService(ctx: DomainContext) {
     }
   }
 
-  /** Verify an access token → Actor (stateless; used by the API auth guard). */
+  /**
+   * Verify an access token → Actor (session-bound; used by the API auth guard).
+   *
+   * The token's signature must be valid AND it must still map to a live device
+   * session belonging to a currently-active user (SEC-03). This makes
+   * logout/session-revoke, account deactivation and role changes take effect on
+   * the next request rather than lingering for the token's 15-minute lifetime.
+   * The returned role/name are read fresh from the user record, so a demotion
+   * (ADMIN→STAFF) is enforced immediately, not from the stale token claim.
+   */
   async function authenticate(token: string): Promise<Actor | null> {
     try {
       const { payload } = await jwtVerify(token, secret());
-      if ((payload as { typ?: string }).typ !== 'access' || !payload.sub) return null;
-      return {
-        id: payload.sub,
-        name: (payload as { name?: string }).name ?? '',
-        role: ((payload as { role?: string }).role ?? 'STAFF') as Actor['role'],
-      };
+      const p = payload as { typ?: string; sub?: string; sid?: string };
+      if (p.typ !== 'access' || !p.sub || !p.sid) return null;
+      const session = await prisma.deviceSession.findUnique({
+        where: { id: p.sid },
+        include: { user: { select: { id: true, name: true, role: true, isActive: true } } },
+      });
+      if (!session || session.revokedAt || session.expiresAt < new Date()) return null;
+      if (session.userId !== p.sub) return null;
+      const user = session.user;
+      if (!user || !user.isActive) return null;
+      return { id: user.id, name: user.name, role: user.role as Actor['role'] };
     } catch {
       return null;
     }

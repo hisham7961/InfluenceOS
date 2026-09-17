@@ -7,6 +7,25 @@ Owner disciplines: SRE, BE (backend/domain), FE (web), DBE (database), SEC (secu
 
 ---
 
+## Implementation status (dev branch `claude/new-session-2rsnjm`)
+
+- **WAVE 0 — DONE.** Single MinIO image source of truth (CORS-capable quay pin
+  + `${MINIO_IMAGE}`/`${MINIO_MC_IMAGE}` across CI and all compose files; legacy
+  no-AVX override documented). CI green end-to-end (all five jobs, incl. the two
+  MinIO/S3 browser journeys).
+- **WAVE 1 — DONE (approved, implemented + tested).** W1-1 URL scheme allowlist
+  (SEC-01); W1-2 `next/image` remotePatterns allowlist (SEC-02); W1-3 access
+  token bound to live session + active user + current role (SEC-03); W1-4
+  owner-or-admin delete gate for files/notes (SEC-04 groundwork); W1-5 reports
+  never sum across currencies (label MIXED + suppress cross-currency grand
+  totals, DB-03); W1-6 relationship stats derive from committed participations,
+  not invitations (DB-10); W1-7 partial-payment field + correct paid/unpaid
+  split (finance P1). Each item ships CI-gated tests. No deploy performed;
+  STAGING_ACCEPTANCE remains NOT EXECUTED.
+- **WAVES 2–8 — not started** (await direction/prioritisation).
+
+---
+
 ## WAVE 0 — CURRENT REGRESSIONS / CI  (unblocks everything)
 
 | Item | Owner | Risk | Effort | Deps | Acceptance | Test |

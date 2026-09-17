@@ -4,7 +4,14 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { moneyNumberOr0, subtractMoney, sumMoney, toMoneyNumber, type MoneyInput } from '../lib/money';
+import {
+  moneyNumberOr0,
+  resolveScopeCurrency,
+  subtractMoney,
+  sumMoney,
+  toMoneyNumber,
+  type MoneyInput,
+} from '../lib/money';
 import { computeCostSummary } from '../lib/progress';
 
 /**
@@ -19,22 +26,26 @@ type ReportRow = Record<string, string | number | null>;
 const PUBLISHED_DELIVERABLE_STATUSES = ['PUBLISHED', 'VERIFIED'] as const;
 const PAID_DEAL_TYPES = ['PAID', 'PAID_PLUS_GIFTED'] as const;
 const MAX_ROWS = 500;
-const CURRENCY = 'KWD';
 
 /** Sum numeric/currency columns across rows; skip string/date/percent columns.
  *  Currency columns are summed as exact Decimals (never JS float) so a totals
- *  footer of many rows stays penny/fils-accurate; count columns are integers. */
-function sumTotals(columns: ReportColumnDTO[], rows: ReportRow[]): Record<string, number | null> {
+ *  footer of many rows stays penny/fils-accurate; count columns are integers.
+ *  When the scope spans MORE THAN ONE currency (`mixed`), a single-currency
+ *  money grand total would be a lie, so currency-column totals are suppressed
+ *  (`null`) — count columns still total normally (DB-03/finance). */
+function sumTotals(
+  columns: ReportColumnDTO[],
+  rows: ReportRow[],
+  mixed = false,
+): Record<string, number | null> {
   const totals: Record<string, number | null> = {};
   for (const col of columns) {
     if (col.type !== 'number' && col.type !== 'currency') continue;
     const values = rows.map((r) => r[col.key]).filter((v): v is number => typeof v === 'number');
-    if (values.length === 0) {
-      totals[col.key] = null;
-    } else if (col.type === 'currency') {
-      totals[col.key] = toMoneyNumber(sumMoney(values));
+    if (col.type === 'currency') {
+      totals[col.key] = mixed || values.length === 0 ? null : toMoneyNumber(sumMoney(values));
     } else {
-      totals[col.key] = values.reduce((a, b) => a + b, 0);
+      totals[col.key] = values.length === 0 ? null : values.reduce((a, b) => a + b, 0);
     }
   }
   return totals;
@@ -97,6 +108,15 @@ export function makeReportService(ctx: DomainContext) {
     return moneyNumberOr0(sumMoney([fees._sum.agreedCost, expenses._sum.amount]));
   }
 
+  /** The distinct currency of the campaigns in scope → a single label plus a
+   *  `mixed` flag. When more than one currency is present the report is labelled
+   *  'MIXED' and its money grand totals are suppressed rather than summed across
+   *  currencies (DB-03/finance). */
+  async function scopeCurrency(where: Prisma.CampaignWhereInput): Promise<{ currency: string; mixed: boolean }> {
+    const rows = await prisma.campaign.findMany({ where, select: { currency: true }, distinct: ['currency'] });
+    return resolveScopeCurrency(rows.map((r) => r.currency));
+  }
+
   async function campaignReport(filter: ReportFilter): Promise<ReportDTO> {
     const campaigns = await prisma.campaign.findMany({
       where: campaignWhere(filter),
@@ -149,7 +169,8 @@ export function makeReportService(ctx: DomainContext) {
       }),
     );
 
-    return { type: 'campaign', columns, rows, totals: sumTotals(columns, rows), currency: CURRENCY };
+    const scope = await scopeCurrency(campaignWhere(filter));
+    return { type: 'campaign', columns, rows, totals: sumTotals(columns, rows, scope.mixed), currency: scope.currency };
   }
 
   async function influencerReport(filter: ReportFilter): Promise<ReportDTO> {
@@ -219,7 +240,8 @@ export function makeReportService(ctx: DomainContext) {
       };
     });
 
-    return { type: 'influencer', columns, rows, totals: sumTotals(columns, rows), currency: CURRENCY };
+    const scope = await scopeCurrency(campaignAnd);
+    return { type: 'influencer', columns, rows, totals: sumTotals(columns, rows, scope.mixed), currency: scope.currency };
   }
 
   async function brandReport(filter: ReportFilter): Promise<ReportDTO> {
@@ -252,7 +274,8 @@ export function makeReportService(ctx: DomainContext) {
       }),
     );
 
-    return { type: 'brand', columns, rows, totals: sumTotals(columns, rows), currency: CURRENCY };
+    const scope = await scopeCurrency(campaignWhere(filter));
+    return { type: 'brand', columns, rows, totals: sumTotals(columns, rows, scope.mixed), currency: scope.currency };
   }
 
   async function contentReport(filter: ReportFilter): Promise<ReportDTO> {
@@ -296,7 +319,8 @@ export function makeReportService(ctx: DomainContext) {
       };
     });
 
-    return { type: 'content', columns, rows, totals: sumTotals(columns, rows), currency: CURRENCY };
+    const scope = await scopeCurrency(campaignWhere(filter));
+    return { type: 'content', columns, rows, totals: sumTotals(columns, rows, scope.mixed), currency: scope.currency };
   }
 
   async function spendReport(filter: ReportFilter): Promise<ReportDTO> {
@@ -323,7 +347,8 @@ export function makeReportService(ctx: DomainContext) {
       }),
     );
 
-    return { type: 'spend', columns, rows, totals: sumTotals(columns, rows), currency: CURRENCY };
+    const scope = resolveScopeCurrency(campaigns.map((c) => c.currency));
+    return { type: 'spend', columns, rows, totals: sumTotals(columns, rows, scope.mixed), currency: scope.currency };
   }
 
   async function generate(filter: ReportFilter): Promise<ReportDTO> {

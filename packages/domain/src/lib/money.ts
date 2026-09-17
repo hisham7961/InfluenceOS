@@ -35,12 +35,60 @@ export function toDecimal(value: MoneyInput): Prisma.Decimal | null {
 }
 
 /** Exact Decimal sum. Missing values are skipped; an all-missing/empty list
- *  sums to an exact `0` (a total with nothing to add is defined as zero). */
+ *  sums to an exact `0` (a total with nothing to add is defined as zero).
+ *  NOTE: this assumes the caller has already guaranteed a single currency —
+ *  it does not look at currency. To sum values that MAY span currencies, use
+ *  {@link sumMoneyByCurrency}, which never collapses different currencies. */
 export function sumMoney(values: MoneyInput[]): Prisma.Decimal {
   return values.reduce<Prisma.Decimal>((acc, v) => {
     const d = toDecimal(v);
     return d ? acc.plus(d) : acc;
   }, ZERO);
+}
+
+/** An amount paired with the currency it is denominated in. */
+export interface CurrencyAmount {
+  amount: MoneyInput;
+  currency: string | null | undefined;
+}
+
+/**
+ * Sum amounts grouped by currency — it NEVER adds two different currencies into
+ * one figure (finance/DB-03: `sumMoney` used to silently sum KWD + USD as one
+ * KWD number). Returns a map of `currency → exact money number`. A missing
+ * currency is grouped under `fallback` (default 'KWD') rather than merged with
+ * an explicit currency, so legacy null-currency rows never distort a real one.
+ */
+export function sumMoneyByCurrency(
+  entries: CurrencyAmount[],
+  fallback = 'KWD',
+): Record<string, number> {
+  const totals = new Map<string, Prisma.Decimal>();
+  for (const e of entries) {
+    const d = toDecimal(e.amount);
+    if (!d) continue;
+    const ccy = (typeof e.currency === 'string' && e.currency.trim()) || fallback;
+    totals.set(ccy, (totals.get(ccy) ?? new Prisma.Decimal(0)).plus(d));
+  }
+  const out: Record<string, number> = {};
+  for (const [ccy, d] of totals) out[ccy] = d.toNumber();
+  return out;
+}
+
+/** Distinct non-empty currencies in a list → a single label + a `mixed` flag.
+ *  `mixed` is true when more than one distinct currency is present, in which
+ *  case a single-currency grand total would be a lie and must be suppressed. */
+export function resolveScopeCurrency(
+  currencies: (string | null | undefined)[],
+  fallback = 'KWD',
+): { currency: string; mixed: boolean } {
+  const set = new Set<string>();
+  for (const c of currencies) {
+    if (typeof c === 'string' && c.trim()) set.add(c.trim());
+  }
+  if (set.size === 0) return { currency: fallback, mixed: false };
+  if (set.size === 1) return { currency: [...set][0]!, mixed: false };
+  return { currency: 'MIXED', mixed: true };
 }
 
 /** Decimal|number|string|null → `number | null`, rounded to the money scale.

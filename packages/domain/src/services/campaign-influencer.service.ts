@@ -25,8 +25,55 @@ const influencerSummaryInclude = {
 
 const PUBLISHED = ['PUBLISHED', 'VERIFIED'] as const;
 
+// A participation only counts as a real collaboration once it is committed —
+// an INVITED/DECLINED/DROPPED row must NOT inflate relationship history (DB-10).
+const COMMITTED_PARTICIPATION = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'] as const;
+// Auto-promotion to ACTIVE happens only from a pre-active pipeline stage, so a
+// human-curated status (RECURRING/PAST/DECLINED/BLACKLISTED) is never stomped.
+const PRE_ACTIVE_STATUSES = new Set(['PROSPECT', 'CONTACTED', 'NEGOTIATING']);
+
 export function makeCampaignInfluencerService(ctx: DomainContext) {
   const { prisma } = ctx;
+
+  /**
+   * Recompute a brand↔influencer relationship's collaboration stats from the
+   * source of truth — the committed CampaignInfluencer rows — instead of
+   * incrementing a counter at invite time (DB-10). Idempotent: adding then
+   * removing (or inviting then declining) leaves the stats unchanged, because
+   * an INVITED/DECLINED/DROPPED participation is never counted.
+   */
+  async function syncRelationship(brandId: string, influencerId: string): Promise<void> {
+    const committed = await prisma.campaignInfluencer.findMany({
+      where: {
+        influencerId,
+        campaign: { brandId },
+        participationStatus: { in: [...COMMITTED_PARTICIPATION] },
+      },
+      select: { createdAt: true, campaign: { select: { startDate: true } } },
+    });
+    const dates = committed.map((c) => c.campaign.startDate ?? c.createdAt);
+    const times = dates.map((d) => d.getTime());
+    const firstAt = times.length ? new Date(Math.min(...times)) : null;
+    const lastAt = times.length ? new Date(Math.max(...times)) : null;
+    const total = committed.length;
+
+    const existing = await prisma.brandInfluencer.findUnique({
+      where: { brandId_influencerId: { brandId, influencerId } },
+      select: { relationshipStatus: true },
+    });
+    if (!existing) return; // add() ensures the row exists before syncing
+    const promote = total > 0 && PRE_ACTIVE_STATUSES.has(existing.relationshipStatus);
+
+    await prisma.brandInfluencer.update({
+      where: { brandId_influencerId: { brandId, influencerId } },
+      data: {
+        totalCollaborations: total,
+        firstCollaborationAt: firstAt,
+        lastCampaignAt: lastAt,
+        ...(promote ? { relationshipStatus: 'ACTIVE' as const } : {}),
+      },
+    });
+  }
 
   function toDTO(ci: {
     id: string;
@@ -37,6 +84,8 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
     giftedProductValue: MoneyInput;
     participationStatus: CampaignInfluencerDTO['participationStatus'];
     paymentStatus: CampaignInfluencerDTO['paymentStatus'];
+    paidAmount: MoneyInput;
+    paidAt: Date | null;
     expectedPublishAt: Date | null;
     dateContacted: Date | null;
     notes: string | null;
@@ -57,6 +106,8 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
       giftedProductValue: toMoneyNumber(ci.giftedProductValue),
       participationStatus: ci.participationStatus,
       paymentStatus: ci.paymentStatus,
+      paidAmount: toMoneyNumber(ci.paidAmount),
+      paidAt: iso(ci.paidAt),
       expectedPublishAt: iso(ci.expectedPublishAt),
       dateContacted: iso(ci.dateContacted),
       notes: ci.notes,
@@ -119,23 +170,22 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
         expectedPublishAt: input.expectedPublishAt ?? null,
         participationStatus: input.participationStatus ?? 'INVITED',
         paymentStatus,
+        paidAmount: input.paidAmount ?? null,
+        paidAt: input.paidAt ?? null,
         notes: input.notes ?? null,
       },
     });
 
-    // Maintain the brand relationship layer (relationship history).
+    // Ensure the brand↔influencer relationship row exists, but do NOT count a
+    // collaboration or force it ACTIVE at invite time (DB-10) — being added to a
+    // campaign is not yet a confirmed collaboration. Real stats are derived by
+    // syncRelationship from committed participations only.
     await prisma.brandInfluencer.upsert({
       where: { brandId_influencerId: { brandId: campaign.brandId, influencerId: influencer.id } },
-      create: {
-        brandId: campaign.brandId,
-        influencerId: influencer.id,
-        relationshipStatus: 'ACTIVE',
-        firstCollaborationAt: new Date(),
-        lastCampaignAt: new Date(),
-        totalCollaborations: 1,
-      },
-      update: { lastCampaignAt: new Date(), totalCollaborations: { increment: 1 } },
+      create: { brandId: campaign.brandId, influencerId: influencer.id },
+      update: {},
     });
+    await syncRelationship(campaign.brandId, influencer.id);
 
     await logActivity(ctx, {
       type: 'INFLUENCER_ADDED_TO_CAMPAIGN',
@@ -149,7 +199,10 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
 
   async function update(id: string, input: CIUpdate): Promise<CampaignInfluencerDTO> {
     requireActor(ctx);
-    const existing = await prisma.campaignInfluencer.findUnique({ where: { id } });
+    const existing = await prisma.campaignInfluencer.findUnique({
+      where: { id },
+      select: { campaignId: true, influencerId: true },
+    });
     if (!existing) throw AppError.notFound('Campaign influencer');
     await prisma.campaignInfluencer.update({
       where: { id },
@@ -162,17 +215,35 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
         expectedPublishAt: input.expectedPublishAt === undefined ? undefined : input.expectedPublishAt,
         participationStatus: input.participationStatus ?? undefined,
         paymentStatus: input.paymentStatus ?? undefined,
+        paidAmount: input.paidAmount === undefined ? undefined : input.paidAmount,
+        paidAt: input.paidAt === undefined ? undefined : input.paidAt,
         notes: input.notes === undefined ? undefined : input.notes,
       },
     });
+    // A participation-status change may make this a (newly) committed or no
+    // longer committed collaboration — recompute the relationship stats.
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: existing.campaignId },
+      select: { brandId: true },
+    });
+    if (campaign) await syncRelationship(campaign.brandId, existing.influencerId);
     return get(id);
   }
 
   async function remove(id: string): Promise<void> {
     requireActor(ctx);
-    const existing = await prisma.campaignInfluencer.findUnique({ where: { id } });
+    const existing = await prisma.campaignInfluencer.findUnique({
+      where: { id },
+      select: { campaignId: true, influencerId: true },
+    });
     if (!existing) throw AppError.notFound('Campaign influencer');
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: existing.campaignId },
+      select: { brandId: true },
+    });
     await prisma.campaignInfluencer.delete({ where: { id } });
+    // Removing a participation must not leave inflated stats behind.
+    if (campaign) await syncRelationship(campaign.brandId, existing.influencerId);
   }
 
   return { listForCampaign, get, add, update, remove };

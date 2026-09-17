@@ -1,9 +1,32 @@
 import { Prisma } from '@influenceos/database';
 import type { CampaignProgressDTO, CostSummaryDTO } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
-import { percentOf, toDecimal, toMoneyNumber } from './money';
+import { percentOf, toDecimal, toMoneyNumber, type MoneyInput } from './money';
 
 const PUBLISHED_DELIVERABLE_STATUSES = ['PUBLISHED', 'VERIFIED'] as const;
+
+/**
+ * Split an amount into its paid / unpaid parts by payment status. A
+ * PARTIALLY_PAID row uses its recorded `paidAmount` (clamped to [0, amount]) so
+ * a 1,500-of-3,000 fee reports 1,500 paid + 1,500 unpaid, not 3,000 unpaid
+ * (finance P1). A missing paidAmount on a partial payment counts as 0 paid.
+ */
+function splitPayment(
+  amount: Prisma.Decimal,
+  status: string,
+  paidAmount: MoneyInput,
+): { paid: Prisma.Decimal; unpaid: Prisma.Decimal } {
+  const zero = new Prisma.Decimal(0);
+  if (status === 'PAID') return { paid: amount, unpaid: zero };
+  if (status === 'UNPAID') return { paid: zero, unpaid: amount };
+  if (status === 'PARTIALLY_PAID') {
+    let paid = toDecimal(paidAmount) ?? zero;
+    if (paid.lt(zero)) paid = zero;
+    if (paid.gt(amount)) paid = amount;
+    return { paid, unpaid: amount.minus(paid) };
+  }
+  return { paid: zero, unpaid: zero }; // NOT_APPLICABLE
+}
 
 interface CampaignForProgress {
   id: string;
@@ -85,11 +108,11 @@ export async function computeCostSummary(
   const [cis, expenses] = await Promise.all([
     prisma.campaignInfluencer.findMany({
       where: { campaignId },
-      select: { dealType: true, agreedCost: true, giftedProductValue: true, paymentStatus: true },
+      select: { dealType: true, agreedCost: true, giftedProductValue: true, paymentStatus: true, paidAmount: true },
     }),
     prisma.campaignExpense.findMany({
       where: { campaignId },
-      select: { type: true, amount: true, paymentStatus: true },
+      select: { type: true, amount: true, paymentStatus: true, paidAmount: true },
     }),
   ]);
 
@@ -105,8 +128,9 @@ export async function computeCostSummary(
     const gift = toDecimal(ci.giftedProductValue) ?? new Prisma.Decimal(0);
     if (ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED') {
       influencerFees = influencerFees.plus(fee);
-      if (ci.paymentStatus === 'PAID') paid = paid.plus(fee);
-      else if (ci.paymentStatus !== 'NOT_APPLICABLE') unpaid = unpaid.plus(fee);
+      const split = splitPayment(fee, ci.paymentStatus, ci.paidAmount);
+      paid = paid.plus(split.paid);
+      unpaid = unpaid.plus(split.unpaid);
     }
     giftValue = giftValue.plus(gift);
   }
@@ -119,8 +143,9 @@ export async function computeCostSummary(
     } else {
       otherExpenses = otherExpenses.plus(amount);
     }
-    if (e.paymentStatus === 'PAID') paid = paid.plus(amount);
-    else if (e.paymentStatus !== 'NOT_APPLICABLE') unpaid = unpaid.plus(amount);
+    const split = splitPayment(amount, e.paymentStatus, e.paidAmount);
+    paid = paid.plus(split.paid);
+    unpaid = unpaid.plus(split.unpaid);
   }
 
   const totalSpend = influencerFees.plus(otherExpenses);

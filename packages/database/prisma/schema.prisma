@@ -463,6 +463,11 @@ model CampaignInfluencer {
   expectedPublishAt  DateTime?
   participationStatus ParticipationStatus @default(INVITED)
   paymentStatus      PaymentStatus       @default(NOT_APPLICABLE)
+  /// Amount of `agreedCost` actually paid — the source of truth for the
+  /// paid/unpaid split when paymentStatus is PARTIALLY_PAID (finance P1).
+  /// null = unknown; never coerced to 0.
+  paidAmount         Decimal?            @db.Decimal(18, 3)
+  paidAt             DateTime?
   notes              String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -654,6 +659,10 @@ model CampaignExpense {
   amount               Decimal       @db.Decimal(18, 3)
   currency             String        @default("KWD")
   paymentStatus        PaymentStatus @default(UNPAID)
+  /// Amount actually paid — source of truth for the paid/unpaid split when
+  /// paymentStatus is PARTIALLY_PAID (finance P1). null = unknown.
+  paidAmount           Decimal?      @db.Decimal(18, 3)
+  paidAt               DateTime?
   incurredAt           DateTime?
   notes                String?
   createdById          String?
