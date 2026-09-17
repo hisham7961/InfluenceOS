@@ -41,7 +41,7 @@ services:
       retries: 10
 
   minio:
-    image: quay.io/minio/minio:latest
+    image: quay.io/minio/minio:RELEASE.2024-01-31T20-20-33Z
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
@@ -56,6 +56,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
+    pull_policy: build
     environment:
       <<: *app-env
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?BOOTSTRAP_ADMIN_EMAIL is required}
@@ -74,6 +75,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
+    pull_policy: build
     environment:
       <<: *app-env
       API_PORT: '4000'
@@ -94,6 +96,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.worker
+    pull_policy: build
     environment:
       <<: *app-env
       WORKER_PORT: '4100'
@@ -109,6 +112,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.web
+    pull_policy: build
     environment:
       NODE_ENV: production
       INTERNAL_API_URL: http://api:4000
