@@ -92,7 +92,10 @@ services:
     networks: [internal]
 
   minio:
-    image: minio/minio:latest
+    # Overridable object-storage pin (MINIO_IMAGE); CORS-capable quay.io default
+    # avoids Docker Hub anonymous-pull denial. Legacy (no-AVX) hosts override
+    # MINIO_IMAGE with an older release — see .env.staging.example.
+    image: ${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2024-10-13T13-34-11Z}
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -113,7 +116,7 @@ services:
 
   # Create the PRIVATE staging bucket (objects stay private — no anonymous policy).
   minio-setup:
-    image: minio/mc:latest
+    image: ${MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2024-10-08T09-37-26Z}
     depends_on:
       minio:
         condition: service_healthy
