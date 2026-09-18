@@ -113,7 +113,8 @@ describe.skipIf(!ENDPOINT)('files — real MinIO/S3 round-trip (s3 driver)', () 
       method: 'POST',
       url: '/api/v1/files',
       headers: auth,
-      payload: { fileName: 'cap.bin', mimeType: 'application/octet-stream', sizeBytes: declared, target: { influencerId } },
+      // text/plain is an allowed type; the point here is the size cap, not MIME.
+      payload: { fileName: 'cap.txt', mimeType: 'text/plain', sizeBytes: declared, target: { influencerId } },
     });
     expect(initiate.statusCode).toBe(201);
     const ticket = initiate.json() as UploadTicketDTO;
