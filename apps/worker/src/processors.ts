@@ -1,5 +1,6 @@
 import { prisma } from '@influenceos/database';
 import { createNotification, createServices, systemContext } from '@influenceos/domain';
+import { USAGE_RIGHT_EXPIRY_WARNING_DAYS, daysUntilExpiry } from '@influenceos/shared';
 
 const OPEN_DELIVERABLE = ['PLANNED', 'SENT_TO_INFLUENCER', 'AWAITING_PUBLICATION'] as const;
 
@@ -127,6 +128,45 @@ export async function generateNotifications(): Promise<{ created: number }> {
       targetUrl: `/campaigns/${c.id}`,
       campaignId: c.id,
       brandId: c.brandId,
+    });
+    created++;
+  }
+
+  // --- Usage-rights license expiry (W3-2) ----------------------------------
+  // 1. Housekeeping: mark ACTIVE licenses whose expiry has passed as EXPIRED so
+  //    the stored ledger stays truthful (the DTO derives EXPIRED on read too,
+  //    but reports/queries filter on the stored column).
+  await prisma.usageRight.updateMany({
+    where: { status: 'ACTIVE', expiresAt: { lt: now } },
+    data: { status: 'EXPIRED' },
+  });
+
+  // 2. Alert on ACTIVE licenses inside the expiry-warning window so ad spend is
+  //    never planned on rights about to lapse. Deduped per-license by targetUrl.
+  const warnBy = new Date(now.getTime() + USAGE_RIGHT_EXPIRY_WARNING_DAYS * 864e5);
+  const expiring = await prisma.usageRight.findMany({
+    where: { status: 'ACTIVE', expiresAt: { gte: now, lte: warnBy } },
+    include: { brand: { select: { name: true } } },
+    orderBy: { expiresAt: 'asc' },
+    take: 100,
+  });
+  for (const ur of expiring) {
+    const targetUrl = `/brands/${ur.brandId}/usage-rights/${ur.id}`;
+    const already = await prisma.notification.findFirst({
+      where: { category: 'USAGE_RIGHT_EXPIRING', targetUrl, createdAt: { gte: dedupeSince } },
+      select: { id: true },
+    });
+    if (already) continue;
+    const days = daysUntilExpiry(ur.expiresAt, now) ?? 0;
+    await createNotification(ctx, {
+      category: 'USAGE_RIGHT_EXPIRING',
+      title: 'Usage rights expiring soon',
+      body: `A ${ur.usageType.replace(/_/g, ' ').toLowerCase()} usage right for ${ur.brand.name} expires in ${days} day${days === 1 ? '' : 's'}.`,
+      targetUrl,
+      brandId: ur.brandId,
+      campaignId: ur.campaignId,
+      influencerId: ur.influencerId,
+      publishedContentId: ur.publishedContentId,
     });
     created++;
   }

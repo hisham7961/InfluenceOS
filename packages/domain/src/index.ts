@@ -27,6 +27,7 @@ import { makeScriptService } from './services/script.service';
 import { makeSearchService } from './services/search.service';
 import { makeSocialAccountService } from './services/social-account.service';
 import { makeSubmissionService } from './services/submission.service';
+import { makeUsageRightService } from './services/usage-right.service';
 
 export function createServices(ctx: DomainContext) {
   return {
@@ -41,6 +42,7 @@ export function createServices(ctx: DomainContext) {
     campaignInfluencers: makeCampaignInfluencerService(ctx),
     deliverables: makeDeliverableService(ctx),
     submissions: makeSubmissionService(ctx),
+    usageRights: makeUsageRightService(ctx),
     scripts: makeScriptService(ctx),
     content: makeContentService(ctx),
     expenses: makeExpenseService(ctx),

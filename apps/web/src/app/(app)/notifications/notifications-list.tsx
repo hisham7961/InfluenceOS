@@ -12,6 +12,7 @@ import {
   Inbox,
   PlaySquare,
   RefreshCcw,
+  ScrollText,
   ShieldAlert,
   TrendingUp,
   type LucideIcon,
@@ -40,6 +41,7 @@ const CATEGORY_ICON: Record<NotificationCategory, LucideIcon> = {
   SYNC_FAILURE: RefreshCcw,
   NEW_CONTENT: PlaySquare,
   FOLLOWER_MILESTONE: TrendingUp,
+  USAGE_RIGHT_EXPIRING: ScrollText,
   GENERAL: Bell,
 };
 
@@ -52,6 +54,7 @@ const CATEGORY_TONE: Record<NotificationCategory, Tone> = {
   SYNC_FAILURE: 'danger',
   NEW_CONTENT: 'info',
   FOLLOWER_MILESTONE: 'success',
+  USAGE_RIGHT_EXPIRING: 'warning',
   GENERAL: 'neutral',
 };
 

@@ -18,6 +18,9 @@ import type {
   Priority,
   RelationshipStatus,
   SubmissionStatus,
+  UsageRightEffectiveStatus,
+  UsageRightStatus,
+  UsageRightType,
   UserRole,
 } from '../enums';
 
@@ -299,6 +302,38 @@ export interface DeliverableSubmissionDTO {
   createdAt: string;
   updatedAt: string;
   comments: SubmissionCommentDTO[];
+}
+
+/**
+ * A usage-rights license (W3-2): what content a brand may use, in what way,
+ * where, and until when. `effectiveStatus` is derived at read time — an ACTIVE
+ * license inside the expiry-warning window reads EXPIRING_SOON, and one whose
+ * `expiresAt` has passed reads EXPIRED — so ad spend is never planned on rights
+ * that have lapsed or are about to.
+ */
+export interface UsageRightDTO {
+  id: string;
+  brandId: string;
+  campaignId: string | null;
+  campaignName: string | null;
+  influencerId: string | null;
+  influencerName: string | null;
+  publishedContentId: string | null;
+  usageType: UsageRightType;
+  scope: string | null;
+  territory: string | null;
+  exclusive: boolean;
+  competitorRestriction: string | null;
+  disclosureRequired: boolean;
+  startsAt: string | null;
+  expiresAt: string | null;
+  status: UsageRightStatus;
+  effectiveStatus: UsageRightEffectiveStatus;
+  daysUntilExpiry: number | null;
+  notes: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CampaignInfluencerDTO {

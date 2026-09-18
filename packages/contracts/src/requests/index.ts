@@ -14,6 +14,7 @@ import {
   PRIORITIES,
   RELATIONSHIP_STATUSES,
   SUBMISSION_DECISIONS,
+  USAGE_RIGHT_TYPES,
   USER_ROLES,
 } from '@influenceos/shared';
 
@@ -326,6 +327,25 @@ export const submissionCommentSchema = z.object({
 });
 export type SubmissionCreateInput = z.infer<typeof submissionCreateSchema>;
 export type SubmissionReviewInput = z.infer<typeof submissionReviewSchema>;
+
+// --- Usage rights (content-licensing ledger + expiry alerts, W3-2) ---------
+export const usageRightCreateSchema = z.object({
+  campaignId: cuid.optional().nullable(),
+  influencerId: cuid.optional().nullable(),
+  publishedContentId: cuid.optional().nullable(),
+  usageType: z.enum(USAGE_RIGHT_TYPES).default('ORGANIC'),
+  scope: optionalString,
+  territory: z.string().trim().max(200).optional().nullable(),
+  exclusive: z.boolean().optional().default(false),
+  competitorRestriction: optionalString,
+  disclosureRequired: z.boolean().optional().default(false),
+  startsAt: isoDate,
+  expiresAt: isoDate,
+  notes: optionalString,
+});
+export const usageRightUpdateSchema = usageRightCreateSchema.partial();
+export type UsageRightCreateInput = z.infer<typeof usageRightCreateSchema>;
+export type UsageRightUpdateInput = z.infer<typeof usageRightUpdateSchema>;
 
 // --- Script reference + version -------------------------------------------
 export const scriptVersionSchema = z.object({

@@ -148,9 +148,40 @@ export const NOTIFICATION_CATEGORIES = [
   'SYNC_FAILURE',
   'NEW_CONTENT',
   'FOLLOWER_MILESTONE',
+  'USAGE_RIGHT_EXPIRING',
   'GENERAL',
 ] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
+
+/** What a usage-rights license permits the brand to do with content (W3-2). */
+export const USAGE_RIGHT_TYPES = [
+  'ORGANIC',
+  'PAID_ADS',
+  'WHITELISTING',
+  'BROADCAST',
+  'OTHER',
+] as const;
+export type UsageRightType = (typeof USAGE_RIGHT_TYPES)[number];
+
+/** Stored lifecycle of a usage-rights license. */
+export const USAGE_RIGHT_STATUSES = ['ACTIVE', 'EXPIRED', 'REVOKED'] as const;
+export type UsageRightStatus = (typeof USAGE_RIGHT_STATUSES)[number];
+
+/**
+ * Effective (derived, never stored) status shown in the UI: an ACTIVE license
+ * whose `expiresAt` falls inside the alert window reads EXPIRING_SOON so ad
+ * spend is never planned on rights about to lapse.
+ */
+export const USAGE_RIGHT_EFFECTIVE_STATUSES = [
+  'ACTIVE',
+  'EXPIRING_SOON',
+  'EXPIRED',
+  'REVOKED',
+] as const;
+export type UsageRightEffectiveStatus = (typeof USAGE_RIGHT_EFFECTIVE_STATUSES)[number];
+
+/** Days before `expiresAt` at which an ACTIVE license is flagged EXPIRING_SOON. */
+export const USAGE_RIGHT_EXPIRY_WARNING_DAYS = 14;
 
 export const INTEGRATION_STATUSES = ['ENABLED', 'DISABLED', 'NOT_CONFIGURED', 'ERROR'] as const;
 export type IntegrationStatus = (typeof INTEGRATION_STATUSES)[number];
@@ -189,6 +220,9 @@ export const PARTICIPATION_STATUS_LABELS = labelMap(PARTICIPATION_STATUSES);
 export const DELIVERABLE_TYPE_LABELS = labelMap(DELIVERABLE_TYPES, { UGC: 'UGC' });
 export const DELIVERABLE_STATUS_LABELS = labelMap(DELIVERABLE_STATUSES);
 export const SUBMISSION_STATUS_LABELS = labelMap(SUBMISSION_STATUSES);
+export const USAGE_RIGHT_TYPE_LABELS = labelMap(USAGE_RIGHT_TYPES);
+export const USAGE_RIGHT_STATUS_LABELS = labelMap(USAGE_RIGHT_STATUSES);
+export const USAGE_RIGHT_EFFECTIVE_STATUS_LABELS = labelMap(USAGE_RIGHT_EFFECTIVE_STATUSES);
 export const CONTENT_STATUS_LABELS = labelMap(CONTENT_STATUSES, { BROKEN_LINK: 'Broken Link' });
 export const PAYMENT_STATUS_LABELS = labelMap(PAYMENT_STATUSES);
 export const EXPENSE_TYPE_LABELS = labelMap(EXPENSE_TYPES);
@@ -266,4 +300,11 @@ export const PRIORITY_TONE: Record<Priority, Tone> = {
   LOW: 'neutral',
   MEDIUM: 'info',
   HIGH: 'danger',
+};
+
+export const USAGE_RIGHT_EFFECTIVE_STATUS_TONE: Record<UsageRightEffectiveStatus, Tone> = {
+  ACTIVE: 'success',
+  EXPIRING_SOON: 'warning',
+  EXPIRED: 'danger',
+  REVOKED: 'neutral',
 };

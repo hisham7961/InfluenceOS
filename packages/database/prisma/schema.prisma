@@ -174,7 +174,23 @@ enum NotificationCategory {
   SYNC_FAILURE
   NEW_CONTENT
   FOLLOWER_MILESTONE
+  USAGE_RIGHT_EXPIRING
   GENERAL
+}
+
+/// What a usage right permits the brand to do with the content (W3-2).
+enum UsageRightType {
+  ORGANIC
+  PAID_ADS
+  WHITELISTING
+  BROADCAST
+  OTHER
+}
+
+enum UsageRightStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
 }
 
 enum ActivityType {
@@ -282,6 +298,7 @@ model User {
   submittedSubmissions DeliverableSubmission[] @relation("SubmissionSubmitter")
   reviewedSubmissions  DeliverableSubmission[] @relation("SubmissionReviewer")
   submissionComments   SubmissionComment[]
+  createdUsageRights   UsageRight[]
 
   @@index([role])
 }
@@ -307,6 +324,7 @@ model Brand {
   notes            Note[]
   notifications    Notification[]
   activities       ActivityLog[]
+  usageRights      UsageRight[]
 
   @@index([isActive])
 }
@@ -348,6 +366,7 @@ model Influencer {
   attachments         Attachment[]
   activities          ActivityLog[]
   notifications       Notification[]
+  usageRights         UsageRight[]
 
   @@index([relationshipStatus])
   @@index([primaryPlatform])
@@ -460,6 +479,7 @@ model Campaign {
   activities          ActivityLog[]
   notifications       Notification[]
   attachments         Attachment[]
+  usageRights         UsageRight[]
 
   @@unique([brandId, slug])
   @@index([brandId])
@@ -657,6 +677,7 @@ model PublishedContent {
   monitoringEvents   ContentMonitoringEvent[]
   notifications      Notification[]
   activities         ActivityLog[]
+  usageRights        UsageRight[]
 
   @@unique([platform, originalUrl])
   @@index([campaignId])
@@ -808,6 +829,42 @@ model Note {
 
   @@index([influencerId])
   @@index([brandId])
+}
+
+/// A usage-rights record (W3-2): what content a brand may use, in what way,
+/// where, and until when. Expiry drives license-expiry alerts so ad spend never
+/// runs on content whose rights have lapsed.
+model UsageRight {
+  id                    String           @id @default(cuid())
+  brandId               String
+  campaignId            String?
+  influencerId          String?
+  publishedContentId    String?
+  usageType             UsageRightType   @default(ORGANIC)
+  scope                 String?
+  territory             String?
+  exclusive             Boolean          @default(false)
+  competitorRestriction String?
+  disclosureRequired    Boolean          @default(false)
+  startsAt              DateTime?
+  expiresAt             DateTime?
+  status                UsageRightStatus @default(ACTIVE)
+  notes                 String?
+  createdById           String?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  brand            Brand             @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  campaign         Campaign?         @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  influencer       Influencer?       @relation(fields: [influencerId], references: [id], onDelete: SetNull)
+  publishedContent PublishedContent? @relation(fields: [publishedContentId], references: [id], onDelete: SetNull)
+  createdBy        User?             @relation(fields: [createdById], references: [id])
+
+  @@index([brandId])
+  @@index([campaignId])
+  @@index([influencerId])
+  @@index([expiresAt])
+  @@index([status])
 }
 
 model Notification {
