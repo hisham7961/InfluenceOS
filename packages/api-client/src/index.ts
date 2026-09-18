@@ -17,9 +17,11 @@ import type {
   ClientConfigDTO,
   ContentMetricsDTO,
   CostSummaryDTO,
+  CreatorLeaderboardDTO,
   CursorPage,
   DeliverableDTO,
   DeviceSessionDTO,
+  ExecDashboardDTO,
   ExpenseDTO,
   FeatureDTO,
   GlobalDashboardDTO,
@@ -218,6 +220,12 @@ export function createClient(config: ClientConfig) {
         q.set('format', 'csv');
         return `${config.baseUrl.replace(/\/$/, '')}${V}/reports?${q.toString()}`;
       },
+      // Creator performance leaderboard (W6-2).
+      leaderboard: (params?: QueryParams) =>
+        http.get<CreatorLeaderboardDTO>(`${V}/reports/leaderboard`, { query: params }),
+      // Executive overview: spend-vs-budget, today, since-yesterday, cross-brand (W6-3).
+      execDashboard: (brandId?: string) =>
+        http.get<ExecDashboardDTO>(`${V}/reports/exec-dashboard`, { query: { brandId } }),
     },
 
     notifications: {

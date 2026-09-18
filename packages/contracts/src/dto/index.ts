@@ -798,6 +798,73 @@ export interface CreatorLeaderboardDTO {
   generatedAt: string;
 }
 
+// --- Executive dashboard (W6-3) --------------------------------------------
+
+/** Aggregate spend against planned budget across the scoped brands (W6-3). */
+export interface SpendVsBudgetDTO {
+  currency: string;
+  /** Sum of every scoped campaign's plannedBudget (a null budget counts as 0). */
+  plannedBudget: number;
+  totalSpend: number;
+  /** plannedBudget − totalSpend; negative when spend has exceeded budget. */
+  remaining: number;
+  /** spend / plannedBudget as a rounded %, or null when no budget is set. */
+  budgetUsedPercent: number | null;
+  /** Campaigns whose own spend is strictly above their own plannedBudget. */
+  campaignsOverBudget: number;
+}
+
+/** What happened "today" — since server-local midnight (W6-3). */
+export interface ExecTodayDTO {
+  /** Published content first detected today. */
+  contentPublished: number;
+  /** Open deliverables whose due date falls today. */
+  deliverablesDue: number;
+  /** Campaigns whose start date is today. */
+  campaignsStarting: number;
+  /** Campaigns whose end date is today. */
+  campaignsEnding: number;
+}
+
+/** Day-over-day digest — the trailing 24-hour window (W6-3). */
+export interface ExecDigestDTO {
+  /** ISO timestamp the window opens at (24h before generation). */
+  since: string;
+  contentPublished: number;
+  deliverablesCompleted: number;
+  campaignsCreated: number;
+  campaignsCompleted: number;
+  rosterAdditions: number;
+  contentRemoved: number;
+}
+
+/** One brand's health line in the cross-brand rollup (W6-3). */
+export interface ExecBrandRollupDTO {
+  brandId: string;
+  brandName: string;
+  slug: string;
+  activeCampaigns: number;
+  totalSpend: number;
+  plannedBudget: number;
+  budgetUsedPercent: number | null;
+  overBudget: boolean;
+  overdueDeliverables: number;
+  contentAlerts: number;
+  /** overdueDeliverables + contentAlerts + (overBudget ? 1 : 0) — the sort key. */
+  issueCount: number;
+}
+
+/** Executive overview answering the 5 outstanding exec questions (W6-3). */
+export interface ExecDashboardDTO {
+  currency: string;
+  spendVsBudget: SpendVsBudgetDTO;
+  today: ExecTodayDTO;
+  digest: ExecDigestDTO;
+  /** Per-brand health, most-troubled first. */
+  brands: ExecBrandRollupDTO[];
+  generatedAt: string;
+}
+
 // --- Platform & API / mobile readiness -------------------------------------
 export type FeatureStatus = 'READY' | 'PARTIAL' | 'PLANNED' | 'ADMIN_SERVER_ONLY' | 'NOT_EXPOSED';
 export type FeatureClass = 'SHARED' | 'WEB_ONLY_BY_DESIGN' | 'MOBILE_ONLY_BY_DESIGN' | 'ADMIN_DESKTOP_ONLY';

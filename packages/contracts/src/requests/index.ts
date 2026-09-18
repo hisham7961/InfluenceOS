@@ -686,6 +686,13 @@ export const leaderboardQuerySchema = z.object({
 });
 export type LeaderboardQuery = z.infer<typeof leaderboardQuerySchema>;
 
+// --- Executive dashboard (W6-3) --------------------------------------------
+export const execDashboardQuerySchema = z.object({
+  /** Narrow the whole overview to a single brand (must be in the caller's scope). */
+  brandId: cuid.optional(),
+});
+export type ExecDashboardQuery = z.infer<typeof execDashboardQuerySchema>;
+
 // --- Saved views / segments (W3-6) -----------------------------------------
 const viewFilters = z.record(z.string(), z.any());
 export const savedViewCreateSchema = z.object({
