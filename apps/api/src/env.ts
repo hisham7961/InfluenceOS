@@ -29,6 +29,11 @@ const schema = z
     AUTH_SECRET: z.string().min(16, 'AUTH_SECRET must be at least 16 characters'),
     AUTH_SESSION_TTL: z.coerce.number().int().positive().optional(),
     AUTH_REFRESH_GRACE_MS: z.coerce.number().int().nonnegative().optional(),
+    // Login brute-force lockout (W4-3): consecutive failures before a short
+    // account lockout, and how long that lockout lasts. Validated at boot so a
+    // typo can't silently disable the protection.
+    LOGIN_MAX_ATTEMPTS: z.coerce.number().int().positive().max(1000).default(10),
+    LOGIN_LOCK_MINUTES: z.coerce.number().int().positive().max(1440).default(15),
 
     // Object storage
     STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),

@@ -134,4 +134,30 @@ describe('env contract', () => {
     // Keep zod import referenced (schema mirror documentation).
     expect(typeof z.object).toBe('function');
   });
+
+  it('validates the login-lockout config at boot — a non-numeric value fails fast (W4-3)', async () => {
+    const original = process.env.LOGIN_MAX_ATTEMPTS;
+    const exit = process.exit;
+    let exited = false;
+    // @ts-expect-error test stub
+    process.exit = ((code?: number) => {
+      exited = true;
+      throw new Error(`exit:${code}`);
+    }) as never;
+    try {
+      process.env.LOGIN_MAX_ATTEMPTS = 'not-a-number';
+      const { resetEnv, loadEnv } = await import('../../src/env.ts');
+      resetEnv();
+      expect(() => loadEnv()).toThrow(/exit:1/);
+      expect(exited).toBe(true);
+    } finally {
+      process.exit = exit;
+      if (original === undefined) delete process.env.LOGIN_MAX_ATTEMPTS;
+      else process.env.LOGIN_MAX_ATTEMPTS = original;
+      const { resetEnv, loadEnv } = await import('../../src/env.ts');
+      resetEnv();
+      // Restore the cached, valid env for any later tests in the process.
+      loadEnv();
+    }
+  });
 });
