@@ -12,10 +12,13 @@ export function AppShell({
   user,
   brands,
   children,
+  maintenance = null,
 }: {
   user: UserDTO;
   brands: BrandSummaryDTO[];
   children: React.ReactNode;
+  /** When set, a maintenance banner is shown (W4-2). The string is the message. */
+  maintenance?: string | null;
 }) {
   const [commandOpen, setCommandOpen] = React.useState(false);
   const [quickAdd, setQuickAdd] = React.useState<{ open: boolean; kind: QuickAddKind }>({ open: false, kind: 'content' });
@@ -41,6 +44,15 @@ export function AppShell({
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar onOpenMobileNav={() => setMobileNav(true)} />
+          {maintenance !== null && (
+            <div
+              role="status"
+              className="border-b border-warning/30 bg-warning/10 px-4 py-2 text-center text-sm font-medium text-warning lg:px-8"
+            >
+              {maintenance || 'The system is under maintenance. Some actions are temporarily unavailable.'}
+              {user.role !== 'ADMIN' && ' Changes are read-only until this clears.'}
+            </div>
+          )}
           <main className="flex-1 px-4 py-6 lg:px-8">{children}</main>
         </div>
       </div>

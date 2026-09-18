@@ -294,6 +294,15 @@ export function makePlatformService(ctx: DomainContext) {
     return prisma.clientConfig.create({ data: {} });
   }
 
+  /**
+   * Whether maintenance mode is currently on (W4-2). A cheap single-column read
+   * used by the API's maintenance gate; returns false when no config row exists.
+   */
+  async function isMaintenanceActive(): Promise<boolean> {
+    const row = await prisma.clientConfig.findFirst({ select: { maintenanceMode: true } });
+    return row?.maintenanceMode ?? false;
+  }
+
   async function appVersionRule(platform: MobilePlatform): Promise<AppVersionRuleDTO> {
     const row = await prisma.appVersion.findUnique({ where: { platform } });
     return {
@@ -497,6 +506,7 @@ export function makePlatformService(ctx: DomainContext) {
     auditLog,
     endpoints,
     clientConfig,
+    isMaintenanceActive,
     getFlags,
     setFlag,
     getAppVersions,

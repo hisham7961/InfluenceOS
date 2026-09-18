@@ -13,7 +13,7 @@ import {
   serializerCompiler,
   validatorCompiler,
 } from 'fastify-type-provider-zod';
-import { AppError, maxUploadBytes } from '@influenceos/domain';
+import { AppError, createServices, maxUploadBytes, systemContext } from '@influenceos/domain';
 import { API_PREFIX, type ApiErrorBody, type ApiErrorCode } from '@influenceos/contracts';
 import { corsOrigins, loadEnv } from './env';
 import { resolveActor } from './http';
@@ -132,6 +132,36 @@ export async function buildApp(): Promise<FastifyInstance> {
       request.actor = await resolveActor(request);
     } catch {
       request.actor = null;
+    }
+  });
+
+  // Maintenance-mode gate (W4-2): make the `maintenanceMode` setting real. When
+  // it is on, reads still work and admins keep full access (so they can turn it
+  // back off and operate), but a non-admin's mutating request is refused with
+  // 503 MAINTENANCE. Auth and health/metrics probes are always allowed so an
+  // admin can sign in during maintenance. The DB is only touched for the case
+  // that can be blocked — a non-admin, non-auth write — so reads and admin
+  // traffic pay nothing.
+  const MAINT_EXEMPT = new Set(['/health', '/ready', '/metrics']);
+  app.addHook('onRequest', async (request, reply) => {
+    const method = request.method;
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return;
+    if (request.actor?.role === 'ADMIN') return;
+    if (MAINT_EXEMPT.has(request.url)) return;
+    if (request.url.startsWith(`${API_PREFIX}/auth/`)) return;
+    const active = await createServices(systemContext())
+      .platform.isMaintenanceActive()
+      .catch(() => false);
+    if (active) {
+      return reply
+        .status(503)
+        .send(
+          errBody(
+            'MAINTENANCE',
+            'The system is under maintenance. Please try again shortly.',
+            request.id,
+          ),
+        );
     }
   });
 
