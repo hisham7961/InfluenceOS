@@ -629,6 +629,49 @@ export const searchSchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).default(8),
 });
 
+/** The searchable entity types a full search page can be narrowed to (W3-6). */
+export const SEARCH_RESULT_TYPES = ['influencer', 'campaign', 'brand', 'published_content'] as const;
+/** Full, ranked, paginated global search (W3-6). */
+export const searchPageSchema = z.object({
+  q: z.string().trim().min(1).max(200),
+  brandId: cuid.optional(),
+  // Accept ?types=influencer, ?types=a,b or repeated ?types=a&types=b.
+  types: z
+    .preprocess(
+      (v) =>
+        v == null
+          ? undefined
+          : Array.isArray(v)
+            ? v
+            : String(v)
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean),
+      z.array(z.enum(SEARCH_RESULT_TYPES)).max(4),
+    )
+    .optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(20),
+});
+export type SearchPageQuery = z.infer<typeof searchPageSchema>;
+
+// --- Saved views / segments (W3-6) -----------------------------------------
+const viewFilters = z.record(z.string(), z.any());
+export const savedViewCreateSchema = z.object({
+  scope: z.string().trim().min(1).max(60),
+  name: shortString,
+  filters: viewFilters.default({}),
+  isShared: z.boolean().optional().default(false),
+});
+export const savedViewUpdateSchema = z.object({
+  name: shortString.optional(),
+  filters: viewFilters.optional(),
+  isShared: z.boolean().optional(),
+});
+export const savedViewFilterSchema = z.object({ scope: z.string().trim().min(1).max(60).optional() });
+export type SavedViewCreateInput = z.infer<typeof savedViewCreateSchema>;
+export type SavedViewUpdateInput = z.infer<typeof savedViewUpdateSchema>;
+
 // --- Integration settings --------------------------------------------------
 export const integrationUpdateSchema = z.object({
   isEnabled: z.boolean().optional(),

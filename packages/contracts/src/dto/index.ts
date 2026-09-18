@@ -623,6 +623,38 @@ export interface SearchResultDTO {
   link: string;
 }
 
+/** A search result with its relevance score and what matched (W3-6). */
+export interface RankedSearchResultDTO extends SearchResultDTO {
+  score: number;
+  /** Which field produced the match: 'name' | 'username' | 'tag' | 'note' | 'caption' | 'url'. */
+  matchedOn: string;
+}
+
+/** A full, ranked, paginated global-search results page (W3-6). */
+export interface SearchPageDTO {
+  results: RankedSearchResultDTO[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * A saved view / segment (W3-6): a named, optionally shared set of filters for a
+ * given list scope (e.g. 'influencers', 'campaigns'). `isOwn` marks the caller's
+ * own views; shared views from other users are read-only to non-owners.
+ */
+export interface SavedViewDTO {
+  id: string;
+  scope: string;
+  name: string;
+  filters: unknown;
+  isShared: boolean;
+  isOwn: boolean;
+  ownerId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // --- Integrations ----------------------------------------------------------
 export interface IntegrationCapabilityDTO {
   platform: Platform;

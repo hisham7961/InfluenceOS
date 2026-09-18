@@ -24,6 +24,7 @@ import { makeNotificationService } from './services/notification.service';
 import { makePlatformService } from './services/platform.service';
 import { makeProviderService } from './services/provider.service';
 import { makeReportService } from './services/report.service';
+import { makeSavedViewService } from './services/saved-view.service';
 import { makeScriptService } from './services/script.service';
 import { makeSearchService } from './services/search.service';
 import { makeShipmentService } from './services/shipment.service';
@@ -57,6 +58,7 @@ export function createServices(ctx: DomainContext) {
     attachments: makeAttachmentService(ctx),
     notifications: makeNotificationService(ctx),
     search: makeSearchService(ctx),
+    savedViews: makeSavedViewService(ctx),
     calendar: makeCalendarService(ctx),
     reports: makeReportService(ctx),
     integrations: makeIntegrationService(ctx),
