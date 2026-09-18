@@ -20,6 +20,7 @@ datasource db {
 enum UserRole {
   ADMIN
   STAFF
+  VIEWER
 }
 
 enum Platform {

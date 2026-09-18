@@ -34,6 +34,7 @@ function errorMessage(e: unknown): string {
 const ROLE_LABEL: Record<UserRole, string> = {
   ADMIN: 'Administrator',
   STAFF: 'Staff',
+  VIEWER: 'Viewer (read-only)',
 };
 
 export function UsersClient({ initial }: { initial: UserDTO[] }) {

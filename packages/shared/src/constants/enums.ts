@@ -4,7 +4,8 @@
  * Prisma schema literals exactly.
  */
 
-export const USER_ROLES = ['ADMIN', 'STAFF'] as const;
+// VIEWER is a read-only operator (W4-4): full read access, no mutations.
+export const USER_ROLES = ['ADMIN', 'STAFF', 'VIEWER'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export const DATA_SOURCES = ['MANUAL', 'OFFICIAL_API', 'EMBED', 'UNAVAILABLE'] as const;

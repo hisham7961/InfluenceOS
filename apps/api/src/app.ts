@@ -165,6 +165,21 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
   });
 
+  // Read-only VIEWER role (W4-4): a VIEWER has full read access but may not
+  // mutate anything. Reads pass; auth self-service (logout, refresh, change own
+  // password) stays open; every other write is refused with 403. This is the
+  // least-privilege enforcement point — domain services still run their own
+  // owner/admin checks on top.
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.actor?.role !== 'VIEWER') return;
+    const method = request.method;
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return;
+    if (request.url.startsWith(`${API_PREFIX}/auth/`)) return;
+    return reply
+      .status(403)
+      .send(errBody('FORBIDDEN', 'Your role is read-only.', request.id));
+  });
+
   // Expose the request id on every response so it can be correlated with logs
   // (and with the `requestId` returned in error bodies) across the proxy chain.
   app.addHook('onRequest', async (request, reply) => {
