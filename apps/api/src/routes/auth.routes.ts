@@ -154,4 +154,25 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       reply.status(204).send();
     },
   );
+
+  // --- Per-user brand scope (W4-4) ---
+  r.get(
+    '/users/:id/brand-access',
+    { preHandler: [requireAdmin], schema: { tags: ['Settings'], summary: "List a user's brand scope (admin, W4-4)", params: userIdParam } },
+    async (req) => servicesFor(req).auth.getUserBrandAccess(req.params.id),
+  );
+
+  r.put(
+    '/users/:id/brand-access',
+    {
+      preHandler: [requireAdmin],
+      schema: {
+        tags: ['Settings'],
+        summary: "Replace a user's brand scope — empty clears it (admin, W4-4)",
+        params: userIdParam,
+        body: requests.brandAccessSetSchema,
+      },
+    },
+    async (req) => servicesFor(req).auth.setUserBrandAccess(req.params.id, req.body.brandIds),
+  );
 }

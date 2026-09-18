@@ -4,6 +4,7 @@ import type { z } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireAdmin } from '../lib/authz';
+import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
 import { logActivity, uniqueSlug } from '../lib/helpers';
 import { moneyNumberOr0, sumMoney } from '../lib/money';
 import { toBrandSummary } from '../lib/mappers';
@@ -26,8 +27,13 @@ export function makeBrandService(ctx: DomainContext) {
   const { prisma } = ctx;
 
   async function list(opts: { includeInactive?: boolean } = {}): Promise<BrandSummaryDTO[]> {
+    // Brand scope (W4-4): a scoped operator only sees their assigned brands.
+    const scope = await scopedBrandIds(ctx);
     const brands = await prisma.brand.findMany({
-      where: opts.includeInactive ? {} : { isActive: true },
+      where: {
+        ...(opts.includeInactive ? {} : { isActive: true }),
+        ...(scope ? { id: { in: scope } } : {}),
+      },
       orderBy: { name: 'asc' },
       select: summarySelect,
     });
@@ -39,6 +45,10 @@ export function makeBrandService(ctx: DomainContext) {
       where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
     });
     if (!brand) throw AppError.notFound('Brand');
+    // A scoped operator cannot reach a brand outside their scope (W4-4) — it
+    // reads as not-found, never leaking that the brand exists.
+    const scope = await scopedBrandIds(ctx);
+    if (isBrandOutOfScope(scope, brand.id)) throw AppError.notFound('Brand');
     return brand;
   }
 

@@ -465,6 +465,37 @@ export function makeAuthService(ctx: DomainContext) {
     await prisma.user.delete({ where: { id } });
   }
 
+  /** Admin: list the brand ids a user is scoped to — empty means unscoped (W4-4). */
+  async function getUserBrandAccess(id: string): Promise<string[]> {
+    requireAdmin(ctx);
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    if (!target) throw AppError.notFound('User');
+    const rows = await prisma.userBrandAccess.findMany({ where: { userId: id }, select: { brandId: true } });
+    return rows.map((r) => r.brandId);
+  }
+
+  /**
+   * Admin: replace a user's brand scope (W4-4). Every id must be a real brand.
+   * An empty list clears the scope (the user becomes unscoped and sees all).
+   */
+  async function setUserBrandAccess(id: string, brandIds: string[]): Promise<string[]> {
+    requireAdmin(ctx);
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    if (!target) throw AppError.notFound('User');
+    const unique = [...new Set(brandIds)];
+    if (unique.length > 0) {
+      const found = await prisma.brand.count({ where: { id: { in: unique } } });
+      if (found !== unique.length) throw AppError.badRequest('One or more brands do not exist.');
+    }
+    await prisma.$transaction([
+      prisma.userBrandAccess.deleteMany({ where: { userId: id } }),
+      ...(unique.length > 0
+        ? [prisma.userBrandAccess.createMany({ data: unique.map((brandId) => ({ userId: id, brandId })) })]
+        : []),
+    ]);
+    return unique;
+  }
+
   /**
    * Change the authenticated user's own password. Requires the current
    * password. **Session policy:** on success ALL of the user's sessions are
@@ -507,6 +538,8 @@ export function makeAuthService(ctx: DomainContext) {
     updateUser,
     resetUserPassword,
     removeUser,
+    getUserBrandAccess,
+    setUserBrandAccess,
     hashPassword,
   };
 }

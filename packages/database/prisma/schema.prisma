@@ -324,8 +324,26 @@ model User {
   addedCandidates      CampaignCandidate[]     @relation("CandidateAdder")
   decidedCandidates    CampaignCandidate[]     @relation("CandidateDecider")
   createdShipments     ProductShipment[]
+  brandAccess          UserBrandAccess[]
 
   @@index([role])
+}
+
+/// Per-user brand scope (W4-4). A user WITH one or more rows is limited to those
+/// brands (least privilege); a user with NO rows is unscoped and sees every
+/// brand (so existing users are unaffected). Admins are always unscoped.
+model UserBrandAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  brandId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, brandId])
+  @@index([userId])
+  @@index([brandId])
 }
 
 model Brand {
@@ -350,6 +368,7 @@ model Brand {
   notifications    Notification[]
   activities       ActivityLog[]
   usageRights      UsageRight[]
+  userAccess       UserBrandAccess[]
 
   @@index([isActive])
 }

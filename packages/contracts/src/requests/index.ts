@@ -137,6 +137,13 @@ export const adminResetPasswordSchema = z.object({ newPassword: strongPassword }
 export type UserAdminUpdateInput = z.infer<typeof userAdminUpdateSchema>;
 export type AdminResetPasswordInput = z.infer<typeof adminResetPasswordSchema>;
 
+/**
+ * Replace a user's brand scope (W4-4). An empty list clears the scope, making
+ * the user unscoped again (they see every brand).
+ */
+export const brandAccessSetSchema = z.object({ brandIds: z.array(cuid).max(500).default([]) });
+export type BrandAccessSetInput = z.infer<typeof brandAccessSetSchema>;
+
 /** UI preferences persisted on the user account (so they follow the user across
  *  devices and to future mobile clients). Both optional — a request updates only
  *  the fields it carries. */
