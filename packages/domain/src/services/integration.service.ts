@@ -97,32 +97,31 @@ export function makeIntegrationService(ctx: DomainContext) {
     });
   }
 
-  /** Admin-only: toggle enablement/monitoring and (optionally) store new credential config. */
+  /**
+   * Admin-only: toggle enablement/monitoring. Provider CREDENTIALS are NOT
+   * accepted or stored here (W4-2): they live only in the server environment
+   * (see credentialsFromEnv), so nothing secret is ever written to the database.
+   * This endpoint only flips the operational switches.
+   */
   async function update(platform: Platform, input: IntegrationUpdateInput): Promise<IntegrationDTO> {
     const actor = requireAdmin(ctx);
     if (!PLATFORMS.includes(platform)) throw AppError.notFound('Platform');
-
-    const configJson: Prisma.InputJsonValue | undefined =
-      input.config === undefined ? undefined : (input.config as Prisma.InputJsonValue);
 
     const setting = await prisma.integrationSetting.upsert({
       where: { platform },
       update: {
         isEnabled: input.isEnabled ?? undefined,
         monitoringEnabled: input.monitoringEnabled ?? undefined,
-        config: configJson,
       },
       create: {
         platform,
         status: 'NOT_CONFIGURED',
         isEnabled: input.isEnabled ?? true,
         monitoringEnabled: input.monitoringEnabled ?? true,
-        config: configJson,
       },
       select: settingSelect,
     });
 
-    // Never log the actual credential payload — only that it changed.
     await logActivity(ctx, {
       type: 'GENERIC',
       message: `${actor.name} updated the ${platform} integration settings.`,
@@ -130,7 +129,6 @@ export function makeIntegrationService(ctx: DomainContext) {
         platform,
         isEnabled: setting.isEnabled,
         monitoringEnabled: setting.monitoringEnabled,
-        configUpdated: input.config !== undefined,
       },
     });
 

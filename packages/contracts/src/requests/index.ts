@@ -700,7 +700,8 @@ export type SavedViewUpdateInput = z.infer<typeof savedViewUpdateSchema>;
 export const integrationUpdateSchema = z.object({
   isEnabled: z.boolean().optional(),
   monitoringEnabled: z.boolean().optional(),
-  config: z.record(z.string(), z.any()).optional(),
+  // Provider credentials are NOT accepted here — they live only in the server
+  // environment, never the database (W4-2). This endpoint toggles switches only.
 });
 
 // --- Feature flags / client config (admin) --------------------------------
@@ -712,7 +713,9 @@ export const clientConfigUpdateSchema = z.object({
   maintenanceMessage: optionalString,
   defaultLanguage: z.enum(['en', 'ar']).optional(),
   supportedLanguages: z.array(z.enum(['en', 'ar'])).optional(),
-  maxUploadMb: z.coerce.number().int().min(1).max(500).optional(),
+  // NOTE: the upload limit is NOT settable here — it is a single source of
+  // truth, the MAX_UPLOAD_MB environment variable, which the API actually
+  // enforces (W4-2). A DB value here would be decorative and misleading.
   supportInfo: optionalString,
 });
 export const appVersionUpdateSchema = z.object({

@@ -345,7 +345,9 @@ export function makePlatformService(ctx: DomainContext) {
       enabledFeatures: flags.filter((f) => f.enabled).map((f) => f.key),
       disabledFeatures: flags.filter((f) => !f.enabled).map((f) => f.key),
       upload: {
-        maxUploadMb: config.maxUploadMb,
+        // The single source of truth is MAX_UPLOAD_MB (env) — the value the API
+        // actually enforces — not the legacy ClientConfig column (W4-2).
+        maxUploadMb: Math.round(maxUploadBytes() / (1024 * 1024)),
         acceptedImageTypes: DEFAULT_IMAGE_TYPES,
         acceptedFileTypes: DEFAULT_FILE_TYPES,
       },
@@ -473,7 +475,7 @@ export function makePlatformService(ctx: DomainContext) {
             input.maintenanceMessage === undefined ? undefined : input.maintenanceMessage,
           defaultLanguage: input.defaultLanguage ?? undefined,
           supportedLanguages: input.supportedLanguages ?? undefined,
-          maxUploadMb: input.maxUploadMb ?? undefined,
+          // maxUploadMb intentionally omitted — enforced by MAX_UPLOAD_MB (W4-2).
           supportInfo: input.supportInfo === undefined ? undefined : input.supportInfo,
         },
       });
@@ -484,7 +486,6 @@ export function makePlatformService(ctx: DomainContext) {
           maintenanceMessage: input.maintenanceMessage ?? null,
           defaultLanguage: input.defaultLanguage ?? 'en',
           supportedLanguages: input.supportedLanguages ?? ['en', 'ar'],
-          maxUploadMb: input.maxUploadMb ?? 50,
           supportInfo: input.supportInfo ?? null,
         },
       });
