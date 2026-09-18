@@ -74,6 +74,8 @@ export const DELIVERABLE_TYPES = [
   'TWEET',
   'SNAP',
   'CAROUSEL',
+  // Owned UGC asset (no public social post required) — completes via approval.
+  'UGC',
   'OTHER',
 ] as const;
 export type DeliverableType = (typeof DELIVERABLE_TYPES)[number];
@@ -82,12 +84,32 @@ export const DELIVERABLE_STATUSES = [
   'PLANNED',
   'SENT_TO_INFLUENCER',
   'AWAITING_PUBLICATION',
+  // Review/approval lifecycle (W3-1): a draft can be in review, sent back for
+  // changes, or approved. APPROVED is a completion state — a UGC deliverable
+  // reaches it without ever having a public social URL.
+  'IN_REVIEW',
+  'CHANGES_REQUESTED',
+  'APPROVED',
   'PUBLISHED',
   'VERIFIED',
   'MISSED',
   'CANCELLED',
 ] as const;
 export type DeliverableStatus = (typeof DELIVERABLE_STATUSES)[number];
+
+/** Review lifecycle of a single deliverable submission (draft) — W3-1. */
+export const SUBMISSION_STATUSES = [
+  'DRAFT',
+  'IN_REVIEW',
+  'CHANGES_REQUESTED',
+  'APPROVED',
+  'REJECTED',
+] as const;
+export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
+
+/** A reviewer's decision on a submission. */
+export const SUBMISSION_DECISIONS = ['APPROVE', 'REQUEST_CHANGES', 'REJECT'] as const;
+export type SubmissionDecision = (typeof SUBMISSION_DECISIONS)[number];
 
 export const CONTENT_STATUSES = [
   'LIVE',
@@ -164,8 +186,9 @@ export const DEAL_TYPE_LABELS = labelMap(DEAL_TYPES, {
 export const CAMPAIGN_STATUS_LABELS = labelMap(CAMPAIGN_STATUSES);
 export const CAMPAIGN_OBJECTIVE_LABELS = labelMap(CAMPAIGN_OBJECTIVES, { UGC: 'UGC' });
 export const PARTICIPATION_STATUS_LABELS = labelMap(PARTICIPATION_STATUSES);
-export const DELIVERABLE_TYPE_LABELS = labelMap(DELIVERABLE_TYPES);
+export const DELIVERABLE_TYPE_LABELS = labelMap(DELIVERABLE_TYPES, { UGC: 'UGC' });
 export const DELIVERABLE_STATUS_LABELS = labelMap(DELIVERABLE_STATUSES);
+export const SUBMISSION_STATUS_LABELS = labelMap(SUBMISSION_STATUSES);
 export const CONTENT_STATUS_LABELS = labelMap(CONTENT_STATUSES, { BROKEN_LINK: 'Broken Link' });
 export const PAYMENT_STATUS_LABELS = labelMap(PAYMENT_STATUSES);
 export const EXPENSE_TYPE_LABELS = labelMap(EXPENSE_TYPES);
@@ -189,10 +212,21 @@ export const DELIVERABLE_STATUS_TONE: Record<DeliverableStatus, Tone> = {
   PLANNED: 'neutral',
   SENT_TO_INFLUENCER: 'info',
   AWAITING_PUBLICATION: 'warning',
+  IN_REVIEW: 'info',
+  CHANGES_REQUESTED: 'warning',
+  APPROVED: 'success',
   PUBLISHED: 'success',
   VERIFIED: 'accent',
   MISSED: 'danger',
   CANCELLED: 'neutral',
+};
+
+export const SUBMISSION_STATUS_TONE: Record<SubmissionStatus, Tone> = {
+  DRAFT: 'neutral',
+  IN_REVIEW: 'info',
+  CHANGES_REQUESTED: 'warning',
+  APPROVED: 'success',
+  REJECTED: 'danger',
 };
 
 export const CONTENT_STATUS_TONE: Record<ContentStatus, Tone> = {

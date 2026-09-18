@@ -23,7 +23,7 @@ import { computeCostSummary } from '../lib/progress';
 type ReportFilter = z.infer<typeof requests.reportFilterSchema>;
 type ReportRow = Record<string, string | number | null>;
 
-const PUBLISHED_DELIVERABLE_STATUSES = ['PUBLISHED', 'VERIFIED'] as const;
+const PUBLISHED_DELIVERABLE_STATUSES = ['PUBLISHED', 'VERIFIED', 'APPROVED'] as const;
 const PAID_DEAL_TYPES = ['PAID', 'PAID_PLUS_GIFTED'] as const;
 const MAX_ROWS = 500;
 

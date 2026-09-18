@@ -17,6 +17,7 @@ import type {
   Platform,
   Priority,
   RelationshipStatus,
+  SubmissionStatus,
   UserRole,
 } from '../enums';
 
@@ -272,6 +273,32 @@ export interface DeliverableDTO {
   publishedAt: string | null;
   internalNotes: string | null;
   publishedContentCount: number;
+}
+
+/** A review comment on a deliverable submission (W3-1). */
+export interface SubmissionCommentDTO {
+  id: string;
+  authorName: string | null;
+  body: string;
+  createdAt: string;
+}
+
+/** A creator's submission (draft/asset) against a deliverable, with its review
+ *  lifecycle and comment thread (W3-1). Successive versions are revision rounds. */
+export interface DeliverableSubmissionDTO {
+  id: string;
+  deliverableId: string;
+  version: number;
+  status: SubmissionStatus;
+  notes: string | null;
+  assetUrl: string | null;
+  submittedByName: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  comments: SubmissionCommentDTO[];
 }
 
 export interface CampaignInfluencerDTO {

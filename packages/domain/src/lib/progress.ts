@@ -3,7 +3,7 @@ import type { CampaignProgressDTO, CostSummaryDTO } from '@influenceos/contracts
 import type { DomainContext } from '../context';
 import { percentOf, toDecimal, toMoneyNumber, type MoneyInput } from './money';
 
-const PUBLISHED_DELIVERABLE_STATUSES = ['PUBLISHED', 'VERIFIED'] as const;
+const PUBLISHED_DELIVERABLE_STATUSES = ['PUBLISHED', 'VERIFIED', 'APPROVED'] as const;
 
 /**
  * Split an amount into its paid / unpaid parts by payment status. A

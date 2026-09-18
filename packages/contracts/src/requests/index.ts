@@ -13,6 +13,7 @@ import {
   PAYMENT_STATUSES,
   PRIORITIES,
   RELATIONSHIP_STATUSES,
+  SUBMISSION_DECISIONS,
   USER_ROLES,
 } from '@influenceos/shared';
 
@@ -309,6 +310,22 @@ export const deliverableCreateSchema = z.object({
 export const deliverableUpdateSchema = deliverableCreateSchema
   .partial()
   .omit({ campaignInfluencerId: true });
+
+// --- Deliverable submissions (review / approval, W3-1) ---------------------
+export const submissionCreateSchema = z.object({
+  notes: optionalString,
+  // Link to the draft/owned asset — never a required public post. Scheme-guarded.
+  assetUrl: safeUrl,
+});
+export const submissionReviewSchema = z.object({
+  decision: z.enum(SUBMISSION_DECISIONS),
+  note: optionalString,
+});
+export const submissionCommentSchema = z.object({
+  body: z.string().trim().min(1).max(5000),
+});
+export type SubmissionCreateInput = z.infer<typeof submissionCreateSchema>;
+export type SubmissionReviewInput = z.infer<typeof submissionReviewSchema>;
 
 // --- Script reference + version -------------------------------------------
 export const scriptVersionSchema = z.object({

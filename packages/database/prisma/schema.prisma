@@ -113,6 +113,7 @@ enum DeliverableType {
   TWEET
   SNAP
   CAROUSEL
+  UGC
   OTHER
 }
 
@@ -120,10 +121,22 @@ enum DeliverableStatus {
   PLANNED
   SENT_TO_INFLUENCER
   AWAITING_PUBLICATION
+  IN_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
   PUBLISHED
   VERIFIED
   MISSED
   CANCELLED
+}
+
+/// Review lifecycle of a single deliverable submission (draft) — W3-1.
+enum SubmissionStatus {
+  DRAFT
+  IN_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
 }
 
 /// Availability / health state of a piece of published content.
@@ -266,6 +279,9 @@ model User {
   notifications    Notification[]
   savedViews       SavedView[]
   deviceSessions   DeviceSession[]
+  submittedSubmissions DeliverableSubmission[] @relation("SubmissionSubmitter")
+  reviewedSubmissions  DeliverableSubmission[] @relation("SubmissionReviewer")
+  submissionComments   SubmissionComment[]
 
   @@index([role])
 }
@@ -507,11 +523,55 @@ model Deliverable {
   publishedContent   PublishedContent[]
   attachments        Attachment[]
   activities         ActivityLog[]
+  submissions        DeliverableSubmission[]
 
   @@index([campaignInfluencerId])
   @@index([status])
   @@index([dueDate])
   @@index([platform])
+}
+
+/// A creator's draft/asset submitted against a deliverable, moving through a
+/// review lifecycle (W3-1). Successive versions are the revision rounds; an
+/// APPROVED submission completes the deliverable — for a UGC deliverable this
+/// happens without any public social URL.
+model DeliverableSubmission {
+  id            String           @id @default(cuid())
+  deliverableId String
+  version       Int              @default(1)
+  status        SubmissionStatus @default(IN_REVIEW)
+  notes         String?
+  /// Link to the draft/owned asset (never a required public post).
+  assetUrl      String?
+  submittedById String?
+  reviewedById  String?
+  reviewedAt    DateTime?
+  reviewNote    String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  deliverable Deliverable         @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  submittedBy User?               @relation("SubmissionSubmitter", fields: [submittedById], references: [id])
+  reviewedBy  User?               @relation("SubmissionReviewer", fields: [reviewedById], references: [id])
+  comments    SubmissionComment[]
+
+  @@unique([deliverableId, version])
+  @@index([deliverableId])
+  @@index([status])
+}
+
+/// A threaded review comment on a submission (the review conversation).
+model SubmissionComment {
+  id           String   @id @default(cuid())
+  submissionId String
+  authorId     String?
+  body         String
+  createdAt    DateTime @default(now())
+
+  submission DeliverableSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  author     User?                 @relation(fields: [authorId], references: [id])
+
+  @@index([submissionId])
 }
 
 // ===========================================================================

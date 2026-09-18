@@ -23,7 +23,7 @@ const influencerSummaryInclude = {
   tags: { include: { tag: { select: { name: true } } } },
 } satisfies Prisma.InfluencerInclude;
 
-const PUBLISHED = ['PUBLISHED', 'VERIFIED'] as const;
+const PUBLISHED = ['PUBLISHED', 'VERIFIED', 'APPROVED'] as const;
 
 // A participation only counts as a real collaboration once it is committed —
 // an INVITED/DECLINED/DROPPED row must NOT inflate relationship history (DB-10).

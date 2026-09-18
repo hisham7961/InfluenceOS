@@ -33,7 +33,18 @@ Owner disciplines: SRE, BE (backend/domain), FE (web), DBE (database), SEC (secu
   pass (no local Docker daemon here; a blind pnpm+prisma+tsx multi-stage risks
   repeated red CI on an image that is not deployed pre-freeze). Each shipped
   item has CI-gated tests. No deploy; STAGING_ACCEPTANCE remains NOT EXECUTED.
-- **WAVES 3–8 — not started** (await direction/prioritisation).
+- **WAVE 3 — IN PROGRESS.** W3-1 (content review/approval + revision workflow +
+  UGC deliverable type) landed **API-first**: new `DeliverableSubmission` +
+  `SubmissionComment` models, review states (submission DRAFT→IN_REVIEW→
+  CHANGES_REQUESTED→APPROVED/REJECTED; deliverable += IN_REVIEW/CHANGES_REQUESTED/
+  APPROVED), a `UGC` deliverable type, a submission service (submit → comment →
+  request-changes → revise → approve, transactional + notified), API routes, and
+  an integration test proving a UGC deliverable reaches complete WITHOUT any
+  public social URL. **Deferred within W3-1:** the web UI for the review board,
+  and W3-2..W3-6 (usage-rights ledger, sourcing/shortlist, bulk roster ops,
+  saved views/search). Additive migration; no deploy; STAGING_ACCEPTANCE remains
+  NOT EXECUTED.
+- **WAVES 4–8 — not started** (await direction/prioritisation).
 
 ---
 
