@@ -15,7 +15,7 @@ import { requireActor } from '../lib/authz';
 import { iso, logActivity, uniqueSlug } from '../lib/helpers';
 import { toMoneyNumber, type MoneyInput } from '../lib/money';
 import { toBrandSummary } from '../lib/mappers';
-import { computeCampaignProgress } from '../lib/progress';
+import { computeCampaignProgress, computeCampaignProgressBatch } from '../lib/progress';
 
 type CampaignCreate = z.infer<typeof requests.campaignCreateSchema>;
 type CampaignUpdate = z.infer<typeof requests.campaignUpdateSchema>;
@@ -96,9 +96,11 @@ export function makeCampaignService(ctx: DomainContext) {
       }),
     ]);
 
-    const data = await Promise.all(
-      rows.map(async (c) => toSummary(c as CampaignRow, await computeCampaignProgress(ctx, c))),
-    );
+    // One batched progress computation for the whole page (fixed 3 queries),
+    // not one fan-out per campaign (PERF-01 / W7-1). The batch keys every input
+    // campaign, so the lookup always resolves.
+    const progress = await computeCampaignProgressBatch(ctx, rows);
+    const data = rows.map((c) => toSummary(c as CampaignRow, progress.get(c.id)!));
     return { data, pagination: buildOffsetPagination(filter.page, filter.pageSize, total) };
   }
 
