@@ -184,6 +184,9 @@ export type UsageRightEffectiveStatus = (typeof USAGE_RIGHT_EFFECTIVE_STATUSES)[
 /** Days before `expiresAt` at which an ACTIVE license is flagged EXPIRING_SOON. */
 export const USAGE_RIGHT_EXPIRY_WARNING_DAYS = 14;
 
+/** Metrics older than this many days are flagged stale in efficiency views (W6-1). */
+export const METRICS_FRESHNESS_DAYS = 7;
+
 /**
  * Sourcing-pipeline stage for a creator considered for a campaign, BEFORE any
  * roster commit (W3-3). Evaluating candidates never inflates relationship

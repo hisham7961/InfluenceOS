@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import type {
   CampaignDetailDTO,
+  CampaignEfficiencyDTO,
   CampaignInfluencerDTO,
   CostSummaryDTO,
   DealType,
@@ -56,6 +57,7 @@ import {
   DELIVERABLE_TYPE_LABELS,
   EXPENSE_TYPES,
   EXPENSE_TYPE_LABELS,
+  DATA_SOURCE_LABELS,
   PARTICIPATION_STATUSES,
   PARTICIPATION_STATUS_LABELS,
   PAYMENT_STATUSES,
@@ -173,7 +175,7 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
       </TabsContent>
 
       <TabsContent value="performance">
-        <PerformanceTab contentFeed={contentFeed} costs={costs.summary} />
+        <PerformanceTab campaignId={campaign.id} contentFeed={contentFeed} />
       </TabsContent>
 
       <TabsContent value="files">
@@ -1675,44 +1677,77 @@ function MetricTile({
   );
 }
 
-function PerformanceTab({ contentFeed, costs }: { contentFeed: PublishedContentDTO[]; costs: CostSummaryDTO }) {
-  const totals = React.useMemo(() => {
-    let views = 0;
-    let viewsKnown = false;
-    let likes = 0;
-    let comments = 0;
-    let shares = 0;
-    let saves = 0;
-    let engagementSum = 0;
-    let engagementCount = 0;
+/**
+ * Metric freshness + provenance banner (W6-1). Surfaces when the campaign's
+ * metrics were last synced, whether they are stale, coverage, and where the
+ * numbers came from — so an exec reads the efficiency figures with the right
+ * amount of trust.
+ */
+function MetricsFreshnessBanner({ efficiency }: { efficiency: CampaignEfficiencyDTO }) {
+  const synced = efficiency.metricsLastSyncedAt;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-border bg-surface-muted/40 px-4 py-3 text-sm">
+      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+        <Clock className="size-4" />
+        {synced ? <>Metrics synced {relativeTime(synced)}</> : 'Metrics never synced'}
+      </span>
+      <Badge tone={efficiency.isStale ? 'warning' : 'success'}>
+        {efficiency.isStale ? (
+          <span className="inline-flex items-center gap-1">
+            <AlertCircle className="size-3.5" /> Stale (&gt;{efficiency.freshnessWindowDays}d)
+          </span>
+        ) : (
+          'Fresh'
+        )}
+      </Badge>
+      <span className="text-muted-foreground">
+        {efficiency.contentWithMetrics}/{efficiency.contentCount} measured
+      </span>
+      {efficiency.sources.length > 0 && (
+        <span className="inline-flex flex-wrap items-center gap-1.5">
+          {efficiency.sources.map((s) => (
+            <Badge key={s.source} tone="neutral">
+              {DATA_SOURCE_LABELS[s.source]} · {s.count}
+            </Badge>
+          ))}
+        </span>
+      )}
+    </div>
+  );
+}
 
-    for (const c of contentFeed) {
-      const m = c.metrics;
-      if (!m) continue;
-      if (m.views != null) {
-        views += m.views;
-        viewsKnown = true;
-      }
-      if (m.likes != null) likes += m.likes;
-      if (m.comments != null) comments += m.comments;
-      if (m.shares != null) shares += m.shares;
-      if (m.saves != null) saves += m.saves;
-      if (m.engagementRate != null) {
-        engagementSum += m.engagementRate;
-        engagementCount += 1;
-      }
-    }
+function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; contentFeed: PublishedContentDTO[] }) {
+  // Efficiency (CPV/CPM/CPE + rollups + freshness) is computed server-side
+  // (W6-1 / ARCH-01) — the browser renders these numbers, it never derives them.
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['campaign-efficiency', campaignId],
+    queryFn: () => api.campaigns.efficiency(campaignId),
+  });
 
-    const totalEngagement = likes + comments + shares + saves;
-    const avgEngagementRate = engagementCount > 0 ? engagementSum / engagementCount : null;
-    const cpv = viewsKnown && views > 0 ? costs.totalSpend / views : null;
-    const cpm = cpv != null ? cpv * 1000 : null;
-    const costPerContent = contentFeed.length > 0 ? costs.totalSpend / contentFeed.length : null;
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-14 w-full rounded-2xl" />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 w-full rounded-2xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
-    return { views: viewsKnown ? views : null, totalEngagement, avgEngagementRate, cpv, cpm, costPerContent };
-  }, [contentFeed, costs.totalSpend]);
+  if (isError || !data) {
+    return (
+      <EmptyState
+        icon={TrendingUp}
+        title="Couldn't load performance"
+        description="Something went wrong computing this campaign's efficiency. Try again shortly."
+      />
+    );
+  }
 
-  if (contentFeed.length === 0) {
+  if (data.contentCount === 0) {
     return (
       <EmptyState
         icon={TrendingUp}
@@ -1722,34 +1757,45 @@ function PerformanceTab({ contentFeed, costs }: { contentFeed: PublishedContentD
     );
   }
 
+  const { currency } = data;
+  const byContent = new Map(data.perContent.map((p) => [p.contentId, p]));
+
   return (
     <div className="space-y-6">
+      <MetricsFreshnessBanner efficiency={data} />
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <StatCard label="Total Views" value={totals.views} icon={Eye} tone="info" format={formatCompact} />
-        <StatCard label="Total Engagement" value={totals.totalEngagement} icon={Heart} tone="accent" format={formatCompact} />
+        <StatCard label="Total Views" value={data.totalViews} icon={Eye} tone="info" format={formatCompact} />
+        <StatCard label="Total Engagement" value={data.totalEngagement} icon={Heart} tone="accent" format={formatCompact} />
         <MetricTile
           label="Avg. Engagement Rate"
-          value={totals.avgEngagementRate != null ? formatPercent(totals.avgEngagementRate) : 'N/A'}
+          value={data.avgEngagementRate != null ? formatPercent(data.avgEngagementRate) : 'N/A'}
           icon={PercentIcon}
           tooltip="Average of each post's engagement rate — (likes + comments + shares) ÷ views."
         />
         <MetricTile
           label="Cost per Content"
-          value={totals.costPerContent != null ? formatCurrency(totals.costPerContent, costs.currency) : 'N/A'}
+          value={data.costPerContent != null ? formatCurrency(data.costPerContent, currency) : 'N/A'}
           icon={DollarSign}
           tooltip="Total campaign spend ÷ number of published content pieces."
         />
         <MetricTile
           label="CPV"
-          value={totals.cpv != null ? formatCurrency(totals.cpv, costs.currency) : 'N/A'}
+          value={data.costPerView != null ? formatCurrency(data.costPerView, currency) : 'N/A'}
           icon={Eye}
           tooltip="Cost Per View — total campaign spend ÷ total views across this campaign's content."
         />
         <MetricTile
           label="CPM"
-          value={totals.cpm != null ? formatCurrency(totals.cpm, costs.currency) : 'N/A'}
+          value={data.costPerMille != null ? formatCurrency(data.costPerMille, currency) : 'N/A'}
           icon={TrendingUp}
           tooltip="Cost Per Mille — cost to reach 1,000 views (spend ÷ views × 1,000)."
+        />
+        <MetricTile
+          label="CPE"
+          value={data.costPerEngagement != null ? formatCurrency(data.costPerEngagement, currency) : 'N/A'}
+          icon={Heart}
+          tooltip="Cost Per Engagement — total campaign spend ÷ total engagements across this campaign's content."
         />
       </div>
 
@@ -1776,9 +1822,7 @@ function PerformanceTab({ contentFeed, costs }: { contentFeed: PublishedContentD
             </thead>
             <tbody className="divide-y divide-border">
               {contentFeed.map((c) => {
-                const m = c.metrics;
-                const engagement = (m?.likes ?? 0) + (m?.comments ?? 0) + (m?.shares ?? 0) + (m?.saves ?? 0);
-                const contentCpv = totals.costPerContent != null && m?.views ? totals.costPerContent / m.views : null;
+                const eff = byContent.get(c.id);
                 return (
                   <tr key={c.id}>
                     <td className="px-5 py-3">
@@ -1793,11 +1837,11 @@ function PerformanceTab({ contentFeed, costs }: { contentFeed: PublishedContentD
                     <td className="px-5 py-3">
                       <PlatformBadge platform={c.platform} size="sm" />
                     </td>
-                    <td className="px-5 py-3 tabular-nums">{m?.views != null ? formatCompact(m.views) : 'N/A'}</td>
-                    <td className="px-5 py-3 tabular-nums">{formatCompact(engagement)}</td>
-                    <td className="px-5 py-3 tabular-nums">{m?.engagementRate != null ? formatPercent(m.engagementRate) : 'N/A'}</td>
+                    <td className="px-5 py-3 tabular-nums">{eff?.views != null ? formatCompact(eff.views) : 'N/A'}</td>
+                    <td className="px-5 py-3 tabular-nums">{eff?.totalEngagement != null ? formatCompact(eff.totalEngagement) : 'N/A'}</td>
+                    <td className="px-5 py-3 tabular-nums">{eff?.engagementRate != null ? formatPercent(eff.engagementRate) : 'N/A'}</td>
                     <td className="px-5 py-3 tabular-nums">
-                      {contentCpv != null ? formatCurrency(contentCpv, costs.currency) : 'N/A'}
+                      {eff?.costPerView != null ? formatCurrency(eff.costPerView, currency) : 'N/A'}
                     </td>
                   </tr>
                 );

@@ -77,3 +77,27 @@ export function completionRate(published: Num, total: Num): number | null {
   const r = safeDiv(published, total);
   return r == null ? null : r * 100;
 }
+
+/**
+ * Whole days elapsed since `at` (relative to `now`), or null when `at` is
+ * missing. Never negative — a future timestamp reads as 0 days old.
+ */
+export function ageInDays(at: Date | string | null | undefined, now: Date): number | null {
+  if (at == null) return null;
+  const t = at instanceof Date ? at.getTime() : new Date(at).getTime();
+  if (!Number.isFinite(t)) return null;
+  return Math.max(0, Math.floor((now.getTime() - t) / 86_400_000));
+}
+
+/**
+ * Metrics are stale when they have never synced, or the last sync is older than
+ * `windowDays` (W6-1). Pure so Web and API agree on the same staleness verdict.
+ */
+export function isMetricsStale(
+  lastSyncedAt: Date | string | null | undefined,
+  now: Date,
+  windowDays: number,
+): boolean {
+  const age = ageInDays(lastSyncedAt, now);
+  return age == null || age > windowDays;
+}

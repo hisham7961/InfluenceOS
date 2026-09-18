@@ -286,35 +286,57 @@ export function makeReportService(ctx: DomainContext) {
       select: {
         platform: true,
         availabilityStatus: true,
+        dataSource: true,
+        lastMetricsSyncAt: true,
         influencer: { select: { displayName: true } },
         campaign: { select: { name: true } },
         metricSnapshots: {
           orderBy: { capturedAt: 'desc' },
           take: 1,
-          select: { views: true, likes: true, comments: true },
+          select: {
+            views: true,
+            likes: true,
+            comments: true,
+            shares: true,
+            saves: true,
+            reposts: true,
+            engagementRate: true,
+            capturedAt: true,
+            source: true,
+          },
         },
       },
     });
 
+    // Efficiency (engagement + rate) and staleness (provenance + last sync) are
+    // shown here so metric quality is legible in the report itself (W6-1).
     const columns: ReportColumnDTO[] = [
       { key: 'platform', label: 'Platform', type: 'string' },
       { key: 'influencer', label: 'Influencer', type: 'string' },
       { key: 'campaign', label: 'Campaign', type: 'string' },
       { key: 'views', label: 'Views', type: 'number' },
-      { key: 'likes', label: 'Likes', type: 'number' },
-      { key: 'comments', label: 'Comments', type: 'number' },
+      { key: 'engagement', label: 'Engagement', type: 'number' },
+      { key: 'engagementRate', label: 'Eng. Rate', type: 'percent' },
+      { key: 'source', label: 'Source', type: 'string' },
+      { key: 'synced', label: 'Metrics Synced', type: 'date' },
       { key: 'status', label: 'Status', type: 'string' },
     ];
 
     const rows = items.map((pc): ReportRow => {
       const snap = pc.metricSnapshots[0] ?? null;
+      const syncedAt = pc.lastMetricsSyncAt ?? snap?.capturedAt ?? null;
       return {
         platform: pc.platform,
         influencer: pc.influencer?.displayName ?? null,
         campaign: pc.campaign?.name ?? null,
         views: snap?.views ?? null,
-        likes: snap?.likes ?? null,
-        comments: snap?.comments ?? null,
+        engagement: snap
+          ? metrics.totalEngagements({ likes: snap.likes, comments: snap.comments, shares: snap.shares, saves: snap.saves, reposts: snap.reposts })
+          : null,
+        engagementRate: snap?.engagementRate ?? null,
+        // Provenance of the latest metrics — snapshot source, else the row's own.
+        source: snap?.source ?? pc.dataSource,
+        synced: syncedAt ? syncedAt.toISOString() : null,
         status: pc.availabilityStatus,
       };
     });

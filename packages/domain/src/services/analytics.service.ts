@@ -1,16 +1,22 @@
+import { METRICS_FRESHNESS_DAYS, metrics } from '@influenceos/shared';
 import {
   requests,
+  type CampaignEfficiencyDTO,
+  type ContentEfficiencyDTO,
   type CreatorLeaderboardDTO,
   type CreatorTier,
+  type DataSource,
   type ExecBrandRollupDTO,
   type ExecDashboardDTO,
   type LeaderboardEntryDTO,
+  type MetricSourceCountDTO,
 } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { moneyNumberOr0, percentOf, sumMoney, toDecimal } from '../lib/money';
+import { moneyNumberOr0, percentOf, sumMoney, toDecimal, toMoneyNumber } from '../lib/money';
+import { computeCostSummary } from '../lib/progress';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
 
 type LeaderboardQuery = z.infer<typeof requests.leaderboardQuerySchema>;
@@ -296,7 +302,134 @@ export function makeAnalyticsService(ctx: DomainContext) {
     };
   }
 
-  return { creatorLeaderboard, executiveDashboard };
+  /**
+   * Campaign spend-efficiency (W6-1, fixes ARCH-01). Computes CPV/CPM/CPE, the
+   * view/engagement rollups and per-content efficiency **server-side**, plus
+   * metric freshness (last sync + stale flag) and provenance (source
+   * breakdown). The Web client renders these numbers; it no longer derives
+   * them in the browser. A missing input yields null, never a fabricated zero.
+   */
+  async function campaignEfficiency(idOrSlug: string): Promise<CampaignEfficiencyDTO> {
+    const campaign = await prisma.campaign.findFirst({
+      where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
+      select: { id: true, brandId: true, currency: true, plannedBudget: true },
+    });
+    if (!campaign) throw AppError.notFound('Campaign');
+    const scope = await scopedBrandIds(ctx);
+    if (isBrandOutOfScope(scope, campaign.brandId)) throw AppError.notFound('Campaign');
+
+    const [cost, contents] = await Promise.all([
+      computeCostSummary(ctx, campaign.id, campaign.currency, toMoneyNumber(campaign.plannedBudget)),
+      prisma.publishedContent.findMany({
+        where: { campaignId: campaign.id },
+        select: {
+          id: true,
+          dataSource: true,
+          lastMetricsSyncAt: true,
+          metricSnapshots: {
+            orderBy: { capturedAt: 'desc' },
+            take: 1,
+            select: {
+              views: true,
+              likes: true,
+              comments: true,
+              shares: true,
+              saves: true,
+              reposts: true,
+              engagementRate: true,
+              capturedAt: true,
+              source: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const totalSpend = cost.totalSpend;
+    const contentCount = contents.length;
+    const costPerContent = contentCount > 0 ? totalSpend / contentCount : null;
+
+    let views = 0;
+    let viewsKnown = false;
+    let engagement = 0;
+    let engagementKnown = false;
+    let erSum = 0;
+    let erCount = 0;
+    let contentWithMetrics = 0;
+    let lastSyncedMs: number | null = null;
+    const sourceCounts = new Map<DataSource, number>();
+    const perContent: ContentEfficiencyDTO[] = [];
+
+    for (const c of contents) {
+      const snap = c.metricSnapshots[0] ?? null;
+      const source: DataSource = snap?.source ?? c.dataSource;
+      const capturedAt = snap?.capturedAt ?? null;
+      const contentEngagement = snap
+        ? metrics.totalEngagements({ likes: snap.likes, comments: snap.comments, shares: snap.shares, saves: snap.saves, reposts: snap.reposts })
+        : null;
+
+      if (snap) {
+        contentWithMetrics += 1;
+        sourceCounts.set(source, (sourceCounts.get(source) ?? 0) + 1);
+      }
+      if (snap?.views != null) {
+        views += snap.views;
+        viewsKnown = true;
+      }
+      if (contentEngagement != null) {
+        engagement += contentEngagement;
+        engagementKnown = true;
+      }
+      if (snap?.engagementRate != null) {
+        erSum += snap.engagementRate;
+        erCount += 1;
+      }
+      // Freshness prefers the content's explicit sync stamp, else the snapshot capture.
+      const syncedMs = (c.lastMetricsSyncAt ?? capturedAt)?.getTime() ?? null;
+      if (syncedMs != null && (lastSyncedMs == null || syncedMs > lastSyncedMs)) lastSyncedMs = syncedMs;
+
+      perContent.push({
+        contentId: c.id,
+        views: snap?.views ?? null,
+        totalEngagement: contentEngagement,
+        engagementRate: snap?.engagementRate ?? null,
+        // Est. CPV: an even spend allocation per content ÷ this piece's views.
+        costPerView: metrics.costPerView(costPerContent, snap?.views ?? null),
+        source,
+        capturedAt: capturedAt ? capturedAt.toISOString() : null,
+      });
+    }
+
+    const totalViews = viewsKnown ? views : null;
+    const totalEngagement = engagementKnown ? engagement : null;
+    const metricsLastSyncedAt = lastSyncedMs != null ? new Date(lastSyncedMs).toISOString() : null;
+    const now = new Date();
+
+    const sources: MetricSourceCountDTO[] = [...sourceCounts.entries()]
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count || a.source.localeCompare(b.source));
+
+    return {
+      currency: cost.currency,
+      totalSpend,
+      contentCount,
+      contentWithMetrics,
+      totalViews,
+      totalEngagement,
+      avgEngagementRate: erCount > 0 ? erSum / erCount : null,
+      costPerView: metrics.costPerView(totalSpend, totalViews),
+      costPerMille: metrics.cpm(totalSpend, totalViews),
+      costPerEngagement: metrics.costPerEngagement(totalSpend, totalEngagement),
+      costPerContent,
+      metricsLastSyncedAt,
+      isStale: metrics.isMetricsStale(metricsLastSyncedAt, now, METRICS_FRESHNESS_DAYS),
+      freshnessWindowDays: METRICS_FRESHNESS_DAYS,
+      sources,
+      perContent,
+    };
+  }
+
+  return { creatorLeaderboard, executiveDashboard, campaignEfficiency };
 }
 
 export type AnalyticsService = ReturnType<typeof makeAnalyticsService>;

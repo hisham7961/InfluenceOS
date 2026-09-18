@@ -541,6 +541,62 @@ export interface CostSummaryDTO {
   budgetUsedPercent: number | null;
 }
 
+// --- Campaign efficiency (W6-1, server-computed — no browser metric math) ---
+
+/** One content piece's server-computed efficiency line (W6-1). */
+export interface ContentEfficiencyDTO {
+  contentId: string;
+  views: number | null;
+  totalEngagement: number | null;
+  engagementRate: number | null;
+  /** Estimated cost per view: spend-per-content ÷ this piece's views. */
+  costPerView: number | null;
+  /** Provenance of this piece's latest metrics. */
+  source: DataSource;
+  /** When this piece's latest metrics were captured. */
+  capturedAt: string | null;
+}
+
+/** How many content pieces carry each metric provenance (W6-1). */
+export interface MetricSourceCountDTO {
+  source: DataSource;
+  count: number;
+}
+
+/**
+ * Campaign spend-efficiency, computed entirely server-side (fixes ARCH-01): the
+ * browser renders these numbers, it never derives them. Every value is null
+ * when its inputs are missing — never a fabricated zero.
+ */
+export interface CampaignEfficiencyDTO {
+  currency: string;
+  totalSpend: number;
+  contentCount: number;
+  /** Content pieces that have at least one metric snapshot. */
+  contentWithMetrics: number;
+  totalViews: number | null;
+  totalEngagement: number | null;
+  avgEngagementRate: number | null;
+  /** CPV — total spend ÷ total views. */
+  costPerView: number | null;
+  /** CPM — cost per 1,000 views. */
+  costPerMille: number | null;
+  /** CPE — total spend ÷ total engagements. */
+  costPerEngagement: number | null;
+  /** Total spend ÷ number of published content pieces. */
+  costPerContent: number | null;
+  /** Most recent metric sync across the campaign's content. */
+  metricsLastSyncedAt: string | null;
+  /** Metrics older than the freshness window (or never synced) → stale. */
+  isStale: boolean;
+  /** The freshness window used to decide `isStale`, in days. */
+  freshnessWindowDays: number;
+  /** Provenance breakdown across the campaign's measured content. */
+  sources: MetricSourceCountDTO[];
+  /** Per-content efficiency rows for the performance table. */
+  perContent: ContentEfficiencyDTO[];
+}
+
 // --- Notifications ---------------------------------------------------------
 export interface NotificationDTO {
   id: string;

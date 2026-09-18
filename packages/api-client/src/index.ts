@@ -12,6 +12,7 @@ import type {
   BrandSummaryDTO,
   CalendarEventDTO,
   CampaignDetailDTO,
+  CampaignEfficiencyDTO,
   CampaignInfluencerDTO,
   CampaignSummaryDTO,
   ClientConfigDTO,
@@ -149,6 +150,8 @@ export function createClient(config: ClientConfig) {
         http.post<CampaignInfluencerDTO>(`${V}/campaigns/${id}/influencers`, { ...body, campaignId: id }),
       scripts: (id: string) => http.get<ScriptDTO[]>(`${V}/campaigns/${id}/scripts`),
       costs: (id: string) => http.get<{ expenses: ExpenseDTO[]; summary: CostSummaryDTO }>(`${V}/campaigns/${id}/costs`),
+      // Server-computed spend efficiency (CPV/CPM/CPE) + metric freshness (W6-1).
+      efficiency: (idOrSlug: string) => http.get<CampaignEfficiencyDTO>(`${V}/campaigns/${idOrSlug}/efficiency`),
       addExpense: (id: string, body: Omit<In<typeof requests.expenseCreateSchema>, 'campaignId'>) =>
         http.post<ExpenseDTO>(`${V}/campaigns/${id}/expenses`, { ...body, campaignId: id }),
     },

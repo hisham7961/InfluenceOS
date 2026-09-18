@@ -36,6 +36,19 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).campaigns.detail(req.params.idOrSlug),
   );
 
+  r.get(
+    '/campaigns/:idOrSlug/efficiency',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'Server-computed spend efficiency (CPV/CPM/CPE) + metric freshness (W6-1)',
+        params: z.object({ idOrSlug: z.string() }),
+      },
+    },
+    async (req) => servicesFor(req).analytics.campaignEfficiency(req.params.idOrSlug),
+  );
+
   r.patch(
     '/campaigns/:id',
     { preHandler: [requireAuth], schema: { tags: ['Campaigns'], summary: 'Update a campaign', params: idParam, body: requests.campaignUpdateSchema } },

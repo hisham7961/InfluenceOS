@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ageInDays,
   costPerView,
   cpm,
+  costPerEngagement,
   engagementRate,
   completionRate,
+  isMetricsStale,
   totalEngagements,
 } from '../metrics/performance';
 import { assessAudienceHealth } from '../metrics/audience-health';
@@ -26,10 +29,24 @@ describe('performance calculations', () => {
     expect(er).toBeCloseTo(1, 5);
   });
 
-  it('computes CPV, CPM and completion', () => {
+  it('computes CPV, CPM, CPE and completion', () => {
     expect(costPerView(50, 1000)).toBeCloseTo(0.05, 5);
     expect(cpm(50, 1000)).toBeCloseTo(50, 5);
+    expect(costPerEngagement(120, 400)).toBeCloseTo(0.3, 5);
+    expect(costPerEngagement(120, 0)).toBeNull();
     expect(completionRate(12, 18)).toBeCloseTo(66.6667, 3);
+  });
+
+  it('measures metric age and staleness against a window', () => {
+    const now = new Date('2026-01-20T00:00:00Z');
+    expect(ageInDays(null, now)).toBeNull();
+    expect(ageInDays('2026-01-13T00:00:00Z', now)).toBe(7);
+    // A future timestamp never reads as negative age.
+    expect(ageInDays('2026-01-25T00:00:00Z', now)).toBe(0);
+    // Never synced → stale; exactly at the window edge → fresh; beyond → stale.
+    expect(isMetricsStale(null, now, 7)).toBe(true);
+    expect(isMetricsStale('2026-01-13T00:00:00Z', now, 7)).toBe(false);
+    expect(isMetricsStale('2026-01-12T00:00:00Z', now, 7)).toBe(true);
   });
 });
 
