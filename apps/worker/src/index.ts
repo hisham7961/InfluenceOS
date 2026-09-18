@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { prisma } from '@influenceos/database';
 import { Queue, Worker, type Job } from 'bullmq';
+import { computeWorkerHealth, shouldDeadLetter } from '@influenceos/shared';
 import { createConnection, isRedisAvailable } from './redis';
 import {
   checkContent,
@@ -15,7 +16,12 @@ const BATCH = Number(process.env.MONITOR_BATCH_SIZE) || 25;
 const MONITOR_CRON = process.env.MONITOR_CRON || '*/30 * * * *';
 const HEALTH_PORT = Number(process.env.WORKER_PORT) || 4100;
 
-const QUEUES = { content: 'content-check', account: 'follower-sync', maintenance: 'maintenance' } as const;
+const QUEUES = {
+  content: 'content-check',
+  account: 'follower-sync',
+  maintenance: 'maintenance',
+  deadLetter: 'dead-letter',
+} as const;
 type Kind = 'content' | 'account';
 
 /** Release identity surfaced on the health endpoint (never secrets). */
@@ -33,8 +39,15 @@ const stats = {
   accountSyncs: 0,
   notifications: 0,
   abandonedUploadsCleaned: 0,
+  jobsFailed: 0,
+  deadLettered: 0,
   lastMaintenanceAt: null as string | null,
 };
+
+// Whether Redis is currently reachable — drives the /health verdict (WK-03).
+// Updated from the shared connection's lifecycle events and a periodic ping.
+let redisHealthy = false;
+let redisPingTimer: NodeJS.Timeout | null = null;
 
 // Resources registered for orderly shutdown. Closing a BullMQ Worker waits for
 // its active jobs to finish (draining); closing Queues/connections releases
@@ -78,10 +91,29 @@ let lastCleanupAt = 0;
 async function startWithRedis() {
   const connection = createConnection();
   redisConnection = connection;
+  // main() only calls this after isRedisAvailable() succeeded, so start healthy
+  // and let the connection's lifecycle events / periodic ping flip it if Redis
+  // drops.
+  redisHealthy = true;
+  connection.on('ready', () => (redisHealthy = true));
+  connection.on('error', () => (redisHealthy = false));
+  connection.on('close', () => (redisHealthy = false));
+  connection.on('end', () => (redisHealthy = false));
+  redisPingTimer = setInterval(() => {
+    connection
+      .ping()
+      .then((pong) => (redisHealthy = pong === 'PONG'))
+      .catch(() => (redisHealthy = false));
+  }, 10_000);
+  redisPingTimer.unref();
+
   const contentQ = new Queue(QUEUES.content, { connection });
   const accountQ = new Queue(QUEUES.account, { connection });
   const maintenanceQ = new Queue(QUEUES.maintenance, { connection });
-  queues.push(contentQ, accountQ, maintenanceQ);
+  // Dead-letter queue: terminally-failed jobs are recorded here (no processor)
+  // so they persist for inspection/alerting instead of vanishing (WK-04/07).
+  const deadLetterQ = new Queue(QUEUES.deadLetter, { connection });
+  queues.push(contentQ, accountQ, maintenanceQ, deadLetterQ);
 
   const jobOpts = {
     attempts: 3,
@@ -95,30 +127,65 @@ async function startWithRedis() {
     else await accountQ.add('sync', { id }, { ...jobOpts, jobId: `a:${id}` });
   };
 
+  // Attach failure/error observers to a worker: count failures, surface errors,
+  // and dead-letter a job once its retries are exhausted.
+  const observe = (worker: Worker, queueName: string) => {
+    worker.on('failed', (job, err) => {
+      stats.jobsFailed++;
+      console.error(`[worker] job ${queueName}/${job?.id ?? '?'} failed: ${err?.message ?? err}`);
+      if (job && shouldDeadLetter(job.attemptsMade, job.opts.attempts ?? 1)) {
+        stats.deadLettered++;
+        deadLetterQ
+          .add(
+            'dead',
+            { queue: queueName, jobId: job.id, name: job.name, data: job.data, failedReason: job.failedReason },
+            { removeOnComplete: false, removeOnFail: false },
+          )
+          .catch((e) => console.error('[worker] failed to dead-letter job', e));
+        console.error(`[worker] job ${queueName}/${job.id} dead-lettered after ${job.attemptsMade} attempts`);
+      }
+    });
+    worker.on('error', (err) => {
+      // A worker-level error usually means the Redis connection is unhealthy.
+      redisHealthy = false;
+      console.error(`[worker] ${queueName} worker error: ${err?.message ?? err}`);
+    });
+    return worker;
+  };
+
   workers.push(
-    new Worker(
+    observe(
+      new Worker(
+        QUEUES.content,
+        async (job: Job<{ id: string }>) => {
+          await checkContent(job.data.id);
+          stats.contentChecks++;
+        },
+        { connection, concurrency: 3, limiter: { max: 10, duration: 1000 } },
+      ),
       QUEUES.content,
-      async (job: Job<{ id: string }>) => {
-        await checkContent(job.data.id);
-        stats.contentChecks++;
-      },
-      { connection, concurrency: 3, limiter: { max: 10, duration: 1000 } },
     ),
   );
 
   workers.push(
-    new Worker(
+    observe(
+      new Worker(
+        QUEUES.account,
+        async (job: Job<{ id: string }>) => {
+          await syncAccount(job.data.id);
+          stats.accountSyncs++;
+        },
+        { connection, concurrency: 2, limiter: { max: 5, duration: 1000 } },
+      ),
       QUEUES.account,
-      async (job: Job<{ id: string }>) => {
-        await syncAccount(job.data.id);
-        stats.accountSyncs++;
-      },
-      { connection, concurrency: 2, limiter: { max: 5, duration: 1000 } },
     ),
   );
 
   workers.push(
-    new Worker(QUEUES.maintenance, async () => runMaintenance(enqueue), { connection, concurrency: 1 }),
+    observe(
+      new Worker(QUEUES.maintenance, async () => runMaintenance(enqueue), { connection, concurrency: 1 }),
+      QUEUES.maintenance,
+    ),
   );
 
   await maintenanceQ.add('sweep', {}, { repeat: { pattern: MONITOR_CRON }, jobId: 'maintenance-sweep' });
@@ -149,8 +216,9 @@ function startHealth() {
   healthServer = http
     .createServer((req, res) => {
       if (req.url === '/health') {
-        res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ok', ...release, ...stats }));
+        const { code, status } = computeWorkerHealth(stats.mode, redisHealthy);
+        res.writeHead(code, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ status, redisHealthy, ...release, ...stats }));
       } else {
         res.writeHead(404);
         res.end();
@@ -183,6 +251,7 @@ async function shutdown(signal: string) {
   timer.unref();
   try {
     if (inlineTimer) clearInterval(inlineTimer);
+    if (redisPingTimer) clearInterval(redisPingTimer);
     // Closing Workers drains active jobs before resolving.
     await Promise.all(workers.map((w) => w.close()));
     await Promise.all(queues.map((q) => q.close()));

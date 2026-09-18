@@ -1,3 +1,5 @@
+# Build context hygiene: keep non-runtime files OUT of every image so the
+# shipped images carry no host deps, build caches, tests, docs or CI config.
 **/node_modules
 **/.next
 **/.turbo
@@ -9,5 +11,26 @@
 **/.env
 **/.env.*
 !**/.env.example
+
+# Tests + test tooling never belong in a runtime image (W2-6).
+**/test
+**/tests
+**/__tests__
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+**/e2e
+**/playwright.config.*
+**/vitest.config.*
 playwright-report
 test-results
+
+# Docs, CI and editor/OS cruft are not needed to build or run the app.
+docs
+.github
+**/*.md
+!**/README.md
+.vscode
+.idea
+**/.DS_Store

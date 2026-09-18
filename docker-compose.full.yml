@@ -29,6 +29,7 @@ x-app-env: &app-env
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
@@ -43,6 +44,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     command: ['redis-server', '--appendonly', 'yes']
     volumes:
       - redisdata:/data
@@ -57,6 +59,7 @@ services:
     # avoids Docker Hub anonymous-pull denial. Legacy (no-AVX) hosts override
     # MINIO_IMAGE with an older release — see .env.example.
     image: ${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2024-10-13T13-34-11Z}
+    restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
@@ -108,14 +111,18 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
+    restart: unless-stopped
     environment:
       <<: *app-env
       API_PORT: '4000'
       API_HOST: 0.0.0.0
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-    ports:
-      - '4000:4000'
+    # The API is NOT published to the host (SEC-06/A6-F5): the web app reaches it
+    # over the internal Docker network via INTERNAL_API_URL, and the browser
+    # never talks to it directly. Only the web service is host-published.
+    expose:
+      - '4000'
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,6 +142,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.worker
+    restart: unless-stopped
     environment:
       <<: *app-env
       WORKER_PORT: '4100'
@@ -155,6 +163,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.web
+    restart: unless-stopped
     environment:
       NODE_ENV: production
       INTERNAL_API_URL: http://api:4000

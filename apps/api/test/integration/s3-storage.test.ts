@@ -106,4 +106,21 @@ describe.skipIf(!ENDPOINT)('files — real MinIO/S3 round-trip (s3 driver)', () 
     const del = await app.inject({ method: 'DELETE', url: `/api/v1/files/${attachment.id}`, headers: auth });
     expect(del.statusCode).toBe(204);
   });
+
+  it('rejects a presigned PUT whose body differs from the declared size (W2-2 edge cap)', async () => {
+    const declared = 8;
+    const initiate = await app.inject({
+      method: 'POST',
+      url: '/api/v1/files',
+      headers: auth,
+      payload: { fileName: 'cap.bin', mimeType: 'application/octet-stream', sizeBytes: declared, target: { influencerId } },
+    });
+    expect(initiate.statusCode).toBe(201);
+    const ticket = initiate.json() as UploadTicketDTO;
+    // The presign is signed for exactly `declared` bytes; uploading more must be
+    // rejected by S3/MinIO at the edge, not merely caught later at complete-time.
+    const tooBig = Buffer.alloc(declared + 4096, 1);
+    const put = await fetch(ticket.uploadUrl, { method: 'PUT', body: tooBig, headers: ticket.headers });
+    expect(put.ok).toBe(false);
+  });
 });

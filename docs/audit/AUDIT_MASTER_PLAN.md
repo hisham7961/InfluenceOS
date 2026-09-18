@@ -22,7 +22,18 @@ Owner disciplines: SRE, BE (backend/domain), FE (web), DBE (database), SEC (secu
   not invitations (DB-10); W1-7 partial-payment field + correct paid/unpaid
   split (finance P1). Each item ships CI-gated tests. No deploy performed;
   STAGING_ACCEPTANCE remains NOT EXECUTED.
-- **WAVES 2–8 — not started** (await direction/prioritisation).
+- **WAVE 2 — DONE (approved, implemented + tested).** W2-1 truthful worker
+  `/health` (503 when Redis down) + failed/error handlers + dead-letter queue +
+  failure metrics; W2-2 exact-size presigned PUT cap + idempotent completion +
+  `Attachment.storageKey` unique; W2-3 `Attachment.campaignId` real FK
+  (cascade); W2-4 content create wrapped in `$transaction`; W2-5 prod compose
+  restart policies + API no longer host-published (internal-only). W2-6
+  **partial** — `.dockerignore` hardened to keep tests/docs/CI cruft out of all
+  images; the full dev-deps-pruning multi-stage is deferred to a Docker-testable
+  pass (no local Docker daemon here; a blind pnpm+prisma+tsx multi-stage risks
+  repeated red CI on an image that is not deployed pre-freeze). Each shipped
+  item has CI-gated tests. No deploy; STAGING_ACCEPTANCE remains NOT EXECUTED.
+- **WAVES 3–8 — not started** (await direction/prioritisation).
 
 ---
 

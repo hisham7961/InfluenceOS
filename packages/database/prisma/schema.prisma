@@ -443,6 +443,7 @@ model Campaign {
   expenses            CampaignExpense[]
   activities          ActivityLog[]
   notifications       Notification[]
+  attachments         Attachment[]
 
   @@unique([brandId, slug])
   @@index([brandId])
@@ -686,7 +687,7 @@ model Attachment {
   fileName          String
   mimeType          String
   sizeBytes         Int
-  storageKey        String
+  storageKey        String   @unique
   url               String?
   kind              String?
   influencerId      String?
@@ -697,6 +698,7 @@ model Attachment {
   uploadedById      String?
   createdAt         DateTime @default(now())
 
+  campaign        Campaign?        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   influencer      Influencer?      @relation(fields: [influencerId], references: [id], onDelete: Cascade)
   deliverable     Deliverable?     @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
   scriptReference ScriptReference? @relation(fields: [scriptReferenceId], references: [id], onDelete: Cascade)

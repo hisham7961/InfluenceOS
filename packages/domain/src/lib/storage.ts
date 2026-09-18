@@ -28,8 +28,11 @@ export interface StorageDriver {
   readonly name: 's3' | 'local';
   /** Whether the driver can hand the client a direct presigned PUT URL. */
   readonly presignedUpload: boolean;
-  /** Presigned PUT URL for direct-to-storage upload (s3), else null (local). */
-  presignPut(key: string, contentType: string, expiresIn: number): Promise<string | null>;
+  /** Presigned PUT URL for direct-to-storage upload (s3), else null (local).
+   *  When `contentLength` is given it is baked into the signature, so S3 rejects
+   *  any upload whose byte length differs from the (server-validated) declared
+   *  size — an edge size cap, not only a post-upload check (WK-01). */
+  presignPut(key: string, contentType: string, expiresIn: number, contentLength?: number): Promise<string | null>;
   /** Presigned GET URL for direct download (s3), else null (local proxy). */
   presignGet(key: string, fileName: string, expiresIn: number): Promise<string | null>;
   /** Server-side write (local upload proxy path). */
@@ -81,10 +84,17 @@ class S3Driver implements StorageDriver {
     this.presignClient = new S3Client({ ...common, endpoint: presignEndpoint });
   }
 
-  presignPut(key: string, contentType: string, expiresIn: number): Promise<string | null> {
+  presignPut(key: string, contentType: string, expiresIn: number, contentLength?: number): Promise<string | null> {
     return getSignedUrl(
       this.presignClient,
-      new PutObjectCommand({ Bucket: this.bucket, Key: key, ContentType: contentType }),
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ContentType: contentType,
+        // Baking the exact byte length into the signature makes S3 reject an
+        // upload that isn't exactly the (already ≤max, server-validated) size.
+        ...(contentLength != null ? { ContentLength: contentLength } : {}),
+      }),
       { expiresIn },
     );
   }

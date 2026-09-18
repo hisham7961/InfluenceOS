@@ -26,9 +26,14 @@ export interface ActivityInput {
   meta?: Prisma.InputJsonValue;
 }
 
-/** Write a human-readable activity record (spec §32). */
-export async function logActivity(ctx: DomainContext, input: ActivityInput): Promise<void> {
-  await ctx.prisma.activityLog.create({
+/** Write a human-readable activity record (spec §32). Pass `db` (a
+ *  `$transaction` client) to make the write part of an enclosing transaction. */
+export async function logActivity(
+  ctx: DomainContext,
+  input: ActivityInput,
+  db: Prisma.TransactionClient = ctx.prisma,
+): Promise<void> {
+  await db.activityLog.create({
     data: {
       type: input.type,
       message: input.message,
@@ -62,8 +67,9 @@ export interface NotificationInput {
 export async function createNotification(
   ctx: DomainContext,
   input: NotificationInput,
+  db: Prisma.TransactionClient = ctx.prisma,
 ): Promise<void> {
-  await ctx.prisma.notification.create({
+  await db.notification.create({
     data: {
       category: input.category,
       title: input.title,

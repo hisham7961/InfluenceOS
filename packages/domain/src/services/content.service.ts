@@ -118,60 +118,76 @@ export function makeContentService(ctx: DomainContext) {
 
     const embed = buildEmbed(canonicalUrl, platform);
 
-    const pc = await prisma.publishedContent.create({
-      data: {
-        platform,
-        externalId,
-        originalUrl: canonicalUrl,
-        embedUrl: embed?.iframeSrc ?? null,
-        embedConfig: embed ? (embed as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
-        thumbnailUrl: youtubeThumb(platform, externalId),
-        caption: input.caption ?? null,
-        publishedAt: input.publishedAt ?? null,
-        brandId,
-        campaignId,
-        influencerId,
-        campaignInfluencerId,
-        deliverableId: input.deliverableId ?? null,
-        availabilityStatus: 'UNKNOWN',
-        dataSource: 'MANUAL',
-        nextCheckAt: new Date(),
-      },
-      include: relInclude,
-    });
+    // Atomic (DB-07): the content row, the deliverable status advance, the
+    // activity record and the notification either all land or none do, so a
+    // partial failure can't leave content with no activity/notification or a
+    // deliverable stuck out of sync.
+    const pc = await prisma.$transaction(async (tx) => {
+      const created = await tx.publishedContent.create({
+        data: {
+          platform,
+          externalId,
+          originalUrl: canonicalUrl,
+          embedUrl: embed?.iframeSrc ?? null,
+          embedConfig: embed ? (embed as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+          thumbnailUrl: youtubeThumb(platform, externalId),
+          caption: input.caption ?? null,
+          publishedAt: input.publishedAt ?? null,
+          brandId,
+          campaignId,
+          influencerId,
+          campaignInfluencerId,
+          deliverableId: input.deliverableId ?? null,
+          availabilityStatus: 'UNKNOWN',
+          dataSource: 'MANUAL',
+          nextCheckAt: new Date(),
+        },
+        include: relInclude,
+      });
 
-    // Link the deliverable — advances campaign progress automatically (§55, DoD).
-    if (input.deliverableId) {
-      const deliverable = await prisma.deliverable.findUnique({ where: { id: input.deliverableId } });
-      if (deliverable && deliverable.status !== 'VERIFIED') {
-        await prisma.deliverable.update({
-          where: { id: input.deliverableId },
-          data: {
-            status: 'PUBLISHED',
-            publishedUrl: canonicalUrl,
-            publishedAt: input.publishedAt ?? new Date(),
-          },
-        });
+      // Link the deliverable — advances campaign progress automatically (§55, DoD).
+      if (input.deliverableId) {
+        const deliverable = await tx.deliverable.findUnique({ where: { id: input.deliverableId } });
+        if (deliverable && deliverable.status !== 'VERIFIED') {
+          await tx.deliverable.update({
+            where: { id: input.deliverableId },
+            data: {
+              status: 'PUBLISHED',
+              publishedUrl: canonicalUrl,
+              publishedAt: input.publishedAt ?? new Date(),
+            },
+          });
+        }
       }
-    }
 
-    await logActivity(ctx, {
-      type: 'CONTENT_PUBLISHED',
-      message: `${ctx.actor?.name ?? 'Someone'} added a published ${platform} post.`,
-      brandId,
-      campaignId,
-      influencerId,
-      publishedContentId: pc.id,
-    });
-    await createNotification(ctx, {
-      category: 'NEW_CONTENT',
-      title: 'New content published',
-      body: `A new ${platform} post was added to the live content wall.`,
-      targetUrl: `/content/${pc.id}`,
-      brandId,
-      campaignId,
-      influencerId,
-      publishedContentId: pc.id,
+      await logActivity(
+        ctx,
+        {
+          type: 'CONTENT_PUBLISHED',
+          message: `${ctx.actor?.name ?? 'Someone'} added a published ${platform} post.`,
+          brandId,
+          campaignId,
+          influencerId,
+          publishedContentId: created.id,
+        },
+        tx,
+      );
+      await createNotification(
+        ctx,
+        {
+          category: 'NEW_CONTENT',
+          title: 'New content published',
+          body: `A new ${platform} post was added to the live content wall.`,
+          targetUrl: `/content/${created.id}`,
+          brandId,
+          campaignId,
+          influencerId,
+          publishedContentId: created.id,
+        },
+        tx,
+      );
+
+      return created;
     });
 
     return mapRow(pc);

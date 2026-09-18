@@ -144,7 +144,7 @@ export function makeAttachmentService(ctx: DomainContext) {
       },
     });
 
-    const presignedPut = await storage.presignPut(storageKey, input.mimeType, 900);
+    const presignedPut = await storage.presignPut(storageKey, input.mimeType, 900, input.sizeBytes);
     return {
       uploadToken: ticket,
       uploadUrl: presignedPut ?? `/api/v1/files/blob?token=${encodeURIComponent(ticket)}`,
@@ -173,6 +173,13 @@ export function makeAttachmentService(ctx: DomainContext) {
    */
   async function complete(token: string): Promise<AttachmentDTO> {
     const ticket = await verifyUploadTicket(token);
+
+    // Idempotent (WK-05): a replayed completion for the same storage key returns
+    // the already-created attachment instead of inserting a duplicate row (the
+    // `storageKey` unique constraint also enforces this at the database).
+    const already = await prisma.attachment.findUnique({ where: { storageKey: ticket.storageKey }, select: selectRow });
+    if (already) return toDTO(already);
+
     const head = await storage.head(ticket.storageKey);
     if (!head) throw AppError.badRequest('Upload was not found in storage. Please retry the upload.');
     if (head.size > maxUploadBytes()) {
@@ -180,22 +187,32 @@ export function makeAttachmentService(ctx: DomainContext) {
       throw AppError.badRequest('Uploaded object exceeds the maximum allowed size.');
     }
 
-    const row = await prisma.attachment.create({
-      data: {
-        fileName: ticket.fileName.slice(0, 200),
-        mimeType: ticket.mimeType,
-        sizeBytes: head.size,
-        storageKey: ticket.storageKey,
-        kind: ticket.kind,
-        campaignId: ticket.target.campaignId ?? null,
-        deliverableId: ticket.target.deliverableId ?? null,
-        scriptReferenceId: ticket.target.scriptReferenceId ?? null,
-        influencerId: ticket.target.influencerId ?? null,
-        noteId: ticket.target.noteId ?? null,
-        uploadedById: ticket.actorId,
-      },
-      select: selectRow,
-    });
+    let row: Row;
+    try {
+      row = await prisma.attachment.create({
+        data: {
+          fileName: ticket.fileName.slice(0, 200),
+          mimeType: ticket.mimeType,
+          sizeBytes: head.size,
+          storageKey: ticket.storageKey,
+          kind: ticket.kind,
+          campaignId: ticket.target.campaignId ?? null,
+          deliverableId: ticket.target.deliverableId ?? null,
+          scriptReferenceId: ticket.target.scriptReferenceId ?? null,
+          influencerId: ticket.target.influencerId ?? null,
+          noteId: ticket.target.noteId ?? null,
+          uploadedById: ticket.actorId,
+        },
+        select: selectRow,
+      });
+    } catch (err) {
+      // A concurrent completion won the race — return that single row, still idempotent.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const existing = await prisma.attachment.findUnique({ where: { storageKey: ticket.storageKey }, select: selectRow });
+        if (existing) return toDTO(existing);
+      }
+      throw err;
+    }
 
     await logActivity(ctx, {
       type: 'GENERIC',
