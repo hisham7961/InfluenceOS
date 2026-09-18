@@ -183,6 +183,24 @@ export type UsageRightEffectiveStatus = (typeof USAGE_RIGHT_EFFECTIVE_STATUSES)[
 /** Days before `expiresAt` at which an ACTIVE license is flagged EXPIRING_SOON. */
 export const USAGE_RIGHT_EXPIRY_WARNING_DAYS = 14;
 
+/**
+ * Sourcing-pipeline stage for a creator considered for a campaign, BEFORE any
+ * roster commit (W3-3). Evaluating candidates never inflates relationship
+ * history; only CONVERTED creates the roster row.
+ */
+export const CANDIDATE_STATUSES = [
+  'CONSIDERING',
+  'SHORTLISTED',
+  'APPROVED',
+  'REJECTED',
+  'CONVERTED',
+] as const;
+export type CandidateStatus = (typeof CANDIDATE_STATUSES)[number];
+
+/** A reviewer's decision on a sourcing candidate. */
+export const CANDIDATE_DECISIONS = ['SHORTLIST', 'APPROVE', 'REJECT', 'RECONSIDER'] as const;
+export type CandidateDecision = (typeof CANDIDATE_DECISIONS)[number];
+
 export const INTEGRATION_STATUSES = ['ENABLED', 'DISABLED', 'NOT_CONFIGURED', 'ERROR'] as const;
 export type IntegrationStatus = (typeof INTEGRATION_STATUSES)[number];
 
@@ -223,6 +241,7 @@ export const SUBMISSION_STATUS_LABELS = labelMap(SUBMISSION_STATUSES);
 export const USAGE_RIGHT_TYPE_LABELS = labelMap(USAGE_RIGHT_TYPES);
 export const USAGE_RIGHT_STATUS_LABELS = labelMap(USAGE_RIGHT_STATUSES);
 export const USAGE_RIGHT_EFFECTIVE_STATUS_LABELS = labelMap(USAGE_RIGHT_EFFECTIVE_STATUSES);
+export const CANDIDATE_STATUS_LABELS = labelMap(CANDIDATE_STATUSES);
 export const CONTENT_STATUS_LABELS = labelMap(CONTENT_STATUSES, { BROKEN_LINK: 'Broken Link' });
 export const PAYMENT_STATUS_LABELS = labelMap(PAYMENT_STATUSES);
 export const EXPENSE_TYPE_LABELS = labelMap(EXPENSE_TYPES);
@@ -307,4 +326,12 @@ export const USAGE_RIGHT_EFFECTIVE_STATUS_TONE: Record<UsageRightEffectiveStatus
   EXPIRING_SOON: 'warning',
   EXPIRED: 'danger',
   REVOKED: 'neutral',
+};
+
+export const CANDIDATE_STATUS_TONE: Record<CandidateStatus, Tone> = {
+  CONSIDERING: 'neutral',
+  SHORTLISTED: 'info',
+  APPROVED: 'success',
+  REJECTED: 'danger',
+  CONVERTED: 'accent',
 };

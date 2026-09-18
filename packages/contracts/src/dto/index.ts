@@ -3,6 +3,7 @@ import type {
   AudienceHealthLabel,
   CampaignObjective,
   CampaignStatus,
+  CandidateStatus,
   ContactMethod,
   ContentStatus,
   DataSource,
@@ -353,6 +354,28 @@ export interface CampaignInfluencerDTO {
   notes: string | null;
   deliverables: DeliverableDTO[];
   deliverableProgress: { published: number; total: number };
+}
+
+/**
+ * A creator being sourced for a campaign — considered, shortlisted, approved or
+ * rejected BEFORE any roster commit (W3-3). Only a CONVERTED candidate has a
+ * roster row (`convertedCampaignInfluencerId`); until then it never affects the
+ * influencer's collaboration history.
+ */
+export interface CampaignCandidateDTO {
+  id: string;
+  campaignId: string;
+  influencer: InfluencerSummaryDTO;
+  status: CandidateStatus;
+  fitScore: number | null;
+  notes: string | null;
+  decisionReason: string | null;
+  addedByName: string | null;
+  decidedByName: string | null;
+  decidedAt: string | null;
+  convertedCampaignInfluencerId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // --- Scripts ---------------------------------------------------------------

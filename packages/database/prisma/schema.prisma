@@ -193,6 +193,17 @@ enum UsageRightStatus {
   REVOKED
 }
 
+/// Sourcing-pipeline stage for a creator considered for a campaign, BEFORE any
+/// roster commit (W3-3). Evaluating candidates never creates a
+/// CampaignInfluencer or touches relationship history — only CONVERTED does.
+enum CandidateStatus {
+  CONSIDERING
+  SHORTLISTED
+  APPROVED
+  REJECTED
+  CONVERTED
+}
+
 enum ActivityType {
   BRAND_CREATED
   BRAND_UPDATED
@@ -299,6 +310,8 @@ model User {
   reviewedSubmissions  DeliverableSubmission[] @relation("SubmissionReviewer")
   submissionComments   SubmissionComment[]
   createdUsageRights   UsageRight[]
+  addedCandidates      CampaignCandidate[]     @relation("CandidateAdder")
+  decidedCandidates    CampaignCandidate[]     @relation("CandidateDecider")
 
   @@index([role])
 }
@@ -360,6 +373,7 @@ model Influencer {
   socialAccounts      SocialAccount[]
   brandInfluencers    BrandInfluencer[]
   campaignInfluencers CampaignInfluencer[]
+  candidacies         CampaignCandidate[]
   publishedContent    PublishedContent[]
   tags                InfluencerTag[]
   notes               Note[]
@@ -473,6 +487,7 @@ model Campaign {
   brand               Brand                @relation(fields: [brandId], references: [id], onDelete: Cascade)
   owner               User?                @relation("CampaignOwner", fields: [ownerId], references: [id])
   campaignInfluencers CampaignInfluencer[]
+  candidates          CampaignCandidate[]
   scripts             ScriptReference[]
   publishedContent    PublishedContent[]
   expenses            CampaignExpense[]
@@ -518,6 +533,38 @@ model CampaignInfluencer {
   @@unique([campaignId, influencerId])
   @@index([campaignId])
   @@index([influencerId])
+}
+
+/// A creator being sourced for a campaign — considered, shortlisted, approved
+/// or rejected BEFORE any roster commit (W3-3). Staff can evaluate a large
+/// candidate pool without inflating anyone's collaboration history; only
+/// `convert` (→ CONVERTED) creates the CampaignInfluencer roster row.
+model CampaignCandidate {
+  id             String          @id @default(cuid())
+  campaignId     String
+  influencerId   String
+  status         CandidateStatus @default(CONSIDERING)
+  /// Optional staff fit score (0–100); null = unscored.
+  fitScore       Int?
+  notes          String?
+  decisionReason String?
+  addedById      String?
+  decidedById    String?
+  decidedAt      DateTime?
+  /// Set once converted, linking back to the roster row that was created.
+  convertedCampaignInfluencerId String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  campaign   Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  influencer Influencer @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  addedBy    User?      @relation("CandidateAdder", fields: [addedById], references: [id], onDelete: SetNull)
+  decidedBy  User?      @relation("CandidateDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@unique([campaignId, influencerId])
+  @@index([campaignId])
+  @@index([influencerId])
+  @@index([status])
 }
 
 model Deliverable {

@@ -5,6 +5,7 @@ import { influencerRoutes } from './influencers.routes';
 import { socialAccountRoutes } from './social-accounts.routes';
 import { campaignRoutes } from './campaigns.routes';
 import { campaignInfluencerRoutes } from './campaign-influencers.routes';
+import { candidateRoutes } from './candidates.routes';
 import { deliverableRoutes } from './deliverables.routes';
 import { submissionRoutes } from './submissions.routes';
 import { usageRightRoutes } from './usage-rights.routes';
@@ -31,6 +32,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   await socialAccountRoutes(app);
   await campaignRoutes(app);
   await campaignInfluencerRoutes(app);
+  await candidateRoutes(app);
   await deliverableRoutes(app);
   await submissionRoutes(app);
   await usageRightRoutes(app);

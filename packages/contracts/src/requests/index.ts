@@ -15,6 +15,7 @@ import {
   RELATIONSHIP_STATUSES,
   SUBMISSION_DECISIONS,
   USAGE_RIGHT_TYPES,
+  CANDIDATE_DECISIONS,
   USER_ROLES,
 } from '@influenceos/shared';
 
@@ -346,6 +347,38 @@ export const usageRightCreateSchema = z.object({
 export const usageRightUpdateSchema = usageRightCreateSchema.partial();
 export type UsageRightCreateInput = z.infer<typeof usageRightCreateSchema>;
 export type UsageRightUpdateInput = z.infer<typeof usageRightUpdateSchema>;
+
+// --- Sourcing / shortlist candidate pipeline (W3-3) ------------------------
+const fitScore = z.coerce.number().int().min(0).max(100).optional().nullable();
+
+export const candidateCreateSchema = z.object({
+  influencerId: cuid,
+  fitScore,
+  notes: optionalString,
+});
+export const candidateUpdateSchema = z.object({
+  fitScore,
+  notes: optionalString,
+});
+export const candidateDecisionSchema = z.object({
+  decision: z.enum(CANDIDATE_DECISIONS),
+  reason: optionalString,
+});
+/**
+ * Commit an approved candidate to the campaign roster. Mirrors the roster
+ * `add` deal fields, minus campaignId/influencerId (taken from the candidate).
+ */
+export const candidateConvertSchema = z.object({
+  dealType: z.enum(DEAL_TYPES).optional(),
+  agreedCost: money,
+  currency: z.string().trim().length(3).optional().nullable(),
+  giftedProductValue: money,
+  expectedPublishAt: isoDate,
+});
+export type CandidateCreateInput = z.infer<typeof candidateCreateSchema>;
+export type CandidateUpdateInput = z.infer<typeof candidateUpdateSchema>;
+export type CandidateDecisionInput = z.infer<typeof candidateDecisionSchema>;
+export type CandidateConvertInput = z.infer<typeof candidateConvertSchema>;
 
 // --- Script reference + version -------------------------------------------
 export const scriptVersionSchema = z.object({
