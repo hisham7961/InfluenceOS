@@ -122,6 +122,21 @@ export const changePasswordSchema = z.object({
 });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
+// --- Admin user lifecycle (W4-1) -------------------------------------------
+export const userAdminUpdateSchema = z
+  .object({
+    name: shortString.optional(),
+    role: z.enum(USER_ROLES).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine((v) => v.name !== undefined || v.role !== undefined || v.isActive !== undefined, {
+    message: 'Provide at least one field to update.',
+  });
+/** An admin sets a new password for another user (no current-password check). */
+export const adminResetPasswordSchema = z.object({ newPassword: strongPassword });
+export type UserAdminUpdateInput = z.infer<typeof userAdminUpdateSchema>;
+export type AdminResetPasswordInput = z.infer<typeof adminResetPasswordSchema>;
+
 /** UI preferences persisted on the user account (so they follow the user across
  *  devices and to future mobile clients). Both optional — a request updates only
  *  the fields it carries. */

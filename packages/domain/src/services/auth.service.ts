@@ -47,7 +47,9 @@ export interface RequestMeta {
   ip?: string;
 }
 
-function toUserDTO(u: Pick<User, 'id' | 'email' | 'name' | 'role' | 'avatarUrl' | 'locale' | 'theme'>): UserDTO {
+function toUserDTO(
+  u: Pick<User, 'id' | 'email' | 'name' | 'role' | 'avatarUrl' | 'locale' | 'theme' | 'isActive' | 'lastLoginAt'>,
+): UserDTO {
   return {
     id: u.id,
     email: u.email,
@@ -56,6 +58,8 @@ function toUserDTO(u: Pick<User, 'id' | 'email' | 'name' | 'role' | 'avatarUrl' 
     avatarUrl: u.avatarUrl,
     locale: u.locale,
     theme: u.theme,
+    isActive: u.isActive,
+    lastLoginAt: u.lastLoginAt ? u.lastLoginAt.toISOString() : null,
   };
 }
 
@@ -405,6 +409,62 @@ export function makeAuthService(ctx: DomainContext) {
     return toUserDTO(user);
   }
 
+  /** Revoke every active session for a user (forces re-login). */
+  async function revokeAllSessions(userId: string, reason: string): Promise<void> {
+    await prisma.deviceSession.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date(), revokedReason: reason, graceTokenSealed: null },
+    });
+  }
+
+  /**
+   * Admin user lifecycle (W4-1): change a user's name/role/active state. Guards
+   * against self-lockout — an admin cannot demote or deactivate their own
+   * account. Deactivation or a role change takes effect on the target's next
+   * request (session binding, W1-3), and we also revoke their live sessions so
+   * the change is immediate.
+   */
+  async function updateUser(id: string, input: z.infer<typeof requests.userAdminUpdateSchema>): Promise<UserDTO> {
+    const admin = requireAdmin(ctx);
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) throw AppError.notFound('User');
+    if (id === admin.id) {
+      if (input.role && input.role !== 'ADMIN') throw AppError.badRequest('You cannot change your own role.');
+      if (input.isActive === false) throw AppError.badRequest('You cannot deactivate your own account.');
+    }
+    const deactivating = input.isActive === false && target.isActive;
+    const roleChanging = input.role !== undefined && input.role !== target.role;
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: {
+        name: input.name ?? undefined,
+        role: input.role ?? undefined,
+        isActive: input.isActive ?? undefined,
+      },
+    });
+    if (deactivating || roleChanging) await revokeAllSessions(id, deactivating ? 'deactivated' : 'role_changed');
+    return toUserDTO(user);
+  }
+
+  /** Admin resets another user's password and revokes their sessions (W4-1). */
+  async function resetUserPassword(id: string, input: z.infer<typeof requests.adminResetPasswordSchema>): Promise<void> {
+    requireAdmin(ctx);
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    if (!target) throw AppError.notFound('User');
+    await prisma.user.update({ where: { id }, data: { passwordHash: await hashPassword(input.newPassword) } });
+    await revokeAllSessions(id, 'password_reset');
+  }
+
+  /** Admin removes a user (W4-1). Cannot remove your own account. */
+  async function removeUser(id: string): Promise<void> {
+    const admin = requireAdmin(ctx);
+    if (id === admin.id) throw AppError.badRequest('You cannot delete your own account.');
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    if (!target) throw AppError.notFound('User');
+    await prisma.user.delete({ where: { id } });
+  }
+
   /**
    * Change the authenticated user's own password. Requires the current
    * password. **Session policy:** on success ALL of the user's sessions are
@@ -444,6 +504,9 @@ export function makeAuthService(ctx: DomainContext) {
     changePassword,
     listUsers,
     createUser,
+    updateUser,
+    resetUserPassword,
+    removeUser,
     hashPassword,
   };
 }

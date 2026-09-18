@@ -112,4 +112,46 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       return user;
     },
   );
+
+  const userIdParam = z.object({ id: z.string() });
+
+  r.patch(
+    '/users/:id',
+    {
+      preHandler: [requireAdmin],
+      schema: {
+        tags: ['Settings'],
+        summary: 'Update a user — name / role / active (admin, W4-1)',
+        params: userIdParam,
+        body: requests.userAdminUpdateSchema,
+      },
+    },
+    async (req) => servicesFor(req).auth.updateUser(req.params.id, req.body),
+  );
+
+  r.post(
+    '/users/:id/reset-password',
+    {
+      preHandler: [requireAdmin],
+      schema: {
+        tags: ['Settings'],
+        summary: "Reset a user's password (admin, W4-1)",
+        params: userIdParam,
+        body: requests.adminResetPasswordSchema,
+      },
+    },
+    async (req, reply) => {
+      await servicesFor(req).auth.resetUserPassword(req.params.id, req.body);
+      reply.status(204).send();
+    },
+  );
+
+  r.delete(
+    '/users/:id',
+    { preHandler: [requireAdmin], schema: { tags: ['Settings'], summary: 'Delete a user (admin, W4-1)', params: userIdParam } },
+    async (req, reply) => {
+      await servicesFor(req).auth.removeUser(req.params.id);
+      reply.status(204).send();
+    },
+  );
 }

@@ -50,6 +50,8 @@ export interface UserDTO {
   avatarUrl: string | null;
   locale: string;
   theme: string;
+  isActive: boolean;
+  lastLoginAt: string | null;
 }
 
 export interface AuthTokensDTO {
