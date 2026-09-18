@@ -679,6 +679,13 @@ export const searchPageSchema = z.object({
 });
 export type SearchPageQuery = z.infer<typeof searchPageSchema>;
 
+// --- Creator performance leaderboard (W6-2) --------------------------------
+export const leaderboardQuerySchema = z.object({
+  brandId: cuid.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+export type LeaderboardQuery = z.infer<typeof leaderboardQuerySchema>;
+
 // --- Saved views / segments (W3-6) -----------------------------------------
 const viewFilters = z.record(z.string(), z.any());
 export const savedViewCreateSchema = z.object({

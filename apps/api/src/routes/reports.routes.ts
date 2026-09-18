@@ -26,4 +26,17 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       return report;
     },
   );
+
+  r.get(
+    '/reports/leaderboard',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Reports'],
+        summary: 'Creator performance leaderboard (server-computed, W6-2)',
+        querystring: requests.leaderboardQuerySchema,
+      },
+    },
+    async (req) => servicesFor(req).analytics.creatorLeaderboard(req.query),
+  );
 }

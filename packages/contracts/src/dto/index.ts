@@ -767,6 +767,37 @@ export interface ReportDTO {
   currency: string;
 }
 
+/** Performance tier for a creator on the leaderboard (W6-2). */
+export type CreatorTier = 'GOLD' | 'SILVER' | 'BRONZE' | 'NEW';
+
+/** One creator's standing on the performance leaderboard (W6-2). */
+export interface LeaderboardEntryDTO {
+  influencerId: string;
+  displayName: string;
+  primaryUsername: string | null;
+  avatarUrl: string | null;
+  category: string | null;
+  /** Committed campaign participations (invited-only never counts). */
+  campaigns: number;
+  /** Distinct brands the creator has delivered for. */
+  brands: number;
+  /** Committed campaigns beyond the first (0 for a one-off). */
+  repeatCollaborations: number;
+  deliverablesTotal: number;
+  deliverablesPublished: number;
+  /** published / total, or null when there are no deliverables yet. */
+  completionRate: number | null;
+  totalPaid: number | null;
+  tier: CreatorTier;
+  score: number;
+}
+
+/** Ranked creator performance leaderboard (W6-2). */
+export interface CreatorLeaderboardDTO {
+  entries: LeaderboardEntryDTO[];
+  generatedAt: string;
+}
+
 // --- Platform & API / mobile readiness -------------------------------------
 export type FeatureStatus = 'READY' | 'PARTIAL' | 'PLANNED' | 'ADMIN_SERVER_ONLY' | 'NOT_EXPOSED';
 export type FeatureClass = 'SHARED' | 'WEB_ONLY_BY_DESIGN' | 'MOBILE_ONLY_BY_DESIGN' | 'ADMIN_DESKTOP_ONLY';
