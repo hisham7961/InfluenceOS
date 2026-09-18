@@ -162,7 +162,10 @@ export function makeInfluencerService(ctx: DomainContext) {
   }
 
   async function detail(id: string): Promise<InfluencerDetailDTO> {
-    const inf = await prisma.influencer.findUnique({ where: { id }, include: summaryInclude });
+    const inf = await prisma.influencer.findUnique({
+      where: { id },
+      include: { ...summaryInclude, owner: { select: { id: true, name: true } } },
+    });
     if (!inf) throw AppError.notFound('Influencer');
 
     const [socialAccounts, audience, cis] = await Promise.all([
@@ -232,6 +235,8 @@ export function makeInfluencerService(ctx: DomainContext) {
       languages: inf.languages,
       pricingNotes: inf.pricingNotes,
       internalNotes: inf.internalNotes,
+      ownerId: inf.ownerId,
+      ownerName: inf.owner?.name ?? null,
       contact: {
         fullName: inf.fullName,
         email: inf.email,
@@ -281,6 +286,7 @@ export function makeInfluencerService(ctx: DomainContext) {
         managerName: input.managerName ?? null,
         managerContact: input.managerContact ?? null,
         preferredContact: input.preferredContact ?? null,
+        ownerId: input.ownerId ?? null,
         priority: input.priority ?? 'MEDIUM',
         relationshipStatus: input.relationshipStatus ?? 'PROSPECT',
         pricingNotes: input.pricingNotes ?? null,
@@ -323,6 +329,7 @@ export function makeInfluencerService(ctx: DomainContext) {
         managerName: input.managerName === undefined ? undefined : input.managerName,
         managerContact: input.managerContact === undefined ? undefined : input.managerContact,
         preferredContact: input.preferredContact === undefined ? undefined : input.preferredContact,
+        ownerId: input.ownerId === undefined ? undefined : input.ownerId,
         priority: input.priority ?? undefined,
         relationshipStatus: input.relationshipStatus ?? undefined,
         pricingNotes: input.pricingNotes === undefined ? undefined : input.pricingNotes,

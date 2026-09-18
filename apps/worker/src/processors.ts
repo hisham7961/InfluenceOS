@@ -70,9 +70,14 @@ export async function generateNotifications(): Promise<{ created: number }> {
     return !existing;
   }
 
+  // Reminders are routed to the campaign owner when one is set (W4-5), so the
+  // person accountable for the work is the one who gets pinged; otherwise the
+  // notification is a workspace-wide broadcast as before.
+  const campaignSelect = { name: true, brandId: true, ownerId: true } as const;
+
   const overdue = await prisma.deliverable.findMany({
     where: { dueDate: { lt: now }, status: { in: [...OPEN_DELIVERABLE] } },
-    include: { campaignInfluencer: { select: { campaignId: true, campaign: { select: { name: true, brandId: true } } } } },
+    include: { campaignInfluencer: { select: { campaignId: true, campaign: { select: campaignSelect } } } },
     take: 100,
   });
   const overdueSeen = new Set<string>();
@@ -88,13 +93,14 @@ export async function generateNotifications(): Promise<{ created: number }> {
       targetUrl: `/campaigns/${campaignId}`,
       campaignId,
       brandId: d.campaignInfluencer.campaign.brandId,
+      userId: d.campaignInfluencer.campaign.ownerId,
     });
     created++;
   }
 
   const dueSoon = await prisma.deliverable.findMany({
     where: { dueDate: { gte: now, lte: soon }, status: { in: [...OPEN_DELIVERABLE] } },
-    include: { campaignInfluencer: { select: { campaignId: true, campaign: { select: { name: true, brandId: true } } } } },
+    include: { campaignInfluencer: { select: { campaignId: true, campaign: { select: campaignSelect } } } },
     take: 100,
   });
   const soonSeen = new Set<string>();
@@ -110,13 +116,14 @@ export async function generateNotifications(): Promise<{ created: number }> {
       targetUrl: `/campaigns/${campaignId}`,
       campaignId,
       brandId: d.campaignInfluencer.campaign.brandId,
+      userId: d.campaignInfluencer.campaign.ownerId,
     });
     created++;
   }
 
   const endingCampaigns = await prisma.campaign.findMany({
     where: { status: 'ACTIVE', endDate: { gte: now, lte: ending } },
-    select: { id: true, name: true, brandId: true },
+    select: { id: true, name: true, brandId: true, ownerId: true },
     take: 50,
   });
   for (const c of endingCampaigns) {
@@ -128,6 +135,7 @@ export async function generateNotifications(): Promise<{ created: number }> {
       targetUrl: `/campaigns/${c.id}`,
       campaignId: c.id,
       brandId: c.brandId,
+      userId: c.ownerId,
     });
     created++;
   }

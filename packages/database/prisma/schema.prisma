@@ -325,6 +325,7 @@ model User {
   decidedCandidates    CampaignCandidate[]     @relation("CandidateDecider")
   createdShipments     ProductShipment[]
   brandAccess          UserBrandAccess[]
+  ownedInfluencers     Influencer[]            @relation("InfluencerOwner")
 
   @@index([role])
 }
@@ -392,6 +393,9 @@ model Influencer {
   managerName      String?
   managerContact   String?
   preferredContact ContactMethod?
+  /// Relationship owner / assignee (W4-5): the staff member who owns this
+  /// creator relationship. Reminders can be routed to them.
+  ownerId          String?
   priority         Priority            @default(MEDIUM)
   relationshipStatus RelationshipStatus @default(PROSPECT)
   audienceHealth   AudienceHealthLabel @default(LIMITED_DATA)
@@ -401,6 +405,7 @@ model Influencer {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
+  owner               User?                @relation("InfluencerOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   socialAccounts      SocialAccount[]
   brandInfluencers    BrandInfluencer[]
   campaignInfluencers CampaignInfluencer[]
@@ -414,6 +419,7 @@ model Influencer {
   usageRights         UsageRight[]
 
   @@index([relationshipStatus])
+  @@index([ownerId])
   @@index([primaryPlatform])
   @@index([country])
   @@index([category])

@@ -187,6 +187,9 @@ export interface InfluencerDetailDTO extends InfluencerSummaryDTO {
   languages: string[];
   pricingNotes: string | null;
   internalNotes: string | null;
+  /** Relationship owner / assignee (W4-5). */
+  ownerId: string | null;
+  ownerName: string | null;
   contact: InfluencerContactDTO;
   socialAccounts: SocialAccountDTO[];
   audience: AudienceHealthDTO;

@@ -201,6 +201,8 @@ export const influencerCreateSchema = z.object({
   managerName: optionalString,
   managerContact: optionalString,
   preferredContact: z.enum(CONTACT_METHODS).optional().nullable(),
+  // Relationship owner / assignee (W4-5).
+  ownerId: cuid.optional().nullable(),
   priority: z.enum(PRIORITIES).default('MEDIUM'),
   relationshipStatus: z.enum(RELATIONSHIP_STATUSES).default('PROSPECT'),
   pricingNotes: optionalString,
