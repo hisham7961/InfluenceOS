@@ -380,6 +380,42 @@ export type CandidateUpdateInput = z.infer<typeof candidateUpdateSchema>;
 export type CandidateDecisionInput = z.infer<typeof candidateDecisionSchema>;
 export type CandidateConvertInput = z.infer<typeof candidateConvertSchema>;
 
+// --- Bulk roster ops + deliverable templates (W3-4) ------------------------
+/** One row of a bulk roster add: the roster deal fields for a single creator. */
+export const bulkRosterRowSchema = campaignInfluencerCreateSchema.omit({ campaignId: true });
+/** Add up to 200 creators to a campaign roster in one request. */
+export const bulkRosterAddSchema = z.object({
+  rows: z.array(bulkRosterRowSchema).min(1).max(200),
+});
+/** One deliverable spec in a template (no campaignInfluencerId — it is fanned out). */
+export const deliverableTemplateItemSchema = deliverableCreateSchema.omit({
+  campaignInfluencerId: true,
+});
+/**
+ * Apply a set of deliverables to many roster members at once. `target` is
+ * either every roster member ('all') or an explicit list of campaign-influencer
+ * ids (each validated to belong to the campaign).
+ */
+export const deliverableTemplateSchema = z.object({
+  target: z.union([z.literal('all'), z.array(cuid).min(1).max(500)]).default('all'),
+  deliverables: z.array(deliverableTemplateItemSchema).min(1).max(50),
+});
+export type BulkRosterRowInput = z.infer<typeof bulkRosterRowSchema>;
+export type BulkRosterAddInput = z.infer<typeof bulkRosterAddSchema>;
+export type DeliverableTemplateInput = z.infer<typeof deliverableTemplateSchema>;
+
+/**
+ * Import a list of creators from a CSV as sourcing candidates (W3-4). Columns
+ * (header row, case-insensitive): displayName|name (required), fullName,
+ * username|handle, platform, email, category, country, fitScore, notes.
+ * Unknown creators are created; existing ones are matched by (platform,
+ * username) then display name.
+ */
+export const candidateCsvImportSchema = z.object({
+  csv: z.string().min(1).max(1_000_000),
+});
+export type CandidateCsvImportInput = z.infer<typeof candidateCsvImportSchema>;
+
 // --- Script reference + version -------------------------------------------
 export const scriptVersionSchema = z.object({
   body: optionalString,

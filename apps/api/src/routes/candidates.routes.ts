@@ -45,6 +45,20 @@ export async function candidateRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  r.post(
+    '/campaigns/:id/candidates/import',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'Import a CSV list of creators as sourcing candidates (W3-4)',
+        params: idParam,
+        body: requests.candidateCsvImportSchema,
+      },
+    },
+    async (req) => servicesFor(req).bulk.importCandidatesCsv(req.params.id, req.body),
+  );
+
   r.get(
     '/candidates/:id',
     { preHandler: [requireAuth], schema: { tags: ['Campaigns'], summary: 'Get a sourcing candidate', params: idParam } },

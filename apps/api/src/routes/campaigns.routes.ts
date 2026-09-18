@@ -65,6 +65,37 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  r.post(
+    '/campaigns/:id/influencers/bulk',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'Add many influencers to a campaign roster at once (W3-4)',
+        params: idParam,
+        body: requests.bulkRosterAddSchema,
+      },
+    },
+    async (req) => servicesFor(req).bulk.addInfluencers(req.params.id, req.body),
+  );
+
+  r.post(
+    '/campaigns/:id/deliverable-template',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'Apply a deliverable template across the campaign roster (W3-4)',
+        params: idParam,
+        body: requests.deliverableTemplateSchema,
+      },
+    },
+    async (req, reply) => {
+      reply.status(201);
+      return servicesFor(req).bulk.applyDeliverableTemplate(req.params.id, req.body);
+    },
+  );
+
   r.get(
     '/campaigns/:id/scripts',
     { preHandler: [requireAuth], schema: { tags: ['Scripts'], summary: 'Scripts for a campaign', params: idParam } },

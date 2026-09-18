@@ -9,6 +9,7 @@ import { makeAttachmentService } from './services/attachment.service';
 import { makeAuthService } from './services/auth.service';
 import { makeBrandService } from './services/brand.service';
 import { makeBrandInfluencerService } from './services/brand-influencer.service';
+import { makeBulkService } from './services/bulk.service';
 import { makeCalendarService } from './services/calendar.service';
 import { makeCampaignService } from './services/campaign.service';
 import { makeCampaignInfluencerService } from './services/campaign-influencer.service';
@@ -42,6 +43,7 @@ export function createServices(ctx: DomainContext) {
     campaigns: makeCampaignService(ctx),
     campaignInfluencers: makeCampaignInfluencerService(ctx),
     sourcing: makeSourcingService(ctx),
+    bulk: makeBulkService(ctx),
     deliverables: makeDeliverableService(ctx),
     submissions: makeSubmissionService(ctx),
     usageRights: makeUsageRightService(ctx),

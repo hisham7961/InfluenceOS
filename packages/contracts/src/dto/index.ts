@@ -378,6 +378,32 @@ export interface CampaignCandidateDTO {
   updatedAt: string;
 }
 
+/** Per-row outcome of a bulk roster add or a CSV import (W3-4). */
+export interface BulkRowResultDTO {
+  /** The influencer this row referred to (resolved id, or null if unresolved). */
+  influencerId: string | null;
+  /** A human label for the row (display name / handle) for error reporting. */
+  label: string | null;
+  status: 'added' | 'skipped' | 'failed';
+  /** The created roster/candidate id when status === 'added'. */
+  id: string | null;
+  message: string | null;
+}
+
+/** Summary + per-row results of a bulk roster add or CSV import (W3-4). */
+export interface BulkResultDTO {
+  added: number;
+  skipped: number;
+  failed: number;
+  results: BulkRowResultDTO[];
+}
+
+/** Result of applying a deliverable template across a campaign roster (W3-4). */
+export interface DeliverableTemplateResultDTO {
+  rostersTargeted: number;
+  deliverablesCreated: number;
+}
+
 // --- Scripts ---------------------------------------------------------------
 export interface ScriptVersionDTO {
   id: string;
