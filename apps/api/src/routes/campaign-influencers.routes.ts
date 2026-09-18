@@ -53,4 +53,39 @@ export async function campaignInfluencerRoutes(app: FastifyInstance): Promise<vo
       return servicesFor(req).deliverables.create({ ...req.body, campaignInfluencerId: req.params.id });
     },
   );
+
+  // --- Product-seeding shipment (W3-5) --------------------------------------
+  r.get(
+    '/campaign-influencers/:id/shipment',
+    { preHandler: [requireAuth], schema: { tags: ['Campaigns'], summary: 'Get the product shipment on a gift record', params: idParam } },
+    async (req) => servicesFor(req).shipments.get(req.params.id),
+  );
+
+  r.put(
+    '/campaign-influencers/:id/shipment',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'Create or update the product shipment on a gift record',
+        params: idParam,
+        body: requests.shipmentUpsertSchema,
+      },
+    },
+    async (req) => servicesFor(req).shipments.upsert(req.params.id, req.body),
+  );
+
+  r.post(
+    '/campaign-influencers/:id/shipment/status',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'Advance the shipment fulfilment status',
+        params: idParam,
+        body: requests.shipmentStatusSchema,
+      },
+    },
+    async (req) => servicesFor(req).shipments.updateStatus(req.params.id, req.body),
+  );
 }

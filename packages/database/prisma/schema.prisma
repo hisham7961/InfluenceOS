@@ -204,6 +204,16 @@ enum CandidateStatus {
   CONVERTED
 }
 
+/// Fulfilment status of a product-seeding shipment (W3-5).
+enum ShipmentStatus {
+  PENDING
+  SHIPPED
+  IN_TRANSIT
+  DELIVERED
+  RETURNED
+  FAILED
+}
+
 enum ActivityType {
   BRAND_CREATED
   BRAND_UPDATED
@@ -312,6 +322,7 @@ model User {
   createdUsageRights   UsageRight[]
   addedCandidates      CampaignCandidate[]     @relation("CandidateAdder")
   decidedCandidates    CampaignCandidate[]     @relation("CandidateDecider")
+  createdShipments     ProductShipment[]
 
   @@index([role])
 }
@@ -529,10 +540,41 @@ model CampaignInfluencer {
   deliverables     Deliverable[]
   publishedContent PublishedContent[]
   expenses         CampaignExpense[]
+  shipment         ProductShipment?
 
   @@unique([campaignId, influencerId])
   @@index([campaignId])
   @@index([influencerId])
+}
+
+/// Product-seeding shipment attached to a gift record (W3-5). One shipment per
+/// CampaignInfluencer: address, courier, tracking and delivery state, so staff
+/// can answer "did the gift arrive?" without leaving the campaign.
+model ProductShipment {
+  id                   String         @id @default(cuid())
+  campaignInfluencerId String         @unique
+  recipientName        String?
+  phone                String?
+  addressLine1         String?
+  addressLine2         String?
+  city                 String?
+  country              String?
+  postalCode           String?
+  courier              String?
+  trackingNumber       String?
+  trackingUrl          String?
+  status               ShipmentStatus @default(PENDING)
+  shippedAt            DateTime?
+  deliveredAt          DateTime?
+  notes                String?
+  createdById          String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  campaignInfluencer CampaignInfluencer @relation(fields: [campaignInfluencerId], references: [id], onDelete: Cascade)
+  createdBy          User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([status])
 }
 
 /// A creator being sourced for a campaign — considered, shortlisted, approved

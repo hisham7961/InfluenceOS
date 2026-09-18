@@ -201,6 +201,17 @@ export type CandidateStatus = (typeof CANDIDATE_STATUSES)[number];
 export const CANDIDATE_DECISIONS = ['SHORTLIST', 'APPROVE', 'REJECT', 'RECONSIDER'] as const;
 export type CandidateDecision = (typeof CANDIDATE_DECISIONS)[number];
 
+/** Fulfilment status of a product-seeding shipment (W3-5). */
+export const SHIPMENT_STATUSES = [
+  'PENDING',
+  'SHIPPED',
+  'IN_TRANSIT',
+  'DELIVERED',
+  'RETURNED',
+  'FAILED',
+] as const;
+export type ShipmentStatus = (typeof SHIPMENT_STATUSES)[number];
+
 export const INTEGRATION_STATUSES = ['ENABLED', 'DISABLED', 'NOT_CONFIGURED', 'ERROR'] as const;
 export type IntegrationStatus = (typeof INTEGRATION_STATUSES)[number];
 
@@ -242,6 +253,7 @@ export const USAGE_RIGHT_TYPE_LABELS = labelMap(USAGE_RIGHT_TYPES);
 export const USAGE_RIGHT_STATUS_LABELS = labelMap(USAGE_RIGHT_STATUSES);
 export const USAGE_RIGHT_EFFECTIVE_STATUS_LABELS = labelMap(USAGE_RIGHT_EFFECTIVE_STATUSES);
 export const CANDIDATE_STATUS_LABELS = labelMap(CANDIDATE_STATUSES);
+export const SHIPMENT_STATUS_LABELS = labelMap(SHIPMENT_STATUSES);
 export const CONTENT_STATUS_LABELS = labelMap(CONTENT_STATUSES, { BROKEN_LINK: 'Broken Link' });
 export const PAYMENT_STATUS_LABELS = labelMap(PAYMENT_STATUSES);
 export const EXPENSE_TYPE_LABELS = labelMap(EXPENSE_TYPES);
@@ -334,4 +346,13 @@ export const CANDIDATE_STATUS_TONE: Record<CandidateStatus, Tone> = {
   APPROVED: 'success',
   REJECTED: 'danger',
   CONVERTED: 'accent',
+};
+
+export const SHIPMENT_STATUS_TONE: Record<ShipmentStatus, Tone> = {
+  PENDING: 'neutral',
+  SHIPPED: 'info',
+  IN_TRANSIT: 'info',
+  DELIVERED: 'success',
+  RETURNED: 'warning',
+  FAILED: 'danger',
 };

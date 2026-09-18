@@ -18,6 +18,7 @@ import type {
   Platform,
   Priority,
   RelationshipStatus,
+  ShipmentStatus,
   SubmissionStatus,
   UsageRightEffectiveStatus,
   UsageRightStatus,
@@ -402,6 +403,31 @@ export interface BulkResultDTO {
 export interface DeliverableTemplateResultDTO {
   rostersTargeted: number;
   deliverablesCreated: number;
+}
+
+/**
+ * Product-seeding shipment on a gift record (W3-5): where the product is going,
+ * how, and whether it arrived. Attached 1:1 to a campaign-influencer.
+ */
+export interface ProductShipmentDTO {
+  id: string;
+  campaignInfluencerId: string;
+  recipientName: string | null;
+  phone: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  country: string | null;
+  postalCode: string | null;
+  courier: string | null;
+  trackingNumber: string | null;
+  trackingUrl: string | null;
+  status: ShipmentStatus;
+  shippedAt: string | null;
+  deliveredAt: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // --- Scripts ---------------------------------------------------------------

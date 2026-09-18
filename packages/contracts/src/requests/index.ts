@@ -16,6 +16,7 @@ import {
   SUBMISSION_DECISIONS,
   USAGE_RIGHT_TYPES,
   CANDIDATE_DECISIONS,
+  SHIPMENT_STATUSES,
   USER_ROLES,
 } from '@influenceos/shared';
 
@@ -415,6 +416,35 @@ export const candidateCsvImportSchema = z.object({
   csv: z.string().min(1).max(1_000_000),
 });
 export type CandidateCsvImportInput = z.infer<typeof candidateCsvImportSchema>;
+
+// --- Product-seeding shipment tracking (W3-5) ------------------------------
+/**
+ * Upsert the shipment on a gift record (one per campaign-influencer). Setting
+ * `status` to SHIPPED/DELIVERED stamps shippedAt/deliveredAt server-side when
+ * they are not supplied.
+ */
+export const shipmentUpsertSchema = z.object({
+  recipientName: z.string().trim().max(200).optional().nullable(),
+  phone: z.string().trim().max(60).optional().nullable(),
+  addressLine1: z.string().trim().max(300).optional().nullable(),
+  addressLine2: z.string().trim().max(300).optional().nullable(),
+  city: z.string().trim().max(120).optional().nullable(),
+  country: z.string().trim().max(120).optional().nullable(),
+  postalCode: z.string().trim().max(40).optional().nullable(),
+  courier: z.string().trim().max(120).optional().nullable(),
+  trackingNumber: z.string().trim().max(120).optional().nullable(),
+  trackingUrl: httpUrl.optional().nullable(),
+  status: z.enum(SHIPMENT_STATUSES).optional(),
+  shippedAt: isoDate,
+  deliveredAt: isoDate,
+  notes: optionalString,
+});
+/** Advance only the fulfilment status (courier webhook / quick action). */
+export const shipmentStatusSchema = z.object({
+  status: z.enum(SHIPMENT_STATUSES),
+});
+export type ShipmentUpsertInput = z.infer<typeof shipmentUpsertSchema>;
+export type ShipmentStatusInput = z.infer<typeof shipmentStatusSchema>;
 
 // --- Script reference + version -------------------------------------------
 export const scriptVersionSchema = z.object({
