@@ -1,6 +1,7 @@
 import {
   Bell,
   CalendarDays,
+  Gauge,
   LayoutDashboard,
   Megaphone,
   PlaySquare,
@@ -42,7 +43,10 @@ export const NAV_SECTIONS: NavSection[] = [
   },
   {
     label: 'Insights',
-    items: [{ href: '/reports', label: 'Reports', icon: Sparkles }],
+    items: [
+      { href: '/exec', label: 'Executive', icon: Gauge },
+      { href: '/reports', label: 'Reports', icon: Sparkles },
+    ],
   },
   {
     label: 'Account',
