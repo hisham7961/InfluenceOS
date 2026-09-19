@@ -10,6 +10,7 @@ import { dateTime, formatCurrency, formatNumber, formatPercent, shortDate } from
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -220,63 +221,53 @@ function ReportTable({ report, isPending }: { report: ReportDTO; isPending: bool
         </p>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-border bg-surface-muted/60">
+      <TableScroll>
+        <Table className="min-w-[640px]">
+          <TableHead>
+            <TableRow className="border-b border-border bg-surface-muted/60 hover:bg-surface-muted/60">
               {report.columns.map((col, i) => (
-                <th
+                <TableHeaderCell
                   key={col.key}
-                  scope="col"
-                  className={cn(
-                    'whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground',
-                    isNumericColumn(col.type) ? 'text-right' : 'text-left',
-                    i === 0 && 'pl-5',
-                  )}
+                  align={isNumericColumn(col.type) ? 'end' : 'start'}
+                  className={cn(i === 0 && 'ps-5')}
                 >
                   {col.label}
-                </th>
+                </TableHeaderCell>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHead>
+          <TableBody>
             {report.rows.map((row, ri) => (
-              <tr key={ri} className="border-b border-border/60 transition-colors last:border-0 hover:bg-surface-muted/40">
+              <TableRow key={ri}>
                 {report.columns.map((col, i) => (
-                  <td
+                  <TableCell
                     key={col.key}
-                    className={cn(
-                      'whitespace-nowrap px-4 py-3 text-foreground',
-                      isNumericColumn(col.type) ? 'text-right tabular-nums' : 'text-left',
-                      i === 0 && 'pl-5 font-medium',
-                    )}
+                    align={isNumericColumn(col.type) ? 'end' : 'start'}
+                    className={cn(i === 0 && 'ps-5 font-medium')}
                   >
                     {formatCell(row[col.key] ?? null, col.type, report.currency)}
-                  </td>
+                  </TableCell>
                 ))}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
+          </TableBody>
           {report.totals ? (
-            <tfoot>
-              <tr className="border-t-2 border-border bg-surface-muted/60 font-semibold">
+            <TableFooter>
+              <TableRow className="border-t-2 border-border bg-surface-muted/60 font-semibold hover:bg-surface-muted/60">
                 {report.columns.map((col, i) => (
-                  <td
+                  <TableCell
                     key={col.key}
-                    className={cn(
-                      'whitespace-nowrap px-4 py-3',
-                      isNumericColumn(col.type) ? 'text-right tabular-nums' : 'text-left',
-                      i === 0 && 'pl-5',
-                    )}
+                    align={isNumericColumn(col.type) ? 'end' : 'start'}
+                    className={cn(i === 0 && 'ps-5')}
                   >
                     {i === 0 ? 'Total' : formatCell(report.totals?.[col.key] ?? null, col.type, report.currency)}
-                  </td>
+                  </TableCell>
                 ))}
-              </tr>
-            </tfoot>
+              </TableRow>
+            </TableFooter>
           ) : null}
-        </table>
-      </div>
+        </Table>
+      </TableScroll>
     </Card>
   );
 }
