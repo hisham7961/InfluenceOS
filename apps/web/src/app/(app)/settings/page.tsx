@@ -6,6 +6,7 @@ import {
   Flag,
   KeyRound,
   Languages,
+  ListChecks,
   Mail,
   Moon,
   Palette,
@@ -81,6 +82,13 @@ export default async function SettingsPage() {
           icon={KeyRound}
           title="Security"
           description="Change your password. Changing it signs you out of all sessions."
+        />
+
+        <NavCard
+          href="/settings/setup"
+          icon={ListChecks}
+          title="Setup Guide"
+          description="Everything that can be configured — infrastructure, storage, and every social integration — with its live status."
         />
 
         <NavCard
