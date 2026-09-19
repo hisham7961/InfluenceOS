@@ -41,6 +41,7 @@ import type {
   PublishedContentDTO,
   ReportDTO,
   ResolveProfileResultDTO,
+  SavedViewDTO,
   ScriptDTO,
   SearchResultDTO,
   SocialAccountDTO,
@@ -268,6 +269,14 @@ export function createClient(config: ClientConfig) {
 
     search: {
       query: (params: QueryParams) => http.get<SearchResultDTO[]>(`${V}/search`, { query: params }),
+    },
+
+    // Saved directory views / segments (W3-6 web surface).
+    savedViews: {
+      list: (scope?: string) => http.get<SavedViewDTO[]>(`${V}/saved-views`, { query: { scope } }),
+      create: (body: In<typeof requests.savedViewCreateSchema>) =>
+        http.post<SavedViewDTO>(`${V}/saved-views`, body),
+      remove: (id: string) => http.del<void>(`${V}/saved-views/${id}`),
     },
 
     files: {

@@ -7,6 +7,7 @@ import { PLATFORMS, PLATFORM_META, RELATIONSHIP_STATUSES, RELATIONSHIP_STATUS_LA
 import { SearchInput } from '@/components/ui/search-input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SavedViews } from './saved-views';
 
 /** Sentinel value for Radix Select's "no filter" option (Select forbids an empty-string item value). */
 const ALL = 'all';
@@ -93,17 +94,24 @@ export function DirectoryFilters({ q, platform, relationshipStatus }: DirectoryF
           </SelectContent>
         </Select>
 
-        {hasActiveFilters ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push('/influencers')}
-            className="text-muted-foreground sm:ml-auto"
-          >
-            <X className="h-3.5 w-3.5" /> Reset
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-2 sm:ms-auto">
+          <SavedViews
+            scope="influencers"
+            basePath="/influencers"
+            current={{ q: q ?? '', platform: platform ?? '', relationshipStatus: relationshipStatus ?? '' }}
+          />
+          {hasActiveFilters ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/influencers')}
+              className="text-muted-foreground"
+            >
+              <X className="h-3.5 w-3.5" /> Reset
+            </Button>
+          ) : null}
+        </div>
       </div>
     </div>
   );
