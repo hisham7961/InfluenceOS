@@ -33,18 +33,41 @@ Owner disciplines: SRE, BE (backend/domain), FE (web), DBE (database), SEC (secu
   pass (no local Docker daemon here; a blind pnpm+prisma+tsx multi-stage risks
   repeated red CI on an image that is not deployed pre-freeze). Each shipped
   item has CI-gated tests. No deploy; STAGING_ACCEPTANCE remains NOT EXECUTED.
-- **WAVE 3 — IN PROGRESS.** W3-1 (content review/approval + revision workflow +
-  UGC deliverable type) landed **API-first**: new `DeliverableSubmission` +
-  `SubmissionComment` models, review states (submission DRAFT→IN_REVIEW→
-  CHANGES_REQUESTED→APPROVED/REJECTED; deliverable += IN_REVIEW/CHANGES_REQUESTED/
-  APPROVED), a `UGC` deliverable type, a submission service (submit → comment →
-  request-changes → revise → approve, transactional + notified), API routes, and
-  an integration test proving a UGC deliverable reaches complete WITHOUT any
-  public social URL. **Deferred within W3-1:** the web UI for the review board,
-  and W3-2..W3-6 (usage-rights ledger, sourcing/shortlist, bulk roster ops,
-  saved views/search). Additive migration; no deploy; STAGING_ACCEPTANCE remains
-  NOT EXECUTED.
-- **WAVES 4–8 — not started** (await direction/prioritisation).
+- **WAVE 3 — DONE (approved, implemented + tested).** All six items landed
+  API-first with CI-gated tests, then each got its web surface. W3-1 content
+  review/approval + revision workflow + `UGC` deliverable type (`DeliverableSubmission`
+  + `SubmissionComment`, review states, transactional + notified) with a
+  campaign-level review queue tab; W3-2 usage-rights ledger + license-expiry
+  alerts with a brand ledger card; W3-3 sourcing/shortlist candidate pipeline
+  with a sourcing tab; W3-4 bulk roster add + deliverable templates + CSV creator
+  import, surfaced as a bulk CSV creator-intake dialog on the sourcing tab; W3-5
+  product-seeding shipment tracking with a shipments tab; W3-6 saved views/
+  segments + ranked global-search page with a "Views" control on the influencer
+  directory. Additive migrations; no deploy; STAGING_ACCEPTANCE remains NOT
+  EXECUTED.
+- **WAVE 4 — DONE.** W4-1 admin user lifecycle (deactivate/role/reset-password/
+  remove); W4-2 real `maintenanceMode` gate + banner and non-decorative settings;
+  W4-3 `LOGIN_MAX_ATTEMPTS`/`LOGIN_LOCK_MINUTES` in the boot env schema; W4-4
+  read-only VIEWER role + per-user brand scope (completing W1-4 least privilege);
+  W4-5 relationship owner/assignee + reminder routing. CI-gated tests; no deploy.
+- **WAVE 5 — DONE.** W5-1 RTL logical-property pass + shared `ui/search-input`;
+  W5-2 `ui/table` primitive; W5-3 a11y sweep (`aria-current`, Radix tabs,
+  icon-button labels, `role=status`); W5-4 perf hygiene (lazy recharts,
+  `next/image`); W5-5 grouped nav / IA cleanup; W5-6 cross-browser + RTL
+  acceptance matrix documented.
+- **WAVE 6 — DONE.** W6-1 CPV/CPM/CPE moved server-side (fixes ARCH-01) +
+  efficiency columns + metric freshness/provenance in reports; W6-2 creator
+  performance leaderboard (on the exec dashboard); W6-3 exec dashboard (today,
+  cross-brand rollup, since-yesterday digest, spend-vs-budget KPI); W6-4 the
+  ROI/ROAS/EMV guardrail is respected (no fabricated ROI shipped). CI-gated tests.
+- **WAVE 7 — DONE.** W7-1 killed both report N+1s — the campaign-list fan-out
+  (PERF-01, batched progress) and the campaign/spend/brand report fan-out
+  (PERF-02, batched via `computeCampaignProgressBatch` + grouped aggregates),
+  with an integration test asserting a flat query count over a query-logging
+  client; W7-2 composite + trigram directory indexes + cursor pagination
+  (influencer/campaign); W7-3 10k-row load seed + chaos harness + `EXPLAIN`
+  evidence + Core Web Vitals capture. Additive migrations; no deploy.
+- **WAVE 8 — NOT STARTED** (future / optional; awaits direction/prioritisation).
 
 ---
 
