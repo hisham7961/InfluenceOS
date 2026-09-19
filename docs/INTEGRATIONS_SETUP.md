@@ -102,8 +102,29 @@ best-effort link check only.
 Fetching a creator's **own** post/video metrics requires that creator to
 authorize the app through the platform's OAuth flow, and requires the app to
 pass the platform's **app review** (Meta / TikTok) with an approved redirect
-URI, privacy policy and business verification. The code foundation for this
-(encrypted token storage, OAuth start/callback, authorized-fetch paths) ships
-gated behind app credentials and is inert until you complete that review — it
-cannot be exercised end-to-end without approved apps. This is a platform
-constraint, not a limitation of the codebase.
+URI, privacy policy and business verification.
+
+The code foundation for this ships and is wired end to end (INT-3):
+
+- **Endpoints** — `POST /influencers/:id/creator-connections/:platform/start`
+  returns the authorize URL; `GET /integrations/:platform/oauth/callback`
+  exchanges the code and stores the token (sealed, AES-256-GCM);
+  `GET /influencers/:id/creator-connections` lists connections;
+  `DELETE …/:platform` disconnects. TikTok uses PKCE (S256); state is sealed and
+  short-lived (10 min).
+- **Metric fetchers** — `fetchInstagramMediaMetrics` / `fetchTikTokVideoMetrics`
+  (in `@influenceos/shared`) turn a stored creator token into real post metrics.
+  These are unit-tested with a mocked fetch.
+
+To activate:
+
+1. Create the Meta / TikTok app, complete **app review** for the insight scopes.
+2. Register the redirect URI: `<OAUTH_CALLBACK_BASE_URL>/api/v1/integrations/<platform>/oauth/callback`.
+3. Set the app credentials (`INSTAGRAM_APP_ID`/`INSTAGRAM_APP_SECRET`,
+   `TIKTOK_CLIENT_KEY`/`TIKTOK_CLIENT_SECRET`) and `OAUTH_CALLBACK_BASE_URL`.
+
+Until then `start` refuses with a clear "not configured" message rather than
+pretending. **This is a platform constraint (app review), not a code gap** — the
+flow, storage and fetchers are in place; only the reviewed app + wiring the
+stored token into the periodic refresh remain, and that last wiring is
+intentionally left until a real token exists to validate it against.

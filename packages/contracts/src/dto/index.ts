@@ -756,6 +756,21 @@ export interface ProviderCredentialStatusDTO {
   updatedAt: string | null;
 }
 
+/** INT-3 — the authorize URL a creator visits to connect their account. */
+export interface CreatorOAuthStartDTO {
+  url: string;
+}
+
+/** INT-3 — a creator's OAuth connection state for one platform (never a token). */
+export interface CreatorConnectionDTO {
+  influencerId: string;
+  platform: Platform;
+  connected: boolean;
+  externalUserId: string | null;
+  scope: string | null;
+  expiresAt: string | null;
+}
+
 // --- Dashboard / Mission Control -------------------------------------------
 export interface PulseDTO {
   activeCampaigns: number;

@@ -31,6 +31,14 @@ export {
   getAllCapabilities,
   resolveCapabilities,
   CAPABILITY_MATRIX,
+  instagramAuthorizeUrl,
+  exchangeInstagramCode,
+  fetchInstagramMediaMetrics,
+  tiktokAuthorizeUrl,
+  exchangeTikTokCode,
+  fetchTikTokVideoMetrics,
+  INSTAGRAM_DEFAULT_SCOPES,
+  TIKTOK_DEFAULT_SCOPES,
 } from './providers';
 
 export type {
@@ -44,4 +52,5 @@ export type {
   AvailabilityResult,
   AvailabilityStatus,
   ContentMetricsResult,
+  OAuthTokenResult,
 } from './providers';

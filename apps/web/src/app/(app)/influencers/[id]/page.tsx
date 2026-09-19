@@ -12,6 +12,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { AudienceHealthBadge, RelationshipStatusBadge } from '@/components/ui/status-badges';
 import { formatCompact, formatCurrency } from '@/lib/format';
 import { ProfileTabs } from './profile-tabs';
+import { CreatorConnections } from './creator-connections';
 import { InfluencerEditDialog } from './influencer-edit-dialog';
 
 export const dynamic = 'force-dynamic';
@@ -150,6 +151,8 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
           hint={`of ${history.deliverablesTotal} total`}
         />
       </div>
+
+      <CreatorConnections influencerId={influencer.id} />
 
       <ProfileTabs influencer={influencer} content={contentFeed.data} notes={notes} brandRelationships={brandRelationships} />
     </div>

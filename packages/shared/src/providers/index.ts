@@ -2,6 +2,7 @@ export * from './types';
 export * from './url';
 export * from './embeds';
 export * from './capability-matrix';
+export * from './oauth';
 export * from './registry';
 export { BaseAdapter } from './adapters/base';
 export { YouTubeAdapter } from './adapters/youtube';

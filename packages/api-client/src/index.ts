@@ -29,6 +29,8 @@ import type {
   ExpenseDTO,
   FeatureDTO,
   GlobalDashboardDTO,
+  CreatorConnectionDTO,
+  CreatorOAuthStartDTO,
   IntegrationCapabilityDTO,
   IntegrationDTO,
   ProviderCredentialStatusDTO,
@@ -124,6 +126,13 @@ export function createClient(config: ClientConfig) {
       resolve: (body: In<typeof requests.resolveProfileSchema>) =>
         http.post<ResolveProfileResultDTO>(`${V}/influencers/resolve`, body),
       socialAccounts: (id: string) => http.get<SocialAccountDTO[]>(`${V}/influencers/${id}/social-accounts`),
+      // Creator-OAuth connections (INT-3; inert until platform app review).
+      creatorConnections: (id: string) =>
+        http.get<CreatorConnectionDTO[]>(`${V}/influencers/${id}/creator-connections`),
+      startCreatorConnection: (id: string, platform: string) =>
+        http.post<CreatorOAuthStartDTO>(`${V}/influencers/${id}/creator-connections/${platform}/start`),
+      disconnectCreator: (id: string, platform: string) =>
+        http.del<{ ok: true }>(`${V}/influencers/${id}/creator-connections/${platform}`),
       addSocialAccount: (id: string, body: Omit<In<typeof requests.socialAccountCreateSchema>, 'influencerId'>) =>
         http.post<SocialAccountDTO>(`${V}/influencers/${id}/social-accounts`, { ...body, influencerId: id }),
       notes: (id: string) => http.get<NoteDTO[]>(`${V}/influencers/${id}/notes`),

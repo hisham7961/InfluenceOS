@@ -114,4 +114,25 @@ export async function influencerRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [requireAuth], schema: { tags: ['Influencers'], summary: 'Brand relationships for an influencer', params: idParam } },
     async (req) => servicesFor(req).brandInfluencers.listForInfluencer(req.params.id),
   );
+
+  // --- Creator-OAuth connections (INT-3; inert until platform app review) ---
+  const oauthParams = z.object({ id: z.string(), platform: z.string() });
+
+  r.get(
+    '/influencers/:id/creator-connections',
+    { preHandler: [requireAuth], schema: { tags: ['Influencers'], summary: 'Creator-OAuth connections for an influencer', params: idParam } },
+    async (req) => servicesFor(req).creatorOAuth.status(req.params.id),
+  );
+
+  r.post(
+    '/influencers/:id/creator-connections/:platform/start',
+    { preHandler: [requireAuth], schema: { tags: ['Influencers'], summary: 'Begin a creator-OAuth connection (returns the authorize URL)', params: oauthParams } },
+    async (req) => servicesFor(req).creatorOAuth.start(req.params.id, req.params.platform.toUpperCase()),
+  );
+
+  r.delete(
+    '/influencers/:id/creator-connections/:platform',
+    { preHandler: [requireAuth], schema: { tags: ['Influencers'], summary: 'Disconnect a creator-OAuth connection', params: oauthParams } },
+    async (req) => servicesFor(req).creatorOAuth.disconnect(req.params.id, req.params.platform.toUpperCase()),
+  );
 }

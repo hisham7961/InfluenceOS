@@ -83,4 +83,32 @@ export async function integrationRoutes(app: FastifyInstance): Promise<void> {
     },
     async (req) => servicesFor(req).credentials.remove(req.params.key),
   );
+
+  // --- Creator-OAuth callback (INT-3) --------------------------------------
+  // Public by design: the platform redirects the creator's browser here with a
+  // code + our tamper-proof sealed `state`. No session is required — the sealed,
+  // short-lived state is the authorization (it could only have come from our
+  // authenticated `start`). On success/failure we redirect back to the web app.
+  r.get(
+    '/integrations/:platform/oauth/callback',
+    {
+      schema: {
+        tags: ['Settings'],
+        summary: 'Creator-OAuth callback (INT-3)',
+        params: z.object({ platform: z.string() }),
+        querystring: z.object({ code: z.string().optional(), state: z.string().optional(), error: z.string().optional() }),
+      },
+    },
+    async (req, reply) => {
+      const webBase = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+      const { code, state, error } = req.query;
+      if (error || !code || !state) return reply.redirect(`${webBase}/influencers?connected=error`);
+      try {
+        const result = await servicesFor(req).creatorOAuth.callback(code, state);
+        return reply.redirect(`${webBase}/influencers/${result.influencerId}?connected=${result.platform.toLowerCase()}`);
+      } catch {
+        return reply.redirect(`${webBase}/influencers?connected=error`);
+      }
+    },
+  );
 }

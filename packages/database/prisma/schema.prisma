@@ -410,6 +410,7 @@ model Influencer {
   brandInfluencers    BrandInfluencer[]
   campaignInfluencers CampaignInfluencer[]
   candidacies         CampaignCandidate[]
+  creatorTokens       CreatorOAuthToken[]
   publishedContent    PublishedContent[]
   tags                InfluencerTag[]
   notes               Note[]
@@ -1168,6 +1169,29 @@ model ProviderCredential {
   updatedById String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+/// Creator-OAuth token (INT-3): a creator's authorization for us to read their
+/// OWN post metrics (Instagram media insights / TikTok video stats), which the
+/// platforms do not expose to third parties otherwise. Tokens are sealed
+/// (AES-256-GCM). One row per (influencer, platform). INERT until the platform
+/// app passes review — the columns + flow exist, live fetch needs an approved app.
+model CreatorOAuthToken {
+  id                 String    @id @default(cuid())
+  influencerId       String
+  platform           Platform
+  sealedAccessToken  String
+  sealedRefreshToken String?
+  externalUserId     String?
+  scope              String?
+  expiresAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  influencer Influencer @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+
+  @@unique([influencerId, platform])
+  @@index([influencerId])
 }
 
 /// Future-proof: saved filters / views for directories and feeds.

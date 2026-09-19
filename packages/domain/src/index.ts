@@ -16,6 +16,7 @@ import { makeCampaignService } from './services/campaign.service';
 import { makeCampaignInfluencerService } from './services/campaign-influencer.service';
 import { makeContentService } from './services/content.service';
 import { makeCredentialService } from './services/credential.service';
+import { makeCreatorOAuthService } from './services/creator-oauth.service';
 import { makeDashboardService } from './services/dashboard.service';
 import { makeDeliverableService } from './services/deliverable.service';
 import { makeExpenseService } from './services/expense.service';
@@ -66,6 +67,7 @@ export function createServices(ctx: DomainContext) {
     analytics: makeAnalyticsService(ctx),
     integrations: makeIntegrationService(ctx),
     credentials: makeCredentialService(ctx),
+    creatorOAuth: makeCreatorOAuthService(ctx),
     platform: makePlatformService(ctx),
     dashboard: makeDashboardService(ctx),
   };
