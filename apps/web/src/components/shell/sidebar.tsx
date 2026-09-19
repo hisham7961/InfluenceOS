@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/cn';
-import { NAV_ITEMS } from './nav';
+import { NAV_SECTIONS } from './nav';
 
 function isActive(pathname: string, href: string, exact?: boolean): boolean {
   if (exact) return pathname === href;
@@ -12,28 +12,37 @@ function isActive(pathname: string, href: string, exact?: boolean): boolean {
 export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
-    <nav className="flex flex-1 flex-col gap-1 px-3">
-      {NAV_ITEMS.map((item) => {
-        const active = isActive(pathname, item.href, item.exact);
-        const Icon = item.icon;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            aria-current={active ? 'page' : undefined}
-            className={cn(
-              'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
-              active
-                ? 'bg-brand-soft text-brand'
-                : 'text-muted-foreground hover:bg-surface-muted hover:text-foreground',
-            )}
-          >
-            <Icon aria-hidden className={cn('h-[18px] w-[18px]', active ? 'text-brand' : 'text-muted-foreground group-hover:text-foreground')} />
-            {item.label}
-          </Link>
-        );
-      })}
+    <nav className="flex flex-1 flex-col gap-4 px-3">
+      {NAV_SECTIONS.map((section, si) => (
+        <div key={section.label ?? `section-${si}`} className="flex flex-col gap-1">
+          {section.label ? (
+            <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              {section.label}
+            </p>
+          ) : null}
+          {section.items.map((item) => {
+            const active = isActive(pathname, item.href, item.exact);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                  active
+                    ? 'bg-brand-soft text-brand'
+                    : 'text-muted-foreground hover:bg-surface-muted hover:text-foreground',
+                )}
+              >
+                <Icon aria-hidden className={cn('h-[18px] w-[18px]', active ? 'text-brand' : 'text-muted-foreground group-hover:text-foreground')} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 }
