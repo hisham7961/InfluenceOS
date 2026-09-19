@@ -12,7 +12,7 @@ import {
   toMoneyNumber,
   type MoneyInput,
 } from '../lib/money';
-import { computeCostSummary } from '../lib/progress';
+import { computeCampaignProgressBatch } from '../lib/progress';
 
 /**
  * Analytics reports (spec §29). Read-only aggregation across the domain —
@@ -23,7 +23,6 @@ import { computeCostSummary } from '../lib/progress';
 type ReportFilter = z.infer<typeof requests.reportFilterSchema>;
 type ReportRow = Record<string, string | number | null>;
 
-const PUBLISHED_DELIVERABLE_STATUSES = ['PUBLISHED', 'VERIFIED', 'APPROVED'] as const;
 const PAID_DEAL_TYPES = ['PAID', 'PAID_PLUS_GIFTED'] as const;
 const MAX_ROWS = 500;
 
@@ -92,22 +91,6 @@ export function makeReportService(ctx: DomainContext) {
     return and.length ? { AND: and } : {};
   }
 
-  /** Influencer fees (paid deals) + non-gift expenses for a campaign scope. */
-  async function spendForCampaigns(where: Prisma.CampaignWhereInput): Promise<number> {
-    const [fees, expenses] = await Promise.all([
-      prisma.campaignInfluencer.aggregate({
-        _sum: { agreedCost: true },
-        where: { campaign: where, dealType: { in: [...PAID_DEAL_TYPES] } },
-      }),
-      prisma.campaignExpense.aggregate({
-        _sum: { amount: true },
-        where: { campaign: where, type: { not: 'GIFT_PRODUCT' } },
-      }),
-    ]);
-    // Both operands are DB-side Decimal aggregates; add them as Decimals.
-    return moneyNumberOr0(sumMoney([fees._sum.agreedCost, expenses._sum.amount]));
-  }
-
   /** The distinct currency of the campaigns in scope → a single label plus a
    *  `mixed` flag. When more than one currency is present the report is labelled
    *  'MIXED' and its money grand totals are suppressed rather than summed across
@@ -128,6 +111,8 @@ export function makeReportService(ctx: DomainContext) {
         status: true,
         currency: true,
         plannedBudget: true,
+        startDate: true,
+        endDate: true,
         brand: { select: { name: true } },
       },
     });
@@ -144,30 +129,24 @@ export function makeReportService(ctx: DomainContext) {
       { key: 'budget', label: 'Budget', type: 'currency' },
     ];
 
-    const rows = await Promise.all(
-      campaigns.map(async (c): Promise<ReportRow> => {
-        const ciWhere = { campaignId: c.id };
-        const [influencers, deliverablesTotal, deliverablesPublished, cost] = await Promise.all([
-          prisma.campaignInfluencer.count({ where: ciWhere }),
-          prisma.deliverable.count({ where: { campaignInfluencer: ciWhere } }),
-          prisma.deliverable.count({
-            where: { campaignInfluencer: ciWhere, status: { in: [...PUBLISHED_DELIVERABLE_STATUSES] } },
-          }),
-          computeCostSummary(ctx, c.id, c.currency, toMoneyNumber(c.plannedBudget)),
-        ]);
-        return {
-          name: c.name,
-          brand: c.brand.name,
-          status: c.status,
-          influencers,
-          deliverablesPublished,
-          deliverablesTotal,
-          completion: metrics.completionRate(deliverablesPublished, deliverablesTotal),
-          spend: cost.totalSpend,
-          budget: cost.plannedBudget,
-        };
-      }),
-    );
+    // Batch the whole page's progress + cost in a fixed number of queries
+    // (PERF-02 / W7-1) — no per-campaign fan-out. The completion column keeps its
+    // own unrounded completionRate (progress rounds), sourced from batched counts.
+    const progress = await computeCampaignProgressBatch(ctx, campaigns);
+    const rows = campaigns.map((c): ReportRow => {
+      const p = progress.get(c.id)!;
+      return {
+        name: c.name,
+        brand: c.brand.name,
+        status: c.status,
+        influencers: p.influencersTotal,
+        deliverablesPublished: p.deliverablesPublished,
+        deliverablesTotal: p.deliverablesTotal,
+        completion: metrics.completionRate(p.deliverablesPublished, p.deliverablesTotal),
+        spend: p.spend,
+        budget: p.plannedBudget,
+      };
+    });
 
     const scope = await scopeCurrency(campaignWhere(filter));
     return { type: 'campaign', columns, rows, totals: sumTotals(columns, rows, scope.mixed), currency: scope.currency };
@@ -261,18 +240,70 @@ export function makeReportService(ctx: DomainContext) {
       { key: 'spend', label: 'Spend', type: 'currency' },
     ];
 
-    const rows = await Promise.all(
-      brands.map(async (b): Promise<ReportRow> => {
-        const scope = campaignWhere(filter, b.id);
-        const [campaigns, influencers, content, spend] = await Promise.all([
-          prisma.campaign.count({ where: scope }),
-          prisma.brandInfluencer.count({ where: { brandId: b.id } }),
-          prisma.publishedContent.count({ where: contentWhere(filter, b.id) }),
-          spendForCampaigns(scope),
-        ]);
-        return { name: b.name, campaigns, influencers, content, spend };
+    const brandIds = brands.map((b) => b.id);
+    if (brandIds.length === 0) {
+      const scope = await scopeCurrency(campaignWhere(filter));
+      return { type: 'brand', columns, rows: [], totals: sumTotals(columns, [], scope.mixed), currency: scope.currency };
+    }
+
+    // Every per-brand aggregate in a fixed handful of queries (PERF-02 / W7-1) —
+    // no per-brand fan-out. Campaign counts and spend fold from the in-scope
+    // campaigns; brand-influencer and content counts are grouped in one query each.
+    const scopedCampaigns = await prisma.campaign.findMany({
+      where: { AND: [campaignWhere(filter), { brandId: { in: brandIds } }] },
+      select: { id: true, brandId: true },
+    });
+    const campaignIds = scopedCampaigns.map((c) => c.id);
+
+    const [biCounts, contentCounts, feeSums, expenseSums] = await Promise.all([
+      prisma.brandInfluencer.groupBy({
+        by: ['brandId'],
+        where: { brandId: { in: brandIds } },
+        _count: { _all: true },
       }),
-    );
+      prisma.publishedContent.groupBy({
+        by: ['brandId'],
+        where: { AND: [contentWhere(filter), { brandId: { in: brandIds } }] },
+        _count: { _all: true },
+      }),
+      campaignIds.length
+        ? prisma.campaignInfluencer.groupBy({
+            by: ['campaignId'],
+            where: { campaignId: { in: campaignIds }, dealType: { in: [...PAID_DEAL_TYPES] } },
+            _sum: { agreedCost: true },
+          })
+        : Promise.resolve([] as { campaignId: string; _sum: { agreedCost: Prisma.Decimal | null } }[]),
+      campaignIds.length
+        ? prisma.campaignExpense.groupBy({
+            by: ['campaignId'],
+            where: { campaignId: { in: campaignIds }, type: { not: 'GIFT_PRODUCT' } },
+            _sum: { amount: true },
+          })
+        : Promise.resolve([] as { campaignId: string; _sum: { amount: Prisma.Decimal | null } }[]),
+    ]);
+
+    const feeByCampaign = new Map(feeSums.map((f) => [f.campaignId, f._sum.agreedCost]));
+    const expenseByCampaign = new Map(expenseSums.map((e) => [e.campaignId, e._sum.amount]));
+    const campaignCountByBrand = new Map<string, number>();
+    // Per brand, collect each campaign's paid fees + non-gift expenses; sum them
+    // as exact Decimals (currency-agnostic, matching the previous spendForCampaigns).
+    const spendPartsByBrand = new Map<string, MoneyInput[]>();
+    for (const c of scopedCampaigns) {
+      campaignCountByBrand.set(c.brandId, (campaignCountByBrand.get(c.brandId) ?? 0) + 1);
+      const parts = spendPartsByBrand.get(c.brandId) ?? [];
+      parts.push(feeByCampaign.get(c.id) ?? null, expenseByCampaign.get(c.id) ?? null);
+      spendPartsByBrand.set(c.brandId, parts);
+    }
+    const influencersByBrand = new Map(biCounts.map((x) => [x.brandId, x._count._all]));
+    const contentByBrand = new Map(contentCounts.map((x) => [x.brandId, x._count._all]));
+
+    const rows: ReportRow[] = brands.map((b) => ({
+      name: b.name,
+      campaigns: campaignCountByBrand.get(b.id) ?? 0,
+      influencers: influencersByBrand.get(b.id) ?? 0,
+      content: contentByBrand.get(b.id) ?? 0,
+      spend: moneyNumberOr0(sumMoney(spendPartsByBrand.get(b.id) ?? [])),
+    }));
 
     const scope = await scopeCurrency(campaignWhere(filter));
     return { type: 'brand', columns, rows, totals: sumTotals(columns, rows, scope.mixed), currency: scope.currency };
@@ -350,7 +381,7 @@ export function makeReportService(ctx: DomainContext) {
       where: campaignWhere(filter),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: MAX_ROWS,
-      select: { id: true, name: true, currency: true, plannedBudget: true },
+      select: { id: true, name: true, currency: true, plannedBudget: true, startDate: true, endDate: true },
     });
 
     const columns: ReportColumnDTO[] = [
@@ -360,14 +391,15 @@ export function makeReportService(ctx: DomainContext) {
       { key: 'variance', label: 'Variance', type: 'currency' },
     ];
 
-    const rows = await Promise.all(
-      campaigns.map(async (c): Promise<ReportRow> => {
-        const cost = await computeCostSummary(ctx, c.id, c.currency, toMoneyNumber(c.plannedBudget));
-        const budget = cost.plannedBudget;
-        const spend = cost.totalSpend;
-        return { name: c.name, budget, spend, variance: subtractMoney(budget, spend) };
-      }),
-    );
+    // Budget/spend for the whole page in a fixed number of queries (PERF-02 /
+    // W7-1) — the same batched cost the campaign list uses, no per-campaign fan-out.
+    const progress = await computeCampaignProgressBatch(ctx, campaigns);
+    const rows = campaigns.map((c): ReportRow => {
+      const p = progress.get(c.id)!;
+      const budget = p.plannedBudget;
+      const spend = p.spend;
+      return { name: c.name, budget, spend, variance: subtractMoney(budget, spend) };
+    });
 
     const scope = resolveScopeCurrency(campaigns.map((c) => c.currency));
     return { type: 'spend', columns, rows, totals: sumTotals(columns, rows, scope.mixed), currency: scope.currency };
