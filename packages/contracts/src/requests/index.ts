@@ -234,6 +234,14 @@ export const influencerFilterSchema = paginationSchema.extend({
 });
 export type InfluencerFilter = z.infer<typeof influencerFilterSchema>;
 
+// Cursor-paginated influencer directory (W7-2). Same filters, but keyset paging
+// (stable under inserts) instead of offset. `cursor` is the last row's id.
+export const influencerCursorSchema = influencerFilterSchema.extend({
+  cursor: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(24),
+});
+export type InfluencerCursorQuery = z.infer<typeof influencerCursorSchema>;
+
 // --- Social account --------------------------------------------------------
 export const socialAccountCreateSchema = z.object({
   influencerId: cuid,
@@ -294,6 +302,13 @@ export const campaignFilterSchema = paginationSchema.extend({
   ownerId: cuid.optional(),
 });
 export type CampaignFilter = z.infer<typeof campaignFilterSchema>;
+
+// Cursor-paginated campaign directory (W7-2).
+export const campaignCursorSchema = campaignFilterSchema.extend({
+  cursor: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(24),
+});
+export type CampaignCursorQuery = z.infer<typeof campaignCursorSchema>;
 
 // --- Campaign influencer ---------------------------------------------------
 export const campaignInfluencerCreateSchema = z.object({

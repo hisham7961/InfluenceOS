@@ -21,6 +21,19 @@ export async function influencerRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).influencers.list(req.query),
   );
 
+  r.get(
+    '/influencers/cursor',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Influencers'],
+        summary: 'List/filter influencers with stable cursor pagination (W7-2)',
+        querystring: requests.influencerCursorSchema,
+      },
+    },
+    async (req) => servicesFor(req).influencers.listCursor(req.query),
+  );
+
   r.post(
     '/influencers',
     { preHandler: [requireAuth], schema: { tags: ['Influencers'], summary: 'Create an influencer', body: requests.influencerCreateSchema } },

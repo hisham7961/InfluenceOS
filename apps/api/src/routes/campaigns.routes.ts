@@ -21,6 +21,19 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).campaigns.list(req.query),
   );
 
+  r.get(
+    '/campaigns/cursor',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'List/filter campaigns with stable cursor pagination (W7-2)',
+        querystring: requests.campaignCursorSchema,
+      },
+    },
+    async (req) => servicesFor(req).campaigns.listCursor(req.query),
+  );
+
   r.post(
     '/campaigns',
     { preHandler: [requireAuth], schema: { tags: ['Campaigns'], summary: 'Create a campaign', body: requests.campaignCreateSchema } },

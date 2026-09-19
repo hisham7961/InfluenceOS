@@ -100,6 +100,9 @@ export function createClient(config: ClientConfig) {
     influencers: {
       list: (params?: QueryParams) =>
         http.get<Paginated<InfluencerSummaryDTO>>(`${V}/influencers`, { query: params }),
+      // Stable cursor pagination for the directory (W7-2 / mobile-ready feeds).
+      listCursor: (params?: QueryParams) =>
+        http.get<CursorPage<InfluencerSummaryDTO>>(`${V}/influencers/cursor`, { query: params }),
       get: (id: string) => http.get<InfluencerDetailDTO>(`${V}/influencers/${id}`),
       create: (body: In<typeof requests.influencerCreateSchema>) =>
         http.post<InfluencerDetailDTO>(`${V}/influencers`, body),
@@ -140,6 +143,9 @@ export function createClient(config: ClientConfig) {
     campaigns: {
       list: (params?: QueryParams) =>
         http.get<Paginated<CampaignSummaryDTO>>(`${V}/campaigns`, { query: params }),
+      // Stable cursor pagination for the directory (W7-2 / mobile-ready feeds).
+      listCursor: (params?: QueryParams) =>
+        http.get<CursorPage<CampaignSummaryDTO>>(`${V}/campaigns/cursor`, { query: params }),
       get: (idOrSlug: string) => http.get<CampaignDetailDTO>(`${V}/campaigns/${idOrSlug}`),
       create: (body: In<typeof requests.campaignCreateSchema>) =>
         http.post<CampaignDetailDTO>(`${V}/campaigns`, body),

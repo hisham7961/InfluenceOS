@@ -5,6 +5,7 @@ import {
   type CampaignDetailDTO,
   type CampaignProgressDTO,
   type CampaignSummaryDTO,
+  type CursorPage,
   type Paginated,
 } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
@@ -12,6 +13,7 @@ import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor } from '../lib/authz';
+import { buildCursorPage } from '../lib/cursor';
 import { iso, logActivity, uniqueSlug } from '../lib/helpers';
 import { toMoneyNumber, type MoneyInput } from '../lib/money';
 import { toBrandSummary } from '../lib/mappers';
@@ -20,6 +22,7 @@ import { computeCampaignProgress, computeCampaignProgressBatch } from '../lib/pr
 type CampaignCreate = z.infer<typeof requests.campaignCreateSchema>;
 type CampaignUpdate = z.infer<typeof requests.campaignUpdateSchema>;
 type CampaignFilter = z.infer<typeof requests.campaignFilterSchema>;
+type CampaignCursorQuery = z.infer<typeof requests.campaignCursorSchema>;
 
 const brandSummarySelect = {
   id: true,
@@ -77,14 +80,18 @@ export function makeCampaignService(ctx: DomainContext) {
     };
   }
 
-  async function list(filter: CampaignFilter): Promise<Paginated<CampaignSummaryDTO>> {
+  function buildWhere(filter: CampaignFilter | CampaignCursorQuery): Prisma.CampaignWhereInput {
     const where: Prisma.CampaignWhereInput = {};
     if (filter.brandId) where.brandId = filter.brandId;
     if (filter.status) where.status = filter.status;
     if (filter.objective) where.objective = filter.objective;
     if (filter.ownerId) where.ownerId = filter.ownerId;
     if (filter.q) where.name = { contains: filter.q, mode: 'insensitive' };
+    return where;
+  }
 
+  async function list(filter: CampaignFilter): Promise<Paginated<CampaignSummaryDTO>> {
+    const where = buildWhere(filter);
     const [total, rows] = await Promise.all([
       prisma.campaign.count({ where }),
       prisma.campaign.findMany({
@@ -102,6 +109,23 @@ export function makeCampaignService(ctx: DomainContext) {
     const progress = await computeCampaignProgressBatch(ctx, rows);
     const data = rows.map((c) => toSummary(c as CampaignRow, progress.get(c.id)!));
     return { data, pagination: buildOffsetPagination(filter.page, filter.pageSize, total) };
+  }
+
+  // Keyset (cursor) directory paging (W7-2). Orders by (createdAt desc, id desc)
+  // — id is the stable tiebreaker — backed by the Campaign_createdAt_id index.
+  // Progress is still batched (W7-1), so a page costs a fixed number of queries.
+  async function listCursor(filter: CampaignCursorQuery): Promise<CursorPage<CampaignSummaryDTO>> {
+    const where = buildWhere(filter);
+    const rows = await prisma.campaign.findMany({
+      where,
+      include: { brand: { select: brandSummarySelect } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: filter.limit + 1,
+      ...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),
+    });
+    const progress = await computeCampaignProgressBatch(ctx, rows);
+    const summaries = rows.map((c) => toSummary(c as CampaignRow, progress.get(c.id)!));
+    return buildCursorPage(summaries, filter.limit);
   }
 
   async function findByIdOrSlug(idOrSlug: string, brandId?: string) {
@@ -228,7 +252,7 @@ export function makeCampaignService(ctx: DomainContext) {
     return detail(id);
   }
 
-  return { list, detail, create, update, findByIdOrSlug, brandSummarySelect };
+  return { list, listCursor, detail, create, update, findByIdOrSlug, brandSummarySelect };
 }
 
 export type CampaignService = ReturnType<typeof makeCampaignService>;

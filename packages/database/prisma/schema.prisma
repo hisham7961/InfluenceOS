@@ -424,6 +424,8 @@ model Influencer {
   @@index([country])
   @@index([category])
   @@index([isActive])
+  // Cursor pagination order (createdAt desc, id desc) — W7-2/PERF-04.
+  @@index([createdAt, id])
 }
 
 model SocialAccount {
@@ -538,6 +540,8 @@ model Campaign {
   @@index([status])
   @@index([startDate])
   @@index([endDate])
+  // Cursor pagination order (createdAt desc, id desc) — W7-2/PERF-04.
+  @@index([createdAt, id])
 }
 
 model CampaignInfluencer {

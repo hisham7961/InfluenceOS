@@ -2,6 +2,7 @@ import { metrics as sharedMetrics, type Platform } from '@influenceos/shared';
 import {
   buildOffsetPagination,
   requests,
+  type CursorPage,
   type InfluencerDetailDTO,
   type InfluencerSummaryDTO,
   type Paginated,
@@ -12,6 +13,7 @@ import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor } from '../lib/authz';
+import { buildCursorPage } from '../lib/cursor';
 import { iso, logActivity } from '../lib/helpers';
 import { sumMoney, toDecimal } from '../lib/money';
 import { toInfluencerSummary, toSocialAccountDTO } from '../lib/mappers';
@@ -21,6 +23,7 @@ const { assessAudienceHealth } = sharedMetrics;
 type InfluencerCreate = z.infer<typeof requests.influencerCreateSchema>;
 type InfluencerUpdate = z.infer<typeof requests.influencerUpdateSchema>;
 type InfluencerFilter = z.infer<typeof requests.influencerFilterSchema>;
+type InfluencerCursorQuery = z.infer<typeof requests.influencerCursorSchema>;
 
 const summaryInclude = {
   socialAccounts: {
@@ -75,6 +78,24 @@ export function makeInfluencerService(ctx: DomainContext) {
     return and.length ? { AND: and } : {};
   }
 
+  // Enrich a page of influencer rows with their active-campaign counts in one
+  // grouped query (shared by the offset and cursor list paths).
+  async function toSummaries(
+    rows: Prisma.InfluencerGetPayload<{ include: typeof summaryInclude }>[],
+  ): Promise<InfluencerSummaryDTO[]> {
+    const ids = rows.map((r) => r.id);
+    const activeCounts = new Map<string, number>();
+    if (ids.length) {
+      const grouped = await prisma.campaignInfluencer.groupBy({
+        by: ['influencerId'],
+        where: { influencerId: { in: ids }, campaign: { status: 'ACTIVE' } },
+        _count: { _all: true },
+      });
+      for (const g of grouped) activeCounts.set(g.influencerId, g._count._all);
+    }
+    return rows.map((r) => toInfluencerSummary(r, { activeCampaigns: activeCounts.get(r.id) ?? 0 }));
+  }
+
   async function list(filter: InfluencerFilter): Promise<Paginated<InfluencerSummaryDTO>> {
     const where = buildWhere(filter);
     const [total, rows] = await Promise.all([
@@ -88,23 +109,25 @@ export function makeInfluencerService(ctx: DomainContext) {
       }),
     ]);
 
-    const ids = rows.map((r) => r.id);
-    const activeCounts = new Map<string, number>();
-    if (ids.length) {
-      const grouped = await prisma.campaignInfluencer.groupBy({
-        by: ['influencerId'],
-        where: { influencerId: { in: ids }, campaign: { status: 'ACTIVE' } },
-        _count: { _all: true },
-      });
-      for (const g of grouped) activeCounts.set(g.influencerId, g._count._all);
-    }
-
     return {
-      data: rows.map((r) =>
-        toInfluencerSummary(r, { activeCampaigns: activeCounts.get(r.id) ?? 0 }),
-      ),
+      data: await toSummaries(rows),
       pagination: buildOffsetPagination(filter.page, filter.pageSize, total),
     };
+  }
+
+  // Keyset (cursor) directory paging (W7-2). Orders by (createdAt desc, id desc)
+  // — the id tiebreaker makes paging stable even when createdAt ties — and is
+  // backed by the Influencer_createdAt_id index. No total count (unbounded feed).
+  async function listCursor(filter: InfluencerCursorQuery): Promise<CursorPage<InfluencerSummaryDTO>> {
+    const where = buildWhere(filter);
+    const rows = await prisma.influencer.findMany({
+      where,
+      include: summaryInclude,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: filter.limit + 1,
+      ...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),
+    });
+    return buildCursorPage(await toSummaries(rows), filter.limit);
   }
 
   async function followerDelta7d(accountId: string, current: number | null): Promise<number | null> {
@@ -394,7 +417,7 @@ export function makeInfluencerService(ctx: DomainContext) {
     );
   }
 
-  return { list, detail, create, update, socialAccountsFor, audienceFor, followerSeries };
+  return { list, listCursor, detail, create, update, socialAccountsFor, audienceFor, followerSeries };
 }
 
 export type InfluencerService = ReturnType<typeof makeInfluencerService>;
