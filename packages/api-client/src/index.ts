@@ -11,6 +11,7 @@ import type {
   BrandInfluencerDTO,
   BrandSummaryDTO,
   CalendarEventDTO,
+  CampaignCandidateDTO,
   CampaignDetailDTO,
   CampaignEfficiencyDTO,
   CampaignInfluencerDTO,
@@ -153,6 +154,9 @@ export function createClient(config: ClientConfig) {
       // Stable cursor pagination for the directory (W7-2 / mobile-ready feeds).
       listCursor: (params?: QueryParams) =>
         http.get<CursorPage<CampaignSummaryDTO>>(`${V}/campaigns/cursor`, { query: params }),
+      // Sourcing pipeline — candidates for a campaign (W3-3 web surface).
+      candidates: (id: string, params?: QueryParams) =>
+        http.get<CampaignCandidateDTO[]>(`${V}/campaigns/${id}/candidates`, { query: params }),
       get: (idOrSlug: string) => http.get<CampaignDetailDTO>(`${V}/campaigns/${idOrSlug}`),
       create: (body: In<typeof requests.campaignCreateSchema>) =>
         http.post<CampaignDetailDTO>(`${V}/campaigns`, body),

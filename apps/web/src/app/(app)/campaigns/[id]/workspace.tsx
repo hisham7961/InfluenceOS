@@ -81,6 +81,7 @@ import { ProgressBar } from '@/components/ui/progress';
 import { InfoTooltip } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ContentGrid } from '@/components/content/content-grid';
+import { SourcingTab } from './sourcing-tab';
 import { formatCompact, formatCurrency, formatPercent, relativeTime, shortDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import {
@@ -137,6 +138,7 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
     <Tabs defaultValue="overview">
       <TabsList className="flex-wrap">
         <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="sourcing">Sourcing</TabsTrigger>
         <TabsTrigger value="influencers">Influencers</TabsTrigger>
         <TabsTrigger value="deliverables">Deliverables</TabsTrigger>
         <TabsTrigger value="scripts">Scripts</TabsTrigger>
@@ -149,6 +151,10 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
 
       <TabsContent value="overview">
         <OverviewTab campaign={campaign} />
+      </TabsContent>
+
+      <TabsContent value="sourcing">
+        <SourcingTab campaignId={campaign.id} />
       </TabsContent>
 
       <TabsContent value="influencers">
