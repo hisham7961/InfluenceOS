@@ -20,7 +20,7 @@ export function CampaignCover({
 }) {
   if (coverUrl) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={coverUrl} alt={name} className={`w-full object-cover ${className}`} />;
+    return <img src={coverUrl} alt={name} loading="lazy" decoding="async" className={`w-full object-cover ${className}`} />;
   }
   // Beautiful generated fallback from brand colors + campaign name (spec §58).
   return (

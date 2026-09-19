@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -44,7 +45,14 @@ import {
 } from '@/components/ui/dialog';
 import { formatCompact } from '@/lib/format';
 import { cn } from '@/lib/cn';
-import { FollowerChart } from './follower-chart';
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Recharts is heavy; lazy-load the follower chart so it never ships in the main
+// bundle (W5-4 / UX-06). Client-only — the chart needs the DOM to size itself.
+const FollowerChart = dynamic(() => import('./follower-chart').then((m) => m.FollowerChart), {
+  ssr: false,
+  loading: () => <Skeleton className="h-64 w-full rounded-2xl" />,
+});
 
 function errorMessage(e: unknown): string {
   return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';

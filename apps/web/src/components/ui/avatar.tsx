@@ -25,7 +25,7 @@ export function Avatar({ src, name, size = 'md', className, rounded = 'full' }: 
       )}
     >
       {src ? (
-        <AvatarPrimitive.Image src={src} alt={name} className="aspect-square h-full w-full object-cover" />
+        <AvatarPrimitive.Image src={src} alt={name} loading="lazy" decoding="async" className="aspect-square h-full w-full object-cover" />
       ) : null}
       <AvatarPrimitive.Fallback
         className="flex h-full w-full items-center justify-center font-semibold text-white"

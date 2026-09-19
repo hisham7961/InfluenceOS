@@ -18,7 +18,7 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-gradient-to-br from-neutral-800 to-neutral-900">
         {content.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={content.thumbnailUrl} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+          <img src={content.thumbnailUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <PlatformIcon platform={content.platform} className="h-12 w-12 text-white/30" />

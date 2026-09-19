@@ -204,7 +204,7 @@ function AttachmentRow({
       >
         {attachment.isImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={href} alt={attachment.fileName} className="h-full w-full object-cover" />
+          <img src={href} alt={attachment.fileName} loading="lazy" decoding="async" className="h-full w-full object-cover" />
         ) : (
           <KindIcon kind={attachment.kind} />
         )}

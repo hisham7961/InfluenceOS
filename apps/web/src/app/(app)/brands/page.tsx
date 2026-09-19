@@ -67,7 +67,7 @@ function BrandCard({ brand }: { brand: BrandSummaryDTO }) {
         >
           {brand.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={brand.logoUrl} alt={brand.name} className="h-full w-full object-cover" />
+            <img src={brand.logoUrl} alt={brand.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
           ) : (
             brand.name.charAt(0).toUpperCase()
           )}

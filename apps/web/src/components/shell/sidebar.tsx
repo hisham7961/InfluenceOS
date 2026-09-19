@@ -21,6 +21,7 @@ export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             key={item.href}
             href={item.href}
             onClick={onNavigate}
+            aria-current={active ? 'page' : undefined}
             className={cn(
               'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
               active
@@ -28,7 +29,7 @@ export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                 : 'text-muted-foreground hover:bg-surface-muted hover:text-foreground',
             )}
           >
-            <Icon className={cn('h-[18px] w-[18px]', active ? 'text-brand' : 'text-muted-foreground group-hover:text-foreground')} />
+            <Icon aria-hidden className={cn('h-[18px] w-[18px]', active ? 'text-brand' : 'text-muted-foreground group-hover:text-foreground')} />
             {item.label}
           </Link>
         );
