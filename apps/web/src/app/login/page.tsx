@@ -26,11 +26,6 @@ export default function LoginPage() {
             <LoginForm />
           </Suspense>
         </div>
-
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          Demo access · <span className="font-medium text-foreground">info@influence-op.com</span> ·{' '}
-          <span className="font-medium text-foreground">Password123!</span>
-        </p>
       </div>
     </div>
   );

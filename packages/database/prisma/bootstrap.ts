@@ -12,7 +12,7 @@ const prisma = new PrismaClient();
  * single ADMIN user if — and only if — the database has no users yet, so it is
  * safe to run on every deploy. There is NO hardcoded password:
  *
- *   - BOOTSTRAP_ADMIN_EMAIL    (required)
+ *   - BOOTSTRAP_ADMIN_EMAIL    (optional; defaults to info@influence-op.com)
  *   - BOOTSTRAP_ADMIN_PASSWORD (optional; a strong one is generated & printed
  *                               ONCE if omitted, to be rotated on first login)
  *   - BOOTSTRAP_ADMIN_NAME     (optional; defaults to "Administrator")
@@ -21,10 +21,10 @@ const prisma = new PrismaClient();
  * admin into an established system.
  */
 async function main(): Promise<void> {
-  const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
-  if (!email) {
-    throw new Error('BOOTSTRAP_ADMIN_EMAIL is required to bootstrap the first admin.');
-  }
+  // The primary admin email is yours to control via the environment; it falls
+  // back to the project's own address when unset. Lower-cased to match how auth
+  // resolves users (findUnique by email.toLowerCase()).
+  const email = (process.env.BOOTSTRAP_ADMIN_EMAIL?.trim() || 'info@influence-op.com').toLowerCase();
 
   const userCount = await prisma.user.count();
   if (userCount > 0) {
