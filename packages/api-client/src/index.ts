@@ -10,6 +10,7 @@ import type {
   BrandDetailDTO,
   BrandInfluencerDTO,
   BrandSummaryDTO,
+  BulkResultDTO,
   CalendarEventDTO,
   CampaignCandidateDTO,
   CampaignDetailDTO,
@@ -160,6 +161,9 @@ export function createClient(config: ClientConfig) {
       // Sourcing pipeline — candidates for a campaign (W3-3 web surface).
       candidates: (id: string, params?: QueryParams) =>
         http.get<CampaignCandidateDTO[]>(`${V}/campaigns/${id}/candidates`, { query: params }),
+      // Bulk-import a CSV of creators as sourcing candidates (W3-4 web surface).
+      importCandidates: (id: string, body: In<typeof requests.candidateCsvImportSchema>) =>
+        http.post<BulkResultDTO>(`${V}/campaigns/${id}/candidates/import`, body),
       // Product shipments across a campaign roster (W3-5 web surface).
       shipments: (id: string) => http.get<ProductShipmentDTO[]>(`${V}/campaigns/${id}/shipments`),
       // Submission review queue across a campaign (W3-1 web surface).
