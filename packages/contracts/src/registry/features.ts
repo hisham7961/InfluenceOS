@@ -92,6 +92,7 @@ export const FEATURES: FeatureEntry[] = [
     minApiVersion: 'v1',
     apiEndpoints: [
       'GET /api/v1/influencers',
+      'GET /api/v1/influencers/export',
       'POST /api/v1/influencers',
       'GET /api/v1/influencers/:id',
       'PATCH /api/v1/influencers/:id',

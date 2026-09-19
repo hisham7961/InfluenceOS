@@ -1,9 +1,38 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { requests, z } from '@influenceos/contracts';
-import { requireAuth, servicesFor } from '../http';
+import { requests, z, type InfluencerExportRowDTO } from '@influenceos/contracts';
+import { requireAuth, rowsToCsv, sendCsv, servicesFor } from '../http';
 
 const idParam = z.object({ id: z.string() });
+
+// Ordered columns for the influencer export (CSV header + JSON field intent).
+// Kept next to the route so the header labels stay human-facing and stable.
+const INFLUENCER_EXPORT_COLUMNS: { key: keyof InfluencerExportRowDTO & string; label: string }[] = [
+  { key: 'id', label: 'ID' },
+  { key: 'displayName', label: 'Display Name' },
+  { key: 'fullName', label: 'Full Name' },
+  { key: 'primaryUsername', label: 'Primary Username' },
+  { key: 'primaryPlatform', label: 'Primary Platform' },
+  { key: 'platforms', label: 'Platforms' },
+  { key: 'totalFollowers', label: 'Total Followers' },
+  { key: 'category', label: 'Category' },
+  { key: 'country', label: 'Country' },
+  { key: 'city', label: 'City' },
+  { key: 'relationshipStatus', label: 'Relationship Status' },
+  { key: 'priority', label: 'Priority' },
+  { key: 'audienceHealth', label: 'Audience Health' },
+  { key: 'email', label: 'Email' },
+  { key: 'mobile', label: 'Mobile' },
+  { key: 'whatsapp', label: 'WhatsApp' },
+  { key: 'managerName', label: 'Manager Name' },
+  { key: 'managerContact', label: 'Manager Contact' },
+  { key: 'preferredContact', label: 'Preferred Contact' },
+  { key: 'languages', label: 'Languages' },
+  { key: 'tags', label: 'Tags' },
+  { key: 'ownerName', label: 'Owner' },
+  { key: 'isActive', label: 'Active' },
+  { key: 'createdAt', label: 'Created At' },
+];
 
 export async function influencerRoutes(app: FastifyInstance): Promise<void> {
   const r = app.withTypeProvider<ZodTypeProvider>();
@@ -32,6 +61,24 @@ export async function influencerRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (req) => servicesFor(req).influencers.listCursor(req.query),
+  );
+
+  r.get(
+    '/influencers/export',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Influencers'],
+        summary: 'Export influencers and their information (CSV or JSON), honoring directory filters',
+        querystring: requests.influencerExportSchema,
+      },
+    },
+    async (req, reply) => {
+      const rows = await servicesFor(req).influencers.exportRows(req.query);
+      if (req.query.format === 'json') return rows;
+      sendCsv(reply, 'influenceos-influencers.csv', rowsToCsv(INFLUENCER_EXPORT_COLUMNS, rows));
+      return reply;
+    },
   );
 
   r.post(

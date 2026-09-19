@@ -4,6 +4,7 @@ import {
   requests,
   type CursorPage,
   type InfluencerDetailDTO,
+  type InfluencerExportRowDTO,
   type InfluencerSummaryDTO,
   type Paginated,
   type SocialAccountDTO,
@@ -24,6 +25,7 @@ type InfluencerCreate = z.infer<typeof requests.influencerCreateSchema>;
 type InfluencerUpdate = z.infer<typeof requests.influencerUpdateSchema>;
 type InfluencerFilter = z.infer<typeof requests.influencerFilterSchema>;
 type InfluencerCursorQuery = z.infer<typeof requests.influencerCursorSchema>;
+type InfluencerExportQuery = z.infer<typeof requests.influencerExportSchema>;
 
 const summaryInclude = {
   socialAccounts: {
@@ -32,10 +34,24 @@ const summaryInclude = {
   tags: { include: { tag: { select: { name: true } } } },
 } satisfies Prisma.InfluencerInclude;
 
+// Export reads the same relations the summary does, plus the owner's name — the
+// row scalars (contact, notes-free profile fields) come from the base model.
+const exportInclude = {
+  socialAccounts: {
+    select: { platform: true, followers: true, isPrimary: true, avatarUrl: true },
+  },
+  tags: { include: { tag: { select: { name: true } } } },
+  owner: { select: { name: true } },
+} satisfies Prisma.InfluencerInclude;
+
+// Hard ceiling so a filter-less export can never load an unbounded set into
+// memory. Well above any realistic directory; a larger tenant would page.
+const EXPORT_MAX_ROWS = 50_000;
+
 export function makeInfluencerService(ctx: DomainContext) {
   const { prisma } = ctx;
 
-  function buildWhere(filter: InfluencerFilter): Prisma.InfluencerWhereInput {
+  function buildWhere(filter: Omit<InfluencerFilter, 'page' | 'pageSize'>): Prisma.InfluencerWhereInput {
     const and: Prisma.InfluencerWhereInput[] = [];
     if (filter.active !== undefined) and.push({ isActive: filter.active });
     if (filter.relationshipStatus) and.push({ relationshipStatus: filter.relationshipStatus });
@@ -128,6 +144,50 @@ export function makeInfluencerService(ctx: DomainContext) {
       ...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),
     });
     return buildCursorPage(await toSummaries(rows), filter.limit);
+  }
+
+  // Flatten the directory (honoring its filters) into export rows — one scalar
+  // record per influencer, with their contact + reach + tags — for CSV/JSON
+  // download. Collections are pre-joined so every field is a single cell.
+  async function exportRows(filter: InfluencerExportQuery): Promise<InfluencerExportRowDTO[]> {
+    const where = buildWhere(filter);
+    const rows = await prisma.influencer.findMany({
+      where,
+      include: exportInclude,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: EXPORT_MAX_ROWS,
+    });
+    return rows.map((r) => {
+      // Reuse the summary mapper for reach/platform/tag derivation so an export
+      // row's totals match exactly what the directory shows.
+      const summary = toInfluencerSummary(r, {});
+      return {
+        id: r.id,
+        displayName: r.displayName,
+        fullName: r.fullName,
+        primaryUsername: r.primaryUsername,
+        primaryPlatform: r.primaryPlatform,
+        category: r.category,
+        country: r.country,
+        city: r.city,
+        relationshipStatus: r.relationshipStatus,
+        priority: r.priority,
+        audienceHealth: summary.audienceHealth,
+        totalFollowers: summary.totalFollowers,
+        platforms: summary.platforms.join('; '),
+        email: r.email,
+        mobile: r.mobile,
+        whatsapp: r.whatsapp,
+        managerName: r.managerName,
+        managerContact: r.managerContact,
+        preferredContact: r.preferredContact,
+        languages: r.languages.join('; '),
+        tags: summary.tags.join('; '),
+        ownerName: r.owner?.name ?? null,
+        isActive: r.isActive,
+        createdAt: r.createdAt.toISOString(),
+      };
+    });
   }
 
   async function followerDelta7d(accountId: string, current: number | null): Promise<number | null> {
@@ -417,7 +477,7 @@ export function makeInfluencerService(ctx: DomainContext) {
     );
   }
 
-  return { list, listCursor, detail, create, update, socialAccountsFor, audienceFor, followerSeries };
+  return { list, listCursor, exportRows, detail, create, update, socialAccountsFor, audienceFor, followerSeries };
 }
 
 export type InfluencerService = ReturnType<typeof makeInfluencerService>;

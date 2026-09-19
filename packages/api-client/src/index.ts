@@ -118,6 +118,18 @@ export function createClient(config: ClientConfig) {
       // Stable cursor pagination for the directory (W7-2 / mobile-ready feeds).
       listCursor: (params?: QueryParams) =>
         http.get<CursorPage<InfluencerSummaryDTO>>(`${V}/influencers/cursor`, { query: params }),
+      // Export influencers + their info. Raw form returns the file Response
+      // (CSV by default, `format=json` for structured rows) — for programmatic
+      // / mobile use. `exportUrl` builds a same-origin href for a browser
+      // download link (auth flows via the cookie transport, like reports.csvUrl).
+      exportRows: (params?: QueryParams) =>
+        http.get<Response>(`${V}/influencers/export`, { query: params, raw: true }),
+      exportUrl: (params?: QueryParams) => {
+        const q = new URLSearchParams();
+        for (const [k, v] of Object.entries(params ?? {})) if (v != null && v !== '') q.set(k, String(v));
+        q.set('format', 'csv');
+        return `${config.baseUrl.replace(/\/$/, '')}${V}/influencers/export?${q.toString()}`;
+      },
       get: (id: string) => http.get<InfluencerDetailDTO>(`${V}/influencers/${id}`),
       create: (body: In<typeof requests.influencerCreateSchema>) =>
         http.post<InfluencerDetailDTO>(`${V}/influencers`, body),

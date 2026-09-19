@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DirectoryResults } from '@/components/influencers/directory-results';
 import { DirectoryFilters } from './directory-filters';
+import { ExportInfluencersButton } from './export-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,11 +54,24 @@ export default async function InfluencersPage({
         title="Influencers"
         description="Your global creator network."
         actions={
-          <Button asChild>
-            <Link href="/influencers/new">
-              <Plus className="h-4 w-4" /> Add influencer
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportInfluencersButton
+              filters={{
+                q: sp.q,
+                platform: sp.platform,
+                country: sp.country,
+                category: sp.category,
+                relationshipStatus: sp.relationshipStatus,
+                minFollowers: sp.minFollowers,
+                maxFollowers: sp.maxFollowers,
+              }}
+            />
+            <Button asChild>
+              <Link href="/influencers/new">
+                <Plus className="h-4 w-4" /> Add influencer
+              </Link>
+            </Button>
+          </div>
         }
       />
 

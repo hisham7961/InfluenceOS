@@ -234,6 +234,15 @@ export const influencerFilterSchema = paginationSchema.extend({
 });
 export type InfluencerFilter = z.infer<typeof influencerFilterSchema>;
 
+// Influencer data export (CSV/JSON). Reuses the directory filters so an export
+// mirrors exactly what the user is looking at, but drops offset pagination —
+// the whole matching set is streamed (bounded server-side). `format` picks the
+// wire format; the CSV is the default because this endpoint's job is a file.
+export const influencerExportSchema = influencerFilterSchema
+  .omit({ page: true, pageSize: true })
+  .extend({ format: z.enum(['csv', 'json']).default('csv') });
+export type InfluencerExportQuery = z.infer<typeof influencerExportSchema>;
+
 // Cursor-paginated influencer directory (W7-2). Same filters, but keyset paging
 // (stable under inserts) instead of offset. `cursor` is the last row's id.
 export const influencerCursorSchema = influencerFilterSchema.extend({

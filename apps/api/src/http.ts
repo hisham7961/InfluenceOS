@@ -58,17 +58,29 @@ export async function requireAdmin(request: FastifyRequest): Promise<void> {
   }
 }
 
+/** RFC-4180 cell escaping: quote when the value contains a comma, quote or newline. */
+function csvCell(v: unknown): string {
+  if (v == null) return '';
+  const s = typeof v === 'boolean' ? (v ? 'true' : 'false') : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
 /** Convert a report DTO into CSV text (mobile/web share the same source). */
 export function reportToCsv(report: ReportDTO): string {
-  const escape = (v: string | number | null): string => {
-    if (v == null) return '';
-    const s = String(v);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  const header = report.columns.map((c) => escape(c.label)).join(',');
+  const header = report.columns.map((c) => csvCell(c.label)).join(',');
   const lines = report.rows.map((row) =>
-    report.columns.map((c) => escape(row[c.key] ?? null)).join(','),
+    report.columns.map((c) => csvCell(row[c.key] ?? null)).join(','),
   );
+  return [header, ...lines].join('\n');
+}
+
+/** Generic CSV writer: ordered {key,label} columns → header row + escaped data rows. */
+export function rowsToCsv<T>(
+  columns: { key: keyof T & string; label: string }[],
+  rows: T[],
+): string {
+  const header = columns.map((c) => csvCell(c.label)).join(',');
+  const lines = rows.map((row) => columns.map((c) => csvCell(row[c.key])).join(','));
   return [header, ...lines].join('\n');
 }
 

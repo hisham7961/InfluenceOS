@@ -197,6 +197,42 @@ export interface InfluencerDetailDTO extends InfluencerSummaryDTO {
   createdAt: string;
 }
 
+/**
+ * One flat row of the influencer data export (CSV/JSON). Every field is a
+ * scalar so it serializes cleanly to a CSV cell — collections (platforms,
+ * languages, tags) are pre-joined into a single string by the export.
+ */
+export interface InfluencerExportRowDTO {
+  id: string;
+  displayName: string;
+  fullName: string | null;
+  primaryUsername: string | null;
+  primaryPlatform: Platform | null;
+  category: string | null;
+  country: string | null;
+  city: string | null;
+  relationshipStatus: RelationshipStatus;
+  priority: Priority;
+  audienceHealth: AudienceHealthLabel;
+  totalFollowers: number | null;
+  /** Platforms the creator is present on, joined by "; ". */
+  platforms: string;
+  email: string | null;
+  mobile: string | null;
+  whatsapp: string | null;
+  managerName: string | null;
+  managerContact: string | null;
+  preferredContact: ContactMethod | null;
+  /** Spoken/content languages, joined by "; ". */
+  languages: string;
+  /** Directory tags, joined by "; ". */
+  tags: string;
+  /** Relationship owner / assignee name (W4-5). */
+  ownerName: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
 /** Result of resolving a pasted profile URL/handle (add-influencer preview). */
 export interface ResolveProfileResultDTO {
   platform: Platform;
