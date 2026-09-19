@@ -2,10 +2,10 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { CAMPAIGN_STATUSES, CAMPAIGN_STATUS_LABELS } from '@influenceos/shared';
 import type { BrandSummaryDTO } from '@influenceos/contracts';
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -54,13 +54,11 @@ export function CampaignFilters({ brands, brandId, status, q }: CampaignFiltersP
   return (
     <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-card sm:flex-row sm:items-center">
       <form onSubmit={handleSearchSubmit} className="relative flex-1 sm:max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
+        <SearchInput
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search campaigns…"
           aria-label="Search campaigns"
-          className="pl-9"
         />
       </form>
 
