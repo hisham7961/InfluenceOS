@@ -82,6 +82,7 @@ import { InfoTooltip } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ContentGrid } from '@/components/content/content-grid';
 import { SourcingTab } from './sourcing-tab';
+import { ShipmentsTab } from './shipments-tab';
 import { formatCompact, formatCurrency, formatPercent, relativeTime, shortDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import {
@@ -143,6 +144,7 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
         <TabsTrigger value="deliverables">Deliverables</TabsTrigger>
         <TabsTrigger value="scripts">Scripts</TabsTrigger>
         <TabsTrigger value="content">Live Content</TabsTrigger>
+        <TabsTrigger value="shipments">Shipments</TabsTrigger>
         <TabsTrigger value="costs">Costs</TabsTrigger>
         <TabsTrigger value="performance">Performance</TabsTrigger>
         <TabsTrigger value="files">Files</TabsTrigger>
@@ -174,6 +176,10 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
           items={contentFeed}
           emptyDescription="Published content for this campaign will show up here once influencers go live."
         />
+      </TabsContent>
+
+      <TabsContent value="shipments">
+        <ShipmentsTab campaignId={campaign.id} influencers={influencers} />
       </TabsContent>
 
       <TabsContent value="costs">

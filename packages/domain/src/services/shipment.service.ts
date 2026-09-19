@@ -68,6 +68,15 @@ export function makeShipmentService(ctx: DomainContext) {
     return row ? toDTO(row) : null;
   }
 
+  /** Every shipment for a campaign's roster in one query (W3-5 web surface). */
+  async function listForCampaign(campaignId: string): Promise<ProductShipmentDTO[]> {
+    const rows = await prisma.productShipment.findMany({
+      where: { campaignInfluencer: { campaignId } },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return rows.map(toDTO);
+  }
+
   async function upsert(campaignInfluencerId: string, input: ShipmentUpsert): Promise<ProductShipmentDTO> {
     const actor = requireActor(ctx);
     const ci = await ciContext(campaignInfluencerId);
@@ -144,7 +153,7 @@ export function makeShipmentService(ctx: DomainContext) {
     return toDTO(row);
   }
 
-  return { get, upsert, updateStatus };
+  return { get, listForCampaign, upsert, updateStatus };
 }
 
 export type ShipmentService = ReturnType<typeof makeShipmentService>;

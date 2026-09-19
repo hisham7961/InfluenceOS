@@ -36,6 +36,7 @@ import type {
   NotificationDTO,
   Paginated,
   PlatformStatusDTO,
+  ProductShipmentDTO,
   PublishedContentDTO,
   ReportDTO,
   ResolveProfileResultDTO,
@@ -157,6 +158,8 @@ export function createClient(config: ClientConfig) {
       // Sourcing pipeline — candidates for a campaign (W3-3 web surface).
       candidates: (id: string, params?: QueryParams) =>
         http.get<CampaignCandidateDTO[]>(`${V}/campaigns/${id}/candidates`, { query: params }),
+      // Product shipments across a campaign roster (W3-5 web surface).
+      shipments: (id: string) => http.get<ProductShipmentDTO[]>(`${V}/campaigns/${id}/shipments`),
       get: (idOrSlug: string) => http.get<CampaignDetailDTO>(`${V}/campaigns/${idOrSlug}`),
       create: (body: In<typeof requests.campaignCreateSchema>) =>
         http.post<CampaignDetailDTO>(`${V}/campaigns`, body),
