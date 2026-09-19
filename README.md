@@ -84,6 +84,12 @@ Open **http://localhost:3000** and sign in:
 | Admin | `info@influence-op.com`  | `Password123!` |
 | Staff | `sarah@influenceos.app`  | `Password123!` |
 
+You own the primary admin — set it at seed time without editing code:
+`SEED_ADMIN_EMAIL`, `SEED_ADMIN_NAME`, `DEMO_PASSWORD` (e.g.
+`SEED_ADMIN_EMAIL=you@yourdomain.com SEED_DEMO=true pnpm db:seed`). In
+production/staging the first admin comes from `BOOTSTRAP_ADMIN_EMAIL` /
+`BOOTSTRAP_ADMIN_PASSWORD` at deploy time — never hardcoded.
+
 - API docs (Swagger UI): **http://localhost:4000/api/docs**
 - OpenAPI JSON: **http://localhost:4000/api/openapi.json**
 

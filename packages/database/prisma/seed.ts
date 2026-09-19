@@ -68,6 +68,14 @@ async function guardDestructiveSeed(): Promise<void> {
  *  this is never a production credential. Override with DEMO_PASSWORD. */
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? 'Password123!';
 
+/** The primary (ADMIN) account is yours to control: set SEED_ADMIN_EMAIL /
+ *  SEED_ADMIN_NAME to own it without editing code. The email is lower-cased to
+ *  match how auth resolves users (findUnique by email.toLowerCase()). Defaults
+ *  keep the demo/e2e login working when the vars are unset. Production/staging
+ *  admins are controlled separately via BOOTSTRAP_ADMIN_EMAIL at deploy time. */
+const ADMIN_EMAIL = (process.env.SEED_ADMIN_EMAIL?.trim() || 'info@influence-op.com').toLowerCase();
+const ADMIN_NAME = process.env.SEED_ADMIN_NAME?.trim() || 'Layla Al-Rashid';
+
 const now = new Date();
 function daysAgo(n: number): Date {
   return new Date(now.getTime() - n * 864e5);
@@ -116,7 +124,7 @@ async function main() {
 
   const passwordHash = await hash(DEMO_PASSWORD);
   const admin = await prisma.user.create({
-    data: { email: 'info@influence-op.com', name: 'Layla Al-Rashid', role: 'ADMIN', passwordHash },
+    data: { email: ADMIN_EMAIL, name: ADMIN_NAME, role: 'ADMIN', passwordHash },
   });
   const sarah = await prisma.user.create({
     data: { email: 'sarah@influenceos.app', name: 'Sarah Kanaan', role: 'STAFF', passwordHash },
