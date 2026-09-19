@@ -10,6 +10,7 @@ import { StatCard } from '@/components/ui/stat-card';
 import { MissionControl } from '@/components/dashboard/mission-control';
 import { formatCurrency } from '@/lib/format';
 import { BrandEditDialog } from './brand-edit-dialog';
+import { UsageRightsCard } from './usage-rights-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,9 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
 
   const { brand } = dashboard;
   const stats = brand.stats;
+  // Usage-rights ledger (W3-2) — surfaced read-only; a failure here must not
+  // take down the whole brand workspace.
+  const usageRights = await api.brands.usageRights(brand.id).catch(() => []);
 
   return (
     <div>
@@ -111,6 +115,8 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
 
       {/* Brand-scoped Mission Control */}
       <MissionControl data={dashboard} />
+
+      <UsageRightsCard rights={usageRights} />
     </div>
   );
 }

@@ -43,6 +43,7 @@ import type {
   SocialAccountDTO,
   StorageStatusDTO,
   UploadTicketDTO,
+  UsageRightDTO,
   UserDTO,
 } from '@influenceos/contracts';
 import { HttpCore, type ClientConfig } from './core';
@@ -95,6 +96,12 @@ export function createClient(config: ClientConfig) {
       update: (id: string, body: In<typeof requests.brandUpdateSchema>) =>
         http.patch<BrandDetailDTO>(`${V}/brands/${id}`, body),
       dashboard: (idOrSlug: string) => http.get<BrandDashboardDTO>(`${V}/brands/${idOrSlug}/dashboard`),
+      // Usage-rights ledger for a brand (W3-2 web surface).
+      usageRights: (brandId: string) => http.get<UsageRightDTO[]>(`${V}/brands/${brandId}/usage-rights`),
+      createUsageRight: (brandId: string, body: In<typeof requests.usageRightCreateSchema>) =>
+        http.post<UsageRightDTO>(`${V}/brands/${brandId}/usage-rights`, body),
+      revokeUsageRight: (usageRightId: string) =>
+        http.post<UsageRightDTO>(`${V}/usage-rights/${usageRightId}/revoke`, {}),
     },
 
     influencers: {
