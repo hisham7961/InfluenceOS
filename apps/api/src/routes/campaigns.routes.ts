@@ -56,6 +56,12 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
   );
 
   r.get(
+    '/campaigns/:id/submissions',
+    { preHandler: [requireAuth], schema: { tags: ['Campaigns'], summary: 'Submission review queue across a campaign (W3-1)', params: idParam } },
+    async (req) => servicesFor(req).submissions.listForCampaign(req.params.id),
+  );
+
+  r.get(
     '/campaigns/:idOrSlug/efficiency',
     {
       preHandler: [requireAuth],

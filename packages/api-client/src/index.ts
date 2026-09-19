@@ -22,6 +22,7 @@ import type {
   CreatorLeaderboardDTO,
   CursorPage,
   DeliverableDTO,
+  DeliverableSubmissionDTO,
   DeviceSessionDTO,
   ExecDashboardDTO,
   ExpenseDTO,
@@ -160,6 +161,8 @@ export function createClient(config: ClientConfig) {
         http.get<CampaignCandidateDTO[]>(`${V}/campaigns/${id}/candidates`, { query: params }),
       // Product shipments across a campaign roster (W3-5 web surface).
       shipments: (id: string) => http.get<ProductShipmentDTO[]>(`${V}/campaigns/${id}/shipments`),
+      // Submission review queue across a campaign (W3-1 web surface).
+      submissions: (id: string) => http.get<DeliverableSubmissionDTO[]>(`${V}/campaigns/${id}/submissions`),
       get: (idOrSlug: string) => http.get<CampaignDetailDTO>(`${V}/campaigns/${idOrSlug}`),
       create: (body: In<typeof requests.campaignCreateSchema>) =>
         http.post<CampaignDetailDTO>(`${V}/campaigns`, body),

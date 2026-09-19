@@ -83,6 +83,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ContentGrid } from '@/components/content/content-grid';
 import { SourcingTab } from './sourcing-tab';
 import { ShipmentsTab } from './shipments-tab';
+import { SubmissionsTab } from './submissions-tab';
 import { formatCompact, formatCurrency, formatPercent, relativeTime, shortDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import {
@@ -142,6 +143,7 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
         <TabsTrigger value="sourcing">Sourcing</TabsTrigger>
         <TabsTrigger value="influencers">Influencers</TabsTrigger>
         <TabsTrigger value="deliverables">Deliverables</TabsTrigger>
+        <TabsTrigger value="submissions">Submissions</TabsTrigger>
         <TabsTrigger value="scripts">Scripts</TabsTrigger>
         <TabsTrigger value="content">Live Content</TabsTrigger>
         <TabsTrigger value="shipments">Shipments</TabsTrigger>
@@ -165,6 +167,10 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
 
       <TabsContent value="deliverables">
         <DeliverablesTab influencers={influencers} />
+      </TabsContent>
+
+      <TabsContent value="submissions">
+        <SubmissionsTab campaignId={campaign.id} influencers={influencers} />
       </TabsContent>
 
       <TabsContent value="scripts">

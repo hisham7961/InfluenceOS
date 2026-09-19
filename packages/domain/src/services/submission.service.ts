@@ -86,6 +86,17 @@ export function makeSubmissionService(ctx: DomainContext) {
     return rows.map(toDTO);
   }
 
+  /** Every submission across a campaign's deliverables — the review queue for
+   *  the whole campaign in one query (W3-1 web surface), newest first. */
+  async function listForCampaign(campaignId: string): Promise<DeliverableSubmissionDTO[]> {
+    const rows = await prisma.deliverableSubmission.findMany({
+      where: { deliverable: { campaignInfluencer: { campaignId } } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      include: submissionInclude,
+    });
+    return rows.map(toDTO);
+  }
+
   async function create(deliverableId: string, input: SubmissionCreate): Promise<DeliverableSubmissionDTO> {
     const actor = requireActor(ctx);
     const { campaignId, influencerId } = await deliverableContext(deliverableId);
@@ -213,7 +224,7 @@ export function makeSubmissionService(ctx: DomainContext) {
     return get(submissionId);
   }
 
-  return { listForDeliverable, get, create, review, addComment };
+  return { listForDeliverable, listForCampaign, get, create, review, addComment };
 }
 
 export type SubmissionService = ReturnType<typeof makeSubmissionService>;
