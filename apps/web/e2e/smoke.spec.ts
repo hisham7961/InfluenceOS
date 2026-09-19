@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const ADMIN = { email: 'admin@influenceos.app', password: 'Password123!' };
+const ADMIN = { email: 'info@influence-op.com', password: 'Password123!' };
 
 async function signIn(page: import('@playwright/test').Page) {
   await page.goto('/login');
@@ -14,8 +14,8 @@ test.describe('InfluenceOS smoke', () => {
   test('unauthenticated users are redirected to login', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveURL(/\/login/);
-    // Use the heading role — plain text would also match the demo-credential
-    // hint (admin@influenceos.app contains "influenceos").
+    // Use the heading role to target the app name precisely rather than any
+    // other on-page text (e.g. the demo-credential hint).
     await expect(page.getByRole('heading', { name: 'InfluenceOS' })).toBeVisible();
   });
 

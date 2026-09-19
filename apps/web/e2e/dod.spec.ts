@@ -9,7 +9,7 @@ import { expect, test, type Page } from '@playwright/test';
  * unit test.
  */
 
-const ADMIN = { email: 'admin@influenceos.app', password: 'Password123!' };
+const ADMIN = { email: 'info@influence-op.com', password: 'Password123!' };
 const STAMP = Date.now();
 const BRAND = `DoD Brand ${STAMP}`;
 const INFLUENCER = `DoD Creator ${STAMP}`;

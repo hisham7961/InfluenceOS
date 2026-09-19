@@ -81,7 +81,7 @@ Open **http://localhost:3000** and sign in:
 
 | Role  | Email                    | Password       |
 |-------|--------------------------|----------------|
-| Admin | `admin@influenceos.app`  | `Password123!` |
+| Admin | `info@influence-op.com`  | `Password123!` |
 | Staff | `sarah@influenceos.app`  | `Password123!` |
 
 - API docs (Swagger UI): **http://localhost:4000/api/docs**

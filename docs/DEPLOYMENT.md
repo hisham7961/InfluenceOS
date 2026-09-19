@@ -47,7 +47,7 @@ pnpm dev
 
 ```bash
 # Build and run pg + redis + minio + migrate/bootstrap + api + worker + web
-BOOTSTRAP_ADMIN_EMAIL=admin@influenceos.local \
+BOOTSTRAP_ADMIN_EMAIL=info@influence-op.com \
 BOOTSTRAP_ADMIN_PASSWORD='choose-a-strong-one' \
 docker compose -f docker-compose.full.yml up --build
 # Web → http://localhost:3000 · API → http://localhost:4000

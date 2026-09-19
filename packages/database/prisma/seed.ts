@@ -116,7 +116,7 @@ async function main() {
 
   const passwordHash = await hash(DEMO_PASSWORD);
   const admin = await prisma.user.create({
-    data: { email: 'admin@influenceos.app', name: 'Layla Al-Rashid', role: 'ADMIN', passwordHash },
+    data: { email: 'info@influence-op.com', name: 'Layla Al-Rashid', role: 'ADMIN', passwordHash },
   });
   const sarah = await prisma.user.create({
     data: { email: 'sarah@influenceos.app', name: 'Sarah Kanaan', role: 'STAFF', passwordHash },
