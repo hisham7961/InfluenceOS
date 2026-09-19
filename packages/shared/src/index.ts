@@ -12,6 +12,7 @@ export * from './utils/worker-health';
 export * from './utils/usage-right';
 export * from './utils/csv';
 export * from './utils/search-rank';
+export * from './utils/load-fixtures';
 export * as providers from './providers';
 export * as metrics from './metrics';
 

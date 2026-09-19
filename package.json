@@ -24,6 +24,7 @@
     "db:deploy": "pnpm --filter @influenceos/database migrate:deploy",
     "db:seed": "pnpm --filter @influenceos/database seed",
     "db:seed:demo": "pnpm --filter @influenceos/database seed:demo",
+    "db:seed:load": "pnpm --filter @influenceos/database seed:load",
     "db:bootstrap": "pnpm --filter @influenceos/database bootstrap",
     "db:reset": "pnpm --filter @influenceos/database migrate:reset",
     "db:studio": "pnpm --filter @influenceos/database studio",
