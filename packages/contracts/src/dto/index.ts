@@ -743,6 +743,19 @@ export interface IntegrationDTO {
   capabilities: IntegrationCapabilityDTO;
 }
 
+/** INT-4 — masked status of one provider API credential (never the value). */
+export interface ProviderCredentialStatusDTO {
+  key: string;
+  platform: Platform;
+  /** Where the effective value resolves from right now. */
+  source: 'DB' | 'ENV' | 'NONE';
+  isSet: boolean;
+  /** Masked hint (e.g. "••••AB12") so an admin can confirm which key is loaded. */
+  last4: string | null;
+  /** When the DB-stored value was last set (null for env/none). */
+  updatedAt: string | null;
+}
+
 // --- Dashboard / Mission Control -------------------------------------------
 export interface PulseDTO {
   activeCampaigns: number;

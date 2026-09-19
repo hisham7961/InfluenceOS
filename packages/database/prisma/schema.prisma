@@ -1155,6 +1155,21 @@ model IntegrationSetting {
   updatedAt         DateTime          @updatedAt
 }
 
+/// Opt-in encrypted store for provider API credentials entered from the admin
+/// UI (INT-4). The value is sealed with AES-256-GCM (see domain/lib/crypto.ts,
+/// keyed from AUTH_SECRET) so a raw DB dump never yields a usable key. When a
+/// row exists it overrides the same-named environment variable at runtime; with
+/// no rows the product stays purely env-driven (the default).
+model ProviderCredential {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  platform    Platform?
+  sealed      String
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
 /// Future-proof: saved filters / views for directories and feeds.
 model SavedView {
   id        String   @id @default(cuid())

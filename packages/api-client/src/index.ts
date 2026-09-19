@@ -31,6 +31,7 @@ import type {
   GlobalDashboardDTO,
   IntegrationCapabilityDTO,
   IntegrationDTO,
+  ProviderCredentialStatusDTO,
   InfluencerDetailDTO,
   InfluencerSummaryDTO,
   MonitoringEventDTO,
@@ -302,6 +303,12 @@ export function createClient(config: ClientConfig) {
       update: (platform: string, body: In<typeof requests.integrationUpdateSchema>) =>
         http.patch<IntegrationDTO>(`${V}/integrations/${platform}`, body),
       test: (platform: string) => http.post<{ ok: boolean; message: string }>(`${V}/integrations/${platform}/test`),
+      // Encrypted provider-credential store (INT-4, admin).
+      credentials: () => http.get<ProviderCredentialStatusDTO[]>(`${V}/integrations/credentials`),
+      setCredential: (body: In<typeof requests.providerCredentialSetSchema>) =>
+        http.post<ProviderCredentialStatusDTO[]>(`${V}/integrations/credentials`, body),
+      removeCredential: (key: string) =>
+        http.del<ProviderCredentialStatusDTO[]>(`${V}/integrations/credentials/${key}`),
     },
 
     platform: {

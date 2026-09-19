@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { prisma } from '@influenceos/database';
+import { refreshProviderCredentialOverrides } from '@influenceos/domain';
 import { Queue, Worker, type Job } from 'bullmq';
 import { computeWorkerHealth, shouldDeadLetter } from '@influenceos/shared';
 import { createConnection, isRedisAvailable } from './redis';
@@ -229,6 +230,9 @@ function startHealth() {
 
 async function main() {
   startHealth();
+  // Load admin-stored (encrypted) provider credentials so worker syncs use the
+  // same effective keys as the API (INT-4). No-op when none are stored.
+  await refreshProviderCredentialOverrides(prisma).catch(() => undefined);
   if (await isRedisAvailable()) await startWithRedis();
   else startFallback();
 }

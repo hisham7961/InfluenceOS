@@ -15,6 +15,7 @@ import { makeCalendarService } from './services/calendar.service';
 import { makeCampaignService } from './services/campaign.service';
 import { makeCampaignInfluencerService } from './services/campaign-influencer.service';
 import { makeContentService } from './services/content.service';
+import { makeCredentialService } from './services/credential.service';
 import { makeDashboardService } from './services/dashboard.service';
 import { makeDeliverableService } from './services/deliverable.service';
 import { makeExpenseService } from './services/expense.service';
@@ -64,6 +65,7 @@ export function createServices(ctx: DomainContext) {
     reports: makeReportService(ctx),
     analytics: makeAnalyticsService(ctx),
     integrations: makeIntegrationService(ctx),
+    credentials: makeCredentialService(ctx),
     platform: makePlatformService(ctx),
     dashboard: makeDashboardService(ctx),
   };
@@ -74,6 +76,15 @@ export type Services = ReturnType<typeof createServices>;
 export * from './context';
 export { AppError } from './errors';
 export { logActivity, createNotification } from './lib/helpers';
+export {
+  PROVIDER_CREDENTIAL_KEYS,
+  CREDENTIAL_KEY_PLATFORM,
+  providerCredentialOverrides,
+  refreshProviderCredentialOverrides,
+  __resetProviderCredentialOverrides,
+  isProviderCredentialKey,
+  type ProviderCredentialKey,
+} from './lib/credential-store';
 export { maxUploadBytes } from './services/attachment.service';
 export { getStorage, resetStorage, sanitizeFileName, buildStorageKey } from './lib/storage';
 export { signDownloadTicket, verifyDownloadTicket } from './lib/tokens';

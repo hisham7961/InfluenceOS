@@ -1,5 +1,6 @@
 import { prisma as defaultPrisma, type PrismaClient } from '@influenceos/database';
 import type { UserRole } from '@influenceos/contracts';
+import { providerCredentialOverrides, type ProviderCredentialKey } from './lib/credential-store';
 
 /** The authenticated actor performing an operation (null for system/worker). */
 export interface Actor {
@@ -29,21 +30,31 @@ export interface CreateContextOptions {
   requestId?: string;
 }
 
-/** Pull the (server-only) social provider credentials out of the environment. */
+/**
+ * Resolve the (server-only) social provider credentials. A stored, encrypted
+ * admin credential (INT-4) overrides the same-named environment variable; when
+ * none is stored the value comes straight from the environment — the default.
+ */
 export function credentialsFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): Record<string, string | undefined> {
+  const overrides = providerCredentialOverrides();
+  // A non-empty DB override wins; otherwise fall back to the environment.
+  const pick = (k: ProviderCredentialKey): string | undefined => {
+    const stored = overrides[k];
+    return stored && stored.length > 0 ? stored : env[k];
+  };
   return {
-    YOUTUBE_API_KEY: env.YOUTUBE_API_KEY,
-    X_API_BEARER_TOKEN: env.X_API_BEARER_TOKEN,
-    INSTAGRAM_ACCESS_TOKEN: env.INSTAGRAM_ACCESS_TOKEN,
-    INSTAGRAM_BUSINESS_ACCOUNT_ID: env.INSTAGRAM_BUSINESS_ACCOUNT_ID,
-    INSTAGRAM_APP_ID: env.INSTAGRAM_APP_ID,
-    INSTAGRAM_APP_SECRET: env.INSTAGRAM_APP_SECRET,
-    TIKTOK_CLIENT_KEY: env.TIKTOK_CLIENT_KEY,
-    TIKTOK_CLIENT_SECRET: env.TIKTOK_CLIENT_SECRET,
-    SNAPCHAT_CLIENT_ID: env.SNAPCHAT_CLIENT_ID,
-    SNAPCHAT_CLIENT_SECRET: env.SNAPCHAT_CLIENT_SECRET,
+    YOUTUBE_API_KEY: pick('YOUTUBE_API_KEY'),
+    X_API_BEARER_TOKEN: pick('X_API_BEARER_TOKEN'),
+    INSTAGRAM_ACCESS_TOKEN: pick('INSTAGRAM_ACCESS_TOKEN'),
+    INSTAGRAM_BUSINESS_ACCOUNT_ID: pick('INSTAGRAM_BUSINESS_ACCOUNT_ID'),
+    INSTAGRAM_APP_ID: pick('INSTAGRAM_APP_ID'),
+    INSTAGRAM_APP_SECRET: pick('INSTAGRAM_APP_SECRET'),
+    TIKTOK_CLIENT_KEY: pick('TIKTOK_CLIENT_KEY'),
+    TIKTOK_CLIENT_SECRET: pick('TIKTOK_CLIENT_SECRET'),
+    SNAPCHAT_CLIENT_ID: pick('SNAPCHAT_CLIENT_ID'),
+    SNAPCHAT_CLIENT_SECRET: pick('SNAPCHAT_CLIENT_SECRET'),
   };
 }
 

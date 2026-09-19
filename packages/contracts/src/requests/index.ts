@@ -729,9 +729,17 @@ export type SavedViewUpdateInput = z.infer<typeof savedViewUpdateSchema>;
 export const integrationUpdateSchema = z.object({
   isEnabled: z.boolean().optional(),
   monitoringEnabled: z.boolean().optional(),
-  // Provider credentials are NOT accepted here — they live only in the server
-  // environment, never the database (W4-2). This endpoint toggles switches only.
+  // This endpoint toggles switches only. Credentials default to the server
+  // environment; an admin may optionally store them encrypted via the dedicated
+  // credential endpoints below (INT-4, providerCredentialSetSchema).
 });
+
+/** INT-4 — set/rotate one provider API credential (sealed before storage). */
+export const providerCredentialSetSchema = z.object({
+  key: z.string().min(1).max(64),
+  value: z.string().min(1).max(4096),
+});
+export type ProviderCredentialSetInput = z.infer<typeof providerCredentialSetSchema>;
 
 // --- Feature flags / client config (admin) --------------------------------
 export const featureFlagUpdateSchema = z.object({

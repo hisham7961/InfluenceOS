@@ -47,4 +47,40 @@ export async function integrationRoutes(app: FastifyInstance): Promise<void> {
     },
     async (req) => servicesFor(req).integrations.test(req.params.platform),
   );
+
+  // --- Encrypted provider credential store (INT-4, admin) ------------------
+  r.get(
+    '/integrations/credentials',
+    {
+      preHandler: [requireAdmin],
+      schema: { tags: ['Settings'], summary: 'Masked status of every provider credential (admin)' },
+    },
+    async (req) => servicesFor(req).credentials.statuses(),
+  );
+
+  r.post(
+    '/integrations/credentials',
+    {
+      preHandler: [requireAdmin],
+      schema: {
+        tags: ['Settings'],
+        summary: 'Set/rotate a provider credential; sealed before storage (admin)',
+        body: requests.providerCredentialSetSchema,
+      },
+    },
+    async (req) => servicesFor(req).credentials.set(req.body.key, req.body.value),
+  );
+
+  r.delete(
+    '/integrations/credentials/:key',
+    {
+      preHandler: [requireAdmin],
+      schema: {
+        tags: ['Settings'],
+        summary: 'Remove a stored provider credential (reverts to env) (admin)',
+        params: z.object({ key: z.string().min(1).max(64) }),
+      },
+    },
+    async (req) => servicesFor(req).credentials.remove(req.params.key),
+  );
 }

@@ -1,4 +1,5 @@
 import { prisma } from '@influenceos/database';
+import { refreshProviderCredentialOverrides } from '@influenceos/domain';
 import { buildApp } from './app';
 import { loadEnv } from './env';
 import { releaseInfo } from './release';
@@ -15,6 +16,10 @@ async function main() {
     app.log.error({ err }, 'Database connection failed at startup');
     process.exit(1);
   }
+
+  // Load any admin-stored (encrypted) provider credentials into the runtime
+  // overlay before serving traffic (INT-4). No-op when none are stored.
+  await refreshProviderCredentialOverrides(prisma);
 
   // Graceful shutdown: on SIGTERM/SIGINT stop accepting new connections, let
   // in-flight requests drain (Fastify close), then release the DB pool. An
