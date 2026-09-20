@@ -38,6 +38,7 @@ import type {
   ProviderCredentialStatusDTO,
   InfluencerDetailDTO,
   InfluencerSummaryDTO,
+  InspirationItemDTO,
   LogisticsRequestDTO,
   MonitoringEventDTO,
   NoteDTO,
@@ -273,6 +274,16 @@ export function createClient(config: ClientConfig) {
         http.patch<ProductShipmentDTO>(`${V}/shipments/${id}`, body),
       updateStatus: (id: string, body: In<typeof requests.shipmentStatusSchema>) =>
         http.post<ProductShipmentDTO>(`${V}/shipments/${id}/status`, body),
+    },
+
+    inspiration: {
+      list: (params?: QueryParams) => http.get<CursorPage<InspirationItemDTO>>(`${V}/inspiration`, { query: params }),
+      get: (id: string) => http.get<InspirationItemDTO>(`${V}/inspiration/${id}`),
+      create: (body: In<typeof requests.inspirationCreateSchema>) =>
+        http.post<InspirationItemDTO>(`${V}/inspiration`, body),
+      update: (id: string, body: In<typeof requests.inspirationUpdateSchema>) =>
+        http.patch<InspirationItemDTO>(`${V}/inspiration/${id}`, body),
+      remove: (id: string) => http.del<void>(`${V}/inspiration/${id}`),
     },
 
     scripts: {

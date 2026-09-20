@@ -21,6 +21,7 @@ import { makeDashboardService } from './services/dashboard.service';
 import { makeDeliverableService } from './services/deliverable.service';
 import { makeExpenseService } from './services/expense.service';
 import { makeInfluencerService } from './services/influencer.service';
+import { makeInspirationService } from './services/inspiration.service';
 import { makeIntegrationService } from './services/integration.service';
 import { makeNoteService } from './services/note.service';
 import { makeNotificationService } from './services/notification.service';
@@ -43,6 +44,7 @@ export function createServices(ctx: DomainContext) {
     brands: makeBrandService(ctx),
     brandInfluencers: makeBrandInfluencerService(ctx),
     influencers: makeInfluencerService(ctx),
+    inspiration: makeInspirationService(ctx),
     socialAccounts: makeSocialAccountService(ctx),
     providers: makeProviderService(ctx),
     campaigns: makeCampaignService(ctx),
