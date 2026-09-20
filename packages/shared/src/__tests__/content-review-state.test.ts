@@ -32,4 +32,14 @@ describe('contentReviewStatus', () => {
       }),
     ).toBe('REVIEWED');
   });
+
+  it('is REVIEWED even if firstSeenAt is somehow still null — reviewedAt always wins', () => {
+    // content.service's updateViewState() always stamps firstSeenAt alongside
+    // reviewedAt, so this shouldn't happen in practice — this test locks in
+    // the defense-in-depth ordering so a future regression there can't make
+    // reviewed content read back as New.
+    expect(
+      contentReviewStatus({ firstSeenAt: null, lastOpenedAt: null, reviewedAt: '2026-09-20T10:05:00Z', savedForLaterAt: null }),
+    ).toBe('REVIEWED');
+  });
 });

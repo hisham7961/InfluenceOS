@@ -579,7 +579,7 @@ function FilterBar({
       </div>
 
       <Tabs value={layout} onValueChange={(value) => onLayoutChange(value as Layout)}>
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="timeline" aria-label="Timeline layout">
             <CalendarDays className="h-4 w-4" /> Timeline
           </TabsTrigger>

@@ -17,8 +17,12 @@ export interface ContentViewerState {
 }
 
 export function contentReviewStatus(state: ContentViewerState | null | undefined): ContentReviewStatus {
-  if (!state || !state.firstSeenAt) return 'NEW';
-  if (state.reviewedAt) return 'REVIEWED';
+  // reviewedAt wins outright — content.service's updateViewState() always
+  // stamps firstSeenAt alongside reviewedAt (you can't review what you
+  // haven't opened), but checking reviewedAt first keeps this derivation
+  // correct even if that invariant is ever violated upstream.
+  if (state?.reviewedAt) return 'REVIEWED';
+  if (!state?.firstSeenAt) return 'NEW';
   return 'SEEN';
 }
 

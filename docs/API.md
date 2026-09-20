@@ -308,7 +308,7 @@ requires `role === 'ADMIN'`.
 | GET | `/api/v1/influencers/:id/audience-health` | Audience health signals. |
 | GET | `/api/v1/influencers/:id/notes` | Internal notes for an influencer. |
 | GET | `/api/v1/influencers/:id/brands` | Brand relationships for an influencer. |
-| POST | `/api/v1/notes` | Add an internal note (on an influencer and/or brand). |
+| POST | `/api/v1/notes` | Add an internal note (on an influencer, a brand, and/or a piece of content). |
 | PATCH | `/api/v1/notes/:id` | Update a note (`body`, `pinned`). |
 | DELETE | `/api/v1/notes/:id` | Delete a note. |
 | POST | `/api/v1/brand-influencers` | Create or update a brand ↔ influencer relationship. |
@@ -391,6 +391,9 @@ PII (phone/address/delivery instructions) is redacted server-side for the
 | POST | `/api/v1/content/:id/metrics` | Add manual metrics (platforms without an official API). |
 | GET | `/api/v1/content/:id/monitoring` | Content availability monitoring events. |
 | POST | `/api/v1/content/:id/refresh` | Refresh availability + metrics via the platform adapter. |
+| GET | `/api/v1/content/summary` | Content Command Center — per-user New/Seen/Reviewed/Review-Later/Unassigned/Alert counts, a daily summary and a per-brand breakdown, all in one call. |
+| PATCH | `/api/v1/content/:id/view-state` | Mark seen / reviewed / review-later for the calling user only (`UserContentState`). |
+| GET | `/api/v1/content/:id/notes` | Internal notes on this content (reuses the Note model). |
 
 ### Costs
 
@@ -408,6 +411,7 @@ PII (phone/address/delivery instructions) is redacted server-side for the
 | GET | `/api/v1/dashboard/global` | Global Mission Control aggregation, optionally `?brandId=` scoped. |
 | GET | `/api/v1/dashboard/attention` | Items needing attention, optionally brand-scoped. |
 | GET | `/api/v1/whats-new` | What's New feed, optionally brand-scoped. |
+| POST | `/api/v1/dashboard/whats-new/ack` | Advance the calling user's own "since your last visit" checkpoint — never a GET side effect. |
 
 ### Calendar
 

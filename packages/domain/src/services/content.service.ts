@@ -583,10 +583,16 @@ export function makeContentService(ctx: DomainContext) {
       const prev = await tx.userContentState.findUnique({
         where: { userId_publishedContentId: { userId: actor.id, publishedContentId: id } },
       });
+      // Reviewing implies having seen it — a caller can't mark something
+      // Reviewed without it also becoming Seen (matches the real UI, where
+      // the Viewer always marks Seen on open before the Reviewed button is
+      // even reachable; enforced here too so the derivation in
+      // contentReviewStatus() never has to reconcile the two).
+      const impliesSeen = input.seen || input.reviewed === true;
       const data = {
         userId: actor.id,
         publishedContentId: id,
-        firstSeenAt: prev?.firstSeenAt ?? (input.seen ? now : null),
+        firstSeenAt: prev?.firstSeenAt ?? (impliesSeen ? now : null),
         lastOpenedAt: input.seen ? now : (prev?.lastOpenedAt ?? null),
         reviewedAt: input.reviewed === undefined ? (prev?.reviewedAt ?? null) : input.reviewed ? now : null,
         savedForLaterAt: input.reviewLater === undefined ? (prev?.savedForLaterAt ?? null) : input.reviewLater ? now : null,

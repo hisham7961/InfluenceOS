@@ -6,7 +6,7 @@ Every major capability, its backend/API/web status, and whether it is **Mobile R
 (business logic server-side, documented API, server-side auth + permissions, stable
 contracts, media represented independently of the web UI — spec addendum §37).
 
-**Coverage:** 26 features · API ready 25 · Web ready 26 · Mobile ready 23 · Admin-desktop-only 3 · **Mobile readiness 100%** (of SHARED features).
+**Coverage:** 27 features · API ready 26 · Web ready 27 · Mobile ready 24 · Admin-desktop-only 3 · **Mobile readiness 100%** (of SHARED features).
 
 | Feature | Module | Class | API | Web | Mobile Ready | Roles | Flag |
 |---|---|---|---|---|:---:|---|---|
@@ -20,6 +20,7 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Logistics & Shipments | Logistics | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Scripts & References | Scripts | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Published Content & Player | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | liveContentEnabled |
+| Content Command Center (New/Seen/Reviewed/Review Later) | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | What's New | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Calendar | Calendar | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Cost Management | Costs | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
@@ -120,9 +121,16 @@ contracts, media represented independently of the web UI — spec addendum §37)
 - `PATCH /api/v1/content/:id`
 - `GET /api/v1/content/:id/metrics`
 
+### Content Command Center (New/Seen/Reviewed/Review Later)
+
+- `GET /api/v1/content/summary`
+- `PATCH /api/v1/content/:id/view-state`
+- `GET /api/v1/content/:id/notes`
+
 ### What's New
 
 - `GET /api/v1/whats-new`
+- `POST /api/v1/dashboard/whats-new/ack`
 
 ### Calendar
 

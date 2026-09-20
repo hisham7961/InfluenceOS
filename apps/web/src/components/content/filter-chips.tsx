@@ -32,7 +32,7 @@ export function ContentFilterChips({
   onSelect: (key: ChipKey) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Content filters">
       {ORDER.map((key) => {
         const count = counts[key];
         if (key !== 'all' && !count) return null;

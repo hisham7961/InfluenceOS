@@ -247,9 +247,10 @@ export const FEATURES: FeatureEntry[] = [
     deepLink: '/content/:id',
   },
   {
-    key: 'whats_new',
-    name: "What's New",
-    description: 'Cross-brand activity feed of newly published content and milestones.',
+    key: 'content_review',
+    name: 'Content Command Center (New/Seen/Reviewed/Review Later)',
+    description:
+      'Per-user content review state (UserContentState) — New/Seen/Reviewed/Review Later never a property of PublishedContent itself. Timeline (day-then-brand grouping), filter chips, daily summary and Review Mode are all built server-side on GET /content/summary and PATCH /content/:id/view-state; internal per-content notes reuse the existing Note model.',
     module: 'Content',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -258,7 +259,27 @@ export const FEATURES: FeatureEntry[] = [
     permissions: ALL,
     flag: null,
     minApiVersion: 'v1',
-    apiEndpoints: ['GET /api/v1/whats-new'],
+    apiEndpoints: [
+      'GET /api/v1/content/summary',
+      'PATCH /api/v1/content/:id/view-state',
+      'GET /api/v1/content/:id/notes',
+    ],
+    deepLink: '/content',
+  },
+  {
+    key: 'whats_new',
+    name: "What's New",
+    description:
+      "Per-user \"since your last visit\" summary (lastWhatsNewViewedAt checkpoint, never lastLoginAt) of real recorded events — new content, campaigns launched, content alerts, overdue deliverables, shipments delivered, submissions approved, usage rights expiring — never a raw activity-log dump.",
+    module: 'Content',
+    classification: 'SHARED',
+    apiStatus: 'READY',
+    webStatus: 'READY',
+    mobileReady: true,
+    permissions: ALL,
+    flag: null,
+    minApiVersion: 'v1',
+    apiEndpoints: ['GET /api/v1/whats-new', 'POST /api/v1/dashboard/whats-new/ack'],
     deepLink: null,
   },
   {

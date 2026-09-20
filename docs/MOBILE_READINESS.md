@@ -21,6 +21,7 @@ only in the web app**. The API is the product core; the web is one client.
 | Logistics & Shipments | ✅ | ✅ | ✅ | /logistics |
 | Scripts & References | ✅ | ✅ | ✅ | /scripts/:id |
 | Published Content & Player | ✅ | ✅ | ✅ | /content/:id |
+| Content Command Center (New/Seen/Reviewed/Review Later) | ✅ | ✅ | ✅ | /content |
 | What's New | ✅ | ✅ | ✅ | — |
 | Calendar | ✅ | ✅ | ✅ | — |
 | Cost Management | ✅ | ✅ | ✅ | — |
@@ -53,4 +54,4 @@ administration surface).
 6. Request/response contracts stable · 7. Media represented independently of web UI ·
 8. Filtering/pagination server-side · 9. API tests exist · 10. No web-only server behavior.
 
-Total documented endpoints: 78.
+Total documented endpoints: 82.
