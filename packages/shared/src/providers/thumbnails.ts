@@ -58,6 +58,35 @@ export function parseOgImage(html: string): string | null {
   return null;
 }
 
+/**
+ * Resolve a public profile picture (avatar) for an influencer from their
+ * profile URL — WITHOUT any API credentials — via the page's og:image /
+ * twitter:image (which, on a profile page, is the avatar/header). Best-effort
+ * and time-boxed; returns null when the platform requires a login/token
+ * (Instagram often does) so the caller keeps the initials placeholder. Only the
+ * public picture is read; no private data is scraped.
+ */
+export async function resolveProfileAvatar(
+  profileUrl: string,
+  fetchFn?: FetchFn,
+  timeoutMs = 4000,
+): Promise<string | null> {
+  const fn = fetchFn ?? (globalThis.fetch as FetchFn);
+  if (!isHttpUrl(profileUrl) || typeof fn !== 'function') return null;
+  const page = await timedFetch(profileUrl, fn, timeoutMs, {
+    headers: { accept: 'text/html', 'user-agent': 'Mozilla/5.0 (compatible; InfluenceOSBot/1.0)' },
+  });
+  if (page?.ok) {
+    try {
+      const html = await page.text();
+      return parseOgImage(html.slice(0, 200_000));
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
+}
+
 export async function resolveContentThumbnail(opts: {
   platform: Platform;
   canonicalUrl: string;

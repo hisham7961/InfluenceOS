@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parseOgImage, resolveContentThumbnail } from '../providers/thumbnails';
+import { parseOgImage, resolveContentThumbnail, resolveProfileAvatar } from '../providers/thumbnails';
 
 /** Minimal Response stub for the mocked fetch. */
 function res(status: number, body: unknown, kind: 'json' | 'text' = 'json'): Response {
@@ -68,6 +68,22 @@ describe('resolveContentThumbnail (public cover — no credentials)', () => {
       fetchFn: fetchFn as unknown as typeof fetch,
     });
     expect(url).toBeNull();
+  });
+
+  it('resolveProfileAvatar reads the profile og:image (the avatar)', async () => {
+    const html = '<meta property="og:image" content="https://cdn.example.com/avatar.jpg">';
+    const fetchFn = vi.fn(async () => res(200, html, 'text'));
+    const url = await resolveProfileAvatar('https://www.instagram.com/someone/', fetchFn as unknown as typeof fetch);
+    expect(url).toBe('https://cdn.example.com/avatar.jpg');
+  });
+
+  it('resolveProfileAvatar returns null when the profile is gated / unreachable', async () => {
+    const fetchFn = vi.fn(async () => res(403, '', 'text'));
+    expect(await resolveProfileAvatar('https://www.instagram.com/x/', fetchFn as unknown as typeof fetch)).toBeNull();
+    const throwing = vi.fn(async () => {
+      throw new Error('blocked');
+    });
+    expect(await resolveProfileAvatar('https://www.instagram.com/x/', throwing as unknown as typeof fetch)).toBeNull();
   });
 
   it('parseOgImage handles og:image and twitter:image, and decodes &amp;', () => {

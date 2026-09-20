@@ -2,6 +2,7 @@ import {
   getAdapter,
   getAllCapabilities,
   normalizeProfileInput,
+  resolveProfileAvatar,
   type Platform,
 } from '@influenceos/shared';
 import type {
@@ -53,12 +54,17 @@ export function makeProviderService(ctx: DomainContext) {
 
     if (result.ok) {
       const d = result.data;
+      // If the official API gave no picture (or none is configured), fall back
+      // to the public og:image of the profile page so the creator still gets a
+      // real avatar instead of initials. Best-effort, time-boxed.
+      const avatarUrl =
+        d.avatarUrl ?? (await resolveProfileAvatar(d.profileUrl, undefined, 3500).catch(() => null));
       return {
         platform: normalized.platform,
         username: d.username,
         profileUrl: d.profileUrl,
         displayName: d.displayName ?? null,
-        avatarUrl: d.avatarUrl ?? null,
+        avatarUrl,
         bio: d.bio ?? null,
         followers: d.followers ?? null,
         following: d.following ?? null,
@@ -71,13 +77,15 @@ export function makeProviderService(ctx: DomainContext) {
       };
     }
 
-    // Graceful manual fallback — we still return the normalized identity.
+    // Graceful manual fallback — we still return the normalized identity, and
+    // try the public og:image so even a manual add gets a real avatar.
+    const avatarUrl = await resolveProfileAvatar(normalized.profileUrl, undefined, 3500).catch(() => null);
     return {
       platform: normalized.platform,
       username: normalized.username,
       profileUrl: normalized.profileUrl,
       displayName: null,
-      avatarUrl: null,
+      avatarUrl,
       bio: null,
       followers: null,
       following: null,

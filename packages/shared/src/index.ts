@@ -24,6 +24,7 @@ export {
   parseContentId,
   buildEmbed,
   resolveContentThumbnail,
+  resolveProfileAvatar,
   parseOgImage,
   isAllowedIframeOrigin,
   IFRAME_ALLOWED_ORIGINS,
