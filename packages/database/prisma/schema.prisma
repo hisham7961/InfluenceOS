@@ -370,6 +370,7 @@ model Brand {
   activities       ActivityLog[]
   usageRights      UsageRight[]
   userAccess       UserBrandAccess[]
+  products         Product[]
 
   @@index([isActive])
 }
@@ -404,6 +405,15 @@ model Influencer {
   isActive         Boolean             @default(true)
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
+  /// Shipping profile (Logistics): country/city/mobile/whatsapp above are
+  /// reused as-is; these fill out a full postal address. A shipment always
+  /// COPIES these into its own scalar columns at creation time rather than
+  /// referencing the influencer live, so a later address change here never
+  /// rewrites a past shipment's historical record.
+  addressLine1         String?
+  addressLine2         String?
+  postalCode           String?
+  deliveryInstructions String?
 
   owner               User?                @relation("InfluencerOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   socialAccounts      SocialAccount[]
@@ -571,19 +581,62 @@ model CampaignInfluencer {
   deliverables     Deliverable[]
   publishedContent PublishedContent[]
   expenses         CampaignExpense[]
-  shipment         ProductShipment?
+  shipments        ProductShipment[]
 
   @@unique([campaignId, influencerId])
   @@index([campaignId])
   @@index([influencerId])
 }
 
-/// Product-seeding shipment attached to a gift record (W3-5). One shipment per
-/// CampaignInfluencer: address, courier, tracking and delivery state, so staff
-/// can answer "did the gift arrive?" without leaving the campaign.
+/// A small, deliberately minimal product catalog (W3-5 → Logistics evolution)
+/// — just enough to give shipment line items real identity instead of a
+/// free-text notes field, without turning InfluenceOS into inventory/ERP
+/// software. Scoped per brand; resolved by findOrCreate-by-name so staff never
+/// manage a separate "Products" admin screen.
+model Product {
+  id        String   @id @default(cuid())
+  brandId   String
+  name      String
+  createdAt DateTime @default(now())
+
+  brand Brand             @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  items ShipmentItem[]
+
+  @@unique([brandId, name])
+  @@index([brandId])
+}
+
+/// One product line item on a shipment: what, how many, optional SKU/variant.
+/// This is what makes "TKN × 1, SPF × 2" a structured record instead of a
+/// notes string.
+model ShipmentItem {
+  id         String  @id @default(cuid())
+  shipmentId String
+  productId  String
+  sku        String?
+  variant    String?
+  quantity   Int     @default(1)
+
+  shipment ProductShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  product  Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([shipmentId])
+  @@index([productId])
+}
+
+/// A logistics fulfilment request (evolved from the original W3-5
+/// "one shipment per CampaignInfluencer" gift record). `campaignInfluencerId`
+/// is NO LONGER unique — one CampaignInfluencer may need several independent
+/// shipments (video 1's product, video 2's different product, a replacement
+/// shipment), each optionally tied back to the specific Deliverable that
+/// required it. Address/recipient fields are a point-in-time COPY (see the
+/// doc comment on Influencer's shipping fields) — never a live reference.
 model ProductShipment {
   id                   String         @id @default(cuid())
-  campaignInfluencerId String         @unique
+  campaignInfluencerId String
+  /// The specific deliverable this fulfils, if any — optional: a shipment can
+  /// also be a general campaign-level gift not tied to one deliverable.
+  deliverableId        String?
   recipientName        String?
   phone                String?
   addressLine1         String?
@@ -591,6 +644,7 @@ model ProductShipment {
   city                 String?
   country              String?
   postalCode           String?
+  deliveryInstructions String?
   courier              String?
   trackingNumber       String?
   trackingUrl          String?
@@ -603,8 +657,12 @@ model ProductShipment {
   updatedAt            DateTime       @updatedAt
 
   campaignInfluencer CampaignInfluencer @relation(fields: [campaignInfluencerId], references: [id], onDelete: Cascade)
+  deliverable        Deliverable?       @relation(fields: [deliverableId], references: [id], onDelete: SetNull)
   createdBy          User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  items              ShipmentItem[]
 
+  @@index([campaignInfluencerId])
+  @@index([deliverableId])
   @@index([status])
 }
 
@@ -655,6 +713,11 @@ model Deliverable {
   publishedUrl         String?
   publishedAt          DateTime?
   internalNotes        String?
+  /// Logistics: does completing this deliverable require shipping the
+  /// creator a physical product? Drives the "Physical product required"
+  /// toggle in the deliverable form and the operational warning when true
+  /// but no shipment has been delivered yet as the due date approaches.
+  requiresProduct      Boolean           @default(false)
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 
@@ -664,6 +727,7 @@ model Deliverable {
   attachments        Attachment[]
   activities         ActivityLog[]
   submissions        DeliverableSubmission[]
+  shipments          ProductShipment[]
 
   @@index([campaignInfluencerId])
   @@index([status])

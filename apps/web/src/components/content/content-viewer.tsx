@@ -64,7 +64,7 @@ export function ContentViewer({
   );
 }
 
-function ContentDetails({ content }: { content: PublishedContentDTO }) {
+export function ContentDetails({ content }: { content: PublishedContentDTO }) {
   const monitoring = useQuery({
     queryKey: ['content', content.id, 'monitoring'],
     queryFn: () => api.content.monitoring(content.id),

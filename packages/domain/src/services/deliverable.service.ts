@@ -22,6 +22,7 @@ interface DeliverableRow {
   publishedUrl: string | null;
   publishedAt: Date | null;
   internalNotes: string | null;
+  requiresProduct: boolean;
 }
 
 export function toDeliverableDTO(d: DeliverableRow, publishedContentCount = 0): DeliverableDTO {
@@ -39,6 +40,7 @@ export function toDeliverableDTO(d: DeliverableRow, publishedContentCount = 0): 
     publishedUrl: d.publishedUrl,
     publishedAt: iso(d.publishedAt),
     internalNotes: d.internalNotes,
+    requiresProduct: d.requiresProduct,
     publishedContentCount,
   };
 }
@@ -73,6 +75,7 @@ export function makeDeliverableService(ctx: DomainContext) {
         publishedUrl: input.publishedUrl ?? null,
         publishedAt: input.publishedAt ?? null,
         internalNotes: input.internalNotes ?? null,
+        requiresProduct: input.requiresProduct ?? false,
       },
     });
     await logActivity(ctx, {
@@ -108,6 +111,7 @@ export function makeDeliverableService(ctx: DomainContext) {
         publishedUrl: input.publishedUrl === undefined ? undefined : input.publishedUrl,
         publishedAt: input.publishedAt === undefined ? undefined : input.publishedAt,
         internalNotes: input.internalNotes === undefined ? undefined : input.internalNotes,
+        requiresProduct: input.requiresProduct ?? undefined,
       },
     });
 

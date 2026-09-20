@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { AddContentFlow } from '@/components/content/add-content-flow';
 import type { QuickAddKind } from './app-context';
 
 const TITLES: Record<QuickAddKind, { title: string; description: string }> = {
@@ -67,44 +68,15 @@ function err(e: unknown): string {
 function AddContent({ close }: { close: () => void }) {
   const router = useRouter();
   const qc = useQueryClient();
-  const campaigns = useCampaignOptions();
-  const [url, setUrl] = React.useState('');
-  const [campaignId, setCampaignId] = React.useState<string>('');
-  const [loading, setLoading] = React.useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const content = await api.content.create({ url, campaignId: campaignId || undefined });
-      toast.success('Content added to the live wall.');
-      qc.invalidateQueries();
-      close();
-      router.push(`/content/${content.id}`);
-    } catch (e) {
-      toast.error(err(e));
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4">
-      <Field label="Content URL" hint="Instagram, TikTok, YouTube, X or Snapchat">
-        <Input placeholder="https://www.youtube.com/watch?v=…" value={url} onChange={(e) => setUrl(e.target.value)} required />
-      </Field>
-      <Field label="Campaign (optional)">
-        <Select value={campaignId} onValueChange={setCampaignId}>
-          <SelectTrigger><SelectValue placeholder="Link to a campaign" /></SelectTrigger>
-          <SelectContent>
-            {campaigns.data?.data.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.brand.name} · {c.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-      <Button type="submit" disabled={loading}>{loading ? 'Adding…' : 'Add content'}</Button>
-    </form>
+    <AddContentFlow
+      onCancel={close}
+      onSuccess={(content) => {
+        qc.invalidateQueries();
+        close();
+        router.push(`/content/${content.id}`);
+      }}
+    />
   );
 }
 

@@ -18,7 +18,9 @@ import { Prisma, type ContentStatus } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor } from '../lib/authz';
+import { resolveContentAssociation } from '../lib/content-association';
 import { createNotification, iso, logActivity } from '../lib/helpers';
+import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
 import {
   toBrandSummary,
   toContentMetricsDTO,
@@ -53,6 +55,7 @@ const relInclude = {
     },
   },
   campaign: { select: { id: true, name: true, slug: true } },
+  deliverable: { select: { id: true, type: true, platform: true } },
   metricSnapshots: { orderBy: { capturedAt: 'desc' }, take: 1 },
 } satisfies Prisma.PublishedContentInclude;
 
@@ -72,6 +75,7 @@ export function makeContentService(ctx: DomainContext) {
       influencer: pc.influencer ? toInfluencerSummary(pc.influencer) : null,
       brand: pc.brand ? toBrandSummary(pc.brand) : null,
       campaign: pc.campaign ? { id: pc.campaign.id, name: pc.campaign.name, slug: pc.campaign.slug } : null,
+      deliverable: pc.deliverable ? { id: pc.deliverable.id, type: pc.deliverable.type, platform: pc.deliverable.platform } : null,
       metrics: toContentMetricsDTO(latest),
     });
   }
@@ -95,27 +99,24 @@ export function makeContentService(ctx: DomainContext) {
     });
     if (existing) throw AppError.conflict('This content URL is already being tracked.');
 
-    // Resolve associations. A deliverable implies its campaign influencer + campaign.
-    let campaignId = input.campaignId ?? null;
-    let brandId = input.brandId ?? null;
-    let influencerId = input.influencerId ?? null;
-    let campaignInfluencerId = input.campaignInfluencerId ?? null;
-
-    if (input.deliverableId) {
-      const deliverable = await prisma.deliverable.findUnique({
-        where: { id: input.deliverableId },
-        include: { campaignInfluencer: { select: { id: true, campaignId: true, influencerId: true } } },
-      });
-      if (deliverable) {
-        campaignInfluencerId = campaignInfluencerId ?? deliverable.campaignInfluencer.id;
-        campaignId = campaignId ?? deliverable.campaignInfluencer.campaignId;
-        influencerId = influencerId ?? deliverable.campaignInfluencer.influencerId;
-      }
-    }
-    if (campaignId && !brandId) {
-      const campaign = await prisma.campaign.findUnique({ where: { id: campaignId }, select: { brandId: true } });
-      brandId = campaign?.brandId ?? null;
-    }
+    // Resolve + validate associations centrally — never duplicate this logic in
+    // another service or in Web; see packages/domain/src/lib/content-association.ts.
+    // A deliverable/campaignInfluencer implies its own campaign/influencer/brand,
+    // and a caller-supplied value that disagrees with that chain is rejected
+    // rather than silently overwritten or silently discarded.
+    const scope = await scopedBrandIds(ctx);
+    const { campaignId, brandId, influencerId, campaignInfluencerId, deliverableId } =
+      await resolveContentAssociation(
+        prisma,
+        {
+          brandId: input.brandId,
+          campaignId: input.campaignId,
+          influencerId: input.influencerId,
+          campaignInfluencerId: input.campaignInfluencerId,
+          deliverableId: input.deliverableId,
+        },
+        scope,
+      );
 
     const embed = buildEmbed(canonicalUrl, platform);
 
@@ -146,7 +147,7 @@ export function makeContentService(ctx: DomainContext) {
           campaignId,
           influencerId,
           campaignInfluencerId,
-          deliverableId: input.deliverableId ?? null,
+          deliverableId,
           availabilityStatus: 'UNKNOWN',
           dataSource: 'MANUAL',
           nextCheckAt: new Date(),
@@ -155,11 +156,11 @@ export function makeContentService(ctx: DomainContext) {
       });
 
       // Link the deliverable — advances campaign progress automatically (§55, DoD).
-      if (input.deliverableId) {
-        const deliverable = await tx.deliverable.findUnique({ where: { id: input.deliverableId } });
+      if (deliverableId) {
+        const deliverable = await tx.deliverable.findUnique({ where: { id: deliverableId } });
         if (deliverable && deliverable.status !== 'VERIFIED') {
           await tx.deliverable.update({
-            where: { id: input.deliverableId },
+            where: { id: deliverableId },
             data: {
               status: 'PUBLISHED',
               publishedUrl: canonicalUrl,
@@ -220,6 +221,21 @@ export function makeContentService(ctx: DomainContext) {
         { originalUrl: { contains: filter.q, mode: 'insensitive' } },
       ];
     }
+    // Derived assignment status — computed from presence, matched server-side so
+    // pagination stays correct across pages (see contentAssociationStatus).
+    if (filter.assignment === 'UNASSIGNED') {
+      where.campaignId = null;
+      where.influencerId = null;
+    } else if (filter.assignment === 'INFLUENCER_LINKED') {
+      where.campaignId = null;
+      where.influencerId = { not: null };
+    } else if (filter.assignment === 'CAMPAIGN_LINKED') {
+      where.campaignId = { not: null };
+      where.influencerId = null;
+    } else if (filter.assignment === 'FULLY_LINKED') {
+      where.campaignId = { not: null };
+      where.influencerId = { not: null };
+    }
 
     const rows = await prisma.publishedContent.findMany({
       where,
@@ -242,17 +258,83 @@ export function makeContentService(ctx: DomainContext) {
     requireActor(ctx);
     const existing = await prisma.publishedContent.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Content');
-    await prisma.publishedContent.update({
-      where: { id },
-      data: {
-        caption: input.caption === undefined ? undefined : input.caption,
-        campaignId: input.campaignId === undefined ? undefined : input.campaignId,
-        influencerId: input.influencerId === undefined ? undefined : input.influencerId,
-        deliverableId: input.deliverableId === undefined ? undefined : input.deliverableId,
-        availabilityStatus: input.availabilityStatus ?? undefined,
-        publishedAt: input.publishedAt === undefined ? undefined : input.publishedAt,
-      },
+
+    // A scoped operator can't touch content outside their brand access at
+    // all — not just re-link it elsewhere (WORKFLOW_GAP_MATRIX.md,
+    // "Permissions/privacy"). Reads as not-found rather than forbidden, same
+    // posture as brand.service.ts — never confirms the row exists.
+    const scope = await scopedBrandIds(ctx);
+    if (existing.brandId && isBrandOutOfScope(scope, existing.brandId)) {
+      throw AppError.notFound('Content');
+    }
+
+    // Re-linking (assign/change/remove influencer, campaign or deliverable) goes
+    // through the same centralized resolver as create() — this is what makes
+    // reassignment safe: brandId and campaignInfluencerId are always recomputed
+    // from the effective campaign/influencer/deliverable, never left stale.
+    const touchesAssociation =
+      input.campaignId !== undefined || input.influencerId !== undefined || input.deliverableId !== undefined;
+    // If the caller changes campaignId/influencerId to something other than
+    // what they were, WITHOUT also naming a new deliverableId, the existing
+    // deliverable link can no longer be valid (a deliverable's campaign/
+    // influencer are fixed) — drop it rather than let it silently re-derive
+    // the very campaign/influencer the caller just asked to change (the bug
+    // this comment replaced: clearing campaignId while a stale deliverableId
+    // carried forward would snap campaignId right back via the deliverable
+    // anchor, silently ignoring the caller's explicit change).
+    const associationChanged =
+      (input.campaignId !== undefined && input.campaignId !== existing.campaignId) ||
+      (input.influencerId !== undefined && input.influencerId !== existing.influencerId);
+    const effectiveDeliverableId =
+      input.deliverableId !== undefined ? input.deliverableId : associationChanged ? null : existing.deliverableId;
+    const resolved = touchesAssociation
+      ? await resolveContentAssociation(
+          prisma,
+          {
+            campaignId: input.campaignId === undefined ? existing.campaignId : input.campaignId,
+            influencerId: input.influencerId === undefined ? existing.influencerId : input.influencerId,
+            deliverableId: effectiveDeliverableId,
+          },
+          scope,
+        )
+      : null;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.publishedContent.update({
+        where: { id },
+        data: {
+          caption: input.caption === undefined ? undefined : input.caption,
+          campaignId: resolved ? resolved.campaignId : undefined,
+          influencerId: resolved ? resolved.influencerId : undefined,
+          deliverableId: resolved ? resolved.deliverableId : undefined,
+          campaignInfluencerId: resolved ? resolved.campaignInfluencerId : undefined,
+          brandId: resolved ? resolved.brandId : undefined,
+          availabilityStatus: input.availabilityStatus ?? undefined,
+          publishedAt: input.publishedAt === undefined ? undefined : input.publishedAt,
+        },
+      });
+
+      if (
+        resolved &&
+        (resolved.campaignId !== existing.campaignId ||
+          resolved.influencerId !== existing.influencerId ||
+          resolved.deliverableId !== existing.deliverableId)
+      ) {
+        await logActivity(
+          ctx,
+          {
+            type: 'GENERIC',
+            message: `${ctx.actor?.name ?? 'Someone'} updated this content's associations.`,
+            brandId: resolved.brandId,
+            campaignId: resolved.campaignId,
+            influencerId: resolved.influencerId,
+            publishedContentId: id,
+          },
+          tx,
+        );
+      }
     });
+
     return loadDTO(id);
   }
 

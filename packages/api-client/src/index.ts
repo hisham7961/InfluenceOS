@@ -36,6 +36,7 @@ import type {
   ProviderCredentialStatusDTO,
   InfluencerDetailDTO,
   InfluencerSummaryDTO,
+  LogisticsRequestDTO,
   MonitoringEventDTO,
   NoteDTO,
   NotificationDTO,
@@ -216,12 +217,43 @@ export function createClient(config: ClientConfig) {
           ...body,
           campaignInfluencerId: id,
         }),
+      // Logistics: shipments on this campaign participation (evolved W3-5 — one
+      // campaign-influencer may have several, never just 0-or-1).
+      shipments: (id: string) => http.get<ProductShipmentDTO[]>(`${V}/campaign-influencers/${id}/shipments`),
+      createShipment: (id: string, body: In<typeof requests.shipmentCreateSchema>) =>
+        http.post<ProductShipmentDTO>(`${V}/campaign-influencers/${id}/shipments`, body),
     },
 
     deliverables: {
       update: (id: string, body: In<typeof requests.deliverableUpdateSchema>) =>
         http.patch<DeliverableDTO>(`${V}/deliverables/${id}`, body),
       remove: (id: string) => http.del<void>(`${V}/deliverables/${id}`),
+      // Draft/asset review queue for one deliverable (W3-1) — never a public URL requirement.
+      submissions: (id: string) => http.get<DeliverableSubmissionDTO[]>(`${V}/deliverables/${id}/submissions`),
+      submit: (id: string, body: In<typeof requests.submissionCreateSchema>) =>
+        http.post<DeliverableSubmissionDTO>(`${V}/deliverables/${id}/submissions`, body),
+    },
+
+    submissions: {
+      get: (id: string) => http.get<DeliverableSubmissionDTO>(`${V}/submissions/${id}`),
+      review: (id: string, body: In<typeof requests.submissionReviewSchema>) =>
+        http.post<DeliverableSubmissionDTO>(`${V}/submissions/${id}/review`, body),
+      addComment: (id: string, body: In<typeof requests.submissionCommentSchema>) =>
+        http.post<DeliverableSubmissionDTO>(`${V}/submissions/${id}/comments`, body),
+    },
+
+    // Logistics — shipment-id-keyed ops, plus the cross-campaign /logistics
+    // workspace (reads the same shipment rows every other view reads).
+    shipments: {
+      list: (params?: QueryParams) =>
+        http.get<{ data: LogisticsRequestDTO[]; hasMore: boolean; nextCursor: string | null }>(`${V}/shipments`, {
+          query: params,
+        }),
+      get: (id: string) => http.get<ProductShipmentDTO>(`${V}/shipments/${id}`),
+      update: (id: string, body: In<typeof requests.shipmentUpdateSchema>) =>
+        http.patch<ProductShipmentDTO>(`${V}/shipments/${id}`, body),
+      updateStatus: (id: string, body: In<typeof requests.shipmentStatusSchema>) =>
+        http.post<ProductShipmentDTO>(`${V}/shipments/${id}/status`, body),
     },
 
     scripts: {

@@ -11,6 +11,7 @@ export * from './utils/slug';
 export * from './utils/worker-health';
 export * from './utils/usage-right';
 export * from './utils/csv';
+export * from './utils/content-status';
 export * from './utils/search-rank';
 export * from './utils/load-fixtures';
 export * as providers from './providers';

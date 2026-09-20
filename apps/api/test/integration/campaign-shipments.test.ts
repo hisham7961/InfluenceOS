@@ -29,7 +29,7 @@ describe('W3-5 — campaign roster shipments', () => {
     ciId = idOf(await app.inject({ method: 'POST', url: `/api/v1/campaigns/${campaignId}/influencers`, headers: auth, payload: { influencerId: inf, dealType: 'FREE' } }));
     // A gift shipment marked SHIPPED — reaching SHIPPED auto-stamps shippedAt.
     await app.inject({
-      method: 'PUT', url: `/api/v1/campaign-influencers/${ciId}/shipment`, headers: auth,
+      method: 'POST', url: `/api/v1/campaign-influencers/${ciId}/shipments`, headers: auth,
       payload: { recipientName: 'Test Recipient', city: 'Kuwait City', country: 'Kuwait', courier: 'Aramex', trackingNumber: 'TRK123', status: 'SHIPPED' },
     });
   });

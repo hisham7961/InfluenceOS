@@ -1,7 +1,10 @@
 'use client';
 
+import * as React from 'react';
 import Link from 'next/link';
-import { Building2, Coins, Languages, Megaphone, PackageCheck } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { Building2, Coins, Languages, Megaphone, PackageCheck, Plus } from 'lucide-react';
 import type {
   BrandInfluencerDTO,
   InfluencerDetailDTO,
@@ -11,15 +14,54 @@ import type {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Avatar } from '@/components/ui/avatar';
 import { AudienceHealthBadge, RelationshipStatusBadge } from '@/components/ui/status-badges';
 import { StatCard } from '@/components/ui/stat-card';
 import { ContentGrid } from '@/components/content/content-grid';
+import { AddContentFlow } from '@/components/content/add-content-flow';
+import { ActivityFeed } from '@/components/common/activity-feed';
 import { formatCurrency, relativeTime, shortDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { NotesPanel } from './notes-panel';
 import { SocialAccountsPanel } from './social-accounts-panel';
+
+/** "Add Content" preselecting this influencer — Critical Business Question 3. */
+function AddContentButton({ influencerId, influencerName }: { influencerId: string; influencerName: string }) {
+  const router = useRouter();
+  const qc = useQueryClient();
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <>
+      <Button type="button" size="sm" onClick={() => setOpen(true)}>
+        <Plus className="h-4 w-4" /> Add content
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add published content</DialogTitle>
+            <DialogDescription>
+              For {influencerName}. Paste a public URL — no campaign required for independent content.
+            </DialogDescription>
+          </DialogHeader>
+          <AddContentFlow
+            lockInfluencerId={influencerId}
+            lockInfluencerName={influencerName}
+            onCancel={() => setOpen(false)}
+            onSuccess={() => {
+              qc.invalidateQueries();
+              router.refresh();
+              setOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 const SEVERITY_DOT: Record<string, string> = {
   positive: 'bg-success',
@@ -46,6 +88,7 @@ export function ProfileTabs({
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="social">Social Profiles</TabsTrigger>
         <TabsTrigger value="history">Campaign History</TabsTrigger>
+        <TabsTrigger value="timeline">Timeline</TabsTrigger>
         <TabsTrigger value="content">Content</TabsTrigger>
         <TabsTrigger value="costs">Costs</TabsTrigger>
         <TabsTrigger value="notes">Notes</TabsTrigger>
@@ -186,12 +229,26 @@ export function ProfileTabs({
         </Card>
       </TabsContent>
 
+      {/* Timeline — campaign joins, deliverables, shipments, content, costs;
+          sourced from ActivityLog (the same feed the Campaign page's Activity
+          tab reads), never a duplicate history table. */}
+      <TabsContent value="timeline">
+        <ActivityFeed
+          filter={{ influencerId: influencer.id }}
+          queryKey={['influencer-activity', influencer.id]}
+          emptyDescription={`Campaign joins, deliverables, shipments, content and payments for ${influencer.displayName} will show up here.`}
+        />
+      </TabsContent>
+
       {/* Content */}
-      <TabsContent value="content">
+      <TabsContent value="content" className="space-y-4">
+        <div className="flex items-center justify-end">
+          <AddContentButton influencerId={influencer.id} influencerName={influencer.displayName} />
+        </div>
         <ContentGrid
           items={content}
           emptyTitle="No content yet"
-          emptyDescription={`Published content from ${influencer.displayName} will appear here.`}
+          emptyDescription={`Published content from ${influencer.displayName} will appear here. Content doesn't need a campaign.`}
         />
       </TabsContent>
 

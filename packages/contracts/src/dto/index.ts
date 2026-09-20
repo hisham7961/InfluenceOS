@@ -318,6 +318,7 @@ export interface DeliverableDTO {
   publishedUrl: string | null;
   publishedAt: string | null;
   internalNotes: string | null;
+  requiresProduct: boolean;
   publishedContentCount: number;
 }
 
@@ -446,13 +447,27 @@ export interface DeliverableTemplateResultDTO {
   deliverablesCreated: number;
 }
 
+/** One product line item on a shipment (Logistics, evolved from W3-5). */
+export interface ShipmentItemDTO {
+  id: string;
+  productName: string;
+  sku: string | null;
+  variant: string | null;
+  quantity: number;
+}
+
 /**
- * Product-seeding shipment on a gift record (W3-5): where the product is going,
- * how, and whether it arrived. Attached 1:1 to a campaign-influencer.
+ * A logistics fulfilment request (evolved from W3-5's "one shipment per
+ * campaign-influencer" gift record): where a product is going, how, and
+ * whether it arrived. A CampaignInfluencer may have several — one per
+ * deliverable that needs a product, plus general/replacement shipments — so
+ * `campaignInfluencerId` is NOT a 1:1 key any more. `deliverableId` is the
+ * optional link back to the specific deliverable this fulfils.
  */
 export interface ProductShipmentDTO {
   id: string;
   campaignInfluencerId: string;
+  deliverableId: string | null;
   recipientName: string | null;
   phone: string | null;
   addressLine1: string | null;
@@ -460,6 +475,7 @@ export interface ProductShipmentDTO {
   city: string | null;
   country: string | null;
   postalCode: string | null;
+  deliveryInstructions: string | null;
   courier: string | null;
   trackingNumber: string | null;
   trackingUrl: string | null;
@@ -467,8 +483,19 @@ export interface ProductShipmentDTO {
   shippedAt: string | null;
   deliveredAt: string | null;
   notes: string | null;
+  items: ShipmentItemDTO[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** A shipment as shown in the cross-campaign `/logistics` workspace — carries
+ *  enough context (creator/brand/campaign) to be useful without a second
+ *  lookup; still the same underlying ProductShipment row, never a copy. */
+export interface LogisticsRequestDTO extends ProductShipmentDTO {
+  influencer: { id: string; displayName: string; avatarUrl: string | null } | null;
+  brand: { id: string; name: string } | null;
+  campaign: { id: string; name: string } | null;
+  deliverableType: DeliverableType | null;
 }
 
 // --- Scripts ---------------------------------------------------------------
@@ -545,6 +572,8 @@ export interface PublishedContentDTO {
   influencer: InfluencerSummaryDTO | null;
   brand: BrandSummaryDTO | null;
   campaign: { id: string; name: string; slug: string } | null;
+  /** Which deliverable this content fulfills, if any — null for independent/unlinked content. */
+  deliverable: { id: string; type: DeliverableType; platform: Platform } | null;
   metrics: ContentMetricsDTO | null;
 }
 

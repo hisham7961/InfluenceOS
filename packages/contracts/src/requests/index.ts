@@ -357,6 +357,8 @@ export const deliverableCreateSchema = z.object({
   publishedUrl: safeUrl,
   publishedAt: isoDate,
   internalNotes: optionalString,
+  /** Logistics: does completing this deliverable require shipping a physical product? */
+  requiresProduct: z.coerce.boolean().default(false),
 });
 export const deliverableUpdateSchema = deliverableCreateSchema
   .partial()
@@ -465,13 +467,26 @@ export const candidateCsvImportSchema = z.object({
 });
 export type CandidateCsvImportInput = z.infer<typeof candidateCsvImportSchema>;
 
-// --- Product-seeding shipment tracking (W3-5) ------------------------------
+// --- Logistics / shipment tracking (W3-5, evolved into multi-shipment Logistics) --
+/** One product line item on a shipment — resolved/created by name within the brand. */
+export const shipmentItemInputSchema = z.object({
+  productName: z.string().trim().min(1).max(200),
+  sku: z.string().trim().max(120).optional().nullable(),
+  variant: z.string().trim().max(120).optional().nullable(),
+  quantity: z.coerce.number().int().min(1).max(100_000).default(1),
+});
+
 /**
- * Upsert the shipment on a gift record (one per campaign-influencer). Setting
- * `status` to SHIPPED/DELIVERED stamps shippedAt/deliveredAt server-side when
- * they are not supplied.
+ * Create a logistics fulfilment request against a CampaignInfluencer. NOT an
+ * upsert any more — a CampaignInfluencer may have several independent
+ * shipments (one per deliverable that needs a product, a replacement
+ * shipment, etc). `deliverableId` is optional: a general campaign-level gift
+ * has none. Address/recipient fields are a point-in-time copy — the caller
+ * (web) prefills them from the influencer's current shipping profile, but
+ * changing that profile later never rewrites this record.
  */
-export const shipmentUpsertSchema = z.object({
+export const shipmentCreateSchema = z.object({
+  deliverableId: cuid.optional().nullable(),
   recipientName: z.string().trim().max(200).optional().nullable(),
   phone: z.string().trim().max(60).optional().nullable(),
   addressLine1: z.string().trim().max(300).optional().nullable(),
@@ -479,6 +494,7 @@ export const shipmentUpsertSchema = z.object({
   city: z.string().trim().max(120).optional().nullable(),
   country: z.string().trim().max(120).optional().nullable(),
   postalCode: z.string().trim().max(40).optional().nullable(),
+  deliveryInstructions: z.string().trim().max(500).optional().nullable(),
   courier: z.string().trim().max(120).optional().nullable(),
   trackingNumber: z.string().trim().max(120).optional().nullable(),
   trackingUrl: httpUrl.optional().nullable(),
@@ -486,13 +502,26 @@ export const shipmentUpsertSchema = z.object({
   shippedAt: isoDate,
   deliveredAt: isoDate,
   notes: optionalString,
+  items: z.array(shipmentItemInputSchema).max(50).default([]),
 });
+/** Update fulfilment details on an existing shipment — never its campaignInfluencerId/deliverableId/items (fixed at creation). */
+export const shipmentUpdateSchema = shipmentCreateSchema.omit({ deliverableId: true, items: true }).partial();
 /** Advance only the fulfilment status (courier webhook / quick action). */
 export const shipmentStatusSchema = z.object({
   status: z.enum(SHIPMENT_STATUSES),
 });
-export type ShipmentUpsertInput = z.infer<typeof shipmentUpsertSchema>;
+/** Cross-campaign logistics workspace filters (the `/logistics` page). */
+export const shipmentFilterSchema = z.object({
+  status: z.enum(SHIPMENT_STATUSES).optional(),
+  brandId: cuid.optional(),
+  campaignId: cuid.optional(),
+  cursor: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+export type ShipmentCreateInput = z.infer<typeof shipmentCreateSchema>;
+export type ShipmentUpdateInput = z.infer<typeof shipmentUpdateSchema>;
 export type ShipmentStatusInput = z.infer<typeof shipmentStatusSchema>;
+export type ShipmentFilterInput = z.infer<typeof shipmentFilterSchema>;
 
 // --- Script reference + version -------------------------------------------
 export const scriptVersionSchema = z.object({
@@ -557,6 +586,9 @@ export const contentFilterSchema = z.object({
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
   q: z.string().trim().max(200).optional(),
+  // Derived assignment status (see contentAssociationStatus in @influenceos/shared)
+  // filtered server-side so pagination stays correct — never a stored column.
+  assignment: z.enum(['FULLY_LINKED', 'CAMPAIGN_LINKED', 'INFLUENCER_LINKED', 'UNASSIGNED']).optional(),
 });
 export type ContentFilter = z.infer<typeof contentFilterSchema>;
 

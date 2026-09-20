@@ -54,38 +54,32 @@ export async function campaignInfluencerRoutes(app: FastifyInstance): Promise<vo
     },
   );
 
-  // --- Product-seeding shipment (W3-5) --------------------------------------
+  // --- Logistics: shipments on this campaign participation (evolved W3-5) ---
+  // A campaign-influencer may have SEVERAL shipments (one per deliverable that
+  // needs a product, plus general/replacement shipments) — see
+  // docs/workflow/WORKFLOW_GAP_MATRIX.md. Individual shipment reads/updates
+  // live at /shipments/:id (shipments.routes.ts) since a shipment now has its
+  // own identity independent of the campaign-influencer that created it.
   r.get(
-    '/campaign-influencers/:id/shipment',
-    { preHandler: [requireAuth], schema: { tags: ['Campaigns'], summary: 'Get the product shipment on a gift record', params: idParam } },
-    async (req) => servicesFor(req).shipments.get(req.params.id),
-  );
-
-  r.put(
-    '/campaign-influencers/:id/shipment',
-    {
-      preHandler: [requireAuth],
-      schema: {
-        tags: ['Campaigns'],
-        summary: 'Create or update the product shipment on a gift record',
-        params: idParam,
-        body: requests.shipmentUpsertSchema,
-      },
-    },
-    async (req) => servicesFor(req).shipments.upsert(req.params.id, req.body),
+    '/campaign-influencers/:id/shipments',
+    { preHandler: [requireAuth], schema: { tags: ['Campaigns'], summary: 'List shipments for a campaign participation', params: idParam } },
+    async (req) => servicesFor(req).shipments.listForCampaignInfluencer(req.params.id),
   );
 
   r.post(
-    '/campaign-influencers/:id/shipment/status',
+    '/campaign-influencers/:id/shipments',
     {
       preHandler: [requireAuth],
       schema: {
         tags: ['Campaigns'],
-        summary: 'Advance the shipment fulfilment status',
+        summary: 'Create a logistics fulfilment request',
         params: idParam,
-        body: requests.shipmentStatusSchema,
+        body: requests.shipmentCreateSchema,
       },
     },
-    async (req) => servicesFor(req).shipments.updateStatus(req.params.id, req.body),
+    async (req, reply) => {
+      reply.status(201);
+      return servicesFor(req).shipments.create(req.params.id, req.body);
+    },
   );
 }

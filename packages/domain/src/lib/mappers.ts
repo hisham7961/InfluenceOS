@@ -8,6 +8,7 @@ import type {
   BrandSummaryDTO,
   ContentMetricsDTO,
   DataSource,
+  DeliverableType,
   ExpenseDTO,
   InfluencerSummaryDTO,
   NotificationDTO,
@@ -284,6 +285,7 @@ export function toPublishedContentDTO(
     influencer?: InfluencerSummaryDTO | null;
     brand?: BrandSummaryDTO | null;
     campaign?: { id: string; name: string; slug: string } | null;
+    deliverable?: { id: string; type: DeliverableType; platform: Platform } | null;
     metrics?: ContentMetricsDTO | null;
     provenanceUpdatedByName?: string | null;
   } = {},
@@ -313,6 +315,7 @@ export function toPublishedContentDTO(
     influencer: rel.influencer ?? null,
     brand: rel.brand ?? null,
     campaign: rel.campaign ?? null,
+    deliverable: rel.deliverable ?? null,
     metrics: rel.metrics ?? null,
   };
 }

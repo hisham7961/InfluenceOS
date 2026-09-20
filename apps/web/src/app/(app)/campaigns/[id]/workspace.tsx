@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  Activity as ActivityIcon,
   AlertCircle,
   CheckCircle2,
   ChevronDown,
@@ -76,11 +75,14 @@ import { PlatformBadge, PlatformIcon } from '@/components/ui/platform-badge';
 import { DealTypeBadge, DeliverableStatusBadge, PaymentStatusBadge } from '@/components/ui/status-badges';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Field, Input, Textarea } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { StatCard } from '@/components/ui/stat-card';
 import { ProgressBar } from '@/components/ui/progress';
 import { InfoTooltip } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ContentGrid } from '@/components/content/content-grid';
+import { AddContentFlow } from '@/components/content/add-content-flow';
+import { ActivityFeed } from '@/components/common/activity-feed';
 import { SourcingTab } from './sourcing-tab';
 import { ShipmentsTab } from './shipments-tab';
 import { SubmissionsTab } from './submissions-tab';
@@ -178,10 +180,7 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
       </TabsContent>
 
       <TabsContent value="content">
-        <ContentGrid
-          items={contentFeed}
-          emptyDescription="Published content for this campaign will show up here once influencers go live."
-        />
+        <LiveContentTab campaign={campaign} influencers={influencers} contentFeed={contentFeed} />
       </TabsContent>
 
       <TabsContent value="shipments">
@@ -211,6 +210,60 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
         <ActivityTab campaignId={campaign.id} />
       </TabsContent>
     </Tabs>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Live Content — same PublishedContent records as the global Live Content
+// page, filtered to this campaign (never a copy — see WORKFLOW_GAP_MATRIX.md).
+// ---------------------------------------------------------------------------
+
+function LiveContentTab({
+  campaign,
+  influencers,
+  contentFeed,
+}: {
+  campaign: CampaignDetailDTO;
+  influencers: CampaignInfluencerDTO[];
+  contentFeed: PublishedContentDTO[];
+}) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-end">
+        <Button type="button" size="sm" onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4" /> Add content
+        </Button>
+      </div>
+      <ContentGrid
+        items={contentFeed}
+        emptyDescription="Published content for this campaign will show up here once influencers go live."
+      />
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add published content</DialogTitle>
+            <DialogDescription>
+              For {campaign.name}. Pick who published it, and optionally which deliverable it fulfills.
+            </DialogDescription>
+          </DialogHeader>
+          <AddContentFlow
+            lockCampaignId={campaign.id}
+            lockCampaignName={campaign.name}
+            rosterScope={influencers}
+            onCancel={() => setOpen(false)}
+            onSuccess={() => {
+              queryClient.invalidateQueries();
+              router.refresh();
+              setOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
@@ -654,6 +707,8 @@ function DeliverableRow({
   const router = useRouter();
   const queryClient = useQueryClient();
   const [removeOpen, setRemoveOpen] = React.useState(false);
+  const [addContentOpen, setAddContentOpen] = React.useState(false);
+  const [submitDraftOpen, setSubmitDraftOpen] = React.useState(false);
 
   const updateStatus = useMutation({
     mutationFn: (status: DeliverableStatus) => api.deliverables.update(deliverable.id, { status }),
@@ -708,6 +763,21 @@ function DeliverableRow({
         </a>
       ) : null}
 
+      {deliverable.requiresProduct ? (
+        <Badge tone="warning" className="inline-flex items-center gap-1">
+          <Package className="h-3 w-3" /> Needs product
+        </Badge>
+      ) : null}
+
+      <Button type="button" variant="ghost" size="sm" onClick={() => setAddContentOpen(true)}>
+        <Plus className="h-3.5 w-3.5" /> Add content
+      </Button>
+      {deliverable.type === 'UGC' ? (
+        <Button type="button" variant="ghost" size="sm" onClick={() => setSubmitDraftOpen(true)}>
+          <FileText className="h-3.5 w-3.5" /> Submit draft
+        </Button>
+      ) : null}
+
       <div className="ms-auto flex items-center gap-2">
         <DeliverableStatusBadge status={deliverable.status} />
         <Select
@@ -747,7 +817,103 @@ function DeliverableRow({
         loading={remove.isPending}
         onConfirm={() => remove.mutate()}
       />
+
+      <Dialog open={addContentOpen} onOpenChange={setAddContentOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add published content</DialogTitle>
+            <DialogDescription>
+              {influencerName ? `For ${influencerName}'s ` : 'For this '}
+              {DELIVERABLE_TYPE_LABELS[deliverable.type].toLowerCase()} deliverable — influencer, campaign and brand are
+              derived automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <AddContentFlow
+            lockDeliverableId={deliverable.id}
+            lockDeliverableLabel={`${influencerName ? `${influencerName}'s ` : ''}${DELIVERABLE_TYPE_LABELS[deliverable.type]}`}
+            onCancel={() => setAddContentOpen(false)}
+            onSuccess={() => {
+              queryClient.invalidateQueries();
+              router.refresh();
+              setAddContentOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <SubmitDraftDialog
+        deliverableId={deliverable.id}
+        open={submitDraftOpen}
+        onOpenChange={setSubmitDraftOpen}
+      />
     </div>
+  );
+}
+
+/**
+ * UGC drafts go through DeliverableSubmission review, never PublishedContent —
+ * no public URL is required to complete this workflow (submission.service.ts
+ * review()'s APPROVE path never creates a PublishedContent row).
+ */
+function SubmitDraftDialog({
+  deliverableId,
+  open,
+  onOpenChange,
+}: {
+  deliverableId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [assetUrl, setAssetUrl] = React.useState('');
+  const [notes, setNotes] = React.useState('');
+
+  React.useEffect(() => {
+    if (open) {
+      setAssetUrl('');
+      setNotes('');
+    }
+  }, [open]);
+
+  const submit = useMutation({
+    mutationFn: () => api.deliverables.submit(deliverableId, { assetUrl: assetUrl.trim() || undefined, notes: notes.trim() || undefined }),
+    onSuccess: () => {
+      toast.success('Draft submitted for review.');
+      queryClient.invalidateQueries();
+      router.refresh();
+      onOpenChange(false);
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Submit draft for review</DialogTitle>
+          <DialogDescription>
+            Owned UGC assets never need a public post — approval completes this deliverable directly.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <Field label="Asset link" hint="Optional — a private file/drive link, if the asset isn't attached separately">
+            <Input value={assetUrl} onChange={(e) => setAssetUrl(e.target.value)} placeholder="https://drive.google.com/…" />
+          </Field>
+          <Field label="Notes" hint="Optional — context for the reviewer">
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+          </Field>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button disabled={submit.isPending} onClick={() => submit.mutate()}>
+            {submit.isPending ? 'Submitting…' : 'Submit for review'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -796,6 +962,7 @@ function AddDeliverableDialog({
   const [quantity, setQuantity] = React.useState('1');
   const [dueDate, setDueDate] = React.useState('');
   const [requirements, setRequirements] = React.useState('');
+  const [requiresProduct, setRequiresProduct] = React.useState(false);
 
   React.useEffect(() => {
     if (campaignInfluencer) {
@@ -804,6 +971,7 @@ function AddDeliverableDialog({
       setQuantity('1');
       setDueDate('');
       setRequirements('');
+      setRequiresProduct(false);
     }
   }, [campaignInfluencer]);
 
@@ -816,6 +984,7 @@ function AddDeliverableDialog({
         quantity: Number(quantity) || 1,
         dueDate: dueDate ? new Date(dueDate) : undefined,
         requirements: requirements.trim() || undefined,
+        requiresProduct,
       });
     },
     onSuccess: () => {
@@ -880,6 +1049,13 @@ function AddDeliverableDialog({
               rows={3}
             />
           </Field>
+          <div className="col-span-2 flex items-center justify-between rounded-lg border border-border bg-surface-muted px-3 py-2.5">
+            <div>
+              <p className="text-sm font-medium text-foreground">Physical product required</p>
+              <p className="text-xs text-muted-foreground">Enables creating a logistics shipment for this deliverable.</p>
+            </div>
+            <Switch aria-label="Physical product required" checked={requiresProduct} onCheckedChange={setRequiresProduct} />
+          </div>
         </div>
 
         <DialogFooter>
@@ -1877,56 +2053,11 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
 // ---------------------------------------------------------------------------
 
 function ActivityTab({ campaignId }: { campaignId: string }) {
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['campaign-activity', campaignId],
-    queryFn: () => api.activity.feed({ campaignId }),
-  });
-
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-16 w-full rounded-2xl" />
-        ))}
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <EmptyState
-        icon={ActivityIcon}
-        title="Couldn't load activity"
-        description="Something went wrong fetching the activity feed. Try again shortly."
-      />
-    );
-  }
-
-  const items = data?.data ?? [];
-  if (items.length === 0) {
-    return <EmptyState icon={ActivityIcon} title="No activity yet" description="Actions taken on this campaign will show up here." />;
-  }
-
   return (
-    <Card className="divide-y divide-border">
-      {items.map((a) => (
-        <div key={a.id} className="flex items-start gap-3 p-4">
-          <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand" />
-          <div className="min-w-0 flex-1">
-            {a.link ? (
-              <Link href={a.link} className="text-sm leading-snug hover:underline">
-                {a.message}
-              </Link>
-            ) : (
-              <p className="text-sm leading-snug">{a.message}</p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              {a.actorName ? `${a.actorName} · ` : ''}
-              {relativeTime(a.createdAt)}
-            </p>
-          </div>
-        </div>
-      ))}
-    </Card>
+    <ActivityFeed
+      filter={{ campaignId }}
+      queryKey={['campaign-activity', campaignId]}
+      emptyDescription="Actions taken on this campaign will show up here."
+    />
   );
 }

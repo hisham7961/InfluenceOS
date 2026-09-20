@@ -16,8 +16,15 @@ import {
   Share2,
   X,
 } from 'lucide-react';
-import type { BrandSummaryDTO, CursorPage, PublishedContentDTO } from '@influenceos/contracts';
-import { CONTENT_STATUSES, CONTENT_STATUS_LABELS, PLATFORMS, PLATFORM_META } from '@influenceos/shared';
+import type { BrandSummaryDTO, CampaignSummaryDTO, CursorPage, InfluencerSummaryDTO, PublishedContentDTO } from '@influenceos/contracts';
+import {
+  CONTENT_ASSOCIATION_STATUS_LABELS,
+  CONTENT_STATUSES,
+  CONTENT_STATUS_LABELS,
+  PLATFORMS,
+  PLATFORM_META,
+  type ContentAssociationStatus,
+} from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-browser';
@@ -44,12 +51,23 @@ type Layout = 'grid' | 'masonry' | 'feed';
 
 interface WallFilters {
   brandId: string;
+  campaignId: string;
+  influencerId: string;
   platform: string;
   status: string;
+  assignment: ContentAssociationStatus | '';
   q: string;
 }
 
-const EMPTY_FILTERS: WallFilters = { brandId: '', platform: '', status: '', q: '' };
+const EMPTY_FILTERS: WallFilters = {
+  brandId: '',
+  campaignId: '',
+  influencerId: '',
+  platform: '',
+  status: '',
+  assignment: '',
+  q: '',
+};
 
 /**
  * The Live Content wall: a social-discovery-style feed of every piece of
@@ -60,9 +78,13 @@ const EMPTY_FILTERS: WallFilters = { brandId: '', platform: '', status: '', q: '
 export function ContentWall({
   initial,
   brands,
+  campaigns,
+  influencers,
 }: {
   initial: CursorPage<PublishedContentDTO>;
   brands: BrandSummaryDTO[];
+  campaigns: CampaignSummaryDTO[];
+  influencers: InfluencerSummaryDTO[];
 }) {
   const [filters, setFilters] = React.useState<WallFilters>(EMPTY_FILTERS);
   const [searchInput, setSearchInput] = React.useState('');
@@ -77,7 +99,15 @@ export function ContentWall({
     return () => clearTimeout(handle);
   }, [searchInput]);
 
-  const hasActiveFilters = Boolean(filters.brandId || filters.platform || filters.status || filters.q);
+  const hasActiveFilters = Boolean(
+    filters.brandId ||
+      filters.campaignId ||
+      filters.influencerId ||
+      filters.platform ||
+      filters.status ||
+      filters.assignment ||
+      filters.q,
+  );
   const isDefaultFilters = !hasActiveFilters;
 
   const query = useInfiniteQuery({
@@ -87,8 +117,11 @@ export function ContentWall({
         cursor: pageParam,
         limit: 24,
         brandId: filters.brandId || undefined,
+        campaignId: filters.campaignId || undefined,
+        influencerId: filters.influencerId || undefined,
         platform: filters.platform || undefined,
         status: filters.status || undefined,
+        assignment: filters.assignment || undefined,
         q: filters.q || undefined,
       }),
     initialPageParam: undefined as string | undefined,
@@ -120,10 +153,23 @@ export function ContentWall({
     <div className="space-y-6">
       <FilterBar
         brands={brands}
+        campaigns={campaigns}
+        influencers={influencers}
         searchInput={searchInput}
         onSearchChange={setSearchInput}
         filters={filters}
-        onFilterChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
+        onFilterChange={(patch) =>
+          setFilters((f) => {
+            // Assignment and campaign/influencer are mutually exclusive filters on
+            // the same underlying columns — picking one clears the other so the
+            // two selects never silently contradict each other.
+            if ('assignment' in patch && patch.assignment) return { ...f, ...patch, campaignId: '', influencerId: '' };
+            if (('campaignId' in patch || 'influencerId' in patch) && f.assignment) {
+              return { ...f, ...patch, assignment: '' };
+            }
+            return { ...f, ...patch };
+          })
+        }
         onReset={resetFilters}
         hasActiveFilters={hasActiveFilters}
         layout={layout}
@@ -171,6 +217,8 @@ export function ContentWall({
 
 function FilterBar({
   brands,
+  campaigns,
+  influencers,
   searchInput,
   onSearchChange,
   filters,
@@ -182,6 +230,8 @@ function FilterBar({
   resultCount,
 }: {
   brands: BrandSummaryDTO[];
+  campaigns: CampaignSummaryDTO[];
+  influencers: InfluencerSummaryDTO[];
   searchInput: string;
   onSearchChange: (value: string) => void;
   filters: WallFilters;
@@ -243,6 +293,59 @@ function FilterBar({
             {CONTENT_STATUSES.map((status) => (
               <SelectItem key={status} value={status}>
                 {CONTENT_STATUS_LABELS[status]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filters.campaignId || ALL}
+          onValueChange={(value) => onFilterChange({ campaignId: value === ALL ? '' : value })}
+        >
+          <SelectTrigger className="h-10 w-full sm:w-40">
+            <SelectValue placeholder="Campaign" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All campaigns</SelectItem>
+            {campaigns.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.brand.name} · {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filters.influencerId || ALL}
+          onValueChange={(value) => onFilterChange({ influencerId: value === ALL ? '' : value })}
+        >
+          <SelectTrigger className="h-10 w-full sm:w-40">
+            <SelectValue placeholder="Influencer" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All influencers</SelectItem>
+            {influencers.map((inf) => (
+              <SelectItem key={inf.id} value={inf.id}>
+                {inf.displayName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filters.assignment || ALL}
+          onValueChange={(value) =>
+            onFilterChange({ assignment: value === ALL ? '' : (value as ContentAssociationStatus) })
+          }
+        >
+          <SelectTrigger className="h-10 w-full sm:w-44">
+            <SelectValue placeholder="Assignment" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All content</SelectItem>
+            {(Object.keys(CONTENT_ASSOCIATION_STATUS_LABELS) as ContentAssociationStatus[]).map((s) => (
+              <SelectItem key={s} value={s}>
+                {CONTENT_ASSOCIATION_STATUS_LABELS[s]}
               </SelectItem>
             ))}
           </SelectContent>

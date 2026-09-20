@@ -23,6 +23,7 @@ import { searchRoutes } from './search.routes';
 import { integrationRoutes } from './integrations.routes';
 import { platformRoutes } from './platform.routes';
 import { fileRoutes } from './files.routes';
+import { shipmentRoutes } from './shipments.routes';
 
 /** Register every v1 route module onto the (already /api/v1-prefixed) instance. */
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
@@ -50,4 +51,5 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   await integrationRoutes(app);
   await platformRoutes(app);
   await fileRoutes(app);
+  await shipmentRoutes(app);
 }

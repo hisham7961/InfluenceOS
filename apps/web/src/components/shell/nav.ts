@@ -4,6 +4,7 @@ import {
   Gauge,
   LayoutDashboard,
   Megaphone,
+  Package,
   PlaySquare,
   Settings,
   Sparkles,
@@ -39,6 +40,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/campaigns', label: 'Campaigns', icon: Megaphone },
       { href: '/content', label: 'Live Content', icon: PlaySquare },
       { href: '/calendar', label: 'Calendar', icon: CalendarDays },
+      { href: '/logistics', label: 'Logistics', icon: Package },
     ],
   },
   {

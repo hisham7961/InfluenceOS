@@ -6,7 +6,7 @@ Every major capability, its backend/API/web status, and whether it is **Mobile R
 (business logic server-side, documented API, server-side auth + permissions, stable
 contracts, media represented independently of the web UI — spec addendum §37).
 
-**Coverage:** 24 features · API ready 23 · Web ready 24 · Mobile ready 21 · Admin-desktop-only 3 · **Mobile readiness 100%** (of SHARED features).
+**Coverage:** 26 features · API ready 25 · Web ready 26 · Mobile ready 23 · Admin-desktop-only 3 · **Mobile readiness 100%** (of SHARED features).
 
 | Feature | Module | Class | API | Web | Mobile Ready | Roles | Flag |
 |---|---|---|---|---|:---:|---|---|
@@ -16,6 +16,8 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Social Accounts & Metrics | Metrics | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Campaign Management | Campaigns | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Deliverables | Deliverables | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Deliverable Submissions & Review | Deliverables | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Logistics & Shipments | Logistics | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Scripts & References | Scripts | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Published Content & Player | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | liveContentEnabled |
 | What's New | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
@@ -58,6 +60,7 @@ contracts, media represented independently of the web UI — spec addendum §37)
 ### Influencer Management
 
 - `GET /api/v1/influencers`
+- `GET /api/v1/influencers/export`
 - `POST /api/v1/influencers`
 - `GET /api/v1/influencers/:id`
 - `PATCH /api/v1/influencers/:id`
@@ -83,6 +86,25 @@ contracts, media represented independently of the web UI — spec addendum §37)
 
 - `POST /api/v1/campaign-influencers/:id/deliverables`
 - `PATCH /api/v1/deliverables/:id`
+
+### Deliverable Submissions & Review
+
+- `GET /api/v1/deliverables/:id/submissions`
+- `POST /api/v1/deliverables/:id/submissions`
+- `GET /api/v1/submissions/:id`
+- `POST /api/v1/submissions/:id/review`
+- `POST /api/v1/submissions/:id/comments`
+- `GET /api/v1/campaigns/:id/submissions`
+
+### Logistics & Shipments
+
+- `GET /api/v1/campaign-influencers/:id/shipments`
+- `POST /api/v1/campaign-influencers/:id/shipments`
+- `GET /api/v1/campaigns/:id/shipments`
+- `GET /api/v1/shipments`
+- `GET /api/v1/shipments/:id`
+- `PATCH /api/v1/shipments/:id`
+- `POST /api/v1/shipments/:id/status`
 
 ### Scripts & References
 

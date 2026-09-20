@@ -341,9 +341,34 @@ requires `role === 'ADMIN'`.
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/v1/campaign-influencers/:id/deliverables` | Add a deliverable to a campaign influencer. |
+| POST | `/api/v1/campaign-influencers/:id/deliverables` | Add a deliverable to a campaign influencer (`requiresProduct` flags gifting-dependent deliverables). |
 | PATCH | `/api/v1/deliverables/:id` | Update a deliverable. |
 | DELETE | `/api/v1/deliverables/:id` | Remove a deliverable. |
+| GET | `/api/v1/deliverables/:id/submissions` | Submissions filed against a deliverable. |
+| POST | `/api/v1/deliverables/:id/submissions` | Submit a draft for review → `201`. UGC deliverables complete on approval without any public URL. |
+| GET | `/api/v1/submissions/:id` | Submission detail. |
+| POST | `/api/v1/submissions/:id/review` | Review a submission (approve / request changes / reject). |
+| POST | `/api/v1/submissions/:id/comments` | Add a threaded review comment → `201`. |
+| GET | `/api/v1/campaigns/:id/submissions` | All submissions across a campaign's roster. |
+
+### Logistics (shipments)
+
+Evolved from a single shipment per campaign participation (W3-5) into a full
+fulfilment workflow: a campaign influencer may have several shipments (one
+per deliverable that needs a product, plus general/replacement shipments),
+each with its own product line items and optional deliverable link. Recipient
+PII (phone/address/delivery instructions) is redacted server-side for the
+`VIEWER` role.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/campaign-influencers/:id/shipments` | Shipments for one campaign participation. |
+| POST | `/api/v1/campaign-influencers/:id/shipments` | Create a shipment (optionally linked to a deliverable, with product line items) → `201`. |
+| GET | `/api/v1/campaigns/:id/shipments` | Product shipments across a campaign roster. |
+| GET | `/api/v1/shipments` | Cross-campaign logistics workspace — filter by status/brand/campaign, cursor-paginated. |
+| GET | `/api/v1/shipments/:id` | Shipment detail with line items. |
+| PATCH | `/api/v1/shipments/:id` | Update fulfilment details (address, courier, tracking, notes). |
+| POST | `/api/v1/shipments/:id/status` | Advance shipment status (auto-stamps `shippedAt`/`deliveredAt`; syncs activity + notification). |
 
 ### Scripts
 
