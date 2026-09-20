@@ -37,10 +37,42 @@ export async function contentRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // Content Command Center pass — one efficient call for the top filter
+  // chips, the daily summary panel and the By Brand overview. Placed before
+  // /content/:id so "summary" is never captured as an :id param.
+  r.get(
+    '/content/summary',
+    {
+      preHandler: [requireAuth],
+      schema: { tags: ['Content'], summary: 'Per-user content counts + brand aggregation', querystring: requests.contentSummaryQuerySchema },
+    },
+    async (req) => servicesFor(req).content.summary(req.query),
+  );
+
   r.get(
     '/content/:id',
     { preHandler: [requireAuth], schema: { tags: ['Content'], summary: 'Content detail + embed descriptor', params: idParam } },
     async (req) => servicesFor(req).content.detail(req.params.id),
+  );
+
+  r.patch(
+    '/content/:id/view-state',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Content'],
+        summary: 'Mark seen / reviewed / review-later for the calling user (Content Command Center)',
+        params: idParam,
+        body: requests.contentViewStateSchema,
+      },
+    },
+    async (req) => servicesFor(req).content.updateViewState(req.params.id, req.body),
+  );
+
+  r.get(
+    '/content/:id/notes',
+    { preHandler: [requireAuth], schema: { tags: ['Content'], summary: 'Internal notes on this content', params: idParam } },
+    async (req) => servicesFor(req).notes.listForContent(req.params.id),
   );
 
   r.patch(

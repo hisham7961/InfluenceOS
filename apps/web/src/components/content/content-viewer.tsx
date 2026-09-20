@@ -1,43 +1,163 @@
 'use client';
 import * as React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, ExternalLink, RefreshCw } from 'lucide-react';
-import type { PublishedContentDTO } from '@influenceos/contracts';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Bookmark, BookmarkCheck, Check, ChevronLeft, ChevronRight, ExternalLink, RefreshCw, SkipForward, Undo2 } from 'lucide-react';
+import type { ContentViewerStateDTO, PublishedContentDTO } from '@influenceos/contracts';
+import { contentReviewStatus } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { PlatformBadge } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
+import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { SocialContentPlayer } from './social-content-player';
+import { ContentNotesPanel } from './content-notes-panel';
 import { dateTime, formatCompact, relativeTime } from '@/lib/format';
 
+const EMPTY_STATE: ContentViewerStateDTO = { firstSeenAt: null, lastOpenedAt: null, reviewedAt: null, savedForLaterAt: null };
+
+function invalidateReviewQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({
+    predicate: (q) => {
+      const root = q.queryKey[0];
+      return root === 'content-feed' || root === 'content-summary' || root === 'dashboard-global' || root === 'influencer-activity';
+    },
+  });
+}
+
+/**
+ * The ONE Content Viewer, reused everywhere content opens (Live Content,
+ * Mission Control's What's New/Review New Content, Campaign, Influencer,
+ * Brand). Owns per-item view-state locally (seeded from whatever `items`
+ * carried in) so New/Seen/Reviewed badges update instantly inside the
+ * dialog; explicit review-state changes also invalidate the feed/summary
+ * queries so the grid behind it catches up. Opening an item always marks it
+ * Seen — for the CURRENT USER only (UserContentState is per-user) — never
+ * Reviewed, and never logged to the shared ActivityLog (that would be noise
+ * for every passive open).
+ */
 export function ContentViewer({
   items,
   index,
   onIndexChange,
   open,
   onOpenChange,
+  reviewMode = false,
+  reviewProgress,
 }: {
   items: PublishedContentDTO[];
   index: number;
   onIndexChange: (i: number) => void;
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  /** Review Mode (item 28-31): shows review progress and auto-advances to the next unreviewed item after "Mark Reviewed". */
+  reviewMode?: boolean;
+  /** Optional externally-tracked "N of M reviewed" — falls back to counting `items` locally. */
+  reviewProgress?: { done: number; total: number };
 }) {
-  const content = items[index];
+  const queryClient = useQueryClient();
+  const [localState, setLocalState] = React.useState<Record<string, ContentViewerStateDTO>>({});
+  const raw = items[index];
+  const content: PublishedContentDTO | undefined = raw
+    ? { ...raw, viewerState: localState[raw.id] ?? raw.viewerState }
+    : undefined;
+
+  const markSeen = React.useCallback((c: PublishedContentDTO) => {
+    if (c.viewerState?.firstSeenAt) {
+      // Already seen — still bump lastOpenedAt locally, but no need for a
+      // fresh network round trip on every re-open in the same session.
+      return;
+    }
+    const now = new Date().toISOString();
+    setLocalState((s) => ({ ...s, [c.id]: { ...(s[c.id] ?? c.viewerState ?? EMPTY_STATE), firstSeenAt: now, lastOpenedAt: now } }));
+    api.content.updateViewState(c.id, { seen: true }).catch(() => undefined);
+  }, []);
+
+  React.useEffect(() => {
+    if (!open || !content) return;
+    markSeen(content);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, content?.id]);
+
+  const setReviewed = React.useCallback(
+    async (c: PublishedContentDTO, reviewed: boolean) => {
+      const now = new Date().toISOString();
+      setLocalState((s) => ({
+        ...s,
+        [c.id]: { ...(s[c.id] ?? c.viewerState ?? EMPTY_STATE), reviewedAt: reviewed ? now : null },
+      }));
+      await api.content.updateViewState(c.id, { reviewed });
+      invalidateReviewQueries(queryClient);
+    },
+    [queryClient],
+  );
+
+  const setReviewLater = React.useCallback(
+    async (c: PublishedContentDTO, saved: boolean) => {
+      const now = new Date().toISOString();
+      setLocalState((s) => ({
+        ...s,
+        [c.id]: { ...(s[c.id] ?? c.viewerState ?? EMPTY_STATE), savedForLaterAt: saved ? now : null },
+      }));
+      await api.content.updateViewState(c.id, { reviewLater: saved });
+      invalidateReviewQueries(queryClient);
+    },
+    [queryClient],
+  );
+
+  const effectiveState = React.useCallback(
+    (c: PublishedContentDTO) => localState[c.id] ?? c.viewerState ?? null,
+    [localState],
+  );
+
+  const findNextUnreviewed = React.useCallback(
+    (from: number) => {
+      for (let i = from + 1; i < items.length; i++) {
+        const item = items[i]!;
+        if (!effectiveState(item)?.reviewedAt) return i;
+      }
+      return -1;
+    },
+    [items, effectiveState],
+  );
 
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
       if (e.key === 'ArrowRight' && index < items.length - 1) onIndexChange(index + 1);
-      if (e.key === 'ArrowLeft' && index > 0) onIndexChange(index - 1);
+      else if (e.key === 'ArrowLeft' && index > 0) onIndexChange(index - 1);
+      else if ((e.key === 'r' || e.key === 'R') && content) {
+        void setReviewed(content, !effectiveState(content)?.reviewedAt);
+      } else if ((e.key === 's' || e.key === 'S') && content) {
+        void setReviewLater(content, !effectiveState(content)?.savedForLaterAt);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, index, items.length, onIndexChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, index, items.length, onIndexChange, content?.id]);
 
   if (!content) return null;
+  const state = effectiveState(content);
+  const isReviewed = !!state?.reviewedAt;
+  const isSavedForLater = !!state?.savedForLaterAt;
+  const progress = reviewProgress ?? {
+    done: items.filter((c) => !!effectiveState(c)?.reviewedAt).length,
+    total: items.length,
+  };
+
+  async function handleMarkReviewed() {
+    if (!content) return;
+    await setReviewed(content, !isReviewed);
+    if (reviewMode && !isReviewed) {
+      const next = findNextUnreviewed(index);
+      if (next !== -1) onIndexChange(next);
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -48,13 +168,54 @@ export function ContentViewer({
           </div>
           <ContentDetails content={content} />
         </div>
-        <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-2.5">
+          <Button
+            type="button"
+            variant={isReviewed ? 'secondary' : 'outline'}
+            size="sm"
+            onClick={handleMarkReviewed}
+            title="Mark Reviewed (R)"
+          >
+            {isReviewed ? <Undo2 className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+            {isReviewed ? 'Mark Unreviewed' : 'Mark Reviewed'}
+          </Button>
+          <Button
+            type="button"
+            variant={isSavedForLater ? 'secondary' : 'outline'}
+            size="sm"
+            onClick={() => setReviewLater(content, !isSavedForLater)}
+            title="Review Later (S)"
+          >
+            {isSavedForLater ? <BookmarkCheck className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
+            {isSavedForLater ? 'Saved for later' : 'Review Later'}
+          </Button>
+
+          {reviewMode ? (
+            <span className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
+              {progress.done} of {progress.total} reviewed
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={findNextUnreviewed(index) === -1}
+                onClick={() => {
+                  const next = findNextUnreviewed(index);
+                  if (next !== -1) onIndexChange(next);
+                }}
+              >
+                Next unreviewed <SkipForward className="h-3.5 w-3.5" />
+              </Button>
+            </span>
+          ) : (
+            <span className="ms-auto text-xs text-muted-foreground">
+              {index + 1} of {items.length}
+            </span>
+          )}
+
           <Button variant="ghost" size="sm" disabled={index <= 0} onClick={() => onIndexChange(index - 1)}>
             <ChevronLeft className="h-4 w-4" /> Previous
           </Button>
-          <span className="text-xs text-muted-foreground">
-            {index + 1} of {items.length}
-          </span>
           <Button variant="ghost" size="sm" disabled={index >= items.length - 1} onClick={() => onIndexChange(index + 1)}>
             Next <ChevronRight className="h-4 w-4" />
           </Button>
@@ -70,20 +231,25 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
     queryFn: () => api.content.monitoring(content.id),
   });
   const m = content.metrics;
+  const reviewStatus = contentReviewStatus(content.viewerState);
 
   return (
     <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto p-5">
       <div className="flex items-center gap-3">
         <Avatar name={content.influencer?.displayName ?? '—'} src={content.influencer?.avatarUrl} size="md" />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{content.influencer?.displayName ?? 'Unassigned'}</p>
           <p className="truncate text-xs text-muted-foreground">{content.campaign?.name ?? content.brand?.name ?? '—'}</p>
         </div>
+        <Badge tone={reviewStatus === 'NEW' ? 'info' : reviewStatus === 'REVIEWED' ? 'success' : 'neutral'}>
+          {reviewStatus === 'NEW' ? 'New' : reviewStatus === 'REVIEWED' ? 'Reviewed' : 'Seen'}
+        </Badge>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <PlatformBadge platform={content.platform} withLabel />
         <ContentStatusBadge status={content.availabilityStatus} />
+        {content.deliverable ? <Badge tone="accent">{content.deliverable.type}</Badge> : null}
       </div>
 
       {content.caption ? <p className="text-sm text-muted-foreground">{content.caption}</p> : null}
@@ -111,7 +277,7 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
         </div>
       ) : null}
 
-      <div className="mt-auto flex gap-2">
+      <div className="flex gap-2">
         <Button asChild variant="secondary" size="sm" className="flex-1">
           <a href={content.originalUrl} target="_blank" rel="noopener noreferrer">
             Open original <ExternalLink className="h-3.5 w-3.5" />
@@ -119,6 +285,8 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
         </Button>
         <RefreshButton id={content.id} />
       </div>
+
+      <ContentNotesPanel contentId={content.id} />
     </div>
   );
 }

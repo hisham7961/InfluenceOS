@@ -150,6 +150,8 @@ export const NOTIFICATION_CATEGORIES = [
   'NEW_CONTENT',
   'FOLLOWER_MILESTONE',
   'USAGE_RIGHT_EXPIRING',
+  'SHIPMENT_DELIVERED',
+  'SUBMISSION_APPROVED',
   'GENERAL',
 ] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];

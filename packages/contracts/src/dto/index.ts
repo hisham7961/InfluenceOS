@@ -50,6 +50,8 @@ export interface UserDTO {
   avatarUrl: string | null;
   locale: string;
   theme: string;
+  /** Preferred content discovery layout (timeline/brand/grid/masonry/feed) — null = client default. */
+  contentLayout: string | null;
   isActive: boolean;
   lastLoginAt: string | null;
 }
@@ -553,6 +555,19 @@ export interface MonitoringEventDTO {
  * normalized data + an embed descriptor; each client (Web now, Mobile later)
  * decides how to render it. Never returns frontend markup.
  */
+/**
+ * The current user's own New/Seen/Reviewed/Review-Later state for one piece
+ * of content — never shared across users (UserContentState is keyed by
+ * (userId, publishedContentId); see packages/shared contentReviewStatus for
+ * the NEW/SEEN/REVIEWED derivation from these four timestamps).
+ */
+export interface ContentViewerStateDTO {
+  firstSeenAt: string | null;
+  lastOpenedAt: string | null;
+  reviewedAt: string | null;
+  savedForLaterAt: string | null;
+}
+
 export interface PublishedContentDTO {
   id: string;
   platform: Platform;
@@ -575,6 +590,40 @@ export interface PublishedContentDTO {
   /** Which deliverable this content fulfills, if any — null for independent/unlinked content. */
   deliverable: { id: string; type: DeliverableType; platform: Platform } | null;
   metrics: ContentMetricsDTO | null;
+  /** null only when the request has no authenticated actor (never in practice — every content route requires auth). */
+  viewerState: ContentViewerStateDTO | null;
+}
+
+// --- Content Command Center (per-user summary + brand aggregation) ---------
+export interface ContentDailySummaryDTO {
+  total: number;
+  new: number;
+  seen: number;
+  reviewed: number;
+  alerts: number;
+  brandsActive: number;
+}
+
+export interface BrandContentSummaryDTO {
+  brandId: string;
+  brandName: string;
+  logoUrl: string | null;
+  primaryColor: string;
+  today: number;
+  new: number;
+  alerts: number;
+  latestContentAt: string | null;
+}
+
+export interface ContentSummaryDTO {
+  new: number;
+  seen: number;
+  reviewed: number;
+  reviewLater: number;
+  unassigned: number;
+  alerts: number;
+  today: ContentDailySummaryDTO;
+  brands: BrandContentSummaryDTO[];
 }
 
 // --- Costs -----------------------------------------------------------------
@@ -719,6 +768,7 @@ export interface NoteDTO {
   body: string;
   influencerId: string | null;
   brandId: string | null;
+  publishedContentId: string | null;
   authorName: string | null;
   pinned: boolean;
   createdAt: string;
@@ -857,7 +907,8 @@ export interface AttentionItemDTO {
     | 'SYNC_FAILURE'
     | 'CAMPAIGN_ENDING'
     | 'OVER_BUDGET'
-    | 'MISSING_LINK';
+    | 'MISSING_LINK'
+    | 'UNASSIGNED_CONTENT';
   title: string;
   description: string;
   severity: 'warning' | 'danger';
@@ -867,12 +918,43 @@ export interface AttentionItemDTO {
 
 export interface WhatsNewItemDTO {
   id: string;
-  kind: 'CONTENT_PUBLISHED' | 'INFLUENCER_ADDED' | 'CAMPAIGN_LAUNCHED' | 'CAMPAIGN_COMPLETED' | 'FOLLOWER_MILESTONE' | 'CONTENT_REMOVED' | 'DEADLINE_APPROACHING';
+  kind:
+    | 'CONTENT_PUBLISHED'
+    | 'INFLUENCER_ADDED'
+    | 'CAMPAIGN_LAUNCHED'
+    | 'CAMPAIGN_COMPLETED'
+    | 'FOLLOWER_MILESTONE'
+    | 'CONTENT_REMOVED'
+    | 'DEADLINE_APPROACHING'
+    | 'DELIVERABLE_OVERDUE'
+    | 'SHIPMENT_DELIVERED'
+    | 'SUBMISSION_APPROVED'
+    | 'USAGE_RIGHT_EXPIRING';
   at: string;
   content?: PublishedContentDTO;
   title: string;
   subtitle: string | null;
   link: string;
+}
+
+/**
+ * "Since your last visit" summary (Content Command Center pass) — a small
+ * set of REAL, already-recorded event counts since the user's own
+ * lastWhatsNewViewedAt checkpoint, never a raw ActivityLog dump and never a
+ * fabricated category. Each count is 0 when that event type didn't occur —
+ * the web layer only renders lines with count > 0.
+ */
+export interface WhatsNewSummaryDTO {
+  since: string | null;
+  newContent: number;
+  campaignsLaunched: number;
+  contentAlerts: number;
+  overdueDeliverables: number;
+  shipmentsDelivered: number;
+  submissionsApproved: number;
+  usageRightsExpiring: number;
+  items: WhatsNewItemDTO[];
+  byBrand: { brandId: string; brandName: string; updates: number; newContent: number; alerts: number }[];
 }
 
 export interface ActiveCampaignCardDTO {
@@ -892,10 +974,14 @@ export interface UpcomingContentDTO {
 export interface GlobalDashboardDTO {
   pulse: PulseDTO;
   whatsNew: WhatsNewItemDTO[];
+  /** "Since your last visit" — see WhatsNewSummaryDTO. Reuses the same underlying data as `whatsNew`. */
+  whatsNewSummary: WhatsNewSummaryDTO;
   attention: AttentionItemDTO[];
   activeCampaigns: ActiveCampaignCardDTO[];
   upcomingContent: UpcomingContentDTO[];
   recentActivity: ActivityDTO[];
+  /** Reuses GET /content/summary — powers the "Review New Content" CTA's count. */
+  contentSummary: ContentSummaryDTO;
 }
 
 export interface BrandDashboardDTO extends GlobalDashboardDTO {

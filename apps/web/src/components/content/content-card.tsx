@@ -1,6 +1,7 @@
 'use client';
-import { Heart, MessageCircle, Play, Eye } from 'lucide-react';
+import { Check, Heart, MessageCircle, Play, Eye } from 'lucide-react';
 import type { PublishedContentDTO } from '@influenceos/contracts';
+import { contentReviewStatus } from '@influenceos/shared';
 import { formatCompact } from '@/lib/format';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
@@ -8,17 +9,40 @@ import { Avatar } from '@/components/ui/avatar';
 import { relativeTime } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
+export const ALERT_STATUSES = new Set(['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BROKEN_LINK']);
+
+/**
+ * Media-first card — thumbnail dominates, everything else is a light overlay
+ * or a single compact row underneath. New/Seen/Reviewed come from the SAME
+ * derived contentReviewStatus() used by the Viewer, filter chips and daily
+ * summary — never a separate per-card computation.
+ */
 export function ContentCard({ content, onOpen }: { content: PublishedContentDTO; onOpen: () => void }) {
   const m = content.metrics;
+  const reviewStatus = contentReviewStatus(content.viewerState);
+  const isAlert = ALERT_STATUSES.has(content.availabilityStatus);
+
   return (
     <button
       onClick={onOpen}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card text-start shadow-card transition-all hover:-translate-y-0.5 hover:shadow-pop"
+      className={cn(
+        'group flex flex-col overflow-hidden rounded-2xl border bg-card text-start shadow-card transition-all hover:-translate-y-0.5 hover:shadow-pop',
+        reviewStatus === 'SEEN' ? 'border-border/70' : 'border-border',
+      )}
     >
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-gradient-to-br from-neutral-800 to-neutral-900">
         {content.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={content.thumbnailUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+          <img
+            src={content.thumbnailUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className={cn(
+              'h-full w-full object-cover transition-transform duration-300 group-hover:scale-105',
+              reviewStatus === 'SEEN' && 'opacity-90',
+            )}
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <PlatformIcon platform={content.platform} className="h-12 w-12 text-white/30" />
@@ -29,9 +53,18 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 backdrop-blur">
             <PlatformIcon platform={content.platform} className="h-3.5 w-3.5 text-white" />
           </span>
+          {reviewStatus === 'NEW' ? (
+            <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-foreground shadow-sm">
+              New
+            </span>
+          ) : reviewStatus === 'REVIEWED' ? (
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/40 text-success backdrop-blur" aria-label="Reviewed">
+              <Check className="h-3.5 w-3.5" />
+            </span>
+          ) : null}
         </div>
         <div className="absolute right-3 top-3">
-          <ContentStatusBadge status={content.availabilityStatus} />
+          {isAlert ? <ContentStatusBadge status={content.availabilityStatus} /> : null}
         </div>
         {content.embeddable && (
           <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">

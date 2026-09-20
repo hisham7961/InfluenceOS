@@ -151,9 +151,10 @@ export const updatePreferencesSchema = z
   .object({
     locale: z.enum(['en', 'ar']).optional(),
     theme: z.enum(['light', 'dark', 'system']).optional(),
+    contentLayout: z.enum(['timeline', 'brand', 'grid', 'masonry', 'feed']).optional(),
   })
-  .refine((v) => v.locale !== undefined || v.theme !== undefined, {
-    message: 'Provide a locale and/or a theme.',
+  .refine((v) => v.locale !== undefined || v.theme !== undefined || v.contentLayout !== undefined, {
+    message: 'Provide a locale, theme and/or content layout.',
   });
 export type UpdatePreferencesInput = z.infer<typeof updatePreferencesSchema>;
 
@@ -589,8 +590,38 @@ export const contentFilterSchema = z.object({
   // Derived assignment status (see contentAssociationStatus in @influenceos/shared)
   // filtered server-side so pagination stays correct — never a stored column.
   assignment: z.enum(['FULLY_LINKED', 'CAMPAIGN_LINKED', 'INFLUENCER_LINKED', 'UNASSIGNED']).optional(),
+  // Current-user review state (Content Command Center pass) — filtered
+  // server-side against UserContentState scoped to the caller, so pagination
+  // stays correct and one user's filter can never leak another's state.
+  reviewState: z.enum(['NEW', 'SEEN', 'REVIEWED', 'REVIEW_LATER']).optional(),
+  // The "Alerts" filter chip — any availability status that needs attention,
+  // server-side so pagination stays correct (matches REMOVED_STATUSES).
+  alertsOnly: z.coerce.boolean().optional(),
 });
 export type ContentFilter = z.infer<typeof contentFilterSchema>;
+
+// Mark seen / reviewed / review-later on one piece of content, scoped to the
+// calling user. `seen: true` is what the Viewer/detail page sends on open —
+// idempotent (firstSeenAt is set once, lastOpenedAt always advances).
+export const contentViewStateSchema = z
+  .object({
+    seen: z.literal(true).optional(),
+    reviewed: z.boolean().optional(),
+    reviewLater: z.boolean().optional(),
+  })
+  .refine((v) => v.seen !== undefined || v.reviewed !== undefined || v.reviewLater !== undefined, {
+    message: 'Provide at least one of seen, reviewed or reviewLater.',
+  });
+export type ContentViewStateInput = z.infer<typeof contentViewStateSchema>;
+
+// The client passes its OWN local day boundary (not computed server-side in
+// UTC) so "today" in the daily summary always matches the user's actual
+// timezone-correct Timeline grouping — see docs on ContentDailySummaryDTO.
+export const contentSummaryQuerySchema = z.object({
+  todayStart: z.coerce.date().optional(),
+  todayEnd: z.coerce.date().optional(),
+});
+export type ContentSummaryQuery = z.infer<typeof contentSummaryQuerySchema>;
 
 // --- Expense ---------------------------------------------------------------
 export const expenseCreateSchema = z.object({
@@ -635,12 +666,17 @@ export const attachmentCompleteSchema = z.object({
 });
 
 // --- Note ------------------------------------------------------------------
-export const noteCreateSchema = z.object({
-  body: z.string().trim().min(1).max(5000),
-  influencerId: cuid.optional().nullable(),
-  brandId: cuid.optional().nullable(),
-  pinned: z.boolean().default(false),
-});
+export const noteCreateSchema = z
+  .object({
+    body: z.string().trim().min(1).max(5000),
+    influencerId: cuid.optional().nullable(),
+    brandId: cuid.optional().nullable(),
+    publishedContentId: cuid.optional().nullable(),
+    pinned: z.boolean().default(false),
+  })
+  .refine((v) => !!(v.influencerId || v.brandId || v.publishedContentId), {
+    message: 'A note must be attached to an influencer, a brand, or a piece of content.',
+  });
 
 // --- Notifications ---------------------------------------------------------
 export const notificationFilterSchema = z.object({

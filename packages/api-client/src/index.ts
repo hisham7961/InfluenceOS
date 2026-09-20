@@ -19,6 +19,8 @@ import type {
   CampaignSummaryDTO,
   ClientConfigDTO,
   ContentMetricsDTO,
+  ContentSummaryDTO,
+  ContentViewerStateDTO,
   CostSummaryDTO,
   CreatorLeaderboardDTO,
   CursorPage,
@@ -173,6 +175,9 @@ export function createClient(config: ClientConfig) {
       update: (id: string, body: { body?: string; pinned?: boolean }) =>
         http.patch<NoteDTO>(`${V}/notes/${id}`, body),
       remove: (id: string) => http.del<void>(`${V}/notes/${id}`),
+      // Internal notes on a piece of content (Content Command Center pass) —
+      // reuses this same Note model, not a parallel comment system.
+      forContent: (publishedContentId: string) => http.get<NoteDTO[]>(`${V}/content/${publishedContentId}/notes`),
     },
 
     campaigns: {
@@ -276,6 +281,12 @@ export function createClient(config: ClientConfig) {
       addMetrics: (id: string, body: In<typeof requests.contentMetricSchema>) =>
         http.post<PublishedContentDTO>(`${V}/content/${id}/metrics`, body),
       refresh: (id: string) => http.post<PublishedContentDTO>(`${V}/content/${id}/refresh`),
+      // Content Command Center — per-user counts + brand aggregation, and the
+      // seen/reviewed/review-later mutation the Viewer and card actions send.
+      summary: (params?: { todayStart?: string; todayEnd?: string }) =>
+        http.get<ContentSummaryDTO>(`${V}/content/summary`, { query: params }),
+      updateViewState: (id: string, body: In<typeof requests.contentViewStateSchema>) =>
+        http.patch<ContentViewerStateDTO>(`${V}/content/${id}/view-state`, body),
     },
 
     expenses: {
@@ -291,6 +302,10 @@ export function createClient(config: ClientConfig) {
         http.get<GlobalDashboardDTO['attention']>(`${V}/dashboard/attention`, { query: { brandId } }),
       whatsNew: (brandId?: string) =>
         http.get<GlobalDashboardDTO['whatsNew']>(`${V}/whats-new`, { query: { brandId } }),
+      // Advances the caller's own "since your last visit" checkpoint — call
+      // this when the person opens/dismisses the What's New panel, never on
+      // a passive GET (item 57).
+      whatsNewAck: () => http.post<{ lastWhatsNewViewedAt: string }>(`${V}/dashboard/whats-new/ack`),
     },
 
     calendar: {

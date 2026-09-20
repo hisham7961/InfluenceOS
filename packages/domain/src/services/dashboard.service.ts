@@ -1,3 +1,4 @@
+import type { NotificationCategory } from '@influenceos/database';
 import type {
   ActiveCampaignCardDTO,
   ActivityDTO,
@@ -7,16 +8,33 @@ import type {
   PulseDTO,
   UpcomingContentDTO,
   WhatsNewItemDTO,
+  WhatsNewSummaryDTO,
 } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
+import { requireActor } from '../lib/authz';
+import { iso } from '../lib/helpers';
 import { moneyNumberOr0, sumMoney } from '../lib/money';
 import { toActivityDTO } from '../lib/mappers';
+import { scopedBrandIds } from '../lib/scope';
 import { makeBrandService } from './brand.service';
 import { makeCampaignService } from './campaign.service';
 import { makeContentService } from './content.service';
 
 const REMOVED_STATUSES = ['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BROKEN_LINK'] as const;
 const OPEN_DELIVERABLE_STATUSES = ['PLANNED', 'SENT_TO_INFLUENCER', 'AWAITING_PUBLICATION'] as const;
+// Real, already-recorded event categories worth surfacing in "What's New" —
+// deliberately excludes GENERAL/SYNC_FAILURE/DELIVERABLE_DUE_SOON/
+// CAMPAIGN_ENDING to avoid noise (item 38: this is not an ActivityLog dump).
+const WHATS_NEW_CATEGORIES: NotificationCategory[] = [
+  'NEW_CONTENT',
+  'CONTENT_REMOVED',
+  'CONTENT_UNAVAILABLE',
+  'DELIVERABLE_OVERDUE',
+  'SHIPMENT_DELIVERED',
+  'SUBMISSION_APPROVED',
+  'USAGE_RIGHT_EXPIRING',
+];
+const ALERT_CATEGORIES: NotificationCategory[] = ['CONTENT_REMOVED', 'CONTENT_UNAVAILABLE'];
 
 export function makeDashboardService(ctx: DomainContext) {
   const { prisma } = ctx;
@@ -24,6 +42,13 @@ export function makeDashboardService(ctx: DomainContext) {
   const campaigns = makeCampaignService(ctx);
 
   const brandFilter = (brandId?: string) => (brandId ? { brandId } : {});
+
+  /** The caller's own "What's New" checkpoint — never lastLoginAt (item 35). */
+  async function checkpoint(): Promise<Date | null> {
+    const actor = requireActor(ctx);
+    const user = await prisma.user.findUnique({ where: { id: actor.id }, select: { lastWhatsNewViewedAt: true } });
+    return user?.lastWhatsNewViewedAt ?? null;
+  }
   const deliverableBrandFilter = (brandId?: string) =>
     brandId ? { campaignInfluencer: { campaign: { brandId } } } : {};
 
@@ -97,10 +122,26 @@ export function makeDashboardService(ctx: DomainContext) {
     };
   }
 
+  /**
+   * "Since your last visit" (Content Command Center pass) — driven by the
+   * caller's own lastWhatsNewViewedAt checkpoint, NEVER lastLoginAt (a user
+   * can log in without ever opening this panel — item 35) and never just
+   * "the most recent N items" (item 34). A user who has never acknowledged
+   * What's New sees the last 7 days, a sane bound rather than their entire
+   * history.
+   */
+  async function whatsNewSince(): Promise<Date> {
+    const since = await checkpoint();
+    return since ?? new Date(Date.now() - 7 * 864e5);
+  }
+
   async function whatsNew(brandId?: string, limit = 14): Promise<WhatsNewItemDTO[]> {
+    const since = await whatsNewSince();
+    const scope = await scopedBrandIds(ctx);
+    const scopeWhere = scope ? { brandId: { in: scope } } : {};
     const recentContent = await prisma.publishedContent.findMany({
-      where: brandFilter(brandId),
-      include: content.relInclude,
+      where: { ...scopeWhere, ...brandFilter(brandId), detectedAt: { gt: since } },
+      include: content.relIncludeFor(ctx.actor?.id),
       orderBy: [{ detectedAt: 'desc' }],
       take: limit,
     });
@@ -119,12 +160,75 @@ export function makeDashboardService(ctx: DomainContext) {
     return items.sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, limit);
   }
 
+  /** Advance the caller's own checkpoint — called explicitly when the client acknowledges What's New, never as a GET side effect. */
+  async function whatsNewAck(): Promise<string> {
+    const actor = requireActor(ctx);
+    const now = new Date();
+    await prisma.user.update({ where: { id: actor.id }, data: { lastWhatsNewViewedAt: now } });
+    return now.toISOString();
+  }
+
+  async function whatsNewSummary(brandId?: string): Promise<WhatsNewSummaryDTO> {
+    const since = await checkpoint();
+    const effectiveSince = since ?? new Date(Date.now() - 7 * 864e5);
+    const scope = await scopedBrandIds(ctx);
+    const scopeWhere = scope ? { brandId: { in: scope } } : {};
+    const brandWhere = brandFilter(brandId);
+    const notifWhere = { ...scopeWhere, ...brandWhere, createdAt: { gt: effectiveSince } };
+
+    const [items, newContent, campaignsLaunched, byCategory, byBrandRows, brands] = await Promise.all([
+      whatsNew(brandId, 20),
+      prisma.publishedContent.count({ where: { ...scopeWhere, ...brandWhere, detectedAt: { gt: effectiveSince } } }),
+      prisma.campaign.count({ where: { ...scopeWhere, ...brandWhere, status: 'ACTIVE', createdAt: { gt: effectiveSince } } }),
+      prisma.notification.groupBy({
+        by: ['category'],
+        where: { ...notifWhere, category: { in: WHATS_NEW_CATEGORIES } },
+        _count: true,
+      }),
+      prisma.notification.groupBy({
+        by: ['brandId', 'category'],
+        where: { ...scopeWhere, createdAt: { gt: effectiveSince }, brandId: { not: null }, category: { in: WHATS_NEW_CATEGORIES } },
+        _count: true,
+      }),
+      prisma.brand.findMany({ where: scope ? { id: { in: scope } } : {}, select: { id: true, name: true } }),
+    ]);
+
+    const countFor = (cats: NotificationCategory[]) =>
+      byCategory.filter((r) => cats.includes(r.category)).reduce((sum, r) => sum + r._count, 0);
+
+    const brandNames = new Map(brands.map((b) => [b.id, b.name]));
+    const byBrandMap = new Map<string, { updates: number; newContent: number; alerts: number }>();
+    for (const row of byBrandRows) {
+      if (!row.brandId) continue;
+      const entry = byBrandMap.get(row.brandId) ?? { updates: 0, newContent: 0, alerts: 0 };
+      entry.updates += row._count;
+      if (row.category === 'NEW_CONTENT') entry.newContent += row._count;
+      if (ALERT_CATEGORIES.includes(row.category)) entry.alerts += row._count;
+      byBrandMap.set(row.brandId, entry);
+    }
+
+    return {
+      since: iso(since),
+      newContent,
+      campaignsLaunched,
+      contentAlerts: countFor(ALERT_CATEGORIES),
+      overdueDeliverables: countFor(['DELIVERABLE_OVERDUE']),
+      shipmentsDelivered: countFor(['SHIPMENT_DELIVERED']),
+      submissionsApproved: countFor(['SUBMISSION_APPROVED']),
+      usageRightsExpiring: countFor(['USAGE_RIGHT_EXPIRING']),
+      items,
+      byBrand: Array.from(byBrandMap.entries())
+        .map(([brandId_, v]) => ({ brandId: brandId_, brandName: brandNames.get(brandId_) ?? 'Unknown brand', ...v }))
+        .sort((a, b) => b.updates - a.updates),
+    };
+  }
+
   async function attention(brandId?: string, limit = 12): Promise<AttentionItemDTO[]> {
     const now = new Date();
     const in5 = new Date(now.getTime() + 5 * 864e5);
     const out: AttentionItemDTO[] = [];
 
-    const [overdue, removed, endingSoon] = await Promise.all([
+    const [overdue, removed, endingSoon, unassignedCount] = await Promise.all([
       prisma.deliverable.findMany({
         where: {
           dueDate: { lt: now },
@@ -154,6 +258,10 @@ export function makeDashboardService(ctx: DomainContext) {
         orderBy: { endDate: 'asc' },
         take: limit,
       }),
+      // Content Command Center pass — reuses the SAME "no campaign, no
+      // influencer" derivation as everywhere else (never a stored column),
+      // one roll-up entry rather than a row per item.
+      prisma.publishedContent.count({ where: { campaignId: null, influencerId: null, ...brandFilter(brandId) } }),
     ]);
 
     for (const d of overdue) {
@@ -187,6 +295,18 @@ export function makeDashboardService(ctx: DomainContext) {
         severity: 'warning',
         link: `/campaigns/${c.id}`,
         at: (c.endDate ?? now).toISOString(),
+      });
+    }
+
+    if (unassignedCount > 0) {
+      out.push({
+        id: 'unassigned-content',
+        kind: 'UNASSIGNED_CONTENT',
+        title: `${unassignedCount} unassigned content item${unassignedCount === 1 ? '' : 's'}`,
+        description: 'Published content with no campaign or influencer linked yet — resolve it from the content wall.',
+        severity: 'warning',
+        link: '/content?assignment=UNASSIGNED',
+        at: now.toISOString(),
       });
     }
 
@@ -243,22 +363,28 @@ export function makeDashboardService(ctx: DomainContext) {
   }
 
   async function global(brandId?: string): Promise<GlobalDashboardDTO> {
-    const [pulseData, whatsNewData, attentionData, activeData, upcomingData, activityData] =
+    const [pulseData, whatsNewData, whatsNewSummaryData, attentionData, activeData, upcomingData, activityData, contentSummaryData] =
       await Promise.all([
         pulse(brandId),
         whatsNew(brandId),
+        whatsNewSummary(brandId),
         attention(brandId),
         activeCampaignCards(brandId),
         upcomingContent(brandId),
         recentActivity(brandId),
+        // Reused for the "Review New Content" CTA's count — same
+        // GET /content/summary aggregation, not a second computation.
+        content.summary({}),
       ]);
     return {
       pulse: pulseData,
       whatsNew: whatsNewData,
+      whatsNewSummary: whatsNewSummaryData,
       attention: attentionData,
       activeCampaigns: activeData,
       upcomingContent: upcomingData,
       recentActivity: activityData,
+      contentSummary: contentSummaryData,
     };
   }
 
@@ -269,7 +395,7 @@ export function makeDashboardService(ctx: DomainContext) {
     return { ...dash, brand: detail };
   }
 
-  return { global, brand, pulse, whatsNew, attention };
+  return { global, brand, pulse, whatsNew, whatsNewSummary, whatsNewAck, attention };
 }
 
 export type DashboardService = ReturnType<typeof makeDashboardService>;

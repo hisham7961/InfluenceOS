@@ -1,5 +1,6 @@
 import {
   buildEmbed,
+  contentReviewStatus,
   getAdapter,
   metrics as sharedMetrics,
   normalizeContentUrl,
@@ -8,7 +9,10 @@ import {
 } from '@influenceos/shared';
 import {
   requests,
+  type BrandContentSummaryDTO,
   type ContentMetricsDTO,
+  type ContentSummaryDTO,
+  type ContentViewerStateDTO,
   type CursorPage,
   type MonitoringEventDTO,
   type PublishedContentDTO,
@@ -32,32 +36,47 @@ type ContentCreate = z.infer<typeof requests.publishedContentCreateSchema>;
 type ContentUpdate = z.infer<typeof requests.publishedContentUpdateSchema>;
 type ContentFilter = z.infer<typeof requests.contentFilterSchema>;
 type ManualMetrics = z.infer<typeof requests.contentMetricSchema>;
+type ContentViewStateInput = z.infer<typeof requests.contentViewStateSchema>;
+type ContentSummaryQuery = z.infer<typeof requests.contentSummaryQuerySchema>;
 
 const REMOVED_STATUSES: ContentStatus[] = ['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BROKEN_LINK'];
 
-const relInclude = {
-  influencer: {
-    include: {
-      socialAccounts: { select: { platform: true, followers: true, isPrimary: true, avatarUrl: true } },
-      tags: { include: { tag: { select: { name: true } } } },
+// No authenticated user ever has this id — used so the viewerStates
+// relation filter always safely returns "no row" for system/unauthenticated
+// contexts, instead of branching the include's TS shape per call site.
+const NO_ACTOR = '__no_actor__';
+
+/**
+ * Per-user viewer state is joined in the SAME query as everything else (one
+ * row per content, filtered to the calling user) — never a separate fetch
+ * per card (Content Command Center pass, item 55).
+ */
+function relIncludeFor(userId: string | undefined) {
+  return {
+    influencer: {
+      include: {
+        socialAccounts: { select: { platform: true, followers: true, isPrimary: true, avatarUrl: true } },
+        tags: { include: { tag: { select: { name: true } } } },
+      },
     },
-  },
-  brand: {
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      logoUrl: true,
-      iconUrl: true,
-      primaryColor: true,
-      accentColor: true,
-      isActive: true,
+    brand: {
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logoUrl: true,
+        iconUrl: true,
+        primaryColor: true,
+        accentColor: true,
+        isActive: true,
+      },
     },
-  },
-  campaign: { select: { id: true, name: true, slug: true } },
-  deliverable: { select: { id: true, type: true, platform: true } },
-  metricSnapshots: { orderBy: { capturedAt: 'desc' }, take: 1 },
-} satisfies Prisma.PublishedContentInclude;
+    campaign: { select: { id: true, name: true, slug: true } },
+    deliverable: { select: { id: true, type: true, platform: true } },
+    metricSnapshots: { orderBy: { capturedAt: 'desc' }, take: 1 },
+    viewerStates: { where: { userId: userId ?? NO_ACTOR }, take: 1 },
+  } satisfies Prisma.PublishedContentInclude;
+}
 
 function youtubeThumb(platform: Platform, externalId: string | null): string | null {
   if (platform === 'YOUTUBE' && externalId) {
@@ -69,19 +88,24 @@ function youtubeThumb(platform: Platform, externalId: string | null): string | n
 export function makeContentService(ctx: DomainContext) {
   const { prisma } = ctx;
 
-  function mapRow(pc: Prisma.PublishedContentGetPayload<{ include: typeof relInclude }>): PublishedContentDTO {
+  function mapRow(pc: Prisma.PublishedContentGetPayload<{ include: ReturnType<typeof relIncludeFor> }>): PublishedContentDTO {
     const latest = pc.metricSnapshots[0] ?? null;
+    const vs = pc.viewerStates[0] ?? null;
+    const viewerState: ContentViewerStateDTO | null = vs
+      ? { firstSeenAt: iso(vs.firstSeenAt), lastOpenedAt: iso(vs.lastOpenedAt), reviewedAt: iso(vs.reviewedAt), savedForLaterAt: iso(vs.savedForLaterAt) }
+      : null;
     return toPublishedContentDTO(pc, {
       influencer: pc.influencer ? toInfluencerSummary(pc.influencer) : null,
       brand: pc.brand ? toBrandSummary(pc.brand) : null,
       campaign: pc.campaign ? { id: pc.campaign.id, name: pc.campaign.name, slug: pc.campaign.slug } : null,
       deliverable: pc.deliverable ? { id: pc.deliverable.id, type: pc.deliverable.type, platform: pc.deliverable.platform } : null,
       metrics: toContentMetricsDTO(latest),
+      viewerState,
     });
   }
 
   async function loadDTO(id: string): Promise<PublishedContentDTO> {
-    const pc = await prisma.publishedContent.findUnique({ where: { id }, include: relInclude });
+    const pc = await prisma.publishedContent.findUnique({ where: { id }, include: relIncludeFor(ctx.actor?.id) });
     if (!pc) throw AppError.notFound('Content');
     return mapRow(pc);
   }
@@ -152,7 +176,7 @@ export function makeContentService(ctx: DomainContext) {
           dataSource: 'MANUAL',
           nextCheckAt: new Date(),
         },
-        include: relInclude,
+        include: relIncludeFor(ctx.actor?.id),
       });
 
       // Link the deliverable — advances campaign progress automatically (§55, DoD).
@@ -237,9 +261,30 @@ export function makeContentService(ctx: DomainContext) {
       where.influencerId = { not: null };
     }
 
+    // Current-user review state (Content Command Center pass) — filtered via
+    // the SAME UserContentState relation the card/viewer read, so "New 18" in
+    // a filter chip and clicking it always agree.
+    const actorId = ctx.actor?.id;
+    if (filter.reviewState && actorId) {
+      if (filter.reviewState === 'NEW') {
+        where.viewerStates = { none: { userId: actorId } };
+      } else if (filter.reviewState === 'SEEN') {
+        where.viewerStates = { some: { userId: actorId, firstSeenAt: { not: null }, reviewedAt: null } };
+      } else if (filter.reviewState === 'REVIEWED') {
+        where.viewerStates = { some: { userId: actorId, reviewedAt: { not: null } } };
+      } else if (filter.reviewState === 'REVIEW_LATER') {
+        where.viewerStates = { some: { userId: actorId, savedForLaterAt: { not: null } } };
+      }
+    }
+
+    // The "Alerts" filter chip — any availability status needing attention.
+    if (filter.alertsOnly) {
+      where.availabilityStatus = { in: REMOVED_STATUSES };
+    }
+
     const rows = await prisma.publishedContent.findMany({
       where,
-      include: relInclude,
+      include: relIncludeFor(actorId),
       orderBy: [{ detectedAt: 'desc' }, { id: 'desc' }],
       take: filter.limit + 1,
       ...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),
@@ -517,7 +562,176 @@ export function makeContentService(ctx: DomainContext) {
     return loadDTO(id);
   }
 
-  return { create, feed, detail, update, metricsHistory, monitoring, addManualMetrics, refresh, mapRow, relInclude };
+  /**
+   * Per-user New/Seen/Reviewed/Review-Later state (Content Command Center
+   * pass). `seen` is what the Viewer/detail page sends on open — idempotent:
+   * firstSeenAt is stamped once and never overwritten, lastOpenedAt advances
+   * every time. Never writes to the shared ActivityLog — a personal triage
+   * action (seen/reviewed/review-later) is not an operational event the rest
+   * of the team needs in a campaign/brand timeline, unlike association or
+   * shipment changes.
+   */
+  async function updateViewState(id: string, input: ContentViewStateInput): Promise<ContentViewerStateDTO> {
+    const actor = requireActor(ctx);
+    const existing = await prisma.publishedContent.findUnique({ where: { id }, select: { id: true, brandId: true } });
+    if (!existing) throw AppError.notFound('Content');
+    const scope = await scopedBrandIds(ctx);
+    if (existing.brandId && isBrandOutOfScope(scope, existing.brandId)) throw AppError.notFound('Content');
+
+    const now = new Date();
+    const row = await prisma.$transaction(async (tx) => {
+      const prev = await tx.userContentState.findUnique({
+        where: { userId_publishedContentId: { userId: actor.id, publishedContentId: id } },
+      });
+      const data = {
+        userId: actor.id,
+        publishedContentId: id,
+        firstSeenAt: prev?.firstSeenAt ?? (input.seen ? now : null),
+        lastOpenedAt: input.seen ? now : (prev?.lastOpenedAt ?? null),
+        reviewedAt: input.reviewed === undefined ? (prev?.reviewedAt ?? null) : input.reviewed ? now : null,
+        savedForLaterAt: input.reviewLater === undefined ? (prev?.savedForLaterAt ?? null) : input.reviewLater ? now : null,
+      };
+      return tx.userContentState.upsert({
+        where: { userId_publishedContentId: { userId: actor.id, publishedContentId: id } },
+        create: data,
+        update: {
+          firstSeenAt: data.firstSeenAt,
+          lastOpenedAt: data.lastOpenedAt,
+          reviewedAt: data.reviewedAt,
+          savedForLaterAt: data.savedForLaterAt,
+        },
+      });
+    });
+
+    return { firstSeenAt: iso(row.firstSeenAt), lastOpenedAt: iso(row.lastOpenedAt), reviewedAt: iso(row.reviewedAt), savedForLaterAt: iso(row.savedForLaterAt) };
+  }
+
+  /**
+   * One efficient call for every Content Command Center count: the top filter
+   * chips, the daily summary panel, and the By Brand overview (items 53-54) —
+   * never one request per statistic, never an N+1 across brands (groupBy).
+   */
+  async function summary(query: ContentSummaryQuery): Promise<ContentSummaryDTO> {
+    const actor = requireActor(ctx);
+    const scope = await scopedBrandIds(ctx);
+    const scopeWhere: Prisma.PublishedContentWhereInput = scope ? { brandId: { in: scope } } : {};
+
+    const now = new Date();
+    const todayStart = query.todayStart ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const todayEnd = query.todayEnd ?? new Date(todayStart.getTime() + 86_400_000);
+    // publishedAt when trustworthy/available, detectedAt fallback — same
+    // date-source rule the Timeline uses (never mislabel detection time as
+    // publication time).
+    const todayWhere: Prisma.PublishedContentWhereInput = {
+      OR: [
+        { publishedAt: { gte: todayStart, lt: todayEnd } },
+        { publishedAt: null, detectedAt: { gte: todayStart, lt: todayEnd } },
+      ],
+    };
+
+    const [new_, seen, reviewed, reviewLater, unassigned, alerts, todayRows, brands, newByBrand, alertsByBrand, latestByBrand] =
+      await Promise.all([
+        prisma.publishedContent.count({ where: { ...scopeWhere, viewerStates: { none: { userId: actor.id } } } }),
+        prisma.publishedContent.count({
+          where: { ...scopeWhere, viewerStates: { some: { userId: actor.id, firstSeenAt: { not: null }, reviewedAt: null } } },
+        }),
+        prisma.publishedContent.count({ where: { ...scopeWhere, viewerStates: { some: { userId: actor.id, reviewedAt: { not: null } } } } }),
+        prisma.publishedContent.count({
+          where: { ...scopeWhere, viewerStates: { some: { userId: actor.id, savedForLaterAt: { not: null } } } },
+        }),
+        prisma.publishedContent.count({ where: { ...scopeWhere, campaignId: null, influencerId: null } }),
+        prisma.publishedContent.count({ where: { ...scopeWhere, availabilityStatus: { in: REMOVED_STATUSES } } }),
+        prisma.publishedContent.findMany({
+          where: { ...scopeWhere, ...todayWhere },
+          select: {
+            brandId: true,
+            availabilityStatus: true,
+            viewerStates: { where: { userId: actor.id }, take: 1, select: { firstSeenAt: true, reviewedAt: true } },
+          },
+        }),
+        prisma.brand.findMany({
+          where: scope ? { id: { in: scope } } : {},
+          select: { id: true, name: true, logoUrl: true, primaryColor: true },
+          orderBy: { name: 'asc' },
+        }),
+        prisma.publishedContent.groupBy({
+          by: ['brandId'],
+          where: { ...scopeWhere, brandId: { not: null }, viewerStates: { none: { userId: actor.id } } },
+          _count: true,
+        }),
+        prisma.publishedContent.groupBy({
+          by: ['brandId'],
+          where: { ...scopeWhere, brandId: { not: null }, availabilityStatus: { in: REMOVED_STATUSES } },
+          _count: true,
+        }),
+        prisma.publishedContent.groupBy({
+          by: ['brandId'],
+          where: { ...scopeWhere, brandId: { not: null } },
+          _max: { detectedAt: true },
+        }),
+      ]);
+
+    let todayNew = 0;
+    let todaySeen = 0;
+    let todayReviewed = 0;
+    let todayAlerts = 0;
+    const brandsActiveTodaySet = new Set<string>();
+    for (const row of todayRows) {
+      const vs = row.viewerStates[0] ?? null;
+      const status = contentReviewStatus(vs ? { firstSeenAt: iso(vs.firstSeenAt), lastOpenedAt: null, reviewedAt: iso(vs.reviewedAt), savedForLaterAt: null } : null);
+      if (status === 'NEW') todayNew++;
+      else if (status === 'SEEN') todaySeen++;
+      else todayReviewed++;
+      if (REMOVED_STATUSES.includes(row.availabilityStatus)) todayAlerts++;
+      if (row.brandId) brandsActiveTodaySet.add(row.brandId);
+    }
+
+    const newByBrandMap = new Map(newByBrand.map((r) => [r.brandId, r._count]));
+    const alertsByBrandMap = new Map(alertsByBrand.map((r) => [r.brandId, r._count]));
+    const latestByBrandMap = new Map(latestByBrand.map((r) => [r.brandId, r._max.detectedAt]));
+    const todayByBrandMap = new Map<string, number>();
+    for (const row of todayRows) {
+      if (!row.brandId) continue;
+      todayByBrandMap.set(row.brandId, (todayByBrandMap.get(row.brandId) ?? 0) + 1);
+    }
+
+    const brandSummaries: BrandContentSummaryDTO[] = brands.map((b) => ({
+      brandId: b.id,
+      brandName: b.name,
+      logoUrl: b.logoUrl,
+      primaryColor: b.primaryColor,
+      today: todayByBrandMap.get(b.id) ?? 0,
+      new: newByBrandMap.get(b.id) ?? 0,
+      alerts: alertsByBrandMap.get(b.id) ?? 0,
+      latestContentAt: iso(latestByBrandMap.get(b.id) ?? null),
+    }));
+
+    return {
+      new: new_,
+      seen,
+      reviewed,
+      reviewLater,
+      unassigned,
+      alerts,
+      today: { total: todayRows.length, new: todayNew, seen: todaySeen, reviewed: todayReviewed, alerts: todayAlerts, brandsActive: brandsActiveTodaySet.size },
+      brands: brandSummaries,
+    };
+  }
+
+  return {
+    create,
+    feed,
+    detail,
+    update,
+    metricsHistory,
+    monitoring,
+    addManualMetrics,
+    refresh,
+    mapRow,
+    relIncludeFor,
+    updateViewState,
+    summary,
+  };
 }
 
 export type ContentService = ReturnType<typeof makeContentService>;

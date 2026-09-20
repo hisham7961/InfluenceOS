@@ -203,7 +203,9 @@ export function makeSubmissionService(ctx: DomainContext) {
       await createNotification(
         ctx,
         {
-          category: 'GENERAL',
+          // APPROVED gets its own category so What's New can surface UGC
+          // approvals as a distinct, real event (Content Command Center pass).
+          category: input.decision === 'APPROVE' ? 'SUBMISSION_APPROVED' : 'GENERAL',
           title: `Draft ${target.submission.replace(/_/g, ' ').toLowerCase()}`,
           body: input.note ?? null,
           campaignId,

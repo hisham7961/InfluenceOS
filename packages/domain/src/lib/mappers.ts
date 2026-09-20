@@ -7,6 +7,7 @@ import type {
   ActivityDTO,
   BrandSummaryDTO,
   ContentMetricsDTO,
+  ContentViewerStateDTO,
   DataSource,
   DeliverableType,
   ExpenseDTO,
@@ -288,6 +289,7 @@ export function toPublishedContentDTO(
     deliverable?: { id: string; type: DeliverableType; platform: Platform } | null;
     metrics?: ContentMetricsDTO | null;
     provenanceUpdatedByName?: string | null;
+    viewerState?: ContentViewerStateDTO | null;
   } = {},
 ): PublishedContentDTO {
   const embed = buildEmbed(pc.originalUrl, pc.platform);
@@ -317,5 +319,6 @@ export function toPublishedContentDTO(
     campaign: rel.campaign ?? null,
     deliverable: rel.deliverable ?? null,
     metrics: rel.metrics ?? null,
+    viewerState: rel.viewerState ?? null,
   };
 }

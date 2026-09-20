@@ -22,6 +22,7 @@ interface NoteLike {
   body: string;
   influencerId: string | null;
   brandId: string | null;
+  publishedContentId: string | null;
   pinned: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -34,6 +35,7 @@ function toNoteDTO(n: NoteLike): NoteDTO {
     body: n.body,
     influencerId: n.influencerId,
     brandId: n.brandId,
+    publishedContentId: n.publishedContentId,
     authorName: n.author?.name ?? null,
     pinned: n.pinned,
     createdAt: n.createdAt.toISOString(),
@@ -57,10 +59,20 @@ export function makeNoteService(ctx: DomainContext) {
     return notes.map(toNoteDTO);
   }
 
+  /** Internal notes on a piece of content (Content Command Center pass, item 47) — reuses this SAME Note model, never a parallel content-comment system. */
+  async function listForContent(publishedContentId: string): Promise<NoteDTO[]> {
+    const notes = await prisma.note.findMany({
+      where: { publishedContentId },
+      orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
+      include: noteInclude,
+    });
+    return notes.map(toNoteDTO);
+  }
+
   async function create(input: NoteCreate): Promise<NoteDTO> {
     const actor = requireActor(ctx);
-    if (!input.influencerId && !input.brandId) {
-      throw AppError.badRequest('A note must be attached to an influencer or a brand.');
+    if (!input.influencerId && !input.brandId && !input.publishedContentId) {
+      throw AppError.badRequest('A note must be attached to an influencer, a brand, or a piece of content.');
     }
 
     const note = await prisma.note.create({
@@ -68,6 +80,7 @@ export function makeNoteService(ctx: DomainContext) {
         body: input.body,
         influencerId: input.influencerId ?? null,
         brandId: input.brandId ?? null,
+        publishedContentId: input.publishedContentId ?? null,
         authorId: actor.id,
         pinned: input.pinned ?? false,
       },
@@ -79,6 +92,7 @@ export function makeNoteService(ctx: DomainContext) {
       message: `${actor.name} added a note.`,
       influencerId: note.influencerId,
       brandId: note.brandId,
+      publishedContentId: note.publishedContentId,
     });
 
     return toNoteDTO(note);
@@ -109,7 +123,7 @@ export function makeNoteService(ctx: DomainContext) {
     await prisma.note.delete({ where: { id } });
   }
 
-  return { listForInfluencer, create, update, remove };
+  return { listForInfluencer, listForContent, create, update, remove };
 }
 
 export type NoteService = ReturnType<typeof makeNoteService>;

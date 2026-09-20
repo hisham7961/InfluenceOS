@@ -8,6 +8,7 @@ import { PlatformBadge } from '@/components/ui/platform-badge';
 import { SocialContentPlayer } from '@/components/content/social-content-player';
 import { ContentDetails } from '@/components/content/content-viewer';
 import { ContentAssociationPanel } from './association-panel';
+import { ContentReviewBar } from './review-bar';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,9 +41,12 @@ export default async function ContentDetailPage({ params }: { params: Promise<{ 
         <ArrowLeft className="h-3.5 w-3.5" /> Back to Live Content
       </Link>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <PlatformBadge platform={content.platform} withLabel />
-        {content.caption ? <h1 className="truncate text-lg font-semibold text-foreground">{content.caption}</h1> : null}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <PlatformBadge platform={content.platform} withLabel />
+          {content.caption ? <h1 className="truncate text-lg font-semibold text-foreground">{content.caption}</h1> : null}
+        </div>
+        <ContentReviewBar content={content} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">

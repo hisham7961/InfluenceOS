@@ -48,7 +48,7 @@ export interface RequestMeta {
 }
 
 function toUserDTO(
-  u: Pick<User, 'id' | 'email' | 'name' | 'role' | 'avatarUrl' | 'locale' | 'theme' | 'isActive' | 'lastLoginAt'>,
+  u: Pick<User, 'id' | 'email' | 'name' | 'role' | 'avatarUrl' | 'locale' | 'theme' | 'contentLayout' | 'isActive' | 'lastLoginAt'>,
 ): UserDTO {
   return {
     id: u.id,
@@ -58,6 +58,7 @@ function toUserDTO(
     avatarUrl: u.avatarUrl,
     locale: u.locale,
     theme: u.theme,
+    contentLayout: u.contentLayout,
     isActive: u.isActive,
     lastLoginAt: u.lastLoginAt ? u.lastLoginAt.toISOString() : null,
   };
@@ -357,6 +358,7 @@ export function makeAuthService(ctx: DomainContext) {
       data: {
         ...(input.locale !== undefined ? { locale: input.locale } : {}),
         ...(input.theme !== undefined ? { theme: input.theme } : {}),
+        ...(input.contentLayout !== undefined ? { contentLayout: input.contentLayout } : {}),
       },
     });
     return toUserDTO(user);

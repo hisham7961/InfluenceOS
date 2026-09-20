@@ -1,10 +1,13 @@
 'use client';
+import * as React from 'react';
 import Link from 'next/link';
+import { useMutation } from '@tanstack/react-query';
 import {
   AlertTriangle,
   ArrowRight,
   CalendarClock,
   Megaphone,
+  PartyPopper,
   PlaySquare,
   ShieldAlert,
   Timer,
@@ -12,19 +15,44 @@ import {
   Wallet,
 } from 'lucide-react';
 import type { GlobalDashboardDTO } from '@influenceos/contracts';
+import { api } from '@/lib/api-browser';
 import { StatCard } from '@/components/ui/stat-card';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Avatar } from '@/components/ui/avatar';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { SectionHeader } from '@/components/common/page-header';
-import { ContentGrid } from '@/components/content/content-grid';
+import { ReviewNewContentButton } from '@/components/content/review-new-content-button';
 import { CampaignCard } from '@/components/campaigns/campaign-card';
 import { formatCurrency, relativeTime } from '@/lib/format';
 
-export function MissionControl({ data }: { data: GlobalDashboardDTO }) {
+export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; brandId?: string }) {
   const p = data.pulse;
-  const whatsNewContent = data.whatsNew.map((w) => w.content).filter((c): c is NonNullable<typeof c> => !!c);
+  const ws = data.whatsNewSummary;
+  // On a brand-scoped dashboard (item 41 "Review N New <Brand> Videos"), the
+  // CTA must count and review ONLY this brand's new content, not the
+  // actor's whole cross-brand backlog.
+  const newForScope = brandId
+    ? (data.contentSummary.brands.find((b) => b.brandId === brandId)?.new ?? 0)
+    : data.contentSummary.new;
+
+  // "Since your last visit" is a real ack, not a passive GET — advance the
+  // checkpoint once Mission Control is actually open (item 34-35).
+  const ack = useMutation({ mutationFn: () => api.dashboard.whatsNewAck() });
+  React.useEffect(() => {
+    ack.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const whatsNewLines: { label: string; count: number }[] = [
+    { label: 'new content item', count: ws.newContent },
+    { label: 'campaign launched', count: ws.campaignsLaunched },
+    { label: 'content alert', count: ws.contentAlerts },
+    { label: 'overdue deliverable', count: ws.overdueDeliverables },
+    { label: 'shipment delivered', count: ws.shipmentsDelivered },
+    { label: 'draft approved', count: ws.submissionsApproved },
+    { label: 'usage right expiring', count: ws.usageRightsExpiring },
+  ].filter((l) => l.count > 0);
 
   return (
     <div className="space-y-8">
@@ -42,13 +70,53 @@ export function MissionControl({ data }: { data: GlobalDashboardDTO }) {
       </section>
 
       <div className="grid gap-8 xl:grid-cols-[1.6fr_1fr]">
-        {/* What's New */}
+        {/* Since Your Last Visit */}
         <section>
           <SectionHeader
-            title="What's New"
-            action={<Link href="/content" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">View wall <ArrowRight className="h-3.5 w-3.5" /></Link>}
+            title="Since Your Last Visit"
+            action={
+              <Link href="/content" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+                View wall <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            }
           />
-          <ContentGrid items={whatsNewContent} className="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3" emptyTitle="Nothing published yet" emptyDescription="New influencer content will surface here as it goes live." />
+          <Card className="p-5">
+            {whatsNewLines.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-6 text-center">
+                <PartyPopper className="h-6 w-6 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">You&apos;re caught up</p>
+                <p className="text-xs text-muted-foreground">Nothing meaningful has changed since your last visit.</p>
+              </div>
+            ) : (
+              <ul className="space-y-1.5 text-sm">
+                {whatsNewLines.map((line) => (
+                  <li key={line.label} className="flex items-baseline gap-2">
+                    <span className="font-semibold text-foreground">{line.count}</span>
+                    <span className="text-muted-foreground">
+                      {line.label}
+                      {line.count === 1 ? '' : 's'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <ReviewNewContentButton
+                brandId={brandId}
+                count={newForScope}
+                label={brandId ? `Review ${newForScope} New Videos` : undefined}
+              />
+            </div>
+            {ws.byBrand.length > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
+                {ws.byBrand.slice(0, 6).map((b) => (
+                  <span key={b.brandId}>
+                    {b.brandName} · <span className="font-medium text-foreground">{b.updates}</span> update{b.updates === 1 ? '' : 's'}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </Card>
         </section>
 
         {/* Needs Attention */}

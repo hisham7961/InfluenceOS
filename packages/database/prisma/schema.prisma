@@ -176,6 +176,12 @@ enum NotificationCategory {
   NEW_CONTENT
   FOLLOWER_MILESTONE
   USAGE_RIGHT_EXPIRING
+  /// A logistics fulfilment request reached DELIVERED (Content Command Center
+  /// pass — gives What's New a real, distinguishable event instead of folding
+  /// it into GENERAL).
+  SHIPMENT_DELIVERED
+  /// A UGC/draft submission was approved (Content Command Center pass).
+  SUBMISSION_APPROVED
   GENERAL
 }
 
@@ -300,6 +306,14 @@ model User {
   theme        String   @default("system")
   isActive     Boolean  @default(true)
   lastLoginAt  DateTime?
+  /// Preferred content discovery layout (Timeline/By Brand/Grid/Masonry/Feed) —
+  /// same scalar-on-User preference pattern as locale/theme, not a new
+  /// preferences architecture. Null = client default (Timeline).
+  contentLayout String?
+  /// Per-user "What's New" checkpoint (Content Command Center pass). Advances
+  /// only on an explicit ack from the client, never on lastLoginAt alone — a
+  /// user can log in without ever opening Mission Control's What's New panel.
+  lastWhatsNewViewedAt DateTime?
   // Time-boxed brute-force protection (in addition to the per-IP route limit):
   // consecutive failures raise the counter; crossing the threshold sets a short
   // lockout window; a successful login clears both.
@@ -326,8 +340,43 @@ model User {
   createdShipments     ProductShipment[]
   brandAccess          UserBrandAccess[]
   ownedInfluencers     Influencer[]            @relation("InfluencerOwner")
+  contentStates        UserContentState[]
 
   @@index([role])
+}
+
+/// Per-user content review state (Content Command Center pass) — NEW/SEEN/
+/// REVIEWED/REVIEW LATER are properties of the (user, content) pair, never of
+/// PublishedContent itself: User A opening a video must never mark it seen
+/// for User B. Absence of a row for a (userId, publishedContentId) pair IS the
+/// "NEW" state — no row is ever created just to represent "new" (see
+/// content-review-state.ts: NEW = derived from firstSeenAt == null / no row).
+model UserContentState {
+  id                 String    @id @default(cuid())
+  userId             String
+  publishedContentId String
+  /// Set once, the first time the user opens this content's Viewer/detail —
+  /// never overwritten afterward. Distinct from a passive card render.
+  firstSeenAt        DateTime?
+  /// Updated every time the user reopens it — a "last touched" timestamp.
+  lastOpenedAt       DateTime?
+  /// Set when the user explicitly presses "Mark Reviewed"; cleared (null) by
+  /// "Mark Unreviewed". Never implies approved/published/verified — purely
+  /// this user's own review checkbox.
+  reviewedAt         DateTime?
+  /// Set when the user explicitly saves this to their personal "Review Later"
+  /// queue; cleared by "Remove from Review Later".
+  savedForLaterAt    DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publishedContent PublishedContent @relation(fields: [publishedContentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, publishedContentId])
+  @@index([userId, reviewedAt])
+  @@index([userId, savedForLaterAt])
+  @@index([publishedContentId])
 }
 
 /// Per-user brand scope (W4-4). A user WITH one or more rows is limited to those
@@ -862,6 +911,8 @@ model PublishedContent {
   notifications      Notification[]
   activities         ActivityLog[]
   usageRights        UsageRight[]
+  viewerStates       UserContentState[]
+  notes              Note[]
 
   @@unique([platform, originalUrl])
   @@index([campaignId])
@@ -997,22 +1048,28 @@ model InfluencerTag {
 }
 
 model Note {
-  id           String   @id @default(cuid())
-  body         String
-  influencerId String?
-  brandId      String?
-  authorId     String?
-  pinned       Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  body               String
+  influencerId       String?
+  brandId            String?
+  /// Notes attached to a piece of content (Content Command Center pass) —
+  /// internal staff commentary ("Strong opening hook"), never written into
+  /// the social caption itself.
+  publishedContentId String?
+  authorId           String?
+  pinned             Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  influencer  Influencer?  @relation(fields: [influencerId], references: [id], onDelete: Cascade)
-  brand       Brand?       @relation(fields: [brandId], references: [id])
-  author      User?        @relation(fields: [authorId], references: [id])
-  attachments Attachment[]
+  influencer       Influencer?       @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  brand            Brand?            @relation(fields: [brandId], references: [id])
+  publishedContent PublishedContent? @relation(fields: [publishedContentId], references: [id], onDelete: Cascade)
+  author           User?             @relation(fields: [authorId], references: [id])
+  attachments      Attachment[]
 
   @@index([influencerId])
   @@index([brandId])
+  @@index([publishedContentId])
 }
 
 /// A usage-rights record (W3-2): what content a brand may use, in what way,

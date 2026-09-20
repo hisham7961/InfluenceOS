@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import {
   Eye,
   ExternalLink,
@@ -14,6 +14,9 @@ import {
   Rows3,
   Search,
   Share2,
+  Sparkles,
+  CalendarDays,
+  Building2,
   X,
 } from 'lucide-react';
 import type { BrandSummaryDTO, CampaignSummaryDTO, CursorPage, InfluencerSummaryDTO, PublishedContentDTO } from '@influenceos/contracts';
@@ -42,12 +45,15 @@ import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { DataSourceBadge } from '@/components/ui/provenance';
 import { ContentGrid } from '@/components/content/content-grid';
 import { ContentMasonry } from '@/components/content/content-masonry';
+import { ContentTimeline } from '@/components/content/content-timeline';
+import { ContentFilterChips, type ChipKey } from '@/components/content/filter-chips';
 import { SocialContentPlayer } from '@/components/content/social-content-player';
 
 /** Sentinel value for Radix Select's "no filter" option (Select forbids an empty-string item value). */
 const ALL = 'all';
 
-type Layout = 'grid' | 'masonry' | 'feed';
+type Layout = 'timeline' | 'brand' | 'grid' | 'masonry' | 'feed';
+const VALID_LAYOUTS: Layout[] = ['timeline', 'brand', 'grid', 'masonry', 'feed'];
 
 interface WallFilters {
   brandId: string;
@@ -56,6 +62,9 @@ interface WallFilters {
   platform: string;
   status: string;
   assignment: ContentAssociationStatus | '';
+  reviewState: 'NEW' | 'SEEN' | 'REVIEWED' | 'REVIEW_LATER' | '';
+  alertsOnly: boolean;
+  today: boolean;
   q: string;
 }
 
@@ -66,29 +75,61 @@ const EMPTY_FILTERS: WallFilters = {
   platform: '',
   status: '',
   assignment: '',
+  reviewState: '',
+  alertsOnly: false,
+  today: false,
   q: '',
 };
 
+function todayBounds() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start.getTime() + 86_400_000);
+  return { start, end };
+}
+
+function chipFromFilters(f: WallFilters): ChipKey {
+  if (f.reviewState === 'NEW') return 'new';
+  if (f.reviewState === 'SEEN') return 'seen';
+  if (f.reviewState === 'REVIEWED') return 'reviewed';
+  if (f.reviewState === 'REVIEW_LATER') return 'reviewLater';
+  if (f.assignment === 'UNASSIGNED') return 'unassigned';
+  if (f.alertsOnly) return 'alerts';
+  if (f.today) return 'today';
+  return 'all';
+}
+
 /**
- * The Live Content wall: a social-discovery-style feed of every piece of
- * published content across brands. Filters + layout are managed entirely
- * client-side; cursor pagination is driven by useInfiniteQuery, seeded with
- * the server-rendered first page so the wall paints instantly.
+ * The Live Content Command Center: Timeline (day → brand, item 10) is the
+ * default operational view; Grid/Masonry/Feed remain for people who prefer
+ * them. Filters + layout are client state; cursor pagination is driven by
+ * useInfiniteQuery, seeded with the server-rendered first page so the wall
+ * paints instantly. Chip counts and the daily summary come from ONE
+ * GET /content/summary call, never one request per statistic.
  */
 export function ContentWall({
   initial,
   brands,
   campaigns,
   influencers,
+  initialLayout,
 }: {
   initial: CursorPage<PublishedContentDTO>;
   brands: BrandSummaryDTO[];
   campaigns: CampaignSummaryDTO[];
   influencers: InfluencerSummaryDTO[];
+  initialLayout?: string | null;
 }) {
   const [filters, setFilters] = React.useState<WallFilters>(EMPTY_FILTERS);
   const [searchInput, setSearchInput] = React.useState('');
-  const [layout, setLayout] = React.useState<Layout>('grid');
+  const [layout, setLayoutState] = React.useState<Layout>(
+    initialLayout && (VALID_LAYOUTS as string[]).includes(initialLayout) ? (initialLayout as Layout) : 'timeline',
+  );
+
+  function setLayout(next: Layout) {
+    setLayoutState(next);
+    api.auth.updatePreferences({ contentLayout: next }).catch(() => undefined);
+  }
 
   // Debounce free-text search into the active filter set that drives the query.
   React.useEffect(() => {
@@ -106,9 +147,20 @@ export function ContentWall({
       filters.platform ||
       filters.status ||
       filters.assignment ||
+      filters.reviewState ||
+      filters.alertsOnly ||
+      filters.today ||
       filters.q,
   );
   const isDefaultFilters = !hasActiveFilters;
+
+  const { start: todayStart, end: todayEnd } = React.useMemo(() => todayBounds(), []);
+
+  const summary = useQuery({
+    queryKey: ['content-summary', todayStart.toISOString()] as const,
+    queryFn: () => api.content.summary({ todayStart: todayStart.toISOString(), todayEnd: todayEnd.toISOString() }),
+    staleTime: 30_000,
+  });
 
   const query = useInfiniteQuery({
     queryKey: ['content-feed', filters] as const,
@@ -122,6 +174,10 @@ export function ContentWall({
         platform: filters.platform || undefined,
         status: filters.status || undefined,
         assignment: filters.assignment || undefined,
+        reviewState: filters.reviewState || undefined,
+        alertsOnly: filters.alertsOnly || undefined,
+        from: filters.today ? todayStart.toISOString() : undefined,
+        to: filters.today ? todayEnd.toISOString() : undefined,
         q: filters.q || undefined,
       }),
     initialPageParam: undefined as string | undefined,
@@ -136,6 +192,27 @@ export function ContentWall({
 
   const items = React.useMemo(() => query.data?.pages.flatMap((page) => page.data) ?? [], [query.data]);
 
+  // New-content-arrival (item 49): a background refetch may bring items the
+  // person hasn't seen without yanking their scroll position — surface a
+  // banner instead and let them opt in.
+  const topIdRef = React.useRef<string | null>(null);
+  const [newAvailable, setNewAvailable] = React.useState(false);
+  React.useEffect(() => {
+    const currentTop = items[0]?.id ?? null;
+    if (topIdRef.current === null) {
+      topIdRef.current = currentTop;
+      return;
+    }
+    if (currentTop && currentTop !== topIdRef.current && !query.isFetching) {
+      setNewAvailable(true);
+    }
+  }, [items, query.isFetching]);
+
+  function showNewContent() {
+    topIdRef.current = items[0]?.id ?? null;
+    setNewAvailable(false);
+  }
+
   React.useEffect(() => {
     if (query.error) {
       toast.error(query.error instanceof ApiError ? query.error.message : 'Could not load the content wall.');
@@ -147,10 +224,50 @@ export function ContentWall({
     setFilters(EMPTY_FILTERS);
   }
 
+  function selectChip(chip: ChipKey) {
+    setFilters((f) => {
+      const base: WallFilters = { ...f, reviewState: '', assignment: f.assignment === 'UNASSIGNED' ? '' : f.assignment, alertsOnly: false, today: false };
+      switch (chip) {
+        case 'new':
+          return { ...base, reviewState: 'NEW' };
+        case 'seen':
+          return { ...base, reviewState: 'SEEN' };
+        case 'reviewed':
+          return { ...base, reviewState: 'REVIEWED' };
+        case 'reviewLater':
+          return { ...base, reviewState: 'REVIEW_LATER' };
+        case 'unassigned':
+          return { ...base, assignment: 'UNASSIGNED', campaignId: '', influencerId: '' };
+        case 'alerts':
+          return { ...base, alertsOnly: true };
+        case 'today':
+          return { ...base, today: true };
+        default:
+          return base;
+      }
+    });
+  }
+
   const isInitialLoading = query.isLoading && items.length === 0;
 
   return (
     <div className="space-y-6">
+      <ContentFilterChips
+        active={chipFromFilters(filters)}
+        counts={{
+          new: summary.data?.new,
+          seen: summary.data?.seen,
+          reviewed: summary.data?.reviewed,
+          reviewLater: summary.data?.reviewLater,
+          unassigned: summary.data?.unassigned,
+          alerts: summary.data?.alerts,
+          today: summary.data?.today.total,
+        }}
+        onSelect={selectChip}
+      />
+
+      {layout === 'timeline' && summary.data ? <DailySummaryStrip summary={summary.data} /> : null}
+
       <FilterBar
         brands={brands}
         campaigns={campaigns}
@@ -177,6 +294,14 @@ export function ContentWall({
         resultCount={items.length}
       />
 
+      {newAvailable ? (
+        <div className="flex items-center justify-center">
+          <Button variant="secondary" size="sm" onClick={showNewContent} className="gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" /> New content available — Show new content
+          </Button>
+        </div>
+      ) : null}
+
       {isInitialLoading ? (
         <LoadingSkeleton layout={layout} />
       ) : items.length === 0 ? (
@@ -196,6 +321,16 @@ export function ContentWall({
             ) : undefined
           }
         />
+      ) : layout === 'timeline' ? (
+        <ContentTimeline items={items} />
+      ) : layout === 'brand' ? (
+        <BrandOverview
+          brands={summary.data?.brands ?? []}
+          onOpenBrand={(brandId) => {
+            setFilters((f) => ({ ...f, brandId }));
+            setLayout('timeline');
+          }}
+        />
       ) : layout === 'grid' ? (
         <ContentGrid items={items} />
       ) : layout === 'masonry' ? (
@@ -204,13 +339,94 @@ export function ContentWall({
         <FeedLayout items={items} />
       )}
 
-      {items.length > 0 && query.hasNextPage ? (
+      {items.length > 0 && query.hasNextPage && layout !== 'brand' ? (
         <div className="flex justify-center pt-2">
           <Button variant="outline" onClick={() => query.fetchNextPage()} disabled={query.isFetchingNextPage}>
             {query.isFetchingNextPage ? 'Loading…' : 'Load more'}
           </Button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function DailySummaryStrip({ summary }: { summary: NonNullable<ReturnType<typeof useQuery<import('@influenceos/contracts').ContentSummaryDTO>>['data']> }) {
+  const { today } = summary;
+  return (
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm shadow-card">
+      <span className="flex items-center gap-1.5 font-semibold text-foreground">
+        <CalendarDays className="h-4 w-4 text-brand" /> Today
+      </span>
+      <SummaryStat label="content" value={today.total} />
+      <SummaryStat label="new" value={today.new} />
+      <SummaryStat label="seen" value={today.seen} />
+      <SummaryStat label="reviewed" value={today.reviewed} />
+      {today.alerts > 0 ? <SummaryStat label="alerts" value={today.alerts} tone="danger" /> : null}
+      <SummaryStat label={today.brandsActive === 1 ? 'brand active' : 'brands active'} value={today.brandsActive} />
+    </div>
+  );
+}
+
+function SummaryStat({ label, value, tone }: { label: string; value: number; tone?: 'danger' }) {
+  return (
+    <span className={cn('text-muted-foreground', tone === 'danger' && 'text-danger')}>
+      <span className={cn('font-semibold', tone === 'danger' ? 'text-danger' : 'text-foreground')}>{value}</span> {label}
+    </span>
+  );
+}
+
+function BrandOverview({
+  brands,
+  onOpenBrand,
+}: {
+  brands: import('@influenceos/contracts').BrandContentSummaryDTO[];
+  onOpenBrand: (brandId: string) => void;
+}) {
+  const active = brands.filter((b) => b.today > 0 || b.new > 0).sort((a, b) => b.today - a.today || b.new - a.new);
+  const quiet = brands.filter((b) => !(b.today > 0 || b.new > 0));
+
+  if (brands.length === 0) {
+    return <EmptyState icon={Building2} title="No brands in view" description="Brand-level content stats will appear here." />;
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {[...active, ...quiet].map((brand) => (
+        <button
+          key={brand.brandId}
+          type="button"
+          onClick={() => onOpenBrand(brand.brandId)}
+          className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 text-start shadow-card transition-all hover:-translate-y-0.5 hover:shadow-pop"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="h-6 w-1 shrink-0 rounded-full" style={{ backgroundColor: brand.primaryColor }} aria-hidden />
+            {brand.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={brand.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-muted text-xs font-semibold">
+                {brand.brandName.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <span className="truncate font-semibold text-foreground">{brand.brandName}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span>
+              <span className="font-semibold text-foreground">{brand.today}</span> today
+            </span>
+            {brand.new > 0 ? (
+              <span>
+                <span className="font-semibold text-brand">{brand.new}</span> new
+              </span>
+            ) : null}
+            {brand.alerts > 0 ? (
+              <span className="text-danger">
+                <span className="font-semibold">{brand.alerts}</span> alert{brand.alerts === 1 ? '' : 's'}
+              </span>
+            ) : null}
+          </div>
+        </button>
+      ))}
     </div>
   );
 }
@@ -364,6 +580,12 @@ function FilterBar({
 
       <Tabs value={layout} onValueChange={(value) => onLayoutChange(value as Layout)}>
         <TabsList>
+          <TabsTrigger value="timeline" aria-label="Timeline layout">
+            <CalendarDays className="h-4 w-4" /> Timeline
+          </TabsTrigger>
+          <TabsTrigger value="brand" aria-label="By Brand layout">
+            <Building2 className="h-4 w-4" /> By Brand
+          </TabsTrigger>
           <TabsTrigger value="grid" aria-label="Grid layout">
             <LayoutGrid className="h-4 w-4" /> Grid
           </TabsTrigger>

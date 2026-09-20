@@ -405,7 +405,10 @@ export function makeShipmentService(ctx: DomainContext) {
     });
     if (shipment.status === 'SHIPPED' || shipment.status === 'DELIVERED') {
       await createNotification(ctx, {
-        category: 'GENERAL',
+        // DELIVERED gets its own category so What's New can surface it as a
+        // distinct, real event (Content Command Center pass) — SHIPPED stays
+        // GENERAL, it's an in-progress update, not a completion.
+        category: shipment.status === 'DELIVERED' ? 'SHIPMENT_DELIVERED' : 'GENERAL',
         title: `Shipment ${label}`,
         body: `A logistics request is now ${label}.`,
         targetUrl: `/campaigns/${ci.campaignId}`,

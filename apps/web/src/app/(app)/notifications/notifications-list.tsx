@@ -8,8 +8,10 @@ import {
   Bell,
   CalendarClock,
   CheckCheck,
+  CheckCircle2,
   Clock,
   Inbox,
+  PackageCheck,
   PlaySquare,
   RefreshCcw,
   ScrollText,
@@ -42,6 +44,8 @@ const CATEGORY_ICON: Record<NotificationCategory, LucideIcon> = {
   NEW_CONTENT: PlaySquare,
   FOLLOWER_MILESTONE: TrendingUp,
   USAGE_RIGHT_EXPIRING: ScrollText,
+  SHIPMENT_DELIVERED: PackageCheck,
+  SUBMISSION_APPROVED: CheckCircle2,
   GENERAL: Bell,
 };
 
@@ -55,6 +59,8 @@ const CATEGORY_TONE: Record<NotificationCategory, Tone> = {
   NEW_CONTENT: 'info',
   FOLLOWER_MILESTONE: 'success',
   USAGE_RIGHT_EXPIRING: 'warning',
+  SHIPMENT_DELIVERED: 'success',
+  SUBMISSION_APPROVED: 'success',
   GENERAL: 'neutral',
 };
 

@@ -7,7 +7,9 @@ import { getServerApi } from '@/lib/api-server';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { StatCard } from '@/components/ui/stat-card';
+import { SectionHeader } from '@/components/common/page-header';
 import { MissionControl } from '@/components/dashboard/mission-control';
+import { ContentGrid } from '@/components/content/content-grid';
 import { formatCurrency } from '@/lib/format';
 import { BrandEditDialog } from './brand-edit-dialog';
 import { UsageRightsCard } from './usage-rights-card';
@@ -31,6 +33,10 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
   // Usage-rights ledger (W3-2) — surfaced read-only; a failure here must not
   // take down the whole brand workspace.
   const usageRights = await api.brands.usageRights(brand.id).catch(() => []);
+  // Brand content (Content Command Center pass, item 19) — the SAME
+  // PublishedContent feed and ContentCard/ContentViewer every other content
+  // surface uses, just brandId-scoped; no second content model.
+  const brandContent = await api.content.feed({ brandId: brand.id, limit: 24 }).catch(() => ({ data: [], hasMore: false, nextCursor: null }));
 
   return (
     <div>
@@ -114,7 +120,23 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
       </div>
 
       {/* Brand-scoped Mission Control */}
-      <MissionControl data={dashboard} />
+      <MissionControl data={dashboard} brandId={brand.id} />
+
+      <section className="mt-8">
+        <SectionHeader
+          title="Content"
+          action={
+            <Link href={`/content`} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              View in Live Content
+            </Link>
+          }
+        />
+        <ContentGrid
+          items={brandContent.data}
+          emptyTitle="No content yet"
+          emptyDescription={`Published content for ${brand.name} will appear here.`}
+        />
+      </section>
 
       <UsageRightsCard rights={usageRights} />
     </div>
