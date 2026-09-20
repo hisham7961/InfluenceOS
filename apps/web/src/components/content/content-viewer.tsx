@@ -1,7 +1,7 @@
 'use client';
 import * as React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bookmark, BookmarkCheck, Check, ChevronLeft, ChevronRight, ExternalLink, RefreshCw, SkipForward, Undo2 } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Check, ChevronLeft, ChevronRight, ExternalLink, Pin, RefreshCw, SkipForward, Undo2 } from 'lucide-react';
 import type { ContentViewerStateDTO, PublishedContentDTO } from '@influenceos/contracts';
 import { contentReviewStatus } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
@@ -12,7 +12,7 @@ import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { SocialContentPlayer } from './social-content-player';
-import { ContentNotesPanel } from './content-notes-panel';
+import { CommentThread } from '@/components/collaboration/comment-thread';
 import { dateTime, formatCompact, relativeTime } from '@/lib/format';
 
 const EMPTY_STATE: ContentViewerStateDTO = { firstSeenAt: null, lastOpenedAt: null, reviewedAt: null, savedForLaterAt: null };
@@ -225,6 +225,27 @@ export function ContentViewer({
   );
 }
 
+/** Prominent pinned-note banner (Operations Intelligence pass, PART 6-7) — a Manager Callout is just a
+ *  pinned top-level content note surfaced above the fold, sharing the SAME query cache key CommentThread
+ *  below uses, so pinning a note there updates this banner without an extra fetch. */
+function ManagerCallout({ contentId }: { contentId: string }) {
+  const thread = useQuery({
+    queryKey: ['comment-thread', `content:${contentId}`],
+    queryFn: () => api.notes.list({ publishedContentId: contentId }, { limit: 30 }),
+  });
+  const pinned = thread.data?.data.find((n) => n.pinned && !n.deleted);
+  if (!pinned) return null;
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-brand/40 bg-brand-soft/40 px-3 py-2 text-sm">
+      <Pin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-brand">Manager Callout · {pinned.authorName ?? 'Unknown'}</p>
+        <p className="whitespace-pre-wrap text-foreground/90">{pinned.body}</p>
+      </div>
+    </div>
+  );
+}
+
 export function ContentDetails({ content }: { content: PublishedContentDTO }) {
   const monitoring = useQuery({
     queryKey: ['content', content.id, 'monitoring'],
@@ -235,6 +256,8 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
 
   return (
     <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto p-5">
+      <ManagerCallout contentId={content.id} />
+
       <div className="flex items-center gap-3">
         <Avatar name={content.influencer?.displayName ?? '—'} src={content.influencer?.avatarUrl} size="md" />
         <div className="min-w-0 flex-1">
@@ -286,7 +309,16 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
         <RefreshButton id={content.id} />
       </div>
 
-      <ContentNotesPanel contentId={content.id} />
+      <div className="space-y-2 border-t border-border pt-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
+        <CommentThread
+          context={{ publishedContentId: content.id }}
+          cacheKey={`content:${content.id}`}
+          emptyTitle="No notes yet"
+          emptyDescription="Staff commentary only — pin one as a Manager Callout for the team."
+          composerPlaceholder="Strong opening hook… potential paid-media asset…"
+        />
+      </div>
     </div>
   );
 }
