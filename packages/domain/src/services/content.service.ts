@@ -3,6 +3,7 @@ import {
   getAdapter,
   metrics as sharedMetrics,
   normalizeContentUrl,
+  resolveContentThumbnail,
   type Platform,
 } from '@influenceos/shared';
 import {
@@ -118,6 +119,14 @@ export function makeContentService(ctx: DomainContext) {
 
     const embed = buildEmbed(canonicalUrl, platform);
 
+    // Fetch the real cover image (public oEmbed / og:image — no credentials) so
+    // the card shows the video's cover instead of a blank placeholder. Best
+    // effort and time-boxed; if it can't be found now, the monitor refresh
+    // retries. YouTube is derived instantly with no network call.
+    const thumbnailUrl =
+      (await resolveContentThumbnail({ platform, canonicalUrl, externalId, timeoutMs: 3500 }).catch(() => null)) ??
+      youtubeThumb(platform, externalId);
+
     // Atomic (DB-07): the content row, the deliverable status advance, the
     // activity record and the notification either all land or none do, so a
     // partial failure can't leave content with no activity/notification or a
@@ -130,7 +139,7 @@ export function makeContentService(ctx: DomainContext) {
           originalUrl: canonicalUrl,
           embedUrl: embed?.iframeSrc ?? null,
           embedConfig: embed ? (embed as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
-          thumbnailUrl: youtubeThumb(platform, externalId),
+          thumbnailUrl,
           caption: input.caption ?? null,
           publishedAt: input.publishedAt ?? null,
           brandId,
@@ -404,6 +413,22 @@ export function makeContentService(ctx: DomainContext) {
       if (res.ok) await recordMetrics(id, res.data, 'OFFICIAL_API');
     } catch {
       /* metrics are optional; ignore */
+    }
+
+    // Backfill the public cover image if we still don't have one (e.g. a
+    // TikTok/IG post added before this ran, or whose oEmbed was slow on add).
+    if (!pc.thumbnailUrl) {
+      try {
+        const thumb = await resolveContentThumbnail({
+          platform: pc.platform,
+          canonicalUrl: pc.originalUrl,
+          externalId: pc.externalId,
+          timeoutMs: 4000,
+        });
+        if (thumb) await prisma.publishedContent.update({ where: { id }, data: { thumbnailUrl: thumb } });
+      } catch {
+        /* cover is optional; ignore */
+      }
     }
 
     void failure;

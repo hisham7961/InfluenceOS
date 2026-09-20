@@ -23,6 +23,8 @@ export {
   normalizeContentUrl,
   parseContentId,
   buildEmbed,
+  resolveContentThumbnail,
+  parseOgImage,
   isAllowedIframeOrigin,
   IFRAME_ALLOWED_ORIGINS,
   SCRIPT_ALLOWED_ORIGINS,
