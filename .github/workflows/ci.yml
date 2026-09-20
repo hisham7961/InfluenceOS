@@ -72,6 +72,11 @@ jobs:
           for f in docker-compose.yml docker-compose.full.yml docker-compose.staging.yml; do
             echo "::group::$f"; docker compose -f "$f" config >/dev/null && echo "OK: $f"; echo "::endgroup::"
           done
+          # The pull-based override must merge cleanly over the full stack.
+          echo "::group::full+registry"
+          docker compose -f docker-compose.full.yml -f docker-compose.registry.yml config >/dev/null \
+            && echo "OK: full+registry"
+          echo "::endgroup::"
 
   build:
     name: Lint · Typecheck · Tests (incl. MinIO) · Build
@@ -183,9 +188,22 @@ jobs:
     name: Build production images (api · worker · web)
     runs-on: ubuntu-latest
     needs: build
+    # The validated images are pushed to GHCR so deploy hosts update with
+    # `docker compose pull` instead of building on the server (see
+    # docker-compose.registry.yml). PRs still build+smoke but never push.
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build API image
         uses: docker/build-push-action@v6
         with:
@@ -193,7 +211,10 @@ jobs:
           file: docker/Dockerfile.api
           push: false
           load: true
-          tags: influenceos-api:ci
+          tags: |
+            influenceos-api:ci
+            ghcr.io/${{ github.repository_owner }}/influenceos-api:latest
+            ghcr.io/${{ github.repository_owner }}/influenceos-api:${{ github.sha }}
           cache-from: type=gha,scope=api
           cache-to: type=gha,scope=api,mode=max
       - name: Build worker image
@@ -203,7 +224,10 @@ jobs:
           file: docker/Dockerfile.worker
           push: false
           load: true
-          tags: influenceos-worker:ci
+          tags: |
+            influenceos-worker:ci
+            ghcr.io/${{ github.repository_owner }}/influenceos-worker:latest
+            ghcr.io/${{ github.repository_owner }}/influenceos-worker:${{ github.sha }}
           cache-from: type=gha,scope=worker
           cache-to: type=gha,scope=worker,mode=max
       - name: Build web image
@@ -213,7 +237,10 @@ jobs:
           file: docker/Dockerfile.web
           push: false
           load: true
-          tags: influenceos-web:ci
+          tags: |
+            influenceos-web:ci
+            ghcr.io/${{ github.repository_owner }}/influenceos-web:latest
+            ghcr.io/${{ github.repository_owner }}/influenceos-web:${{ github.sha }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,scope=web,mode=max
       - name: Smoke the API image (env fail-fast is enforced in the built image)
@@ -229,6 +256,15 @@ jobs:
           echo "$OUT" | grep -qi "Invalid API environment configuration" \
             || { echo "Image did not fail-fast with the expected config report"; exit 1; }
           echo "API image enforces the env contract at startup."
+      # Only after every image built AND the smoke passed do the tags go public
+      # to the registry — a deploy host can never pull a half-validated set.
+      - name: Push images to GHCR (deploy hosts pull these)
+        if: github.event_name != 'pull_request'
+        run: |
+          for img in influenceos-api influenceos-worker influenceos-web; do
+            docker push "ghcr.io/${{ github.repository_owner }}/$img:latest"
+            docker push "ghcr.io/${{ github.repository_owner }}/$img:${{ github.sha }}"
+          done
 
   e2e:
     name: Full stack E2E (pg · redis · minio · api · worker · web)

@@ -1,0 +1,27 @@
+# Pull-based deployment override — use the CI-built images from GHCR instead of
+# building on the host. Merge it AFTER docker-compose.full.yml; the base
+# `build:` stays defined, but `docker compose pull && docker compose up -d`
+# uses the pulled images and never builds (as long as you don't pass --build).
+#
+# CI (the `images` job) builds, smoke-tests and pushes these on every push:
+#   ghcr.io/<owner>/influenceos-{api,worker,web}:latest  and  :<git sha>
+#
+# One-time server setup:
+#   1. Create a GitHub token with the `read:packages` scope, then:
+#        echo <TOKEN> | docker login ghcr.io -u <github-user> --password-stdin
+#   2. Add this file to COMPOSE_FILE in the project .env:
+#        COMPOSE_FILE=docker-compose.full.yml:docker-compose.registry.yml:docker-compose.override.yml
+#
+# Every update after that:
+#   docker compose pull && docker compose up -d
+#
+# Pin an exact build (e.g. rollback) by exporting IMAGE_TAG=<git sha> first.
+services:
+  migrate:
+    image: ${REGISTRY_BASE:-ghcr.io/hisham7961}/influenceos-api:${IMAGE_TAG:-latest}
+  api:
+    image: ${REGISTRY_BASE:-ghcr.io/hisham7961}/influenceos-api:${IMAGE_TAG:-latest}
+  worker:
+    image: ${REGISTRY_BASE:-ghcr.io/hisham7961}/influenceos-worker:${IMAGE_TAG:-latest}
+  web:
+    image: ${REGISTRY_BASE:-ghcr.io/hisham7961}/influenceos-web:${IMAGE_TAG:-latest}
