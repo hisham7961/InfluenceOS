@@ -1,3 +1,4 @@
+import net from 'node:net';
 import { slugify } from '@influenceos/shared';
 import {
   requests,
@@ -27,6 +28,65 @@ import { getStorage } from '../lib/storage';
 import { maxUploadBytes } from './attachment.service';
 import { iso, logActivity } from '../lib/helpers';
 import { makeProviderService } from './provider.service';
+
+/**
+ * Liveness probes for the platform status page. Dependency-free — a raw TCP
+ * PING for Redis and a short HTTP GET for the worker — so the domain package
+ * pulls in no client library. Every path is guarded and time-boxed so the
+ * status endpoint stays fast and never throws.
+ */
+function pingRedis(url: string, timeoutMs = 1500): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let host: string;
+    let port: number;
+    try {
+      const u = new URL(url);
+      host = u.hostname;
+      port = Number(u.port) || 6379;
+    } catch {
+      reject(new Error('invalid REDIS_URL'));
+      return;
+    }
+    const socket = net.connect({ host, port });
+    const finish = (err?: Error) => {
+      socket.destroy();
+      if (err) reject(err);
+      else resolve();
+    };
+    socket.setTimeout(timeoutMs, () => finish(new Error('timeout')));
+    socket.once('error', finish);
+    socket.once('connect', () => socket.write('PING\r\n'));
+    // Any reply (+PONG, or -NOAUTH when a password is set) proves Redis is alive.
+    socket.once('data', () => finish());
+  });
+}
+
+async function checkRedis(): Promise<HealthComponentDTO> {
+  const url = process.env.REDIS_URL;
+  if (!url) return { name: 'Redis', status: 'unknown', detail: 'REDIS_URL not configured' };
+  try {
+    await pingRedis(url);
+    return { name: 'Redis', status: 'ok' };
+  } catch (e) {
+    return { name: 'Redis', status: 'down', detail: e instanceof Error ? e.message : 'unreachable' };
+  }
+}
+
+async function checkWorker(): Promise<HealthComponentDTO> {
+  const url = process.env.WORKER_HEALTH_URL ?? 'http://localhost:4100/health';
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 1500);
+    const res = await fetch(url, { signal: ac.signal }).finally(() => clearTimeout(timer));
+    return res.ok
+      ? { name: 'Worker', status: 'ok' }
+      : { name: 'Worker', status: 'down', detail: `HTTP ${res.status}` };
+  } catch (e) {
+    // Unreachable → 'unknown' (some topologies give the API no route to the
+    // worker) rather than a misleading 'down'.
+    return { name: 'Worker', status: 'unknown', detail: e instanceof Error ? e.message : 'unreachable' };
+  }
+}
 
 /**
  * Settings > Platform & API (addendum §12-17, §26, §33). Backs the admin
@@ -101,10 +161,14 @@ export function makePlatformService(ctx: DomainContext) {
       dbDetail = err instanceof Error ? err.message : 'Database check failed.';
     }
 
+    // Probe Redis and the worker live (in parallel, time-boxed) instead of
+    // reporting a permanent "unknown".
+    const [redisHealth, workerHealth] = await Promise.all([checkRedis(), checkWorker()]);
+
     const health: HealthComponentDTO[] = [
       dbDetail ? { name: 'Database', status: dbStatus, detail: dbDetail } : { name: 'Database', status: dbStatus },
-      { name: 'Redis', status: 'unknown' },
-      { name: 'Worker', status: 'unknown' },
+      redisHealth,
+      workerHealth,
       {
         name: 'Storage',
         status: (process.env.STORAGE_DRIVER ?? 'local') === 'local' || process.env.S3_INTERNAL_ENDPOINT || process.env.S3_ENDPOINT ? 'ok' : 'unknown',

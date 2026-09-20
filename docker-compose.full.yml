@@ -25,6 +25,14 @@ x-app-env: &app-env
   S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
   S3_FORCE_PATH_STYLE: 'true'
   MAX_UPLOAD_MB: '50'
+  # Where the API probes the worker's health for the status page (internal DNS).
+  WORKER_HEALTH_URL: http://worker:4100/health
+  # Release identity surfaced on /health and Settings → Platform (never secrets).
+  # Export these before `up` to stamp the running build, e.g.
+  #   export GIT_SHA=$(git rev-parse HEAD)
+  GIT_SHA: ${GIT_SHA:-}
+  APP_VERSION: ${APP_VERSION:-}
+  BUILD_TIME: ${BUILD_TIME:-}
 
 services:
   postgres:
