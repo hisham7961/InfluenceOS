@@ -134,6 +134,20 @@ async function main() {
   });
   const staff = [sarah, ahmed, admin];
 
+  // Dedicated account for the Playwright browser E2E suite (content-association.spec.ts,
+  // content-command-center.spec.ts), kept distinct from SEED_ADMIN_EMAIL so those specs
+  // never collide with an operator-customized primary admin. Fixed credentials are safe:
+  // the demo seed can never run in production (guardDestructiveSeed above) and CI always
+  // starts from a fresh, throwaway database.
+  await prisma.user.create({
+    data: {
+      email: 'e2e-browser-test@influenceos.app',
+      name: 'E2E Browser Test',
+      role: 'ADMIN',
+      passwordHash: await hash('E2eTest-Passw0rd!'),
+    },
+  });
+
   // --- Brands --------------------------------------------------------------
   const brandData = [
     { name: 'Lumière Beauty', slug: 'lumiere', description: 'Premium skincare & cosmetics for the modern Gulf consumer.', primaryColor: '#E11D74', accentColor: '#F59E0B' },
