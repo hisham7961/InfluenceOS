@@ -112,6 +112,10 @@ test('Content Command Center: per-user review state, Timeline grouping, Review M
   await expect(page.getByText(/\d+ of \d+ reviewed/)).toBeVisible();
   await page.getByRole('button', { name: 'Mark Reviewed' }).click();
   await expect(page.getByText(/\d+ of \d+ reviewed/)).toContainText('1 of 1');
+  // The button label flips optimistically before the PATCH resolves; wait for
+  // it to re-enable (the request has landed) before relying on server state —
+  // otherwise the next step's fresh fetch can race the write still in flight.
+  await expect(page.getByRole('button', { name: 'Mark Unreviewed' })).toBeEnabled();
   await page.keyboard.press('Escape');
 
   // Caught up — clicking again with nothing left to review shows the message, not the dialog.

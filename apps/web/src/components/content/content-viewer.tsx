@@ -58,6 +58,13 @@ export function ContentViewer({
 }) {
   const queryClient = useQueryClient();
   const [localState, setLocalState] = React.useState<Record<string, ContentViewerStateDTO>>({});
+  // The Mark Reviewed button flips its label optimistically (before the PATCH
+  // resolves) so it feels instant, but any caller that treats the label
+  // change as "the server now has this" — including a browser test — needs a
+  // real signal for when the write actually lands. Tracks whichever call
+  // (Mark Reviewed / Review Later) is in flight; the button stays disabled
+  // until it resolves.
+  const [busy, setBusy] = React.useState(false);
   const raw = items[index];
   const content: PublishedContentDTO | undefined = raw
     ? { ...raw, viewerState: localState[raw.id] ?? raw.viewerState }
@@ -152,10 +159,25 @@ export function ContentViewer({
 
   async function handleMarkReviewed() {
     if (!content) return;
-    await setReviewed(content, !isReviewed);
-    if (reviewMode && !isReviewed) {
-      const next = findNextUnreviewed(index);
-      if (next !== -1) onIndexChange(next);
+    setBusy(true);
+    try {
+      await setReviewed(content, !isReviewed);
+      if (reviewMode && !isReviewed) {
+        const next = findNextUnreviewed(index);
+        if (next !== -1) onIndexChange(next);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleReviewLater() {
+    if (!content) return;
+    setBusy(true);
+    try {
+      await setReviewLater(content, !isSavedForLater);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -175,6 +197,7 @@ export function ContentViewer({
             variant={isReviewed ? 'secondary' : 'outline'}
             size="sm"
             onClick={handleMarkReviewed}
+            disabled={busy}
             title="Mark Reviewed (R)"
           >
             {isReviewed ? <Undo2 className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
@@ -184,7 +207,8 @@ export function ContentViewer({
             type="button"
             variant={isSavedForLater ? 'secondary' : 'outline'}
             size="sm"
-            onClick={() => setReviewLater(content, !isSavedForLater)}
+            onClick={handleReviewLater}
+            disabled={busy}
             title="Review Later (S)"
           >
             {isSavedForLater ? <BookmarkCheck className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}

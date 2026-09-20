@@ -579,33 +579,41 @@ export function makeContentService(ctx: DomainContext) {
     if (existing.brandId && isBrandOutOfScope(scope, existing.brandId)) throw AppError.notFound('Content');
 
     const now = new Date();
+    // Reviewing implies having seen it — a caller can't mark something
+    // Reviewed without it also becoming Seen (matches the real UI, where
+    // the Viewer always marks Seen on open before the Reviewed button is
+    // even reachable; enforced here too so the derivation in
+    // contentReviewStatus() never has to reconcile the two).
+    const impliesSeen = input.seen || input.reviewed === true;
     const row = await prisma.$transaction(async (tx) => {
       const prev = await tx.userContentState.findUnique({
         where: { userId_publishedContentId: { userId: actor.id, publishedContentId: id } },
       });
-      // Reviewing implies having seen it — a caller can't mark something
-      // Reviewed without it also becoming Seen (matches the real UI, where
-      // the Viewer always marks Seen on open before the Reviewed button is
-      // even reachable; enforced here too so the derivation in
-      // contentReviewStatus() never has to reconcile the two).
-      const impliesSeen = input.seen || input.reviewed === true;
-      const data = {
+      const create = {
         userId: actor.id,
         publishedContentId: id,
-        firstSeenAt: prev?.firstSeenAt ?? (impliesSeen ? now : null),
-        lastOpenedAt: input.seen ? now : (prev?.lastOpenedAt ?? null),
-        reviewedAt: input.reviewed === undefined ? (prev?.reviewedAt ?? null) : input.reviewed ? now : null,
-        savedForLaterAt: input.reviewLater === undefined ? (prev?.savedForLaterAt ?? null) : input.reviewLater ? now : null,
+        firstSeenAt: impliesSeen ? now : null,
+        lastOpenedAt: input.seen ? now : null,
+        reviewedAt: input.reviewed ? now : null,
+        savedForLaterAt: input.reviewLater ? now : null,
       };
+      // The update SET clause includes ONLY the field(s) this call was asked
+      // to change — never all four recomputed from `prev`. The Viewer fires
+      // a fire-and-forget "seen" stamp on open, which can still be in flight
+      // when a "Mark Reviewed" click's own call reads/writes the same row;
+      // if both calls blindly rewrote every field from their own (possibly
+      // stale) `prev` snapshot, whichever commits last would silently wipe
+      // out the other's write — a real lost-update race, not hypothetical
+      // (it's what let a freshly-reviewed item still show up as "New").
+      const update: Prisma.UserContentStateUpdateInput = {};
+      if (impliesSeen && !prev?.firstSeenAt) update.firstSeenAt = now;
+      if (input.seen) update.lastOpenedAt = now;
+      if (input.reviewed !== undefined) update.reviewedAt = input.reviewed ? now : null;
+      if (input.reviewLater !== undefined) update.savedForLaterAt = input.reviewLater ? now : null;
       return tx.userContentState.upsert({
         where: { userId_publishedContentId: { userId: actor.id, publishedContentId: id } },
-        create: data,
-        update: {
-          firstSeenAt: data.firstSeenAt,
-          lastOpenedAt: data.lastOpenedAt,
-          reviewedAt: data.reviewedAt,
-          savedForLaterAt: data.savedForLaterAt,
-        },
+        create,
+        update,
       });
     });
 
