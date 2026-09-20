@@ -88,8 +88,9 @@ test('operator can run a campaign end-to-end through the browser', async ({ page
   await openQuickAdd(page, 'Published content');
   const contentDialog = page.getByRole('dialog');
   await contentDialog.getByPlaceholder(/youtube\.com\/watch/i).fill(`https://www.youtube.com/watch?v=${VIDEO_ID}`);
-  // Link to the campaign (optional select).
-  await contentDialog.getByRole('combobox').click();
+  // Link to the campaign (optional select) — the second combobox (the first
+  // is Influencer, unlocked in Quick Add since neither is preselected here).
+  await contentDialog.getByRole('combobox').nth(1).click();
   await page.getByRole('option', { name: new RegExp(CAMPAIGN) }).click();
   await contentDialog.getByRole('button', { name: /add content/i }).click();
   await expect(page.getByRole('dialog')).toBeHidden();

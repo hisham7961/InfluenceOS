@@ -10,6 +10,12 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,
+  // Multiple heavy multi-step specs (each standing up a brand/campaign/content
+  // fixture through several real UI round trips) running concurrently against
+  // one shared API+DB can starve each other on a modest CI runner and blow a
+  // spec's own timeout on nothing more than page-load latency. Serialize in
+  // CI; locally a developer is normally running one file at a time anyway.
+  workers: process.env.CI ? 1 : undefined,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
