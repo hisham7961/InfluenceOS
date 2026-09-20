@@ -8,6 +8,7 @@ import {
   Megaphone,
   PackageCheck,
   PlaySquare,
+  TrendingUp,
   Upload,
   Users,
   Wallet,
@@ -34,6 +35,7 @@ export const STAT_ICONS = {
   harddrive: HardDrive,
   database: Database,
   upload: Upload,
+  trending: TrendingUp,
 } satisfies Record<string, LucideIcon>;
 
 export type StatIconName = keyof typeof STAT_ICONS;

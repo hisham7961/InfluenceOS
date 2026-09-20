@@ -1,4 +1,4 @@
-import { CalendarClock, TrendingUp, Trophy, Wallet } from 'lucide-react';
+import { CalendarClock, TrendingUp, Trophy } from 'lucide-react';
 import type { CreatorTier, Tone } from '@influenceos/contracts';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
@@ -32,13 +32,13 @@ export default async function ExecPage() {
 
       {/* Spend vs budget */}
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Planned budget" value={dash.spendVsBudget.plannedBudget} icon={Wallet} tone="neutral" formatted={money(dash.spendVsBudget.plannedBudget)} />
-        <StatCard label="Total spend" value={dash.spendVsBudget.totalSpend} icon={Wallet} tone="info" formatted={money(dash.spendVsBudget.totalSpend)} />
-        <StatCard label="Remaining" value={dash.spendVsBudget.remaining} icon={Wallet} tone={dash.spendVsBudget.remaining < 0 ? 'danger' : 'success'} formatted={money(dash.spendVsBudget.remaining)} />
+        <StatCard label="Planned budget" value={dash.spendVsBudget.plannedBudget} iconName="wallet" tone="neutral" formatted={money(dash.spendVsBudget.plannedBudget)} />
+        <StatCard label="Total spend" value={dash.spendVsBudget.totalSpend} iconName="wallet" tone="info" formatted={money(dash.spendVsBudget.totalSpend)} />
+        <StatCard label="Remaining" value={dash.spendVsBudget.remaining} iconName="wallet" tone={dash.spendVsBudget.remaining < 0 ? 'danger' : 'success'} formatted={money(dash.spendVsBudget.remaining)} />
         <StatCard
           label="Budget used"
           value={dash.spendVsBudget.budgetUsedPercent ?? 0}
-          icon={TrendingUp}
+          iconName="trending"
           tone={(dash.spendVsBudget.budgetUsedPercent ?? 0) > 100 ? 'danger' : 'accent'}
           formatted={dash.spendVsBudget.budgetUsedPercent == null ? 'N/A' : `${dash.spendVsBudget.budgetUsedPercent}%`}
         />
