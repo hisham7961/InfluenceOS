@@ -449,6 +449,21 @@ export interface DeliverableTemplateResultDTO {
   deliverablesCreated: number;
 }
 
+/**
+ * Dry-run preview of a bulk influencer-directory action (Operations
+ * Intelligence, PART 53) — computed with the SAME per-row validation
+ * `execute` will use, so the counts a manager confirms are exactly what
+ * happens. Reuses `BulkRowResultDTO`'s shape (`status` here means "would be
+ * added/skipped", never "failed" — a row that would error is reported as
+ * skipped with a reason).
+ */
+export interface BulkPreviewDTO {
+  selected: number;
+  willUpdate: number;
+  willSkip: number;
+  rows: BulkRowResultDTO[];
+}
+
 /** One product line item on a shipment (Logistics, evolved from W3-5). */
 export interface ShipmentItemDTO {
   id: string;
@@ -762,15 +777,100 @@ export interface UploadTicketDTO {
   maxBytes: number;
 }
 
-// --- Notes -----------------------------------------------------------------
+// --- Collaboration (Notes/Comments/Chat) ------------------------------------
+/** A user mentioned in a message — just enough to render "@Name" and link to them. */
+export interface MentionRefDTO {
+  userId: string;
+  name: string;
+}
+
+/**
+ * The shared Collaboration Layer message/comment shape — a "Note" attached to
+ * exactly one context (influencer/brand/content/campaign/deliverable/
+ * shipment/inspiration item, or a non-entity `channel` like "general"), a
+ * pinned Manager Callout on content, a Campaign Chat message, or a reply one
+ * level deep. `replies` is populated only on a top-level list fetch (never
+ * recursively — replies don't carry their own `replies`).
+ */
 export interface NoteDTO {
   id: string;
   body: string;
   influencerId: string | null;
   brandId: string | null;
   publishedContentId: string | null;
+  campaignId: string | null;
+  deliverableId: string | null;
+  shipmentId: string | null;
+  inspirationItemId: string | null;
+  channel: string | null;
+  parentId: string | null;
+  authorId: string | null;
   authorName: string | null;
   pinned: boolean;
+  editedAt: string | null;
+  /** True once soft-deleted — `body` is already replaced with "[deleted]" when this is true. */
+  deleted: boolean;
+  mentions: MentionRefDTO[];
+  createdAt: string;
+  updatedAt: string;
+  /** Only present on a top-level fetch; one level deep. */
+  replies?: NoteDTO[];
+}
+
+/** A lightweight team-directory entry for the @mention picker — no email/role/lockout fields. */
+export interface TeamMemberRefDTO {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+}
+
+/** Per-conversation unread state (Campaign Chat / General Team channels only — PART 16). */
+export interface ConversationUnreadDTO {
+  conversationKey: string;
+  unreadCount: number;
+  lastReadAt: string | null;
+}
+
+// --- Trends & Inspiration ----------------------------------------------------
+export type InspirationCategory =
+  | 'TREND'
+  | 'HOOK'
+  | 'UGC_STYLE'
+  | 'PRODUCT_DEMO'
+  | 'BEFORE_AFTER'
+  | 'EDUCATIONAL'
+  | 'STORYTELLING'
+  | 'VIRAL_FORMAT'
+  | 'COMPETITOR'
+  | 'AUDIO_TREND'
+  | 'OTHER';
+export type InspirationStatus = 'ACTIVE' | 'ARCHIVED';
+
+/**
+ * External creative reference material the team shares for ideas — a viral
+ * TikTok, a competitor's hook. Deliberately NOT PublishedContent: never
+ * counted in content/creator analytics, and only the URL is stored (no
+ * re-hosted copy of someone else's video).
+ */
+export interface InspirationItemDTO {
+  id: string;
+  url: string;
+  platform: Platform | null;
+  thumbnailUrl: string | null;
+  title: string | null;
+  note: string | null;
+  category: InspirationCategory;
+  tags: string[];
+  brandId: string | null;
+  brandName: string | null;
+  campaignId: string | null;
+  campaignName: string | null;
+  scriptReferenceId: string | null;
+  status: InspirationStatus;
+  pinned: boolean;
+  submittedById: string | null;
+  submittedByName: string | null;
+  commentCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -898,6 +998,13 @@ export interface PulseDTO {
   contentAlerts: number;
 }
 
+/**
+ * The ONE canonical operational-attention item shape (Operations Intelligence
+ * pass, PART 55-57) — Mission Control, the Campaign Operations Board, Creator
+ * 360 and the Operations page all render a slice of the SAME
+ * `dashboard.attention()` output, filtered by brandId/campaignId/influencerId,
+ * never a second calculation.
+ */
 export interface AttentionItemDTO {
   id: string;
   kind:
@@ -908,12 +1015,24 @@ export interface AttentionItemDTO {
     | 'CAMPAIGN_ENDING'
     | 'OVER_BUDGET'
     | 'MISSING_LINK'
-    | 'UNASSIGNED_CONTENT';
+    | 'UNASSIGNED_CONTENT'
+    | 'SHIPMENT_FAILED'
+    | 'SHIPMENT_RETURNED'
+    | 'USAGE_RIGHT_EXPIRING'
+    | 'CAMPAIGN_MISSING_OWNER'
+    | 'UGC_AWAITING_REVIEW'
+    | 'CREATOR_MISSING_INFO'
+    | 'INTEGRITY_ISSUE';
   title: string;
   description: string;
   severity: 'warning' | 'danger';
   link: string;
   at: string;
+  brandId: string | null;
+  campaignId: string | null;
+  influencerId: string | null;
+  /** Short imperative label for the primary action ("Resolve", "Assign owner", "Review draft"). */
+  actionLabel: string | null;
 }
 
 export interface WhatsNewItemDTO {
@@ -1047,6 +1166,8 @@ export interface SpendVsBudgetDTO {
   budgetUsedPercent: number | null;
   /** Campaigns whose own spend is strictly above their own plannedBudget. */
   campaignsOverBudget: number;
+  /** Fees/expenses recorded but not yet (fully) paid — UNPAID + PARTIALLY_PAID (Operations Intelligence). */
+  unpaidSpend: number;
 }
 
 /** What happened "today" — since server-local midnight (W6-3). */
@@ -1061,7 +1182,7 @@ export interface ExecTodayDTO {
   campaignsEnding: number;
 }
 
-/** Day-over-day digest — the trailing 24-hour window (W6-3). */
+/** Day-over-day digest — the trailing 24-hour window (W6-3, extended by Operations Intelligence). */
 export interface ExecDigestDTO {
   /** ISO timestamp the window opens at (24h before generation). */
   since: string;
@@ -1071,6 +1192,9 @@ export interface ExecDigestDTO {
   campaignsCompleted: number;
   rosterAdditions: number;
   contentRemoved: number;
+  shipmentsDelivered: number;
+  shipmentsFailed: number;
+  ugcAwaitingReview: number;
 }
 
 /** One brand's health line in the cross-brand rollup (W6-3). */
@@ -1198,4 +1322,156 @@ export interface ApiEndpointDTO {
   summary: string;
   version: string;
   auth: 'public' | 'user' | 'admin';
+}
+
+// --- Creator 360 (Operations Intelligence pass) -----------------------------
+
+/**
+ * Facts-only relationship snapshot for the Creator 360 summary header (PART
+ * 27-28) — every field is a real aggregate, never a fabricated score.
+ */
+export interface CreatorSnapshotDTO {
+  ownerName: string | null;
+  brandsWorkedWith: number;
+  totalCollaborations: number;
+  currentCampaigns: number;
+  lastCollaborationAt: string | null;
+  lastContactAt: string | null;
+  /** Min/max of non-null `defaultRate`/`agreedCost` seen for this creator, when any exist. */
+  rateRange: { min: number; max: number; currency: string } | null;
+  outstandingPayment: number;
+  currency: string;
+  activeDeliverables: number;
+  activeShipments: number;
+}
+
+/**
+ * Deliverable-timeliness evidence (PART 31) — derived from real completed
+ * deliverables only (`publishedAt` vs `dueDate`); a creator with no history
+ * of BOTH a due date and a completion gets `sampleSize: 0` rather than a
+ * fabricated rate.
+ */
+export interface CreatorReliabilityDTO {
+  sampleSize: number;
+  onTime: number;
+  late: number;
+  /** Average delay in days across the late ones only; null when `late === 0`. */
+  averageDelayDays: number | null;
+}
+
+/** One entry in the Creator Master Timeline (PART 29) — reuses ActivityLog, Note and Notification rows; never a duplicate history table. */
+export interface CreatorTimelineItemDTO {
+  id: string;
+  /** Coarse bucket for the Creator Timeline's filter chips (PART 30). */
+  bucket: 'campaign' | 'content' | 'ugc' | 'logistics' | 'payment' | 'collaboration' | 'activity';
+  message: string;
+  link: string | null;
+  at: string;
+}
+
+// --- Campaign Operations Board (Operations Intelligence pass) --------------
+
+export type CampaignOperationsStageState = 'done' | 'pending' | 'overdue' | 'waiting' | 'na';
+
+export interface CampaignOperationsStageDTO {
+  key: 'agreement' | 'product' | 'contentDue' | 'draft' | 'review' | 'approved' | 'published' | 'payment';
+  label: string;
+  state: CampaignOperationsStageState;
+  detail: string | null;
+  link: string | null;
+}
+
+/**
+ * One influencer's row on the Campaign Operations Board (PART 33-35) — every
+ * stage is DERIVED from existing CampaignInfluencer/Deliverable/Submission/
+ * ProductShipment/PublishedContent/payment records at read time. No new
+ * per-stage status column is ever stored.
+ */
+export interface CampaignOperationsRowDTO {
+  campaignInfluencerId: string;
+  influencerId: string;
+  influencerName: string;
+  influencerAvatarUrl: string | null;
+  participationStatus: ParticipationStatus;
+  stages: CampaignOperationsStageDTO[];
+  /** A coarse bucket for the board's filter chips (PART 36), derived from `stages`. */
+  filterBuckets: (
+    | 'needsAttention'
+    | 'onTrack'
+    | 'overdue'
+    | 'waitingForProduct'
+    | 'waitingForCreator'
+    | 'inReview'
+    | 'readyToPublish'
+    | 'published'
+    | 'paymentPending'
+    | 'completed'
+  )[];
+}
+
+export interface CampaignOperationsBoardDTO {
+  campaignId: string;
+  rows: CampaignOperationsRowDTO[];
+}
+
+// --- Data Quality & Duplicate Detection (Operations Intelligence pass) -----
+
+export type DataQualitySeverity = 'critical' | 'needsAttention' | 'incomplete' | 'informational';
+
+/** One missing/incomplete-data finding category (PART 41-44) — a count, never a row-per-record payload; the count deep-links to the filtered records. */
+export interface DataQualityFindingDTO {
+  id: string;
+  title: string;
+  severity: DataQualitySeverity;
+  count: number;
+  link: string;
+  /** Short label for the contextual fix action, when one exists (PART 44). */
+  fixLabel: string | null;
+}
+
+export interface DataQualityReportDTO {
+  findings: DataQualityFindingDTO[];
+  generatedAt: string;
+}
+
+export type DuplicateMatchConfidence = 'exact' | 'strongPossible' | 'possible';
+
+/** One reason a candidate is a possible duplicate (PART 46) — shown so the user can judge for themselves, never an opaque "this is a duplicate" verdict. */
+export interface DuplicateMatchReasonDTO {
+  field: 'instagramUsername' | 'tiktokUsername' | 'youtubeUsername' | 'snapchatUsername' | 'xUsername' | 'email' | 'mobile' | 'whatsapp' | 'name';
+  value: string;
+}
+
+export interface DuplicateCandidateDTO {
+  influencerId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  confidence: DuplicateMatchConfidence;
+  reasons: DuplicateMatchReasonDTO[];
+}
+
+// --- Workflow Integrity Guard (Operations Intelligence pass) ---------------
+
+export type IntegrityRuleId =
+  | 'CONTENT_CAMPAIGN_DELIVERABLE_MISMATCH'
+  | 'CONTENT_INFLUENCER_DELIVERABLE_MISMATCH'
+  | 'DELIVERABLE_MISSING_LOGISTICS'
+  | 'SUBMISSION_DELIVERABLE_MISMATCH'
+  | 'CAMPAIGN_COMPLETED_WITH_OVERDUE_DELIVERABLES'
+  | 'PAID_AMOUNT_EXCEEDS_AGREED_COST'
+  | 'USAGE_RIGHT_BRAND_MISMATCH';
+
+/**
+ * One detected relational inconsistency (PART 64-67) — read-only: the Guard
+ * only reports, it never repairs. `evidence` is a short, human-readable
+ * explanation of what was found and why it's inconsistent.
+ */
+export interface IntegrityFindingDTO {
+  id: string;
+  rule: IntegrityRuleId;
+  severity: 'error' | 'warning';
+  title: string;
+  evidence: string;
+  link: string;
+  detectedAt: string;
 }

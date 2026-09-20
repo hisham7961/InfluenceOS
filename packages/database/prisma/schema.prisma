@@ -182,7 +182,37 @@ enum NotificationCategory {
   SHIPMENT_DELIVERED
   /// A UGC/draft submission was approved (Content Command Center pass).
   SUBMISSION_APPROVED
+  /// Someone @mentioned this user in a comment/message (Operations
+  /// Intelligence pass — Collaboration Layer).
+  MENTION
+  /// Someone replied to this user's message.
+  REPLY
+  /// A pinned/important message was posted somewhere this user should see
+  /// (e.g. a Manager Callout on content they're associated with).
+  IMPORTANT_MESSAGE
   GENERAL
+}
+
+/// Category for a shared Trend/Inspiration item (Operations Intelligence
+/// pass, PART 22) — deliberately a flat enum, not a second tagging system;
+/// free-form `tags` on InspirationItem cover anything finer-grained.
+enum InspirationCategory {
+  TREND
+  HOOK
+  UGC_STYLE
+  PRODUCT_DEMO
+  BEFORE_AFTER
+  EDUCATIONAL
+  STORYTELLING
+  VIRAL_FORMAT
+  COMPETITOR
+  AUDIO_TREND
+  OTHER
+}
+
+enum InspirationStatus {
+  ACTIVE
+  ARCHIVED
 }
 
 /// What a usage right permits the brand to do with the content (W3-2).
@@ -341,6 +371,9 @@ model User {
   brandAccess          UserBrandAccess[]
   ownedInfluencers     Influencer[]            @relation("InfluencerOwner")
   contentStates        UserContentState[]
+  noteMentions         NoteMention[]
+  conversationReadStates ConversationReadState[]
+  submittedInspiration   InspirationItem[]
 
   @@index([role])
 }
@@ -420,6 +453,7 @@ model Brand {
   usageRights      UsageRight[]
   userAccess       UserBrandAccess[]
   products         Product[]
+  inspirationItems InspirationItem[]
 
   @@index([isActive])
 }
@@ -594,6 +628,8 @@ model Campaign {
   notifications       Notification[]
   attachments         Attachment[]
   usageRights         UsageRight[]
+  notes               Note[]
+  inspirationItems    InspirationItem[]
 
   @@unique([brandId, slug])
   @@index([brandId])
@@ -709,6 +745,7 @@ model ProductShipment {
   deliverable        Deliverable?       @relation(fields: [deliverableId], references: [id], onDelete: SetNull)
   createdBy          User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
   items              ShipmentItem[]
+  comments           Note[]
 
   @@index([campaignInfluencerId])
   @@index([deliverableId])
@@ -777,6 +814,7 @@ model Deliverable {
   activities         ActivityLog[]
   submissions        DeliverableSubmission[]
   shipments          ProductShipment[]
+  notes              Note[]
 
   @@index([campaignInfluencerId])
   @@index([status])
@@ -843,6 +881,7 @@ model ScriptReference {
   versions    ScriptReferenceVersion[]
   deliverables Deliverable[]
   attachments Attachment[]
+  inspirationItems InspirationItem[]
 
   @@index([campaignId])
 }
@@ -1047,6 +1086,18 @@ model InfluencerTag {
   @@index([tagId])
 }
 
+/// The shared Collaboration Layer primitive (Operations Intelligence pass).
+/// What started as a simple per-Influencer/Brand/Content "Note" is now the
+/// ONE message/comment model reused for: contextual comments (Content,
+/// Deliverable, Shipment, Campaign, Influencer), a Manager Callout (a
+/// `pinned` content-context row), Campaign Chat (`campaignId` set, no other
+/// context), General Team Chat (`channel` set, e.g. "general"), and
+/// discussion on a Trend/Inspiration item. Exactly one of the context fields
+/// (influencerId/brandId/publishedContentId/campaignId/deliverableId/
+/// shipmentId/inspirationItemId/channel) is set per row — enforced in
+/// collaboration.service.ts, mirroring the existing Attachment model's
+/// one-nullable-FK-per-parent shape rather than a polymorphic pair. A reply
+/// (`parentId` set) omits its own context — it inherits the parent's.
 model Note {
   id                 String   @id @default(cuid())
   body               String
@@ -1054,22 +1105,143 @@ model Note {
   brandId            String?
   /// Notes attached to a piece of content (Content Command Center pass) —
   /// internal staff commentary ("Strong opening hook"), never written into
-  /// the social caption itself.
+  /// the social caption itself. Also where a pinned Manager Callout lives.
   publishedContentId String?
+  /// Campaign Chat when set with no other context — internal team
+  /// discussion on a campaign, distinct from the campaign's ActivityLog.
+  campaignId         String?
+  /// Contextual comments on a single deliverable.
+  deliverableId      String?
+  /// Contextual comments on a logistics fulfilment request (relation name
+  /// `comments` on ProductShipment — that model already has a scalar
+  /// `notes String?` free-text field, so the back-relation can't reuse the
+  /// name `notes`).
+  shipmentId         String?
+  /// Discussion on a Trends & Inspiration item (never written back into
+  /// PublishedContent).
+  inspirationItemId  String?
+  /// Non-entity-scoped message — General Team Space channels (e.g.
+  /// "general"). A free string, not an enum, so a later channel needs no
+  /// schema change (PART 14: "later channels can be added if justified").
+  channel            String?
+  /// One level of replies only (enforced in the service layer — a reply
+  /// whose parent itself has a parent is rejected rather than relied on
+  /// being absent at the DB level).
+  parentId           String?
   authorId           String?
-  pinned             Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  pinned             Boolean   @default(false)
+  /// Set on a body edit so the UI can show an "edited" indicator.
+  editedAt           DateTime?
+  /// Soft delete for the NEW collaboration surfaces (comments with replies,
+  /// chat, mentions) — physically deleting a message with live replies would
+  /// orphan the thread, so authors/moderators "remove" it in place instead
+  /// (the API blanks the returned body to "[deleted]" rather than exposing
+  /// it). The original influencer/brand/content Note `remove()` endpoint is
+  /// UNCHANGED and still hard-deletes — that simple personal-note use case
+  /// predates threading/mentions and has no replies to orphan.
+  deletedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   influencer       Influencer?       @relation(fields: [influencerId], references: [id], onDelete: Cascade)
   brand            Brand?            @relation(fields: [brandId], references: [id])
   publishedContent PublishedContent? @relation(fields: [publishedContentId], references: [id], onDelete: Cascade)
+  campaign         Campaign?         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  deliverable      Deliverable?      @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  shipment         ProductShipment?  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  inspirationItem  InspirationItem?  @relation(fields: [inspirationItemId], references: [id], onDelete: Cascade)
+  parent           Note?             @relation("NoteReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies          Note[]            @relation("NoteReplies")
   author           User?             @relation(fields: [authorId], references: [id])
   attachments      Attachment[]
+  mentions         NoteMention[]
 
   @@index([influencerId])
   @@index([brandId])
   @@index([publishedContentId])
+  @@index([campaignId])
+  @@index([deliverableId])
+  @@index([shipmentId])
+  @@index([inspirationItemId])
+  @@index([channel])
+  @@index([parentId])
+}
+
+/// One row per user @mentioned in a Note/message — the efficient, indexed
+/// query path behind "My Mentions" (a GIN-indexed userId array on Note would
+/// also work, but a join table matches this schema's existing normalized
+/// style, e.g. UserBrandAccess/UserContentState, and needs no special index
+/// type).
+model NoteMention {
+  id        String   @id @default(cuid())
+  noteId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, userId])
+  @@index([userId, createdAt])
+}
+
+/// Per-user "last read" marker for a multi-party conversation (Campaign
+/// Chat, General Team channels) — PART 16 explicitly asks for this shape
+/// rather than a read row per message. `conversationKey` is a single string
+/// discriminator (e.g. "campaign:<id>" or "channel:general") rather than two
+/// nullable FK columns: Postgres does not treat two NULLs as equal for a
+/// unique-constraint check, so a `[userId, campaignId, channel]` unique
+/// index would silently admit duplicate rows whenever one side was null.
+/// Not used for single-object comment threads (Content/Deliverable/
+/// Shipment/Influencer/Trend) — those don't need an unread badge.
+model ConversationReadState {
+  id              String   @id @default(cuid())
+  userId          String
+  conversationKey String
+  lastReadAt      DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, conversationKey])
+}
+
+/// A shared Trend/Inspiration item (PART 19-25) — external creative
+/// reference material (a viral TikTok, a competitor's hook) the team wants
+/// to discuss and reuse for ideas. Deliberately separate from
+/// PublishedContent: this is NOT content we track as part of our own
+/// creator/content operations, and must never pollute Live Content or
+/// creator/campaign analytics. Only the URL/reference is stored — never a
+/// re-hosted copy of someone else's video.
+model InspirationItem {
+  id                String              @id @default(cuid())
+  url               String
+  platform          Platform?
+  thumbnailUrl      String?
+  title             String?
+  /// Why it's interesting, in the submitter's own words (PART 21).
+  note              String?
+  category          InspirationCategory @default(OTHER)
+  tags              String[]
+  brandId           String?
+  campaignId        String?
+  scriptReferenceId String?
+  status            InspirationStatus   @default(ACTIVE)
+  pinned            Boolean             @default(false)
+  submittedById     String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  brand           Brand?           @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  campaign        Campaign?        @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  scriptReference ScriptReference? @relation(fields: [scriptReferenceId], references: [id], onDelete: SetNull)
+  submittedBy     User?            @relation(fields: [submittedById], references: [id], onDelete: SetNull)
+  comments        Note[]
+
+  @@index([brandId])
+  @@index([campaignId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 /// A usage-rights record (W3-2): what content a brand may use, in what way,

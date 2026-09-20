@@ -83,6 +83,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ContentGrid } from '@/components/content/content-grid';
 import { AddContentFlow } from '@/components/content/add-content-flow';
 import { ActivityFeed } from '@/components/common/activity-feed';
+import { CommentThread } from '@/components/collaboration/comment-thread';
 import { SourcingTab } from './sourcing-tab';
 import { ShipmentsTab } from './shipments-tab';
 import { SubmissionsTab } from './submissions-tab';
@@ -153,6 +154,7 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
         <TabsTrigger value="performance">Performance</TabsTrigger>
         <TabsTrigger value="files">Files</TabsTrigger>
         <TabsTrigger value="activity">Activity</TabsTrigger>
+        <TabsTrigger value="discussion">Discussion</TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview">
@@ -208,6 +210,24 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
 
       <TabsContent value="activity">
         <ActivityTab campaignId={campaign.id} />
+      </TabsContent>
+
+      <TabsContent value="discussion">
+        <Card>
+          <CardHeader>
+            <CardTitle>Campaign Chat</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CommentThread
+              context={{ campaignId: campaign.id }}
+              cacheKey={`campaign-chat:${campaign.id}`}
+              conversationKey={`campaign:${campaign.id}`}
+              emptyTitle="No discussion yet"
+              emptyDescription="Coordinate with the team about this campaign here."
+              composerPlaceholder="Message the team about this campaign… use @ to mention someone"
+            />
+          </CardContent>
+        </Card>
       </TabsContent>
     </Tabs>
   );

@@ -103,6 +103,15 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).auth.listUsers(),
   );
 
+  r.get(
+    '/users/directory',
+    {
+      preHandler: [requireAuth],
+      schema: { tags: ['Settings'], summary: 'Lightweight active-user directory for the @mention picker (id/name/avatar only)' },
+    },
+    async (req) => servicesFor(req).auth.listDirectory(),
+  );
+
   r.post(
     '/users',
     { preHandler: [requireAdmin], schema: { tags: ['Settings'], summary: 'Create a user (admin)', body: requests.registerUserSchema } },

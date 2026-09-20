@@ -5,13 +5,16 @@ import Link from 'next/link';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { isThisWeek, isToday, isYesterday, parseISO } from 'date-fns';
 import {
+  AtSign,
   Bell,
   CalendarClock,
   CheckCheck,
   CheckCircle2,
   Clock,
   Inbox,
+  MessageSquareReply,
   PackageCheck,
+  Pin,
   PlaySquare,
   RefreshCcw,
   ScrollText,
@@ -47,6 +50,9 @@ const CATEGORY_ICON: Record<NotificationCategory, LucideIcon> = {
   SHIPMENT_DELIVERED: PackageCheck,
   SUBMISSION_APPROVED: CheckCircle2,
   GENERAL: Bell,
+  MENTION: AtSign,
+  REPLY: MessageSquareReply,
+  IMPORTANT_MESSAGE: Pin,
 };
 
 const CATEGORY_TONE: Record<NotificationCategory, Tone> = {
@@ -62,6 +68,9 @@ const CATEGORY_TONE: Record<NotificationCategory, Tone> = {
   SHIPMENT_DELIVERED: 'success',
   SUBMISSION_APPROVED: 'success',
   GENERAL: 'neutral',
+  MENTION: 'info',
+  REPLY: 'info',
+  IMPORTANT_MESSAGE: 'warning',
 };
 
 const TONE_ICON_CLASS: Record<Tone, string> = {

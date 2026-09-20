@@ -18,6 +18,8 @@ import {
   CANDIDATE_DECISIONS,
   SHIPMENT_STATUSES,
   USER_ROLES,
+  INSPIRATION_CATEGORIES,
+  INSPIRATION_STATUSES,
 } from '@influenceos/shared';
 
 /**
@@ -665,18 +667,142 @@ export const attachmentCompleteSchema = z.object({
   uploadToken: z.string().min(1),
 });
 
-// --- Note ------------------------------------------------------------------
+// --- Collaboration (Notes / comments / chat) --------------------------------
+// The shared Collaboration Layer primitive — a create call sets exactly one
+// context field (or `parentId`, which inherits its parent's context) and
+// `mentionedUserIds` is explicit, structured data from the composer's @mention
+// picker, never parsed out of free text server-side (avoids ambiguous-name
+// false matches).
+const NOTE_CHANNELS = ['general'] as const;
 export const noteCreateSchema = z
   .object({
     body: z.string().trim().min(1).max(5000),
     influencerId: cuid.optional().nullable(),
     brandId: cuid.optional().nullable(),
     publishedContentId: cuid.optional().nullable(),
+    campaignId: cuid.optional().nullable(),
+    deliverableId: cuid.optional().nullable(),
+    shipmentId: cuid.optional().nullable(),
+    inspirationItemId: cuid.optional().nullable(),
+    channel: z.enum(NOTE_CHANNELS).optional().nullable(),
+    parentId: cuid.optional().nullable(),
     pinned: z.boolean().default(false),
+    mentionedUserIds: z.array(cuid).max(30).optional().default([]),
   })
-  .refine((v) => !!(v.influencerId || v.brandId || v.publishedContentId), {
-    message: 'A note must be attached to an influencer, a brand, or a piece of content.',
-  });
+  .refine(
+    (v) =>
+      !!(
+        v.influencerId ||
+        v.brandId ||
+        v.publishedContentId ||
+        v.campaignId ||
+        v.deliverableId ||
+        v.shipmentId ||
+        v.inspirationItemId ||
+        v.channel ||
+        v.parentId
+      ),
+    {
+      message: 'A message must be attached to a context (influencer, brand, content, campaign, deliverable, shipment, trend, or a channel) or be a reply.',
+    },
+  );
+export type NoteCreateInput = z.infer<typeof noteCreateSchema>;
+
+/** Body-only edit — pin/unpin has its own authorization rule and its own endpoint (PART 8). */
+export const noteEditSchema = z.object({ body: z.string().trim().min(1).max(5000) });
+export const notePinSchema = z.object({ pinned: z.boolean() });
+
+/** List a context's top-level messages (with one level of replies inlined) — cursor-paginated for Campaign/General chat, which can grow large. Exactly one context field identifies the thread, same as noteCreateSchema. */
+export const noteListQuerySchema = z
+  .object({
+    influencerId: cuid.optional(),
+    brandId: cuid.optional(),
+    publishedContentId: cuid.optional(),
+    campaignId: cuid.optional(),
+    deliverableId: cuid.optional(),
+    shipmentId: cuid.optional(),
+    inspirationItemId: cuid.optional(),
+    channel: z.enum(NOTE_CHANNELS).optional(),
+    cursor: z.string().min(1).optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(30),
+  })
+  .refine(
+    (v) =>
+      !!(v.influencerId || v.brandId || v.publishedContentId || v.campaignId || v.deliverableId || v.shipmentId || v.inspirationItemId || v.channel),
+    { message: 'A context (influencer, brand, content, campaign, deliverable, shipment, trend, or channel) is required.' },
+  );
+export type NoteListQuery = z.infer<typeof noteListQuerySchema>;
+
+export const mentionsQuerySchema = z.object({
+  cursor: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  unreadOnly: z.coerce.boolean().optional(),
+});
+
+export const conversationReadSchema = z.object({
+  conversationKey: z.string().trim().min(1).max(200),
+});
+
+// --- Trends & Inspiration ----------------------------------------------------
+export const inspirationCreateSchema = z.object({
+  url: httpUrl,
+  platform: platformEnum.optional().nullable(),
+  title: z.string().trim().max(200).optional().nullable(),
+  note: z.string().trim().max(2000).optional().nullable(),
+  category: z.enum(INSPIRATION_CATEGORIES).default('OTHER'),
+  tags: stringArray,
+  brandId: cuid.optional().nullable(),
+  campaignId: cuid.optional().nullable(),
+  scriptReferenceId: cuid.optional().nullable(),
+});
+export type InspirationCreateInput = z.infer<typeof inspirationCreateSchema>;
+
+export const inspirationUpdateSchema = z.object({
+  title: z.string().trim().max(200).optional().nullable(),
+  note: z.string().trim().max(2000).optional().nullable(),
+  category: z.enum(INSPIRATION_CATEGORIES).optional(),
+  tags: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
+  brandId: cuid.optional().nullable(),
+  campaignId: cuid.optional().nullable(),
+  status: z.enum(INSPIRATION_STATUSES).optional(),
+  pinned: z.boolean().optional(),
+});
+export type InspirationUpdateInput = z.infer<typeof inspirationUpdateSchema>;
+
+export const inspirationFilterSchema = z.object({
+  cursor: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(24),
+  brandId: cuid.optional(),
+  campaignId: cuid.optional(),
+  category: z.enum(INSPIRATION_CATEGORIES).optional(),
+  status: z.enum(INSPIRATION_STATUSES).optional(),
+  pinned: z.coerce.boolean().optional(),
+  search: z.string().trim().max(200).optional(),
+});
+export type InspirationFilter = z.infer<typeof inspirationFilterSchema>;
+
+// --- Duplicate detection -----------------------------------------------------
+/** Checked while adding/importing an influencer (PART 45-47) — never runs a merge, only surfaces candidates. */
+export const duplicateCheckSchema = z.object({
+  displayName: z.string().trim().max(200).optional(),
+  platform: platformEnum.optional(),
+  username: z.string().trim().max(120).optional(),
+  email: z.string().trim().max(200).optional(),
+  mobile: z.string().trim().max(60).optional(),
+  whatsapp: z.string().trim().max(60).optional(),
+  /** Exclude this influencer from its own duplicate check (editing an existing profile). */
+  excludeInfluencerId: cuid.optional(),
+});
+export type DuplicateCheckInput = z.infer<typeof duplicateCheckSchema>;
+
+// --- Bulk influencer-directory operations (PART 52-54) -----------------------
+const bulkInfluencerIds = z.array(cuid).min(1).max(500);
+export const bulkInfluencerRequestSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('ASSIGN_OWNER'), influencerIds: bulkInfluencerIds, ownerId: cuid }),
+  z.object({ action: z.literal('ADD_TAG'), influencerIds: bulkInfluencerIds, tagName: z.string().trim().min(1).max(60) }),
+  z.object({ action: z.literal('SET_RELATIONSHIP_STATUS'), influencerIds: bulkInfluencerIds, status: z.enum(RELATIONSHIP_STATUSES) }),
+]);
+export type BulkInfluencerRequest = z.infer<typeof bulkInfluencerRequestSchema>;
 
 // --- Notifications ---------------------------------------------------------
 export const notificationFilterSchema = z.object({

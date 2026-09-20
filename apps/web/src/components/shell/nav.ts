@@ -4,6 +4,7 @@ import {
   Gauge,
   LayoutDashboard,
   Megaphone,
+  MessagesSquare,
   Package,
   PlaySquare,
   Settings,
@@ -41,6 +42,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/content', label: 'Live Content', icon: PlaySquare },
       { href: '/calendar', label: 'Calendar', icon: CalendarDays },
       { href: '/logistics', label: 'Logistics', icon: Package },
+      { href: '/team', label: 'Team', icon: MessagesSquare },
     ],
   },
   {

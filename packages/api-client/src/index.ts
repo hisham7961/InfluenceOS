@@ -53,6 +53,7 @@ import type {
   SearchResultDTO,
   SocialAccountDTO,
   StorageStatusDTO,
+  TeamMemberRefDTO,
   UploadTicketDTO,
   UsageRightDTO,
   UserDTO,
@@ -96,6 +97,8 @@ export function createClient(config: ClientConfig) {
     users: {
       list: () => http.get<UserDTO[]>(`${V}/users`),
       create: (body: In<typeof requests.registerUserSchema>) => http.post<UserDTO>(`${V}/users`, body),
+      // Lightweight id/name/avatar-only directory for the @mention picker — any authenticated user may read it.
+      directory: () => http.get<TeamMemberRefDTO[]>(`${V}/users/directory`),
     },
 
     brands: {
@@ -171,13 +174,24 @@ export function createClient(config: ClientConfig) {
     },
 
     notes: {
+      // Generic context thread — the ONE read path for Content/Deliverable/Shipment/
+      // Inspiration comments and Campaign/General chat (Operations Intelligence pass).
+      list: (context: QueryParams, params?: QueryParams) =>
+        http.get<CursorPage<NoteDTO>>(`${V}/notes`, { query: { ...context, ...params } }),
       create: (body: In<typeof requests.noteCreateSchema>) => http.post<NoteDTO>(`${V}/notes`, body),
       update: (id: string, body: { body?: string; pinned?: boolean }) =>
         http.patch<NoteDTO>(`${V}/notes/${id}`, body),
+      editBody: (id: string, body: In<typeof requests.noteEditSchema>) =>
+        http.patch<NoteDTO>(`${V}/notes/${id}/body`, body),
+      pin: (id: string, pinned: boolean) => http.patch<NoteDTO>(`${V}/notes/${id}/pin`, { pinned }),
       remove: (id: string) => http.del<void>(`${V}/notes/${id}`),
       // Internal notes on a piece of content (Content Command Center pass) —
       // reuses this same Note model, not a parallel comment system.
       forContent: (publishedContentId: string) => http.get<NoteDTO[]>(`${V}/content/${publishedContentId}/notes`),
+      forBrand: (brandId: string) => http.get<NoteDTO[]>(`${V}/brands/${brandId}/notes`),
+      mentions: (params?: QueryParams) => http.get<CursorPage<NoteDTO>>(`${V}/notes/mentions`, { query: params }),
+      markConversationRead: (conversationKey: string) =>
+        http.post<{ lastReadAt: string }>(`${V}/notes/conversations/read`, { conversationKey }),
     },
 
     campaigns: {

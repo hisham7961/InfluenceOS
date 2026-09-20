@@ -152,9 +152,31 @@ export const NOTIFICATION_CATEGORIES = [
   'USAGE_RIGHT_EXPIRING',
   'SHIPMENT_DELIVERED',
   'SUBMISSION_APPROVED',
+  'MENTION',
+  'REPLY',
+  'IMPORTANT_MESSAGE',
   'GENERAL',
 ] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
+
+/** Category for a shared Trend/Inspiration item (Operations Intelligence pass). */
+export const INSPIRATION_CATEGORIES = [
+  'TREND',
+  'HOOK',
+  'UGC_STYLE',
+  'PRODUCT_DEMO',
+  'BEFORE_AFTER',
+  'EDUCATIONAL',
+  'STORYTELLING',
+  'VIRAL_FORMAT',
+  'COMPETITOR',
+  'AUDIO_TREND',
+  'OTHER',
+] as const;
+export type InspirationCategory = (typeof INSPIRATION_CATEGORIES)[number];
+
+export const INSPIRATION_STATUSES = ['ACTIVE', 'ARCHIVED'] as const;
+export type InspirationStatus = (typeof INSPIRATION_STATUSES)[number];
 
 /** What a usage-rights license permits the brand to do with content (W3-2). */
 export const USAGE_RIGHT_TYPES = [
@@ -268,6 +290,9 @@ export const CONTACT_METHOD_LABELS = labelMap(CONTACT_METHODS, { INSTAGRAM_DM: '
 export const AUDIENCE_HEALTH_LABELS_MAP = labelMap(AUDIENCE_HEALTH_LABELS);
 export const DATA_SOURCE_LABELS = labelMap(DATA_SOURCES, {
   OFFICIAL_API: 'Official API',
+});
+export const INSPIRATION_CATEGORY_LABELS = labelMap(INSPIRATION_CATEGORIES, {
+  UGC_STYLE: 'UGC Style',
 });
 
 export const CAMPAIGN_STATUS_TONE: Record<CampaignStatus, Tone> = {

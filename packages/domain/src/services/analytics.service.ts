@@ -15,7 +15,7 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { moneyNumberOr0, percentOf, sumMoney, toDecimal, toMoneyNumber } from '../lib/money';
+import { moneyNumberOr0, percentOf, subtractMoney, sumMoney, toDecimal, toMoneyNumber } from '../lib/money';
 import { computeCostSummary } from '../lib/progress';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
 
@@ -204,6 +204,11 @@ export function makeAnalyticsService(ctx: DomainContext) {
       digestRemoved,
       overdueRows,
       alertGroups,
+      digestShipmentsDelivered,
+      digestShipmentsFailed,
+      ugcAwaitingReviewCount,
+      unpaidFeeRows,
+      unpaidExpenseRows,
     ] = await Promise.all([
       prisma.publishedContent.count({ where: { detectedAt: { gte: startOfToday, lt: endOfToday }, ...pcBrand } }),
       prisma.deliverable.count({ where: { dueDate: { gte: startOfToday, lt: endOfToday }, status: { in: [...OPEN_DELIVERABLE] }, ...delBrand } }),
@@ -220,6 +225,21 @@ export function makeAnalyticsService(ctx: DomainContext) {
         select: { campaignInfluencer: { select: { campaign: { select: { brandId: true } } } } },
       }),
       prisma.publishedContent.groupBy({ by: ['brandId'], _count: true, where: inBrands({ availabilityStatus: { in: [...REMOVED_CONTENT] } }) }),
+      prisma.productShipment.count({ where: { status: 'DELIVERED', updatedAt: { gte: dayAgo }, ...delBrand } }),
+      prisma.productShipment.count({ where: { status: 'FAILED', updatedAt: { gte: dayAgo }, ...delBrand } }),
+      prisma.deliverableSubmission.count({ where: { status: 'IN_REVIEW', deliverable: delBrand } }),
+      prisma.campaignInfluencer.findMany({
+        where: { paymentStatus: { in: ['UNPAID', 'PARTIALLY_PAID'] }, dealType: { in: [...PAID_DEALS] }, ...ciBrand },
+        select: { agreedCost: true, paidAmount: true },
+      }),
+      // `campaignId: { in: campaignIds } ` is safe even when campaignIds is
+      // empty (an in-scope brand with zero campaigns) — Prisma/SQL correctly
+      // returns zero rows for `IN ()`, unlike an omitted filter which would
+      // return every campaign's expenses regardless of scope.
+      prisma.campaignExpense.findMany({
+        where: { paymentStatus: { in: ['UNPAID', 'PARTIALLY_PAID'] }, type: { not: 'GIFT_PRODUCT' }, campaignId: { in: campaignIds } },
+        select: { amount: true, paidAmount: true },
+      }),
     ]);
 
     // Aggregate spend / budget, per brand and overall, from the grouped rows.
@@ -239,6 +259,14 @@ export function makeAnalyticsService(ctx: DomainContext) {
       budgetByBrand.set(c.brandId, (budgetByBrand.get(c.brandId) ?? new Prisma.Decimal(0)).plus(budget));
       spendByBrand.set(c.brandId, (spendByBrand.get(c.brandId) ?? new Prisma.Decimal(0)).plus(spend));
     }
+
+    // Outstanding = the agreed/billed amount minus whatever's already recorded
+    // as paid — never just a count of UNPAID rows, since PARTIALLY_PAID rows
+    // still have a real remainder (finance P1's partial-payment field).
+    const unpaidSpend = sumMoney([
+      ...unpaidFeeRows.map((r) => subtractMoney(r.agreedCost, r.paidAmount ?? 0) ?? 0),
+      ...unpaidExpenseRows.map((r) => subtractMoney(r.amount, r.paidAmount ?? 0) ?? 0),
+    ]);
 
     const overdueByBrand = new Map<string, number>();
     for (const d of overdueRows) {
@@ -281,6 +309,7 @@ export function makeAnalyticsService(ctx: DomainContext) {
         remaining: totalBudget.minus(totalSpend).toNumber(),
         budgetUsedPercent: percentOf(totalSpend, totalBudget),
         campaignsOverBudget,
+        unpaidSpend: moneyNumberOr0(unpaidSpend),
       },
       today: {
         contentPublished: todayContent,
@@ -296,6 +325,9 @@ export function makeAnalyticsService(ctx: DomainContext) {
         campaignsCompleted: digestCampaignsCompleted,
         rosterAdditions: digestRoster,
         contentRemoved: digestRemoved,
+        shipmentsDelivered: digestShipmentsDelivered,
+        shipmentsFailed: digestShipmentsFailed,
+        ugcAwaitingReview: ugcAwaitingReviewCount,
       },
       brands: rollup,
       generatedAt: now.toISOString(),

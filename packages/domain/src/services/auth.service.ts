@@ -6,13 +6,14 @@ import {
   type AuthResultDTO,
   type AuthTokensDTO,
   type DeviceSessionDTO,
+  type TeamMemberRefDTO,
   type UserDTO,
 } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import type { ClientType, User } from '@influenceos/database';
 import type { Actor, DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireAdmin } from '../lib/authz';
+import { requireActor, requireAdmin } from '../lib/authz';
 import { open, seal } from '../lib/crypto';
 
 const ACCESS_TTL_SEC = 60 * 15; // 15 minutes
@@ -395,6 +396,20 @@ export function makeAuthService(ctx: DomainContext) {
     return users.map(toUserDTO);
   }
 
+  /** Lightweight team directory for the @mention picker (Operations Intelligence pass) — any
+   *  authenticated actor may read it (id/name/avatar only, no email/role/lifecycle fields),
+   *  unlike the admin-only listUsers() above. Active users only, since a deactivated user
+   *  can't be usefully @mentioned. */
+  async function listDirectory(): Promise<TeamMemberRefDTO[]> {
+    requireActor(ctx);
+    const users = await prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, avatarUrl: true },
+      orderBy: { name: 'asc' },
+    });
+    return users;
+  }
+
   async function createUser(input: RegisterInput): Promise<UserDTO> {
     requireAdmin(ctx);
     const email = input.email.toLowerCase();
@@ -536,6 +551,7 @@ export function makeAuthService(ctx: DomainContext) {
     revokeSession,
     changePassword,
     listUsers,
+    listDirectory,
     createUser,
     updateUser,
     resetUserPassword,

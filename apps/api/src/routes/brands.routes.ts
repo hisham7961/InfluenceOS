@@ -41,6 +41,12 @@ export async function brandRoutes(app: FastifyInstance): Promise<void> {
   );
 
   r.get(
+    '/brands/:id/notes',
+    { preHandler: [requireAuth], schema: { tags: ['Brands'], summary: 'Internal notes for a brand', params: z.object({ id: z.string() }) } },
+    async (req) => servicesFor(req).notes.listForBrand(req.params.id),
+  );
+
+  r.get(
     '/brands/:idOrSlug/dashboard',
     { preHandler: [requireAuth], schema: { tags: ['Dashboard'], summary: 'Brand workspace Mission Control', params: z.object({ idOrSlug: z.string() }) } },
     async (req) => servicesFor(req).dashboard.brand(req.params.idOrSlug),

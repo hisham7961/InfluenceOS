@@ -223,46 +223,88 @@ export function makeDashboardService(ctx: DomainContext) {
     };
   }
 
+  /** Combines the actor's own brand scope (W4-4) with an optional explicit brandId filter — a brand-scoped user must never see another brand's attention items on their OWN (unscoped-call) Mission Control. */
+  async function attentionBrandFilter(brandId?: string): Promise<{ brandId?: string | { in: string[] } }> {
+    if (brandId) return { brandId };
+    const scope = await scopedBrandIds(ctx);
+    return scope ? { brandId: { in: scope } } : {};
+  }
+
+  /**
+   * The ONE canonical operational-attention source (Operations Intelligence
+   * pass, PART 55) — Mission Control, the Campaign/Creator contextual views
+   * and the Operations page all render a brandId/campaignId/influencerId-
+   * filtered slice of this SAME list, never a second calculation.
+   */
   async function attention(brandId?: string, limit = 12): Promise<AttentionItemDTO[]> {
     const now = new Date();
     const in5 = new Date(now.getTime() + 5 * 864e5);
+    const in14 = new Date(now.getTime() + 14 * 864e5);
     const out: AttentionItemDTO[] = [];
 
-    const [overdue, removed, endingSoon, unassignedCount] = await Promise.all([
-      prisma.deliverable.findMany({
-        where: {
-          dueDate: { lt: now },
-          status: { in: [...OPEN_DELIVERABLE_STATUSES] },
-          ...deliverableBrandFilter(brandId),
-        },
-        include: {
-          campaignInfluencer: {
-            select: {
-              campaignId: true,
-              influencer: { select: { displayName: true } },
-              campaign: { select: { name: true } },
+    const bf = await attentionBrandFilter(brandId);
+    const deliverableBf = bf.brandId ? { campaignInfluencer: { campaign: { brandId: bf.brandId } } } : {};
+    const shipmentBf = bf.brandId ? { campaignInfluencer: { campaign: { brandId: bf.brandId } } } : {};
+
+    const [overdue, removed, endingSoon, unassignedCount, shipmentIssues, expiringRights, ownerlessCount, ugcAwaiting] =
+      await Promise.all([
+        prisma.deliverable.findMany({
+          where: { dueDate: { lt: now }, status: { in: [...OPEN_DELIVERABLE_STATUSES] }, ...deliverableBf },
+          include: {
+            campaignInfluencer: {
+              select: { campaignId: true, influencer: { select: { displayName: true } }, campaign: { select: { name: true, brandId: true } } },
             },
           },
-        },
-        orderBy: { dueDate: 'asc' },
-        take: limit,
-      }),
-      prisma.publishedContent.findMany({
-        where: { availabilityStatus: { in: [...REMOVED_STATUSES] }, ...brandFilter(brandId) },
-        include: { influencer: { select: { displayName: true } } },
-        orderBy: { lastCheckedAt: 'desc' },
-        take: limit,
-      }),
-      prisma.campaign.findMany({
-        where: { status: 'ACTIVE', endDate: { gte: now, lte: in5 }, ...brandFilter(brandId) },
-        orderBy: { endDate: 'asc' },
-        take: limit,
-      }),
-      // Content Command Center pass — reuses the SAME "no campaign, no
-      // influencer" derivation as everywhere else (never a stored column),
-      // one roll-up entry rather than a row per item.
-      prisma.publishedContent.count({ where: { campaignId: null, influencerId: null, ...brandFilter(brandId) } }),
-    ]);
+          orderBy: { dueDate: 'asc' },
+          take: limit,
+        }),
+        prisma.publishedContent.findMany({
+          where: { availabilityStatus: { in: [...REMOVED_STATUSES] }, ...bf },
+          include: { influencer: { select: { displayName: true } } },
+          orderBy: { lastCheckedAt: 'desc' },
+          take: limit,
+        }),
+        prisma.campaign.findMany({
+          where: { status: 'ACTIVE', endDate: { gte: now, lte: in5 }, ...bf },
+          orderBy: { endDate: 'asc' },
+          take: limit,
+        }),
+        // Content Command Center pass — reuses the SAME "no campaign, no
+        // influencer" derivation as everywhere else (never a stored column),
+        // one roll-up entry rather than a row per item.
+        prisma.publishedContent.count({ where: { campaignId: null, influencerId: null, ...bf } }),
+        prisma.productShipment.findMany({
+          where: { status: { in: ['FAILED', 'RETURNED'] }, ...shipmentBf },
+          include: {
+            campaignInfluencer: {
+              select: { campaignId: true, influencer: { select: { displayName: true } }, campaign: { select: { name: true, brandId: true } } },
+            },
+          },
+          orderBy: { updatedAt: 'desc' },
+          take: limit,
+        }),
+        prisma.usageRight.findMany({
+          where: { status: 'ACTIVE', expiresAt: { gte: now, lte: in14 }, ...bf },
+          include: { brand: { select: { name: true } } },
+          orderBy: { expiresAt: 'asc' },
+          take: limit,
+        }),
+        prisma.campaign.count({ where: { ownerId: null, status: { in: ['ACTIVE', 'PLANNING'] }, ...bf } }),
+        prisma.deliverableSubmission.findMany({
+          where: { status: 'IN_REVIEW', deliverable: { campaignInfluencer: { campaign: bf.brandId ? { brandId: bf.brandId } : {} } } },
+          include: {
+            deliverable: {
+              select: {
+                campaignInfluencer: {
+                  select: { campaignId: true, influencer: { select: { displayName: true } }, campaign: { select: { name: true, brandId: true } } },
+                },
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+          take: limit,
+        }),
+      ]);
 
     for (const d of overdue) {
       out.push({
@@ -273,6 +315,10 @@ export function makeDashboardService(ctx: DomainContext) {
         severity: 'danger',
         link: `/campaigns/${d.campaignInfluencer.campaignId}`,
         at: (d.dueDate ?? d.createdAt).toISOString(),
+        brandId: d.campaignInfluencer.campaign.brandId,
+        campaignId: d.campaignInfluencer.campaignId,
+        influencerId: null,
+        actionLabel: 'Open deliverable',
       });
     }
     for (const c of removed) {
@@ -284,6 +330,10 @@ export function makeDashboardService(ctx: DomainContext) {
         severity: 'warning',
         link: `/content/${c.id}`,
         at: (c.lastCheckedAt ?? c.detectedAt).toISOString(),
+        brandId: c.brandId,
+        campaignId: c.campaignId,
+        influencerId: c.influencerId,
+        actionLabel: 'Review content',
       });
     }
     for (const c of endingSoon) {
@@ -295,6 +345,57 @@ export function makeDashboardService(ctx: DomainContext) {
         severity: 'warning',
         link: `/campaigns/${c.id}`,
         at: (c.endDate ?? now).toISOString(),
+        brandId: c.brandId,
+        campaignId: c.id,
+        influencerId: null,
+        actionLabel: 'Open campaign',
+      });
+    }
+    for (const s of shipmentIssues) {
+      const failed = s.status === 'FAILED';
+      out.push({
+        id: `shipment-${s.id}`,
+        kind: failed ? 'SHIPMENT_FAILED' : 'SHIPMENT_RETURNED',
+        title: `Shipment ${failed ? 'failed' : 'returned'} — ${s.campaignInfluencer.influencer.displayName}`,
+        description: `A shipment for ${s.campaignInfluencer.campaign.name} was ${failed ? 'marked failed' : 'returned'}.`,
+        severity: 'danger',
+        link: `/campaigns/${s.campaignInfluencer.campaignId}?tab=shipments`,
+        at: s.updatedAt.toISOString(),
+        brandId: s.campaignInfluencer.campaign.brandId,
+        campaignId: s.campaignInfluencer.campaignId,
+        influencerId: null,
+        actionLabel: 'Resolve shipment',
+      });
+    }
+    for (const r of expiringRights) {
+      out.push({
+        id: `usage-right-${r.id}`,
+        kind: 'USAGE_RIGHT_EXPIRING',
+        title: `Usage right expiring — ${r.brand.name}`,
+        description: `A ${r.usageType.toLowerCase()} usage right expires on ${r.expiresAt?.toISOString().slice(0, 10)}.`,
+        severity: 'warning',
+        link: `/brands/${r.brandId}`,
+        at: (r.expiresAt ?? now).toISOString(),
+        brandId: r.brandId,
+        campaignId: r.campaignId,
+        influencerId: r.influencerId,
+        actionLabel: 'Review usage right',
+      });
+    }
+    for (const s of ugcAwaiting) {
+      const ci = s.deliverable.campaignInfluencer;
+      out.push({
+        id: `ugc-${s.id}`,
+        kind: 'UGC_AWAITING_REVIEW',
+        title: `Draft awaiting review — ${ci.influencer.displayName}`,
+        description: `A submission for ${ci.campaign.name} has been waiting for review.`,
+        severity: 'warning',
+        link: `/campaigns/${ci.campaignId}?tab=submissions`,
+        at: now.toISOString(),
+        brandId: ci.campaign.brandId,
+        campaignId: ci.campaignId,
+        influencerId: null,
+        actionLabel: 'Review draft',
       });
     }
 
@@ -307,6 +408,25 @@ export function makeDashboardService(ctx: DomainContext) {
         severity: 'warning',
         link: '/content?assignment=UNASSIGNED',
         at: now.toISOString(),
+        brandId: brandId ?? null,
+        campaignId: null,
+        influencerId: null,
+        actionLabel: 'Resolve content',
+      });
+    }
+    if (ownerlessCount > 0) {
+      out.push({
+        id: 'campaigns-missing-owner',
+        kind: 'CAMPAIGN_MISSING_OWNER',
+        title: `${ownerlessCount} campaign${ownerlessCount === 1 ? '' : 's'} missing an owner`,
+        description: 'Active or planning campaigns with no assigned owner.',
+        severity: 'warning',
+        link: '/campaigns?ownerMissing=1',
+        at: now.toISOString(),
+        brandId: brandId ?? null,
+        campaignId: null,
+        influencerId: null,
+        actionLabel: 'Assign owner',
       });
     }
 
