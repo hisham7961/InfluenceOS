@@ -17,6 +17,7 @@ import {
   FileText,
   Heart,
   ListChecks,
+  MessageSquare,
   Package,
   Pencil,
   Percent as PercentIcon,
@@ -65,6 +66,7 @@ import {
   PLATFORMS,
 } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
+import { useConversationUnread } from '@/lib/use-conversation-unread';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -140,6 +142,7 @@ export interface WorkspaceProps {
 
 /** The campaign control room — tabs covering everything about one campaign. */
 export function Workspace({ campaign, influencers, costs, scripts, contentFeed }: WorkspaceProps) {
+  const discussionUnread = useConversationUnread(`campaign:${campaign.id}`);
   return (
     <Tabs defaultValue="overview">
       <TabsList className="flex-wrap">
@@ -156,7 +159,14 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
         <TabsTrigger value="performance">Performance</TabsTrigger>
         <TabsTrigger value="files">Files</TabsTrigger>
         <TabsTrigger value="activity">Activity</TabsTrigger>
-        <TabsTrigger value="discussion">Discussion</TabsTrigger>
+        <TabsTrigger value="discussion" className="gap-1.5">
+          Discussion
+          {discussionUnread > 0 ? (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
+              {discussionUnread > 99 ? '99+' : discussionUnread}
+            </span>
+          ) : null}
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview">
@@ -735,6 +745,7 @@ function DeliverableRow({
   const [removeOpen, setRemoveOpen] = React.useState(false);
   const [addContentOpen, setAddContentOpen] = React.useState(false);
   const [submitDraftOpen, setSubmitDraftOpen] = React.useState(false);
+  const [commentsOpen, setCommentsOpen] = React.useState(false);
 
   const updateStatus = useMutation({
     mutationFn: (status: DeliverableStatus) => api.deliverables.update(deliverable.id, { status }),
@@ -803,6 +814,9 @@ function DeliverableRow({
           <FileText className="h-3.5 w-3.5" /> Submit draft
         </Button>
       ) : null}
+      <Button type="button" variant="ghost" size="sm" onClick={() => setCommentsOpen(true)}>
+        <MessageSquare className="h-3.5 w-3.5" /> Comments
+      </Button>
 
       <div className="ms-auto flex items-center gap-2">
         <DeliverableStatusBadge status={deliverable.status} />
@@ -872,6 +886,23 @@ function DeliverableRow({
         open={submitDraftOpen}
         onOpenChange={setSubmitDraftOpen}
       />
+
+      <Dialog open={commentsOpen} onOpenChange={setCommentsOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {influencerName ? `${influencerName}'s ` : ''}
+              {DELIVERABLE_TYPE_LABELS[deliverable.type]} — comments
+            </DialogTitle>
+          </DialogHeader>
+          <CommentThread
+            context={{ deliverableId: deliverable.id }}
+            cacheKey={`deliverable:${deliverable.id}`}
+            emptyTitle="No comments yet"
+            emptyDescription="Discuss this deliverable with your team."
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

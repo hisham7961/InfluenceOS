@@ -23,6 +23,7 @@ import type {
   ContentMetricsDTO,
   ContentSummaryDTO,
   ContentViewerStateDTO,
+  ConversationUnreadDTO,
   CostSummaryDTO,
   CreatorLeaderboardDTO,
   CreatorReliabilityDTO,
@@ -212,6 +213,8 @@ export function createClient(config: ClientConfig) {
       mentions: (params?: QueryParams) => http.get<CursorPage<NoteDTO>>(`${V}/notes/mentions`, { query: params }),
       markConversationRead: (conversationKey: string) =>
         http.post<{ lastReadAt: string }>(`${V}/notes/conversations/read`, { conversationKey }),
+      unreadCounts: (conversationKeys: string[]) =>
+        http.get<ConversationUnreadDTO[]>(`${V}/notes/conversations/unread`, { query: { keys: conversationKeys.join(',') } }),
     },
 
     campaigns: {

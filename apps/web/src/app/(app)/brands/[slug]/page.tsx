@@ -12,6 +12,7 @@ import { MissionControl } from '@/components/dashboard/mission-control';
 import { ContentGrid } from '@/components/content/content-grid';
 import { formatCurrency } from '@/lib/format';
 import { BrandEditDialog } from './brand-edit-dialog';
+import { BrandNotesCard } from './brand-notes-card';
 import { UsageRightsCard } from './usage-rights-card';
 
 export const dynamic = 'force-dynamic';
@@ -139,6 +140,7 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
       </section>
 
       <UsageRightsCard rights={usageRights} />
+      <BrandNotesCard brandId={brand.id} />
     </div>
   );
 }

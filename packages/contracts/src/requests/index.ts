@@ -743,6 +743,11 @@ export const conversationReadSchema = z.object({
   conversationKey: z.string().trim().min(1).max(200),
 });
 
+/** Comma-separated `conversationKey`s (the same strings `<CommentThread>` already marks read) to fetch unread counts for. */
+export const conversationUnreadQuerySchema = z.object({
+  keys: z.string().trim().min(1).max(2000),
+});
+
 // --- Trends & Inspiration ----------------------------------------------------
 export const inspirationCreateSchema = z.object({
   url: httpUrl,

@@ -1,4 +1,4 @@
-import { requests, type MentionRefDTO, type NoteDTO } from '@influenceos/contracts';
+import { requests, type ConversationUnreadDTO, type MentionRefDTO, type NoteDTO } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
@@ -445,19 +445,29 @@ export function makeNoteService(ctx: DomainContext) {
     return now.toISOString();
   }
 
-  /** Unread counts for a set of conversations (Campaign Chat / General only — PART 16) — one query per key, never one row-per-message. */
-  async function unreadCounts(conversationKeys: { key: string; where: Prisma.NoteWhereInput }[]): Promise<Record<string, number>> {
+  /** Parses a `conversationKey` exactly as `<CommentThread>` builds it — 'channel:general' or 'campaign:{id}' — into the Note filter that scopes it. Unknown/malformed keys resolve to `null` and are skipped, never thrown. */
+  function conversationWhere(key: string): Prisma.NoteWhereInput | null {
+    if (key === 'channel:general') return { channel: 'general' };
+    const campaignMatch = /^campaign:(.+)$/.exec(key);
+    if (campaignMatch) return { campaignId: campaignMatch[1] };
+    return null;
+  }
+
+  /** Unread counts for a set of conversations (Campaign Chat / General only — PART 16), each identified by the same `conversationKey` string `<CommentThread>` already uses to mark itself read — one query per key, never one row-per-message. */
+  async function unreadCounts(conversationKeys: string[]): Promise<ConversationUnreadDTO[]> {
     const actor = requireActor(ctx);
+    const keyed = conversationKeys.map((key) => ({ key, where: conversationWhere(key) })).filter((k): k is { key: string; where: Prisma.NoteWhereInput } => k.where != null);
     const reads = await prisma.conversationReadState.findMany({
-      where: { userId: actor.id, conversationKey: { in: conversationKeys.map((c) => c.key) } },
+      where: { userId: actor.id, conversationKey: { in: keyed.map((c) => c.key) } },
     });
     const lastReadByKey = new Map(reads.map((r) => [r.conversationKey, r.lastReadAt]));
-    const out: Record<string, number> = {};
-    for (const { key, where } of conversationKeys) {
-      const since = lastReadByKey.get(key);
-      out[key] = await prisma.note.count({
+    const out: ConversationUnreadDTO[] = [];
+    for (const { key, where } of keyed) {
+      const since = lastReadByKey.get(key) ?? null;
+      const unreadCount = await prisma.note.count({
         where: { ...where, authorId: { not: actor.id }, ...(since ? { createdAt: { gt: since } } : {}) },
       });
+      out.push({ conversationKey: key, unreadCount, lastReadAt: since ? since.toISOString() : null });
     }
     return out;
   }

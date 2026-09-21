@@ -48,7 +48,11 @@ function activeMentionQuery(text: string, caret: number): { start: number; query
   return { start: before.length - match[1]!.length - 1, query: match[1]! };
 }
 
-function Composer({
+/** The one message composer, with its @mention picker — exported so surfaces
+ *  that don't use the full `<CommentThread>` chat layout (e.g. the influencer
+ *  profile's flat notes list) still get working mentions instead of a second,
+ *  bespoke plain-textarea composer. */
+export function Composer({
   onSubmit,
   pending,
   placeholder,
@@ -324,8 +328,11 @@ export function CommentThread({
   React.useEffect(() => {
     if (!conversationKey || !thread.data || markedRef.current === conversationKey) return;
     markedRef.current = conversationKey;
-    api.notes.markConversationRead(conversationKey).catch(() => {});
-  }, [conversationKey, thread.data]);
+    api.notes
+      .markConversationRead(conversationKey)
+      .then(() => queryClient.invalidateQueries({ queryKey: ['conversation-unread', conversationKey] }))
+      .catch(() => {});
+  }, [conversationKey, thread.data, queryClient]);
 
   function onError(e: unknown) {
     toast.error(e instanceof ApiError ? e.message : 'Could not send the message.');

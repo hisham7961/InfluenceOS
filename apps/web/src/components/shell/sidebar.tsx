@@ -2,7 +2,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/cn';
+import { useConversationUnread } from '@/lib/use-conversation-unread';
 import { NAV_SECTIONS } from './nav';
+
+const TEAM_CHAT_KEY = 'channel:general';
 
 function isActive(pathname: string, href: string, exact?: boolean): boolean {
   if (exact) return pathname === href;
@@ -11,6 +14,7 @@ function isActive(pathname: string, href: string, exact?: boolean): boolean {
 
 export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const teamUnread = useConversationUnread(TEAM_CHAT_KEY);
   return (
     <nav className="flex flex-1 flex-col gap-4 px-3">
       {NAV_SECTIONS.map((section, si) => (
@@ -23,6 +27,7 @@ export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           {section.items.map((item) => {
             const active = isActive(pathname, item.href, item.exact);
             const Icon = item.icon;
+            const unread = item.href === '/team' ? teamUnread : 0;
             return (
               <Link
                 key={item.href}
@@ -37,7 +42,12 @@ export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                 )}
               >
                 <Icon aria-hidden className={cn('h-[18px] w-[18px]', active ? 'text-brand' : 'text-muted-foreground group-hover:text-foreground')} />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {unread > 0 ? (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
+                    {unread > 99 ? '99+' : unread}
+                  </span>
+                ) : null}
               </Link>
             );
           })}

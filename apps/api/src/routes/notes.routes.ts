@@ -98,4 +98,17 @@ export async function noteRoutes(app: FastifyInstance): Promise<void> {
       return { lastReadAt };
     },
   );
+
+  r.get(
+    '/notes/conversations/unread',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Collaboration'],
+        summary: 'Unread counts for a set of Campaign Chat / General channel conversations',
+        querystring: requests.conversationUnreadQuerySchema,
+      },
+    },
+    async (req) => servicesFor(req).notes.unreadCounts(req.query.keys.split(',').map((k) => k.trim()).filter(Boolean)),
+  );
 }

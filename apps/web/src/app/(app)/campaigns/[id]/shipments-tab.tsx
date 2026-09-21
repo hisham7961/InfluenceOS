@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ExternalLink, Package, Plus, Trash2 } from 'lucide-react';
+import { ExternalLink, MessageSquare, Package, Plus, Trash2 } from 'lucide-react';
 import type { CampaignInfluencerDTO, ProductShipmentDTO } from '@influenceos/contracts';
 import { DELIVERABLE_TYPE_LABELS, SHIPMENT_STATUSES, SHIPMENT_STATUS_LABELS, SHIPMENT_STATUS_TONE } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
@@ -14,6 +14,7 @@ const isHttpUrl = (u: string | null): u is string => !!u && /^https?:\/\//i.test
 const NONE = '__none__';
 
 import { api } from '@/lib/api-browser';
+import { CommentThread } from '@/components/collaboration/comment-thread';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
     queryFn: () => api.campaigns.shipments(campaignId),
   });
   const [createOpen, setCreateOpen] = React.useState(false);
+  const [commentsShipmentId, setCommentsShipmentId] = React.useState<string | null>(null);
 
   const byCi = new Map(influencers.map((ci) => [ci.id, ci]));
 
@@ -86,6 +88,7 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
                   <TableHeaderCell align="end" className="pe-5">
                     Status
                   </TableHeaderCell>
+                  <TableHeaderCell align="end" className="pe-5" />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -132,6 +135,11 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
                       <TableCell align="end" className="pe-5">
                         <StatusCell shipment={s} />
                       </TableCell>
+                      <TableCell align="end" className="pe-5">
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label="Comments" onClick={() => setCommentsShipmentId(s.id)}>
+                          <MessageSquare className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -142,6 +150,22 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
       )}
 
       <CreateShipmentDialog influencers={influencers} open={createOpen} onOpenChange={setCreateOpen} />
+
+      <Dialog open={commentsShipmentId != null} onOpenChange={(open) => !open && setCommentsShipmentId(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Shipment comments</DialogTitle>
+          </DialogHeader>
+          {commentsShipmentId ? (
+            <CommentThread
+              context={{ shipmentId: commentsShipmentId }}
+              cacheKey={`shipment:${commentsShipmentId}`}
+              emptyTitle="No comments yet"
+              emptyDescription="Discuss this shipment with your team."
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
