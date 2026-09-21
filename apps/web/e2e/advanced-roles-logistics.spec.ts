@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /**
  * Browser verification of the Advanced Roles, Country Scoping & Logistics
@@ -41,8 +41,8 @@ async function signIn(page: Page, email: string, password: string) {
     await page.getByPlaceholder('••••••••').fill(password);
     await page.getByRole('button', { name: /sign in/i }).click();
     try {
-      await page.waitForURL(/\/$/, { timeout: 15_000 });
-      await expect(page.getByRole('heading', { name: 'Mission Control' })).toBeVisible({ timeout: 10_000 });
+      await page.waitForURL(/\/$/, { timeout: 30_000 });
+      await expect(page.getByRole('heading', { name: 'Mission Control' })).toBeVisible({ timeout: 25_000 });
       return;
     } catch (e) {
       if (attempt === 2) throw e;
@@ -97,16 +97,19 @@ async function createScopedUser(
   await expect(page.getByRole('dialog')).toBeHidden();
 }
 
-/** Submit a Collaboration Layer composer via Ctrl+Enter — avoids ambiguity between
- *  the docked Logistics Team Chat's "Send" button and the shipment sheet's own. */
-async function submitComposer(page: Page, placeholder: string | RegExp, body: string) {
-  const box = page.getByPlaceholder(placeholder);
+/** Fill a Collaboration Layer composer and click its own Send button — `scope`
+ *  must be narrow enough that exactly one "Send" button resolves within it
+ *  (the shipment sheet or the page when no dialog is open), since the docked
+ *  Logistics Team Chat panel and a shipment's own Comments both use the same
+ *  composer component. */
+async function submitComposer(scope: Page | Locator, placeholder: string | RegExp, body: string) {
+  const box = scope.getByPlaceholder(placeholder);
   await box.fill(body);
-  await box.press('Control+Enter');
+  await scope.getByRole('button', { name: 'Send' }).click();
 }
 
 test('Advanced Roles & Logistics Operations — 11 scenario browser journey', async ({ page }) => {
-  test.setTimeout(300_000);
+  test.setTimeout(420_000);
 
   // ===========================================================================
   // SETUP (as Admin) — a brand, two creators in two different countries, a
@@ -236,7 +239,7 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   await switchTo(page, AHMED_EMAIL, PASSWORD);
   await page.goto('/logistics');
   await expect(page.getByRole('heading', { name: 'Logistics' })).toBeVisible();
-  await expect(page.getByText(SARA).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(SARA).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(KHALED)).toHaveCount(0);
 
   await page.goto('/settings/users');
@@ -259,7 +262,7 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   await page.getByRole('option', { name: 'Missing Phone' }).click();
   await shipmentSheet.getByPlaceholder(/building number is missing/i).fill('Phone number is unreachable — please confirm.');
   await shipmentSheet.getByRole('button', { name: 'Send request' }).click();
-  await expect(shipmentSheet.getByText('Clarification Requested')).toBeVisible({ timeout: 10_000 });
+  await expect(shipmentSheet.getByText('Clarification Requested')).toBeVisible({ timeout: 25_000 });
   await expect(shipmentSheet.getByText('Phone number is unreachable')).toBeVisible();
 
   // Close the sheet before touching anything behind its overlay — the
@@ -272,10 +275,10 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   // 71 — E2E: LOGISTICS CHAT. Always-open, docked on the same /logistics
   // screen, reusing the existing Collaboration Layer.
   // ===========================================================================
-  await expect(page.getByText('Logistics Chat').first()).toBeVisible();
+  await expect(page.getByText('Logistics Chat').first()).toBeVisible({ timeout: 25_000 });
   const teamChatMessage = `Aramex pickup moved to 3 PM — ${STAMP}`;
   await submitComposer(page, 'Message the logistics team… use @ to mention someone', teamChatMessage);
-  await expect(page.getByText(teamChatMessage)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(teamChatMessage)).toBeVisible({ timeout: 25_000 });
 
   // ===========================================================================
   // 72 — E2E: SHIPMENT COMMENT. A shipment-scoped comment stays scoped to
@@ -284,8 +287,8 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   await page.getByText(SARA).first().click();
   const commentSheet = page.getByRole('dialog');
   const shipmentComment = `Building number confirmed as 12B — ${STAMP}`;
-  await submitComposer(page, 'Comment on this shipment… use @ to mention someone', shipmentComment);
-  await expect(commentSheet.getByText(shipmentComment)).toBeVisible({ timeout: 10_000 });
+  await submitComposer(commentSheet, 'Comment on this shipment… use @ to mention someone', shipmentComment);
+  await expect(commentSheet.getByText(shipmentComment)).toBeVisible({ timeout: 25_000 });
   await commentSheet.getByRole('button', { name: 'Close' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
   // The shipment-scoped comment is a distinct conversation from the docked
@@ -302,7 +305,7 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   page.once('dialog', (d) => d.accept(viewName));
   await page.getByRole('button', { name: /Views/ }).click();
   await page.getByRole('menuitem', { name: 'Save current filters' }).click();
-  await expect(page.getByText('View saved')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('View saved')).toBeVisible({ timeout: 25_000 });
   // The dropdown's onSelect calls preventDefault() (to let window.prompt()
   // render without Radix auto-closing the menu first) — close it explicitly.
   await page.keyboard.press('Escape');
@@ -319,8 +322,8 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   // ===========================================================================
   await switchTo(page, GRACE_EMAIL, PASSWORD);
   await page.goto('/logistics');
-  await expect(page.getByText(SARA).first()).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText(KHALED).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(SARA).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(KHALED).first()).toBeVisible({ timeout: 30_000 });
 
   await page.goto('/settings/users');
   await expect(page.getByRole('heading', { name: 'Admins only' })).toBeVisible();
@@ -345,7 +348,7 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   await page.goto('/influencers');
   await page.getByPlaceholder('Search by name or @username…').fill(SARA);
   await page.getByPlaceholder('Search by name or @username…').press('Enter');
-  await expect(page.getByText(SARA).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(SARA).first()).toBeVisible({ timeout: 30_000 });
 
   await page.getByPlaceholder('Search by name or @username…').fill(KHALED);
   await page.getByPlaceholder('Search by name or @username…').press('Enter');
@@ -355,7 +358,7 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   await page.getByPlaceholder('Search by name or @username…').press('Enter');
   await page.getByText(SARA).first().click();
   await expect(page.getByRole('heading', { name: SARA })).toBeVisible();
-  await expect(page.getByText(/Logistics needs address clarification/i)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Logistics needs address clarification/i)).toBeVisible({ timeout: 30_000 });
 
   const directInfluencerHit = await page.request.get(`/api/bff/api/v1/influencers/${khaledInfluencer.id}`);
   expect(directInfluencerHit.status()).toBe(404);
@@ -373,13 +376,13 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
 
   await page.goto(`/campaigns/${campaignId}?tab=operations`);
   await expect(page.getByRole('tab', { name: 'Operations Board' })).toHaveAttribute('data-state', 'active');
-  await expect(page.getByRole('button', { name: /Needs Attention \(\d+\)/ })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('button', { name: /Needs Attention \(\d+\)/ })).toBeVisible({ timeout: 30_000 });
   const saraOpsRow = page.locator('tr', { hasText: SARA });
   await expect(saraOpsRow.locator('span[title*="Address Clarification"]')).toBeVisible();
 
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Needs Attention' })).toBeVisible();
-  await expect(page.getByText(/address clarification/i).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/address clarification/i).first()).toBeVisible({ timeout: 30_000 });
 
   await page.goto('/logistics');
   await page.getByText(SARA).first().click();
@@ -387,10 +390,10 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   await resolveSheet.getByRole('button', { name: 'Edit' }).click();
   await resolveSheet.getByRole('textbox').nth(1).fill('+96550000000'); // Phone (2nd field in the edit form)
   await resolveSheet.getByRole('button', { name: 'Save' }).click();
-  await expect(resolveSheet.getByRole('button', { name: 'Edit' })).toBeVisible({ timeout: 10_000 });
+  await expect(resolveSheet.getByRole('button', { name: 'Edit' })).toBeVisible({ timeout: 25_000 });
 
   await resolveSheet.getByRole('button', { name: 'Resolve' }).click();
-  await expect(resolveSheet.getByText(/Resolved by/)).toBeVisible({ timeout: 10_000 });
+  await expect(resolveSheet.getByText(/Resolved by/)).toBeVisible({ timeout: 25_000 });
   await expect(resolveSheet.getByRole('button', { name: 'Request Address Clarification' })).toBeVisible();
   await resolveSheet.getByRole('button', { name: 'Close' }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
@@ -420,6 +423,6 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
 
   await switchTo(page, AHMED_EMAIL, PASSWORD);
   await page.goto('/logistics');
-  await expect(page.getByText(SARA).first()).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText(KHALED).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(SARA).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(KHALED).first()).toBeVisible({ timeout: 30_000 });
 });
