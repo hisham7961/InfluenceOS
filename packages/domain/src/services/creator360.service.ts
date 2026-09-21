@@ -48,7 +48,17 @@ export function makeCreator360Service(ctx: DomainContext) {
           createdAt: true,
           campaign: { select: { status: true, startDate: true, brandId: true } },
           deliverables: { select: { status: true } },
-          shipments: { select: { status: true } },
+          shipments: {
+            select: {
+              id: true,
+              status: true,
+              destinationCountryCode: true,
+              courier: true,
+              trackingNumber: true,
+              updatedAt: true,
+              issues: { where: { status: 'OPEN' }, select: { id: true, type: true, description: true, createdAt: true } },
+            },
+          },
         },
       }),
       prisma.note.aggregate({ where: { influencerId }, _max: { createdAt: true } }),
@@ -61,6 +71,9 @@ export function makeCreator360Service(ctx: DomainContext) {
     let lastContactAt: Date | null = lastNoteAt._max.createdAt ?? null;
     let activeDeliverables = 0;
     let activeShipments = 0;
+    const openLogisticsIssues: CreatorSnapshotDTO['openLogisticsIssues'] = [];
+    let mostRecentShipment: CreatorSnapshotDTO['mostRecentShipment'] = null;
+    let mostRecentShipmentUpdatedAt: Date | null = null;
 
     // Rate range / outstanding payment only ever combine rows in ONE currency
     // (DB-03 precedent: never silently sum mismatched currencies). When a
@@ -90,6 +103,20 @@ export function makeCreator360Service(ctx: DomainContext) {
       }
       for (const s of ci.shipments) {
         if (ACTIVE_SHIPMENT_STATUSES.includes(s.status as (typeof ACTIVE_SHIPMENT_STATUSES)[number])) activeShipments += 1;
+        for (const issue of s.issues) {
+          openLogisticsIssues.push({ id: issue.id, shipmentId: s.id, type: issue.type, description: issue.description, createdAt: issue.createdAt.toISOString() });
+        }
+        if (!mostRecentShipmentUpdatedAt || s.updatedAt > mostRecentShipmentUpdatedAt) {
+          mostRecentShipmentUpdatedAt = s.updatedAt;
+          mostRecentShipment = {
+            id: s.id,
+            status: s.status,
+            destinationCountryCode: s.destinationCountryCode,
+            courier: s.courier,
+            trackingNumber: s.trackingNumber,
+            updatedAt: s.updatedAt.toISOString(),
+          };
+        }
       }
     }
 
@@ -115,6 +142,8 @@ export function makeCreator360Service(ctx: DomainContext) {
       currency: dominantCurrency ?? 'KWD',
       activeDeliverables,
       activeShipments,
+      openLogisticsIssues,
+      mostRecentShipment,
     };
   }
 

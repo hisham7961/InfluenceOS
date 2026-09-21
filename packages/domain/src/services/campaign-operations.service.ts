@@ -60,6 +60,7 @@ function deriveStages(
   },
   deliverables: DeliverableRow[],
   shipmentStatuses: string[],
+  hasOpenLogisticsIssue: boolean,
   now: Date,
 ): CampaignOperationsStageDTO[] {
   const tabLink = (tab: string) => `/campaigns/${ci.campaignId}?tab=${tab}`;
@@ -77,9 +78,15 @@ function deriveStages(
   // 2. Product — only applicable when at least one deliverable is flagged as
   // requiring a physical product, or a shipment already exists for this row.
   const needsProduct = deliverables.some((d) => d.requiresProduct) || shipmentStatuses.length > 0;
+  // An open Address Clarification issue is the real blocker regardless of
+  // the shipment's own status (which may still read PENDING) — reuses the
+  // SAME LogisticsIssue record the Logistics workspace shows, never a
+  // second campaign-logistics state (Advanced Roles & Logistics pass).
   const product = !needsProduct
     ? mk('product', 'Product', 'na', 'No product required', null)
-    : shipmentStatuses.includes('DELIVERED')
+    : hasOpenLogisticsIssue
+      ? mk('product', 'Product', 'overdue', 'Address Clarification needed', tabLink('shipments'))
+      : shipmentStatuses.includes('DELIVERED')
       ? mk('product', 'Product', 'done', 'Delivered', tabLink('shipments'))
       : shipmentStatuses.some((s) => s === 'SHIPPED' || s === 'IN_TRANSIT')
         ? mk('product', 'Product', 'waiting', 'In transit', tabLink('shipments'))
@@ -274,7 +281,7 @@ export function makeCampaignOperationsService(ctx: DomainContext) {
           },
           orderBy: { createdAt: 'asc' },
         },
-        shipments: { select: { status: true } },
+        shipments: { select: { status: true, issues: { where: { status: 'OPEN' }, select: { id: true } } } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -287,7 +294,8 @@ export function makeCampaignOperationsService(ctx: DomainContext) {
         requiresProduct: d.requiresProduct,
         hasSubmission: d.submissions.length > 0,
       }));
-      const stages = deriveStages(ci, deliverables, ci.shipments.map((s) => s.status), now);
+      const hasOpenLogisticsIssue = ci.shipments.some((s) => s.issues.length > 0);
+      const stages = deriveStages(ci, deliverables, ci.shipments.map((s) => s.status), hasOpenLogisticsIssue, now);
       const avatarUrl = ci.influencer.avatarOverrideUrl ?? ci.influencer.resolvedAvatarUrl ?? ci.influencer.socialAccounts[0]?.avatarUrl ?? null;
       return {
         campaignInfluencerId: ci.id,

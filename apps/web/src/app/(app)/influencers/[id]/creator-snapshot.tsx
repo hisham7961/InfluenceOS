@@ -1,5 +1,7 @@
-import { Building2, CalendarClock, Clock, Coins, PackageCheck, ShieldCheck, Truck, UserCog } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, Building2, CalendarClock, Clock, Coins, MapPin, PackageCheck, ShieldCheck, Truck, UserCog } from 'lucide-react';
 import type { CreatorReliabilityDTO, CreatorSnapshotDTO } from '@influenceos/contracts';
+import { countryName, LOGISTICS_ISSUE_TYPE_LABELS, SHIPMENT_STATUS_LABELS, SHIPMENT_STATUS_TONE } from '@influenceos/shared';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, relativeTime } from '@/lib/format';
@@ -25,59 +27,98 @@ function Stat({ icon: Icon, label, value, hint }: { icon: React.ComponentType<{ 
  * payment/shipment records (see creator360.service.ts); a metric with no
  * evidence shows "No data yet", never a guess.
  */
-export function CreatorSnapshot({ snapshot, reliability }: { snapshot: CreatorSnapshotDTO; reliability: CreatorReliabilityDTO }) {
+export function CreatorSnapshot({
+  influencerId,
+  snapshot,
+  reliability,
+}: {
+  influencerId: string;
+  snapshot: CreatorSnapshotDTO;
+  reliability: CreatorReliabilityDTO;
+}) {
   const onTimeRate = reliability.sampleSize > 0 ? Math.round((reliability.onTime / reliability.sampleSize) * 100) : null;
+  const logisticsHref = `/logistics?influencerId=${influencerId}&hasOpenIssue=true`;
 
   return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle>Relationship Snapshot</CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat icon={UserCog} label="Owner" value={snapshot.ownerName ?? 'Unassigned'} />
-        <Stat icon={Building2} label="Brands worked with" value={snapshot.brandsWorkedWith} hint={`${snapshot.totalCollaborations} collaborations total`} />
-        <Stat icon={CalendarClock} label="Last collaboration" value={snapshot.lastCollaborationAt ? relativeTime(snapshot.lastCollaborationAt) : 'Never'} />
-        <Stat icon={Clock} label="Last contact" value={snapshot.lastContactAt ? relativeTime(snapshot.lastContactAt) : 'No record'} />
-        <Stat
-          icon={Coins}
-          label="Rate range"
-          value={
-            snapshot.rateRange
-              ? snapshot.rateRange.min === snapshot.rateRange.max
-                ? formatCurrency(snapshot.rateRange.min, snapshot.rateRange.currency)
-                : `${formatCurrency(snapshot.rateRange.min, snapshot.rateRange.currency)} – ${formatCurrency(snapshot.rateRange.max, snapshot.rateRange.currency)}`
-              : 'No paid deals yet'
-          }
-        />
-        <Stat
-          icon={Coins}
-          label="Outstanding payment"
-          value={formatCurrency(snapshot.outstandingPayment, snapshot.currency)}
-          hint={snapshot.outstandingPayment > 0 ? 'Awaiting payment' : undefined}
-        />
-        <Stat icon={PackageCheck} label="Active deliverables" value={snapshot.activeDeliverables} />
-        <Stat icon={Truck} label="Active shipments" value={snapshot.activeShipments} />
-      </CardContent>
-      <CardContent className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
-        <div className="flex items-center gap-2 text-sm">
-          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium text-foreground">Delivery reliability</span>
-        </div>
-        {reliability.sampleSize === 0 ? (
-          <Badge tone="neutral">No completed deliverables with a due date yet</Badge>
-        ) : (
-          <>
-            <Badge tone={onTimeRate! >= 80 ? 'success' : onTimeRate! >= 50 ? 'warning' : 'danger'}>
-              {onTimeRate}% on time ({reliability.onTime}/{reliability.sampleSize})
-            </Badge>
-            {reliability.late > 0 && reliability.averageDelayDays != null ? (
-              <span className="text-xs text-muted-foreground">
-                {reliability.late} late, averaging {reliability.averageDelayDays} day{reliability.averageDelayDays === 1 ? '' : 's'} delayed
-              </span>
-            ) : null}
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <>
+      {snapshot.openLogisticsIssues.length > 0 && (
+        <Link
+          href={logisticsHref}
+          className="mb-4 flex items-center gap-2.5 rounded-xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger transition-colors hover:bg-danger/10"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="font-medium">
+            {snapshot.openLogisticsIssues.length === 1
+              ? `Logistics needs address clarification — ${LOGISTICS_ISSUE_TYPE_LABELS[snapshot.openLogisticsIssues[0]!.type]}`
+              : `Logistics needs address clarification on ${snapshot.openLogisticsIssues.length} shipments`}
+          </span>
+          <span className="ms-auto text-xs underline">View in Logistics</span>
+        </Link>
+      )}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Relationship Snapshot</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat icon={UserCog} label="Owner" value={snapshot.ownerName ?? 'Unassigned'} />
+          <Stat icon={Building2} label="Brands worked with" value={snapshot.brandsWorkedWith} hint={`${snapshot.totalCollaborations} collaborations total`} />
+          <Stat icon={CalendarClock} label="Last collaboration" value={snapshot.lastCollaborationAt ? relativeTime(snapshot.lastCollaborationAt) : 'Never'} />
+          <Stat icon={Clock} label="Last contact" value={snapshot.lastContactAt ? relativeTime(snapshot.lastContactAt) : 'No record'} />
+          <Stat
+            icon={Coins}
+            label="Rate range"
+            value={
+              snapshot.rateRange
+                ? snapshot.rateRange.min === snapshot.rateRange.max
+                  ? formatCurrency(snapshot.rateRange.min, snapshot.rateRange.currency)
+                  : `${formatCurrency(snapshot.rateRange.min, snapshot.rateRange.currency)} – ${formatCurrency(snapshot.rateRange.max, snapshot.rateRange.currency)}`
+                : 'No paid deals yet'
+            }
+          />
+          <Stat
+            icon={Coins}
+            label="Outstanding payment"
+            value={formatCurrency(snapshot.outstandingPayment, snapshot.currency)}
+            hint={snapshot.outstandingPayment > 0 ? 'Awaiting payment' : undefined}
+          />
+          <Stat icon={PackageCheck} label="Active deliverables" value={snapshot.activeDeliverables} />
+          <Stat icon={Truck} label="Active shipments" value={snapshot.activeShipments} />
+          {snapshot.mostRecentShipment && (
+            <Stat
+              icon={MapPin}
+              label="Current shipment"
+              value={
+                <Link href={logisticsHref.replace('&hasOpenIssue=true', '')} className="hover:underline">
+                  <Badge tone={SHIPMENT_STATUS_TONE[snapshot.mostRecentShipment.status]}>
+                    {SHIPMENT_STATUS_LABELS[snapshot.mostRecentShipment.status]}
+                  </Badge>
+                </Link>
+              }
+              hint={countryName(snapshot.mostRecentShipment.destinationCountryCode) ?? snapshot.mostRecentShipment.destinationCountryCode ?? undefined}
+            />
+          )}
+        </CardContent>
+        <CardContent className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+          <div className="flex items-center gap-2 text-sm">
+            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium text-foreground">Delivery reliability</span>
+          </div>
+          {reliability.sampleSize === 0 ? (
+            <Badge tone="neutral">No completed deliverables with a due date yet</Badge>
+          ) : (
+            <>
+              <Badge tone={onTimeRate! >= 80 ? 'success' : onTimeRate! >= 50 ? 'warning' : 'danger'}>
+                {onTimeRate}% on time ({reliability.onTime}/{reliability.sampleSize})
+              </Badge>
+              {reliability.late > 0 && reliability.averageDelayDays != null ? (
+                <span className="text-xs text-muted-foreground">
+                  {reliability.late} late, averaging {reliability.averageDelayDays} day{reliability.averageDelayDays === 1 ? '' : 's'} delayed
+                </span>
+              ) : null}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 }

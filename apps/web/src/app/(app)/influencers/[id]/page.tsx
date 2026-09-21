@@ -155,7 +155,7 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
         />
       </div>
 
-      <CreatorSnapshot snapshot={snapshot} reliability={reliability} />
+      <CreatorSnapshot influencerId={id} snapshot={snapshot} reliability={reliability} />
 
       <CreatorConnections influencerId={influencer.id} />
 

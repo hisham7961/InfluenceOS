@@ -1103,7 +1103,8 @@ export interface AttentionItemDTO {
     | 'CAMPAIGN_MISSING_OWNER'
     | 'UGC_AWAITING_REVIEW'
     | 'CREATOR_MISSING_INFO'
-    | 'INTEGRITY_ISSUE';
+    | 'INTEGRITY_ISSUE'
+    | 'LOGISTICS_ADDRESS_ISSUE';
   title: string;
   description: string;
   severity: 'warning' | 'danger';
@@ -1424,6 +1425,28 @@ export interface CreatorSnapshotDTO {
   currency: string;
   activeDeliverables: number;
   activeShipments: number;
+  /** Open Address Clarification issues across every shipment for this
+   *  creator (Advanced Roles & Logistics Operations pass) — the SAME
+   *  LogisticsIssue records the Logistics workspace shows, surfaced here as
+   *  a warning banner rather than a copy. Empty when nothing is open. */
+  openLogisticsIssues: {
+    id: string;
+    shipmentId: string;
+    type: LogisticsIssueType;
+    description: string;
+    createdAt: string;
+  }[];
+  /** The creator's most recently updated shipment, for an at-a-glance
+   *  "current shipment / delivery status / destination country" — reuses
+   *  the same ProductShipment row every other view reads. */
+  mostRecentShipment: {
+    id: string;
+    status: ShipmentStatus;
+    destinationCountryCode: string | null;
+    courier: string | null;
+    trackingNumber: string | null;
+    updatedAt: string;
+  } | null;
 }
 
 /**

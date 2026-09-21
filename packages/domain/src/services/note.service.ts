@@ -134,10 +134,12 @@ export function makeNoteService(ctx: DomainContext) {
       return { brandId: item.brandId, campaignId: null, link: `/inspiration/${item.id}`, label: item.title ?? 'a trend' };
     }
     if (input.channel === 'logistics') {
-      // The Logistics Team Chat is restricted to people who can actually see
-      // logistics data — a capability check, not a hardcoded role check
-      // (Advanced Roles pass), so it stays correct as Role Profiles evolve.
-      if (!(await hasCapability(ctx, 'LOGISTICS_VIEW'))) throw AppError.forbidden('You do not have access to the Logistics channel.');
+      // Restricted to people who actually DO logistics work (LOGISTICS_MANAGE),
+      // not merely those with read-only LOGISTICS_VIEW (which every Role
+      // Profile carries, by design, so status stays visible org-wide) — a
+      // capability check, not a hardcoded role check, so it stays correct as
+      // Role Profiles evolve.
+      if (!(await hasCapability(ctx, 'LOGISTICS_MANAGE'))) throw AppError.forbidden('You do not have access to the Logistics channel.');
       return { brandId: null, campaignId: null, link: '/logistics', label: 'Logistics Team' };
     }
     if (input.channel) {

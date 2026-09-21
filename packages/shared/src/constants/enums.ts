@@ -475,3 +475,16 @@ export const SHIPMENT_STATUS_TONE: Record<ShipmentStatus, Tone> = {
   RETURNED: 'warning',
   FAILED: 'danger',
 };
+
+export const ADDRESS_HEALTH_TONE: Record<AddressHealth, Tone> = {
+  COMPLETE: 'success',
+  INCOMPLETE: 'warning',
+  CLARIFICATION_REQUESTED: 'danger',
+  RESOLVED: 'info',
+};
+
+export const LOGISTICS_ISSUE_STATUS_TONE: Record<LogisticsIssueStatus, Tone> = {
+  OPEN: 'danger',
+  RESOLVED: 'success',
+  CANCELLED: 'neutral',
+};

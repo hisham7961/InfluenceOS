@@ -10,6 +10,7 @@ import type {
   WhatsNewItemDTO,
   WhatsNewSummaryDTO,
 } from '@influenceos/contracts';
+import { LOGISTICS_ISSUE_TYPE_LABELS } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { requireActor } from '../lib/authz';
 import { iso } from '../lib/helpers';
@@ -246,7 +247,7 @@ export function makeDashboardService(ctx: DomainContext) {
     const deliverableBf = bf.brandId ? { campaignInfluencer: { campaign: { brandId: bf.brandId } } } : {};
     const shipmentBf = bf.brandId ? { campaignInfluencer: { campaign: { brandId: bf.brandId } } } : {};
 
-    const [overdue, removed, endingSoon, unassignedCount, shipmentIssues, expiringRights, ownerlessCount, ugcAwaiting] =
+    const [overdue, removed, endingSoon, unassignedCount, shipmentIssues, expiringRights, ownerlessCount, ugcAwaiting, logisticsIssues] =
       await Promise.all([
         prisma.deliverable.findMany({
           where: { dueDate: { lt: now }, status: { in: [...OPEN_DELIVERABLE_STATUSES] }, ...deliverableBf },
@@ -294,6 +295,23 @@ export function makeDashboardService(ctx: DomainContext) {
           where: { status: 'IN_REVIEW', deliverable: { campaignInfluencer: { campaign: bf.brandId ? { brandId: bf.brandId } : {} } } },
           include: {
             deliverable: {
+              select: {
+                campaignInfluencer: {
+                  select: { campaignId: true, influencer: { select: { displayName: true } }, campaign: { select: { name: true, brandId: true } } },
+                },
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+          take: limit,
+        }),
+        // Advanced Roles & Logistics Operations pass — the SAME LogisticsIssue
+        // records the Logistics workspace and Influencer 360 show, surfaced
+        // here as an actionable attention item, never a duplicate calculation.
+        prisma.logisticsIssue.findMany({
+          where: { status: 'OPEN', shipment: { campaignInfluencer: { campaign: bf.brandId ? { brandId: bf.brandId } : {} } } },
+          include: {
+            shipment: {
               select: {
                 campaignInfluencer: {
                   select: { campaignId: true, influencer: { select: { displayName: true } }, campaign: { select: { name: true, brandId: true } } },
@@ -365,6 +383,26 @@ export function makeDashboardService(ctx: DomainContext) {
         campaignId: s.campaignInfluencer.campaignId,
         influencerId: null,
         actionLabel: 'Resolve shipment',
+      });
+    }
+    for (const i of logisticsIssues) {
+      const ci = i.shipment.campaignInfluencer;
+      out.push({
+        id: `logistics-issue-${i.id}`,
+        kind: 'LOGISTICS_ADDRESS_ISSUE',
+        title: `Address clarification needed — ${ci.influencer.displayName}`,
+        // Deliberately generic, never the free-text description (which may
+        // itself contain address/phone fragments) — same privacy posture as
+        // the notification this issue already sent (never leak PII into a
+        // surface with broader/less-controlled visibility than the record itself).
+        description: `${LOGISTICS_ISSUE_TYPE_LABELS[i.type]} on a shipment for ${ci.campaign.name}.`,
+        severity: 'danger',
+        link: `/campaigns/${ci.campaignId}?tab=shipments`,
+        at: i.createdAt.toISOString(),
+        brandId: ci.campaign.brandId,
+        campaignId: ci.campaignId,
+        influencerId: null,
+        actionLabel: 'Resolve in Logistics',
       });
     }
     for (const r of expiringRights) {
