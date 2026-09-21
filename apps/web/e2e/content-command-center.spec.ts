@@ -110,17 +110,10 @@ test('Content Command Center: per-user review state, Timeline grouping, Review M
   await expect(reviewButton).toBeVisible();
   await reviewButton.click();
   // This click triggers a real network round trip (api.content.feed) before
-  // the Review Mode viewer mounts and this text appears — under CI's shared,
-  // resource-constrained runner, that round trip has been observed to
-  // occasionally exceed the default 10s expect timeout specifically when
-  // this spec runs immediately after content-association.spec.ts's own
-  // heavy multi-step fixture (confirmed by reproducing the identical
-  // failure locally only when running the full suite in sequence, never in
-  // isolation — isolated runs pass reliably). Not a code defect: the fetch
-  // always completes, just occasionally slower than 10s under that specific
-  // load pattern. A longer timeout here, not a global one, buys margin for
-  // that one real round trip without masking anything.
-  await expect(page.getByText(/\d+ of \d+ reviewed/)).toBeVisible({ timeout: 20_000 });
+  // the Review Mode viewer mounts and this text appears — see
+  // playwright.config.ts's CI-only expect timeout for why this needs more
+  // margin than local dev under CI's shared, resource-constrained runner.
+  await expect(page.getByText(/\d+ of \d+ reviewed/)).toBeVisible();
   await page.getByRole('button', { name: 'Mark Reviewed' }).click();
   await expect(page.getByText(/\d+ of \d+ reviewed/)).toContainText('1 of 1');
   // The button label flips optimistically before the PATCH resolves; wait for
