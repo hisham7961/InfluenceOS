@@ -77,5 +77,5 @@ export function AnimatedNumber({ value, format = defaultFormat }: AnimatedNumber
     return <span>{t('na')}</span>;
   }
 
-  return <LtrText>{format(display)}</LtrText>;
+  return <LtrText block>{format(display)}</LtrText>;
 }

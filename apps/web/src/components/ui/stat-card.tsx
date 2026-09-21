@@ -112,7 +112,7 @@ export function StatCard({
         </div>
 
         <div className="text-3xl font-semibold tracking-tight text-foreground">
-          {formatted != null ? <LtrText>{formatted}</LtrText> : <AnimatedNumber value={value} format={format} />}
+          {formatted != null ? <LtrText block>{formatted}</LtrText> : <AnimatedNumber value={value} format={format} />}
         </div>
 
         {hint || trend ? (

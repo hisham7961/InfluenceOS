@@ -38,17 +38,30 @@ export function BidiText({
   );
 }
 
+/**
+ * `block`: render as `display: block` instead of the default `inline-block`.
+ * Chromium has a rendering bug where an `inline-block` bidi-isolate that is
+ * the sole content of a block inside an `overflow-hidden` RTL ancestor (e.g.
+ * a KPI tile Card) gets its leading character clipped — confirmed via live
+ * inspection (`KWD 42,850.000` rendered as `WD 42,850.000`) even though the
+ * DOM text and computed styles were correct. `display: block` sidesteps the
+ * RTL inline-reordering code path that triggers it. Only use this when the
+ * value is already the sole content of its own block-level line (never for
+ * text embedded inline in a sentence or next to sibling content).
+ */
 export function LtrText({
   children,
   as: As = 'span',
   className,
+  block = false,
 }: {
   children: ReactNode;
   as?: ElementType;
   className?: string;
+  block?: boolean;
 }) {
   return (
-    <As dir="ltr" className={cn('inline-block text-left', className)}>
+    <As dir="ltr" className={cn(block ? 'block text-left' : 'inline-block text-left', className)}>
       {children}
     </As>
   );
