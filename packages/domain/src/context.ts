@@ -1,5 +1,5 @@
 import { prisma as defaultPrisma, type PrismaClient } from '@influenceos/database';
-import type { UserRole } from '@influenceos/contracts';
+import type { RoleProfile, UserRole } from '@influenceos/contracts';
 import { providerCredentialOverrides, type ProviderCredentialKey } from './lib/credential-store';
 
 /** The authenticated actor performing an operation (null for system/worker). */
@@ -7,6 +7,8 @@ export interface Actor {
   id: string;
   name: string;
   role: UserRole;
+  /** Advanced Roles pass — optional finer-grained profile; null = legacy. */
+  roleProfile: RoleProfile | null;
 }
 
 /**

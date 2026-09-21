@@ -23,6 +23,71 @@ enum UserRole {
   VIEWER
 }
 
+/// Advanced Roles pass — an OPTIONAL refinement layered on top of the legacy
+/// three-value UserRole, never a replacement (existing ADMIN/STAFF/VIEWER
+/// checks throughout the codebase keep working unchanged). A user with no
+/// roleProfile set falls back to a legacy-role default capability set, so
+/// nothing narrows for existing users until an admin explicitly assigns one.
+/// ADMIN/VIEWER profiles always pair with the matching legacy role; the other
+/// four profiles are finer-grained shadings of STAFF, disambiguated by real
+/// Capability grants + Country/Brand scope rather than the role string.
+enum RoleProfile {
+  ADMIN
+  GENERAL_MANAGER
+  OPERATIONS_MANAGER
+  LOGISTICS
+  INFLUENCER_MANAGER
+  VIEWER
+}
+
+/// The capability vocabulary Role Profiles resolve to by default (see
+/// packages/domain/src/lib/capabilities.ts) — authorization checks a
+/// Capability, never a role string directly, so new operational profiles
+/// never require scattering `actor.role === 'X'` checks through the app.
+enum Capability {
+  USERS_MANAGE
+  ROLES_MANAGE
+  BRANDS_VIEW
+  BRANDS_MANAGE
+  CAMPAIGNS_VIEW
+  CAMPAIGNS_MANAGE
+  INFLUENCERS_VIEW
+  INFLUENCERS_MANAGE
+  CONTENT_VIEW
+  CONTENT_MANAGE
+  UGC_REVIEW
+  LOGISTICS_VIEW
+  LOGISTICS_MANAGE
+  LOGISTICS_ASSIGN
+  LOGISTICS_ADDRESS_VIEW
+  LOGISTICS_ADDRESS_EDIT
+  LOGISTICS_ISSUE_MANAGE
+  FINANCE_VIEW
+  FINANCE_MANAGE
+  REPORTS_VIEW
+  OPERATIONS_VIEW
+  SYSTEM_SETTINGS_MANAGE
+  INTEGRATIONS_MANAGE
+}
+
+enum LogisticsIssueType {
+  MISSING_ADDRESS
+  INCOMPLETE_ADDRESS
+  UNCLEAR_ADDRESS
+  MISSING_PHONE
+  INVALID_PHONE
+  MISSING_AREA_CITY
+  COUNTRY_MISMATCH
+  LOCATION_CLARIFICATION
+  OTHER
+}
+
+enum LogisticsIssueStatus {
+  OPEN
+  RESOLVED
+  CANCELLED
+}
+
 enum Platform {
   INSTAGRAM
   TIKTOK
@@ -190,6 +255,10 @@ enum NotificationCategory {
   /// A pinned/important message was posted somewhere this user should see
   /// (e.g. a Manager Callout on content they're associated with).
   IMPORTANT_MESSAGE
+  /// A shipment's address/phone/location needs clarification from the
+  /// responsible employee (Advanced Roles & Logistics Operations pass) —
+  /// its own category so it's never confused with a routine shipment update.
+  LOGISTICS_ADDRESS_ISSUE
   GENERAL
 }
 
@@ -326,20 +395,23 @@ enum MobilePlatform {
 // ===========================================================================
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  passwordHash String
-  role         UserRole @default(STAFF)
-  avatarUrl    String?
-  locale       String   @default("en")
-  theme        String   @default("system")
-  isActive     Boolean  @default(true)
-  lastLoginAt  DateTime?
+  id                   String       @id @default(cuid())
+  email                String       @unique
+  name                 String
+  passwordHash         String
+  role                 UserRole     @default(STAFF)
+  /// Advanced Roles pass — optional finer-grained profile layered on top of
+  /// `role` (see the RoleProfile doc comment). Null = legacy behavior.
+  roleProfile          RoleProfile?
+  avatarUrl            String?
+  locale               String       @default("en")
+  theme                String       @default("system")
+  isActive             Boolean      @default(true)
+  lastLoginAt          DateTime?
   /// Preferred content discovery layout (Timeline/By Brand/Grid/Masonry/Feed) —
   /// same scalar-on-User preference pattern as locale/theme, not a new
   /// preferences architecture. Null = client default (Timeline).
-  contentLayout String?
+  contentLayout        String?
   /// Per-user "What's New" checkpoint (Content Command Center pass). Advances
   /// only on an explicit ack from the client, never on lastLoginAt alone — a
   /// user can log in without ever opening Mission Control's What's New panel.
@@ -347,35 +419,80 @@ model User {
   // Time-boxed brute-force protection (in addition to the per-IP route limit):
   // consecutive failures raise the counter; crossing the threshold sets a short
   // lockout window; a successful login clears both.
-  failedLoginAttempts Int       @default(0)
-  lockedUntil         DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  failedLoginAttempts  Int          @default(0)
+  lockedUntil          DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
 
-  ownedCampaigns   Campaign[]               @relation("CampaignOwner")
-  activities       ActivityLog[]            @relation("ActivityActor")
-  notes            Note[]
-  scriptVersions   ScriptReferenceVersion[]
-  attachments      Attachment[]
-  expenses         CampaignExpense[]
-  notifications    Notification[]
-  savedViews       SavedView[]
-  deviceSessions   DeviceSession[]
-  submittedSubmissions DeliverableSubmission[] @relation("SubmissionSubmitter")
-  reviewedSubmissions  DeliverableSubmission[] @relation("SubmissionReviewer")
-  submissionComments   SubmissionComment[]
-  createdUsageRights   UsageRight[]
-  addedCandidates      CampaignCandidate[]     @relation("CandidateAdder")
-  decidedCandidates    CampaignCandidate[]     @relation("CandidateDecider")
-  createdShipments     ProductShipment[]
-  brandAccess          UserBrandAccess[]
-  ownedInfluencers     Influencer[]            @relation("InfluencerOwner")
-  contentStates        UserContentState[]
-  noteMentions         NoteMention[]
-  conversationReadStates ConversationReadState[]
-  submittedInspiration   InspirationItem[]
+  ownedCampaigns          Campaign[]               @relation("CampaignOwner")
+  activities              ActivityLog[]            @relation("ActivityActor")
+  notes                   Note[]
+  scriptVersions          ScriptReferenceVersion[]
+  attachments             Attachment[]
+  expenses                CampaignExpense[]
+  notifications           Notification[]
+  savedViews              SavedView[]
+  deviceSessions          DeviceSession[]
+  submittedSubmissions    DeliverableSubmission[]  @relation("SubmissionSubmitter")
+  reviewedSubmissions     DeliverableSubmission[]  @relation("SubmissionReviewer")
+  submissionComments      SubmissionComment[]
+  createdUsageRights      UsageRight[]
+  addedCandidates         CampaignCandidate[]      @relation("CandidateAdder")
+  decidedCandidates       CampaignCandidate[]      @relation("CandidateDecider")
+  createdShipments        ProductShipment[]
+  brandAccess             UserBrandAccess[]
+  ownedInfluencers        Influencer[]             @relation("InfluencerOwner")
+  contentStates           UserContentState[]
+  noteMentions            NoteMention[]
+  conversationReadStates  ConversationReadState[]
+  submittedInspiration    InspirationItem[]
+  capabilities            UserCapability[]
+  countryAccess           UserCountryAccess[]
+  assignedShipments       ProductShipment[]        @relation("ShipmentAssignee")
+  createdLogisticsIssues  LogisticsIssue[]         @relation("LogisticsIssueCreator")
+  assignedLogisticsIssues LogisticsIssue[]         @relation("LogisticsIssueAssignee")
+  resolvedLogisticsIssues LogisticsIssue[]         @relation("LogisticsIssueResolver")
 
   @@index([role])
+  @@index([roleProfile])
+}
+
+/// Explicit per-user capability override (Advanced Roles pass) — layered on
+/// top of the Role Profile's default capability set. `granted: true` adds a
+/// capability the profile doesn't include by default; `granted: false`
+/// revokes one the profile WOULD include. Role Profiles stay the source of
+/// sensible defaults; this table is the "explicit permissions if supported"
+/// escape hatch, never the primary authorization path.
+model UserCapability {
+  id         String     @id @default(cuid())
+  userId     String
+  capability Capability
+  granted    Boolean
+  createdAt  DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, capability])
+  @@index([userId])
+}
+
+/// Per-user country scope (Advanced Roles pass) — mirrors UserBrandAccess
+/// exactly: a user WITH rows is limited to those countries, a user with NO
+/// rows is unscoped (sees every country), and an ADMIN is always unscoped.
+/// Independent of brand scope — a user's visible records must satisfy BOTH
+/// where both apply. `countryCode` is a canonical ISO 3166-1 alpha-2 code
+/// (see packages/shared/src/constants/countries.ts), never free text.
+model UserCountryAccess {
+  id          String   @id @default(cuid())
+  userId      String
+  countryCode String
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, countryCode])
+  @@index([userId])
+  @@index([countryCode])
 }
 
 /// Per-user content review state (Content Command Center pass) — NEW/SEEN/
@@ -459,35 +576,42 @@ model Brand {
 }
 
 model Influencer {
-  id               String              @id @default(cuid())
-  displayName      String
-  fullName         String?
-  primaryUsername  String?
-  primaryPlatform  Platform?
-  avatarOverrideUrl String?
-  resolvedAvatarUrl String?
-  bio              String?
-  country          String?
-  city             String?
-  category         String?
-  languages        String[]
-  email            String?
-  mobile           String?
-  whatsapp         String?
-  managerName      String?
-  managerContact   String?
-  preferredContact ContactMethod?
+  id                   String              @id @default(cuid())
+  displayName          String
+  fullName             String?
+  primaryUsername      String?
+  primaryPlatform      Platform?
+  avatarOverrideUrl    String?
+  resolvedAvatarUrl    String?
+  bio                  String?
+  country              String?
+  /// Canonical ISO 3166-1 alpha-2 country code (Advanced Roles & Logistics
+  /// Operations pass) — the creator's own profile/home-market country, kept
+  /// deliberately separate from a shipment's destinationCountryCode: this is
+  /// the source Country-scope enforcement and the Influencer directory's
+  /// country filter read; `country` (free text) stays for legacy display and
+  /// is never destroyed. Null until normalized (see the backfill migration).
+  countryCode          String?
+  city                 String?
+  category             String?
+  languages            String[]
+  email                String?
+  mobile               String?
+  whatsapp             String?
+  managerName          String?
+  managerContact       String?
+  preferredContact     ContactMethod?
   /// Relationship owner / assignee (W4-5): the staff member who owns this
   /// creator relationship. Reminders can be routed to them.
-  ownerId          String?
-  priority         Priority            @default(MEDIUM)
-  relationshipStatus RelationshipStatus @default(PROSPECT)
-  audienceHealth   AudienceHealthLabel @default(LIMITED_DATA)
-  pricingNotes     String?
-  internalNotes    String?
-  isActive         Boolean             @default(true)
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  ownerId              String?
+  priority             Priority            @default(MEDIUM)
+  relationshipStatus   RelationshipStatus  @default(PROSPECT)
+  audienceHealth       AudienceHealthLabel @default(LIMITED_DATA)
+  pricingNotes         String?
+  internalNotes        String?
+  isActive             Boolean             @default(true)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
   /// Shipping profile (Logistics): country/city/mobile/whatsapp above are
   /// reused as-is; these fill out a full postal address. A shipment always
   /// COPIES these into its own scalar columns at creation time rather than
@@ -516,6 +640,7 @@ model Influencer {
   @@index([ownerId])
   @@index([primaryPlatform])
   @@index([country])
+  @@index([countryCode])
   @@index([category])
   @@index([isActive])
   // Cursor pagination order (createdAt desc, id desc) — W7-2/PERF-04.
@@ -570,20 +695,20 @@ model SocialMetricSnapshot {
 /// Brand-specific relationship layer so one global influencer can work with
 /// many brands without duplicating the influencer record.
 model BrandInfluencer {
-  id                  String             @id @default(cuid())
-  brandId             String
-  influencerId        String
-  relationshipStatus  RelationshipStatus @default(PROSPECT)
-  priority            Priority           @default(MEDIUM)
-  internalNotes       String?
-  defaultRate         Decimal?           @db.Decimal(18, 3)
-  currency            String?
+  id                   String             @id @default(cuid())
+  brandId              String
+  influencerId         String
+  relationshipStatus   RelationshipStatus @default(PROSPECT)
+  priority             Priority           @default(MEDIUM)
+  internalNotes        String?
+  defaultRate          Decimal?           @db.Decimal(18, 3)
+  currency             String?
   firstCollaborationAt DateTime?
-  lastCampaignAt      DateTime?
-  totalCollaborations Int                @default(0)
-  isActive            Boolean            @default(true)
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  lastCampaignAt       DateTime?
+  totalCollaborations  Int                @default(0)
+  isActive             Boolean            @default(true)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
   brand      Brand      @relation(fields: [brandId], references: [id], onDelete: Cascade)
   influencer Influencer @relation(fields: [influencerId], references: [id], onDelete: Cascade)
@@ -641,25 +766,25 @@ model Campaign {
 }
 
 model CampaignInfluencer {
-  id                 String              @id @default(cuid())
-  campaignId         String
-  influencerId       String
-  dealType           DealType            @default(PAID)
-  agreedCost         Decimal?            @db.Decimal(18, 3)
-  currency           String?
-  giftedProductValue Decimal?            @db.Decimal(18, 3)
-  dateContacted      DateTime?
-  expectedPublishAt  DateTime?
+  id                  String              @id @default(cuid())
+  campaignId          String
+  influencerId        String
+  dealType            DealType            @default(PAID)
+  agreedCost          Decimal?            @db.Decimal(18, 3)
+  currency            String?
+  giftedProductValue  Decimal?            @db.Decimal(18, 3)
+  dateContacted       DateTime?
+  expectedPublishAt   DateTime?
   participationStatus ParticipationStatus @default(INVITED)
-  paymentStatus      PaymentStatus       @default(NOT_APPLICABLE)
+  paymentStatus       PaymentStatus       @default(NOT_APPLICABLE)
   /// Amount of `agreedCost` actually paid — the source of truth for the
   /// paid/unpaid split when paymentStatus is PARTIALLY_PAID (finance P1).
   /// null = unknown; never coerced to 0.
-  paidAmount         Decimal?            @db.Decimal(18, 3)
-  paidAt             DateTime?
-  notes              String?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  paidAmount          Decimal?            @db.Decimal(18, 3)
+  paidAt              DateTime?
+  notes               String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 
   campaign         Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   influencer       Influencer         @relation(fields: [influencerId], references: [id], onDelete: Cascade)
@@ -684,7 +809,7 @@ model Product {
   name      String
   createdAt DateTime @default(now())
 
-  brand Brand             @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brand Brand          @relation(fields: [brandId], references: [id], onDelete: Cascade)
   items ShipmentItem[]
 
   @@unique([brandId, name])
@@ -717,39 +842,82 @@ model ShipmentItem {
 /// required it. Address/recipient fields are a point-in-time COPY (see the
 /// doc comment on Influencer's shipping fields) — never a live reference.
 model ProductShipment {
-  id                   String         @id @default(cuid())
-  campaignInfluencerId String
+  id                     String         @id @default(cuid())
+  campaignInfluencerId   String
   /// The specific deliverable this fulfils, if any — optional: a shipment can
   /// also be a general campaign-level gift not tied to one deliverable.
-  deliverableId        String?
-  recipientName        String?
-  phone                String?
-  addressLine1         String?
-  addressLine2         String?
-  city                 String?
-  country              String?
-  postalCode           String?
-  deliveryInstructions String?
-  courier              String?
-  trackingNumber       String?
-  trackingUrl          String?
-  status               ShipmentStatus @default(PENDING)
-  shippedAt            DateTime?
-  deliveredAt          DateTime?
-  notes                String?
-  createdById          String?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
+  deliverableId          String?
+  recipientName          String?
+  phone                  String?
+  addressLine1           String?
+  addressLine2           String?
+  city                   String?
+  country                String?
+  /// Canonical ISO 3166-1 alpha-2 destination country (Advanced Roles &
+  /// Logistics Operations pass) — a point-in-time snapshot, independent of
+  /// the influencer's own countryCode: a Saudi creator can request delivery
+  /// to a Dubai address, and this column is what "destination country"
+  /// filtering/scoping reads, never derived live from the influencer.
+  destinationCountryCode String?
+  postalCode             String?
+  deliveryInstructions   String?
+  courier                String?
+  trackingNumber         String?
+  trackingUrl            String?
+  status                 ShipmentStatus @default(PENDING)
+  /// The logistics operator responsible for fulfilling this request —
+  /// distinct from createdById (who requested it), the campaign owner, and
+  /// the influencer relationship owner.
+  assignedToUserId       String?
+  shippedAt              DateTime?
+  deliveredAt            DateTime?
+  notes                  String?
+  createdById            String?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
 
   campaignInfluencer CampaignInfluencer @relation(fields: [campaignInfluencerId], references: [id], onDelete: Cascade)
   deliverable        Deliverable?       @relation(fields: [deliverableId], references: [id], onDelete: SetNull)
   createdBy          User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  assignedTo         User?              @relation("ShipmentAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
   items              ShipmentItem[]
   comments           Note[]
+  issues             LogisticsIssue[]
 
   @@index([campaignInfluencerId])
   @@index([deliverableId])
   @@index([status])
+  @@index([destinationCountryCode])
+  @@index([assignedToUserId])
+}
+
+/// A reported problem blocking fulfilment of a shipment (Advanced Roles &
+/// Logistics Operations pass) — deliberately NOT folded into ShipmentStatus
+/// (a shipment can stay PENDING while carrying an OPEN issue) and
+/// deliberately NOT a general-purpose issue tracker: scoped to exactly one
+/// shipment, with a fixed type vocabulary. One issue record is read from
+/// every surface that needs to show it (Logistics, Influencer 360, Campaign
+/// Operations, Needs Attention) — never copied.
+model LogisticsIssue {
+  id               String               @id @default(cuid())
+  shipmentId       String
+  type             LogisticsIssueType
+  status           LogisticsIssueStatus @default(OPEN)
+  description      String
+  createdById      String?
+  assignedToUserId String?
+  resolvedById     String?
+  createdAt        DateTime             @default(now())
+  resolvedAt       DateTime?
+
+  shipment   ProductShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  createdBy  User?           @relation("LogisticsIssueCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  assignedTo User?           @relation("LogisticsIssueAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  resolvedBy User?           @relation("LogisticsIssueResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([shipmentId])
+  @@index([status])
+  @@index([assignedToUserId])
 }
 
 /// A creator being sourced for a campaign — considered, shortlisted, approved
@@ -757,21 +925,21 @@ model ProductShipment {
 /// candidate pool without inflating anyone's collaboration history; only
 /// `convert` (→ CONVERTED) creates the CampaignInfluencer roster row.
 model CampaignCandidate {
-  id             String          @id @default(cuid())
-  campaignId     String
-  influencerId   String
-  status         CandidateStatus @default(CONSIDERING)
+  id                            String          @id @default(cuid())
+  campaignId                    String
+  influencerId                  String
+  status                        CandidateStatus @default(CONSIDERING)
   /// Optional staff fit score (0–100); null = unscored.
-  fitScore       Int?
-  notes          String?
-  decisionReason String?
-  addedById      String?
-  decidedById    String?
-  decidedAt      DateTime?
+  fitScore                      Int?
+  notes                         String?
+  decisionReason                String?
+  addedById                     String?
+  decidedById                   String?
+  decidedAt                     DateTime?
   /// Set once converted, linking back to the roster row that was created.
   convertedCampaignInfluencerId String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt                     DateTime        @default(now())
+  updatedAt                     DateTime        @updatedAt
 
   campaign   Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   influencer Influencer @relation(fields: [influencerId], references: [id], onDelete: Cascade)
@@ -807,8 +975,8 @@ model Deliverable {
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 
-  campaignInfluencer CampaignInfluencer @relation(fields: [campaignInfluencerId], references: [id], onDelete: Cascade)
-  scriptReference    ScriptReference?   @relation(fields: [scriptReferenceId], references: [id])
+  campaignInfluencer CampaignInfluencer      @relation(fields: [campaignInfluencerId], references: [id], onDelete: Cascade)
+  scriptReference    ScriptReference?        @relation(fields: [scriptReferenceId], references: [id])
   publishedContent   PublishedContent[]
   attachments        Attachment[]
   activities         ActivityLog[]
@@ -870,17 +1038,17 @@ model SubmissionComment {
 // ===========================================================================
 
 model ScriptReference {
-  id               String   @id @default(cuid())
-  campaignId       String?
-  title            String
-  currentVersion   Int      @default(1)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id             String   @id @default(cuid())
+  campaignId     String?
+  title          String
+  currentVersion Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  campaign    Campaign?                @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  versions    ScriptReferenceVersion[]
-  deliverables Deliverable[]
-  attachments Attachment[]
+  campaign         Campaign?                @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  versions         ScriptReferenceVersion[]
+  deliverables     Deliverable[]
+  attachments      Attachment[]
   inspirationItems InspirationItem[]
 
   @@index([campaignId])
@@ -940,11 +1108,11 @@ model PublishedContent {
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
-  brand              Brand?                  @relation(fields: [brandId], references: [id])
-  campaign           Campaign?               @relation(fields: [campaignId], references: [id])
-  influencer         Influencer?             @relation(fields: [influencerId], references: [id])
-  campaignInfluencer CampaignInfluencer?     @relation(fields: [campaignInfluencerId], references: [id])
-  deliverable        Deliverable?            @relation(fields: [deliverableId], references: [id])
+  brand              Brand?                   @relation(fields: [brandId], references: [id])
+  campaign           Campaign?                @relation(fields: [campaignId], references: [id])
+  influencer         Influencer?              @relation(fields: [influencerId], references: [id])
+  campaignInfluencer CampaignInfluencer?      @relation(fields: [campaignInfluencerId], references: [id])
+  deliverable        Deliverable?             @relation(fields: [deliverableId], references: [id])
   metricSnapshots    ContentMetricSnapshot[]
   monitoringEvents   ContentMonitoringEvent[]
   notifications      Notification[]
@@ -1066,10 +1234,10 @@ model Attachment {
 }
 
 model Tag {
-  id        String          @id @default(cuid())
-  name      String          @unique
+  id        String   @id @default(cuid())
+  name      String   @unique
   color     String?
-  createdAt DateTime        @default(now())
+  createdAt DateTime @default(now())
 
   influencers InfluencerTag[]
 }
@@ -1099,7 +1267,7 @@ model InfluencerTag {
 /// one-nullable-FK-per-parent shape rather than a polymorphic pair. A reply
 /// (`parentId` set) omits its own context — it inherits the parent's.
 model Note {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   body               String
   influencerId       String?
   brandId            String?
@@ -1295,11 +1463,11 @@ model Notification {
   publishedContentId String?
   createdAt          DateTime             @default(now())
 
-  user             User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  brand            Brand?            @relation(fields: [brandId], references: [id])
-  influencer       Influencer?       @relation(fields: [influencerId], references: [id])
-  campaign         Campaign?         @relation(fields: [campaignId], references: [id])
-  publishedContent PublishedContent? @relation(fields: [publishedContentId], references: [id])
+  user             User?                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand            Brand?                 @relation(fields: [brandId], references: [id])
+  influencer       Influencer?            @relation(fields: [influencerId], references: [id])
+  campaign         Campaign?              @relation(fields: [campaignId], references: [id])
+  publishedContent PublishedContent?      @relation(fields: [publishedContentId], references: [id])
   deliveries       NotificationDelivery[]
 
   @@index([userId])
@@ -1330,31 +1498,31 @@ model NotificationDelivery {
 /// session or a future device). Holds the hashed refresh token so refresh
 /// tokens can rotate and sessions can be revoked server-side (addendum §20-21).
 model DeviceSession {
-  id               String     @id @default(cuid())
-  userId           String
-  client           ClientType @default(WEB)
-  deviceId         String?
-  deviceName       String?
-  appVersion       String?
-  userAgent        String?
-  ip               String?
-  refreshTokenHash String
+  id                   String     @id @default(cuid())
+  userId               String
+  client               ClientType @default(WEB)
+  deviceId             String?
+  deviceName           String?
+  appVersion           String?
+  userAgent            String?
+  ip                   String?
+  refreshTokenHash     String
   /// Previous rotated refresh-token hash, honored only within a short grace
   /// window so genuinely concurrent refreshes don't false-positive as reuse.
   prevRefreshTokenHash String?
   /// When the current refresh token was last rotated (bounds the grace window).
-  refreshRotatedAt DateTime?
+  refreshRotatedAt     DateTime?
   /// AES-GCM-sealed copy of the current refresh token, kept only for the grace
   /// window so concurrent refreshes of the same token return the SAME rotated
   /// token (idempotent, race-free). Cleared once the grace window elapses.
-  graceTokenSealed String?
-  pushToken        String?
-  lastActiveAt     DateTime   @default(now())
-  createdAt        DateTime   @default(now())
-  expiresAt        DateTime
-  revokedAt        DateTime?
+  graceTokenSealed     String?
+  pushToken            String?
+  lastActiveAt         DateTime   @default(now())
+  createdAt            DateTime   @default(now())
+  expiresAt            DateTime
+  revokedAt            DateTime?
   /// Set when the session is force-revoked (e.g. refresh-token reuse detected).
-  revokedReason    String?
+  revokedReason        String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1381,15 +1549,15 @@ model FeatureFlag {
 /// Singleton server-owned client configuration surfaced to clients via
 /// GET /api/v1/client-config (addendum §16). Never contains secrets.
 model ClientConfig {
-  id                String   @id @default(cuid())
-  maintenanceMode   Boolean  @default(false)
+  id                 String   @id @default(cuid())
+  maintenanceMode    Boolean  @default(false)
   maintenanceMessage String?
-  defaultLanguage   String   @default("en")
+  defaultLanguage    String   @default("en")
   supportedLanguages String[] @default(["en", "ar"])
-  maxUploadMb       Int      @default(50)
-  supportInfo       String?
-  extra             Json?
-  updatedAt         DateTime @updatedAt
+  maxUploadMb        Int      @default(50)
+  supportInfo        String?
+  extra              Json?
+  updatedAt          DateTime @updatedAt
 }
 
 /// Per-mobile-platform version rules (addendum §17). The mobile app is not

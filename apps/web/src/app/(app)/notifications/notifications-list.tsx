@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Clock,
   Inbox,
+  MapPin,
   MessageSquareReply,
   PackageCheck,
   Pin,
@@ -53,6 +54,7 @@ const CATEGORY_ICON: Record<NotificationCategory, LucideIcon> = {
   MENTION: AtSign,
   REPLY: MessageSquareReply,
   IMPORTANT_MESSAGE: Pin,
+  LOGISTICS_ADDRESS_ISSUE: MapPin,
 };
 
 const CATEGORY_TONE: Record<NotificationCategory, Tone> = {
@@ -71,6 +73,7 @@ const CATEGORY_TONE: Record<NotificationCategory, Tone> = {
   MENTION: 'info',
   REPLY: 'info',
   IMPORTANT_MESSAGE: 'warning',
+  LOGISTICS_ADDRESS_ISSUE: 'warning',
 };
 
 const TONE_ICON_CLASS: Record<Tone, string> = {

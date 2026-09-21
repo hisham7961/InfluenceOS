@@ -328,13 +328,13 @@ export function makeAuthService(ctx: DomainContext) {
       if (p.typ !== 'access' || !p.sub || !p.sid) return null;
       const session = await prisma.deviceSession.findUnique({
         where: { id: p.sid },
-        include: { user: { select: { id: true, name: true, role: true, isActive: true } } },
+        include: { user: { select: { id: true, name: true, role: true, roleProfile: true, isActive: true } } },
       });
       if (!session || session.revokedAt || session.expiresAt < new Date()) return null;
       if (session.userId !== p.sub) return null;
       const user = session.user;
       if (!user || !user.isActive) return null;
-      return { id: user.id, name: user.name, role: user.role as Actor['role'] };
+      return { id: user.id, name: user.name, role: user.role as Actor['role'], roleProfile: user.roleProfile as Actor['roleProfile'] };
     } catch {
       return null;
     }

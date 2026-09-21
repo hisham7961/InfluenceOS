@@ -1,5 +1,7 @@
+import type { Capability } from '@influenceos/contracts';
 import type { Actor, DomainContext } from '../context';
 import { AppError } from '../errors';
+import { hasCapability } from './capabilities';
 
 /** Require an authenticated actor for a mutation. */
 export function requireActor(ctx: DomainContext): Actor {
@@ -36,4 +38,17 @@ export function requireOwnerOrAdmin(
 /** A system context (worker/seed) bypasses actor requirements. */
 export function isSystem(ctx: DomainContext): boolean {
   return ctx.actor === null;
+}
+
+/**
+ * Require the actor to hold a specific Capability (Advanced Roles pass) — the
+ * ONE way a new operational check should gate access. Never scatter
+ * `actor.role === 'X'` / `actor.roleProfile === 'X'` comparisons through the
+ * app; add or adjust a Capability's default resolution in capabilities.ts
+ * instead. An ADMIN always passes.
+ */
+export async function requireCapability(ctx: DomainContext, capability: Capability): Promise<Actor> {
+  const actor = requireActor(ctx);
+  if (await hasCapability(ctx, capability)) return actor;
+  throw AppError.forbidden(`This action requires the ${capability} capability.`);
 }

@@ -22,3 +22,30 @@ export async function scopedBrandIds(ctx: DomainContext): Promise<string[] | nul
 export function isBrandOutOfScope(scope: string[] | null, brandId: string): boolean {
   return scope !== null && !scope.includes(brandId);
 }
+
+/**
+ * Resolve the country scope for the current actor (Advanced Roles &
+ * Logistics Operations pass) — mirrors scopedBrandIds exactly. Returns the
+ * list of ISO 3166-1 alpha-2 codes the actor is limited to, or `null` when
+ * unscoped (system context, ADMIN, or no explicit UserCountryAccess rows).
+ * Independent of brand scope: a record must satisfy BOTH where both apply.
+ */
+export async function scopedCountryCodes(ctx: DomainContext): Promise<string[] | null> {
+  const actor = ctx.actor;
+  if (!actor || actor.role === 'ADMIN') return null;
+  const rows = await ctx.prisma.userCountryAccess.findMany({
+    where: { userId: actor.id },
+    select: { countryCode: true },
+  });
+  if (rows.length === 0) return null;
+  return rows.map((r) => r.countryCode);
+}
+
+/** True when the actor is country-scoped and the given code is out of scope
+ *  (or the record itself has no country on file — a country-scoped actor
+ *  never sees an uncategorized record by default). */
+export function isCountryOutOfScope(scope: string[] | null, countryCode: string | null): boolean {
+  if (scope === null) return false;
+  if (!countryCode) return true;
+  return !scope.includes(countryCode);
+}

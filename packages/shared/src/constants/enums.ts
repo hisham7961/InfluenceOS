@@ -8,6 +8,67 @@
 export const USER_ROLES = ['ADMIN', 'STAFF', 'VIEWER'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
+/** Advanced Roles pass — optional finer-grained profile layered on top of
+ *  UserRole; see the RoleProfile doc comment in schema.prisma. */
+export const ROLE_PROFILES = [
+  'ADMIN',
+  'GENERAL_MANAGER',
+  'OPERATIONS_MANAGER',
+  'LOGISTICS',
+  'INFLUENCER_MANAGER',
+  'VIEWER',
+] as const;
+export type RoleProfile = (typeof ROLE_PROFILES)[number];
+
+/** The capability vocabulary Role Profiles resolve to by default (see
+ *  packages/domain/src/lib/capabilities.ts). */
+export const CAPABILITIES = [
+  'USERS_MANAGE',
+  'ROLES_MANAGE',
+  'BRANDS_VIEW',
+  'BRANDS_MANAGE',
+  'CAMPAIGNS_VIEW',
+  'CAMPAIGNS_MANAGE',
+  'INFLUENCERS_VIEW',
+  'INFLUENCERS_MANAGE',
+  'CONTENT_VIEW',
+  'CONTENT_MANAGE',
+  'UGC_REVIEW',
+  'LOGISTICS_VIEW',
+  'LOGISTICS_MANAGE',
+  'LOGISTICS_ASSIGN',
+  'LOGISTICS_ADDRESS_VIEW',
+  'LOGISTICS_ADDRESS_EDIT',
+  'LOGISTICS_ISSUE_MANAGE',
+  'FINANCE_VIEW',
+  'FINANCE_MANAGE',
+  'REPORTS_VIEW',
+  'OPERATIONS_VIEW',
+  'SYSTEM_SETTINGS_MANAGE',
+  'INTEGRATIONS_MANAGE',
+] as const;
+export type Capability = (typeof CAPABILITIES)[number];
+
+export const LOGISTICS_ISSUE_TYPES = [
+  'MISSING_ADDRESS',
+  'INCOMPLETE_ADDRESS',
+  'UNCLEAR_ADDRESS',
+  'MISSING_PHONE',
+  'INVALID_PHONE',
+  'MISSING_AREA_CITY',
+  'COUNTRY_MISMATCH',
+  'LOCATION_CLARIFICATION',
+  'OTHER',
+] as const;
+export type LogisticsIssueType = (typeof LOGISTICS_ISSUE_TYPES)[number];
+
+export const LOGISTICS_ISSUE_STATUSES = ['OPEN', 'RESOLVED', 'CANCELLED'] as const;
+export type LogisticsIssueStatus = (typeof LOGISTICS_ISSUE_STATUSES)[number];
+
+/** Derived, never-stored indicator of a shipment's address completeness. */
+export const ADDRESS_HEALTHS = ['COMPLETE', 'INCOMPLETE', 'CLARIFICATION_REQUESTED', 'RESOLVED'] as const;
+export type AddressHealth = (typeof ADDRESS_HEALTHS)[number];
+
 export const DATA_SOURCES = ['MANUAL', 'OFFICIAL_API', 'EMBED', 'UNAVAILABLE'] as const;
 export type DataSource = (typeof DATA_SOURCES)[number];
 
@@ -155,6 +216,7 @@ export const NOTIFICATION_CATEGORIES = [
   'MENTION',
   'REPLY',
   'IMPORTANT_MESSAGE',
+  'LOGISTICS_ADDRESS_ISSUE',
   'GENERAL',
 ] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -293,6 +355,32 @@ export const DATA_SOURCE_LABELS = labelMap(DATA_SOURCES, {
 });
 export const INSPIRATION_CATEGORY_LABELS = labelMap(INSPIRATION_CATEGORIES, {
   UGC_STYLE: 'UGC Style',
+});
+export const ROLE_PROFILE_LABELS = labelMap(ROLE_PROFILES, {
+  ADMIN: 'System Admin',
+  GENERAL_MANAGER: 'General Manager',
+  OPERATIONS_MANAGER: 'Operations Manager',
+  LOGISTICS: 'Logistics',
+  INFLUENCER_MANAGER: 'Influencer Manager',
+  VIEWER: 'Viewer',
+});
+export const ROLE_PROFILE_DESCRIPTIONS: Record<RoleProfile, string> = {
+  ADMIN: 'Full system administration — users, permissions, integrations, all data.',
+  GENERAL_MANAGER: 'Broad operational visibility across brands, countries and campaigns — not system configuration.',
+  OPERATIONS_MANAGER: 'Monitors campaign progress, content and logistics workflows; not an administrator.',
+  LOGISTICS: 'Fulfils shipments — address, courier, tracking and logistics issues for their assigned countries.',
+  INFLUENCER_MANAGER: 'Manages creator relationships, campaign participation and content for their assigned countries.',
+  VIEWER: 'Read-only access within whatever scopes are granted.',
+};
+export const CAPABILITY_LABELS = labelMap(CAPABILITIES, {
+  UGC_REVIEW: 'UGC Review',
+});
+export const LOGISTICS_ISSUE_TYPE_LABELS = labelMap(LOGISTICS_ISSUE_TYPES, {
+  MISSING_AREA_CITY: 'Missing Area/City',
+});
+export const LOGISTICS_ISSUE_STATUS_LABELS = labelMap(LOGISTICS_ISSUE_STATUSES);
+export const ADDRESS_HEALTH_LABELS = labelMap(ADDRESS_HEALTHS, {
+  CLARIFICATION_REQUESTED: 'Clarification Requested',
 });
 
 export const CAMPAIGN_STATUS_TONE: Record<CampaignStatus, Tone> = {

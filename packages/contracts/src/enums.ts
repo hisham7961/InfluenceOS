@@ -30,6 +30,13 @@ export {
   EXPENSE_TYPES,
   NOTIFICATION_CATEGORIES,
   INTEGRATION_STATUSES,
+  ROLE_PROFILES,
+  CAPABILITIES,
+  LOGISTICS_ISSUE_TYPES,
+  LOGISTICS_ISSUE_STATUSES,
+  ADDRESS_HEALTHS,
+  COUNTRY_CODES,
+  COUNTRIES,
 } from '@influenceos/shared';
 
 export type {
@@ -60,6 +67,12 @@ export type {
   NotificationCategory,
   IntegrationStatus,
   Tone,
+  RoleProfile,
+  Capability,
+  LogisticsIssueType,
+  LogisticsIssueStatus,
+  AddressHealth,
+  CountryMeta,
 } from '@influenceos/shared';
 
 export const CLIENT_TYPES = ['WEB', 'IOS', 'ANDROID', 'API'] as const;
