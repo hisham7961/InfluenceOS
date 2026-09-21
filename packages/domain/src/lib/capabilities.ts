@@ -95,6 +95,11 @@ function baseCapabilities(user: RoleLike): readonly Capability[] {
  * so both the live DB-backed path (resolveCapabilitiesFor) and the
  * hypothetical "what would this look like" Permission Preview (which simulates
  * an unsaved edit and must never touch the database) call the exact same logic.
+ *
+ * Precedence (Security & Authorization Freeze Gate §59): an explicit
+ * UserCapability override always wins over the Role Profile default, in
+ * either direction — a profile-granted capability can be explicitly revoked
+ * for one user, and a profile-withheld capability can be explicitly granted.
  */
 export function resolveEffectiveCapabilities(user: RoleLike, overrides: readonly OverrideLike[]): Set<Capability> {
   const base = new Set(baseCapabilities(user));

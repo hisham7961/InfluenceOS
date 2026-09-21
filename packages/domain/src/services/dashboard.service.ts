@@ -42,7 +42,22 @@ export function makeDashboardService(ctx: DomainContext) {
   const content = makeContentService(ctx);
   const campaigns = makeCampaignService(ctx);
 
-  const brandFilter = (brandId?: string) => (brandId ? { brandId } : {});
+  // Security & Authorization Freeze Gate (aggregate-leak-audit) — composes
+  // an explicit brandId with the actor's own brand scope, same posture as
+  // campaign.service.ts's buildWhere(): an out-of-scope explicit brandId
+  // matches nothing rather than silently widening; an unscoped actor
+  // (ADMIN, or no explicit UserBrandAccess rows) is untouched. Used by
+  // every Mission Control aggregate below (pulse/totalSpend/upcomingContent/
+  // recentActivity) so a brand-scoped actor's OWN /dashboard/global call
+  // (no explicit brandId — there is no capability gate on that route; any
+  // authenticated actor can call it) never rolls up another brand's spend,
+  // activity or content — mirrors whatsNew/whatsNewSummary/attention in this
+  // same file, which already composed scope before this fix.
+  async function scopedBrandFilter(brandId?: string): Promise<{ brandId?: string | { in: string[] } }> {
+    const scope = await scopedBrandIds(ctx);
+    if (brandId) return { brandId: scope && !scope.includes(brandId) ? { in: [] } : brandId };
+    return scope ? { brandId: { in: scope } } : {};
+  }
 
   /** The caller's own "What's New" checkpoint — never lastLoginAt (item 35). */
   async function checkpoint(): Promise<Date | null> {
@@ -50,11 +65,16 @@ export function makeDashboardService(ctx: DomainContext) {
     const user = await prisma.user.findUnique({ where: { id: actor.id }, select: { lastWhatsNewViewedAt: true } });
     return user?.lastWhatsNewViewedAt ?? null;
   }
-  const deliverableBrandFilter = (brandId?: string) =>
-    brandId ? { campaignInfluencer: { campaign: { brandId } } } : {};
+  /** Deliverable-relation variant of scopedBrandFilter — a Deliverable's
+   *  brand lives at campaignInfluencer.campaign.brandId, not on the row itself. */
+  async function scopedDeliverableBrandFilter(brandId?: string): Promise<{ campaignInfluencer?: { campaign: { brandId: string | { in: string[] } } } }> {
+    const bf = await scopedBrandFilter(brandId);
+    return bf.brandId !== undefined ? { campaignInfluencer: { campaign: { brandId: bf.brandId } } } : {};
+  }
 
   async function totalSpend(brandId?: string): Promise<number> {
-    const campaignWhere = brandId ? { campaign: { brandId } } : {};
+    const bf = await scopedBrandFilter(brandId);
+    const campaignWhere = bf.brandId !== undefined ? { campaign: { brandId: bf.brandId } } : {};
     const [fees, expenses] = await Promise.all([
       prisma.campaignInfluencer.aggregate({
         _sum: { agreedCost: true },
@@ -73,6 +93,16 @@ export function makeDashboardService(ctx: DomainContext) {
     const weekAgo = new Date(now.getTime() - 7 * 864e5);
     const in14 = new Date(now.getTime() + 14 * 864e5);
 
+    // Brand scope (Security & Authorization Freeze Gate, aggregate-leak-
+    // audit) — pulse() backs the Mission Control "at a glance" KPIs and is
+    // reachable via /dashboard/global with no capability gate, only
+    // requireAuth; without this every count here (active campaigns/
+    // influencers, spend, overdue deliverables, content alerts) rolled up
+    // EVERY brand for any authenticated brand-scoped actor who simply
+    // omitted the optional brandId query param.
+    const bf = await scopedBrandFilter(brandId);
+    const dbf = await scopedDeliverableBrandFilter(brandId);
+
     const [
       activeCampaigns,
       activeInfluencerRows,
@@ -82,32 +112,32 @@ export function makeDashboardService(ctx: DomainContext) {
       spend,
       contentAlerts,
     ] = await Promise.all([
-      prisma.campaign.count({ where: { status: 'ACTIVE', ...brandFilter(brandId) } }),
+      prisma.campaign.count({ where: { status: 'ACTIVE', ...bf } }),
       prisma.campaignInfluencer.findMany({
-        where: { campaign: { status: 'ACTIVE', ...(brandId ? { brandId } : {}) } },
+        where: { campaign: { status: 'ACTIVE', ...(bf.brandId !== undefined ? { brandId: bf.brandId } : {}) } },
         select: { influencerId: true },
         distinct: ['influencerId'],
       }),
       prisma.publishedContent.count({
-        where: { detectedAt: { gte: weekAgo }, ...brandFilter(brandId) },
+        where: { detectedAt: { gte: weekAgo }, ...bf },
       }),
       prisma.deliverable.count({
         where: {
           dueDate: { gte: now, lte: in14 },
           status: { in: [...OPEN_DELIVERABLE_STATUSES] },
-          ...deliverableBrandFilter(brandId),
+          ...dbf,
         },
       }),
       prisma.deliverable.count({
         where: {
           dueDate: { lt: now },
           status: { in: [...OPEN_DELIVERABLE_STATUSES] },
-          ...deliverableBrandFilter(brandId),
+          ...dbf,
         },
       }),
       totalSpend(brandId),
       prisma.publishedContent.count({
-        where: { availabilityStatus: { in: [...REMOVED_STATUSES] }, ...brandFilter(brandId) },
+        where: { availabilityStatus: { in: [...REMOVED_STATUSES] }, ...bf },
       }),
     ]);
 
@@ -138,10 +168,17 @@ export function makeDashboardService(ctx: DomainContext) {
 
   async function whatsNew(brandId?: string, limit = 14): Promise<WhatsNewItemDTO[]> {
     const since = await whatsNewSince();
-    const scope = await scopedBrandIds(ctx);
-    const scopeWhere = scope ? { brandId: { in: scope } } : {};
+    // FIX (aggregate-leak-audit): previously `{ ...scopeWhere, ...brandFilter(brandId) }`
+    // — when an explicit brandId was passed, its flat `{ brandId }` spread
+    // AFTER scopeWhere silently overwrote scopeWhere's `{ brandId: { in:
+    // scope } } }` (same object key, last one wins), so a scoped actor could
+    // pass an explicit OUT-OF-SCOPE brandId and see that brand's What's New
+    // content in full — the exact opposite of "an out-of-scope explicit
+    // filter matches nothing" every other buildWhere() in this codebase
+    // guarantees. scopedBrandFilter() composes the two correctly instead.
+    const bf = await scopedBrandFilter(brandId);
     const recentContent = await prisma.publishedContent.findMany({
-      where: { ...scopeWhere, ...brandFilter(brandId), detectedAt: { gt: since } },
+      where: { ...bf, detectedAt: { gt: since } },
       include: content.relIncludeFor(ctx.actor?.id),
       orderBy: [{ detectedAt: 'desc' }],
       take: limit,
@@ -174,13 +211,20 @@ export function makeDashboardService(ctx: DomainContext) {
     const effectiveSince = since ?? new Date(Date.now() - 7 * 864e5);
     const scope = await scopedBrandIds(ctx);
     const scopeWhere = scope ? { brandId: { in: scope } } : {};
-    const brandWhere = brandFilter(brandId);
-    const notifWhere = { ...scopeWhere, ...brandWhere, createdAt: { gt: effectiveSince } };
+    // FIX (aggregate-leak-audit) — same overwrite hazard whatsNew() had: an
+    // explicit brandId must be checked AGAINST scope, never flat-merged after
+    // it (last key wins on a plain object spread). bf is the correctly
+    // composed filter; the cross-brand `byBrandRows`/`brands` rollup below
+    // intentionally still uses the broader scopeWhere (not bf) — that
+    // rollup's own job is "every in-scope brand's activity", independent of
+    // whichever single brand the caller's own view is currently narrowed to.
+    const bf = await scopedBrandFilter(brandId);
+    const notifWhere = { ...bf, createdAt: { gt: effectiveSince } };
 
     const [items, newContent, campaignsLaunched, byCategory, byBrandRows, brands] = await Promise.all([
       whatsNew(brandId, 20),
-      prisma.publishedContent.count({ where: { ...scopeWhere, ...brandWhere, detectedAt: { gt: effectiveSince } } }),
-      prisma.campaign.count({ where: { ...scopeWhere, ...brandWhere, status: 'ACTIVE', createdAt: { gt: effectiveSince } } }),
+      prisma.publishedContent.count({ where: { ...bf, detectedAt: { gt: effectiveSince } } }),
+      prisma.campaign.count({ where: { ...bf, status: 'ACTIVE', createdAt: { gt: effectiveSince } } }),
       prisma.notification.groupBy({
         by: ['category'],
         where: { ...notifWhere, category: { in: WHATS_NEW_CATEGORIES } },
@@ -224,11 +268,20 @@ export function makeDashboardService(ctx: DomainContext) {
     };
   }
 
-  /** Combines the actor's own brand scope (W4-4) with an optional explicit brandId filter — a brand-scoped user must never see another brand's attention items on their OWN (unscoped-call) Mission Control. */
+  /** Combines the actor's own brand scope (W4-4) with an optional explicit
+   *  brandId filter — a brand-scoped user must never see another brand's
+   *  attention items on their OWN (unscoped-call) Mission Control.
+   *
+   *  FIX (aggregate-leak-audit): this used to `return { brandId }`
+   *  immediately whenever an explicit brandId was passed, WITHOUT checking
+   *  it against the actor's scope at all — a brand-scoped actor could pass
+   *  any brandId (in or out of their scope) to /dashboard/attention and see
+   *  that brand's overdue deliverables, failed shipments, removed content,
+   *  expiring usage rights etc. in full. Delegating to scopedBrandFilter()
+   *  gives the same "out-of-scope explicit filter matches nothing" guarantee
+   *  every other buildWhere() in this codebase already has. */
   async function attentionBrandFilter(brandId?: string): Promise<{ brandId?: string | { in: string[] } }> {
-    if (brandId) return { brandId };
-    const scope = await scopedBrandIds(ctx);
-    return scope ? { brandId: { in: scope } } : {};
+    return scopedBrandFilter(brandId);
   }
 
   /**
@@ -506,10 +559,16 @@ export function makeDashboardService(ctx: DomainContext) {
   async function upcomingContent(brandId?: string, limit = 8): Promise<UpcomingContentDTO[]> {
     const now = new Date();
     const in14 = new Date(now.getTime() + 14 * 864e5);
+    // Brand scope (aggregate-leak-audit) — this was previously unscoped
+    // entirely unless an explicit brandId was passed, leaking every brand's
+    // upcoming publish schedule (creator name, campaign name, brand name) to
+    // any authenticated brand-scoped actor who called /dashboard/global with
+    // no brandId query param.
+    const bf = await scopedBrandFilter(brandId);
     const rows = await prisma.campaignInfluencer.findMany({
       where: {
         expectedPublishAt: { gte: now, lte: in14 },
-        ...(brandId ? { campaign: { brandId } } : {}),
+        ...(bf.brandId !== undefined ? { campaign: { brandId: bf.brandId } } : {}),
       },
       include: {
         influencer: { select: { displayName: true, primaryPlatform: true, avatarOverrideUrl: true, resolvedAvatarUrl: true } },
@@ -531,8 +590,22 @@ export function makeDashboardService(ctx: DomainContext) {
   }
 
   async function recentActivity(brandId?: string, limit = 10): Promise<ActivityDTO[]> {
+    // Brand scope (aggregate-leak-audit) — this was previously unscoped
+    // entirely unless an explicit brandId was passed, leaking every brand's
+    // activity feed (campaign/content/shipment/cost events, each carrying a
+    // free-text `message`) to any authenticated brand-scoped actor who
+    // called /dashboard/global with no brandId query param. ActivityLog rows
+    // not tied to any brand (brandId null — e.g. a purely user-level event)
+    // stay visible, same posture as creator360.service.ts's timeline().
+    const bf = await scopedBrandFilter(brandId);
+    const where =
+      bf.brandId !== undefined
+        ? brandId
+          ? { brandId: bf.brandId }
+          : { OR: [{ brandId: null }, { brandId: bf.brandId }] }
+        : {};
     const rows = await prisma.activityLog.findMany({
-      where: brandId ? { brandId } : {},
+      where,
       include: { actor: { select: { name: true } } },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit,

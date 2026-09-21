@@ -421,7 +421,7 @@ export function makeAuthService(ctx: DomainContext) {
   }
 
   async function createUser(input: RegisterInput): Promise<UserDTO> {
-    requireAdmin(ctx);
+    const admin = requireAdmin(ctx);
     const email = input.email.toLowerCase();
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) throw AppError.conflict('A user with that email already exists.');
@@ -432,6 +432,11 @@ export function makeAuthService(ctx: DomainContext) {
         role: input.role ?? 'STAFF',
         passwordHash: await hashPassword(input.password),
       },
+    });
+    await logActivity(ctx, {
+      type: 'GENERIC',
+      message: `${admin.name} created a new user account for ${user.name}.`,
+      meta: { targetUserId: user.id, role: user.role },
     });
     return toUserDTO(user);
   }
@@ -480,6 +485,7 @@ export function makeAuthService(ctx: DomainContext) {
       throw AppError.badRequest('That role profile requires the Staff role.');
     }
     const deactivating = input.isActive === false && target.isActive;
+    const activating = input.isActive === true && !target.isActive;
     const roleChanging = input.role !== undefined && input.role !== target.role;
     const profileChanging = input.roleProfile !== undefined && input.roleProfile !== target.roleProfile;
 
@@ -497,25 +503,66 @@ export function makeAuthService(ctx: DomainContext) {
     if (deactivating || roleChanging || profileChanging) {
       await revokeAllSessions(id, deactivating ? 'deactivated' : 'role_changed');
     }
+    // Audit trail (spec §32): every sensitive permission/lifecycle change an
+    // admin makes to another user is logged, same convention as brand.service.ts
+    // / platform.service.ts's admin-action logActivity() calls — GENERIC type,
+    // human-readable message naming actor + target, structured meta for detail.
+    if (roleChanging) {
+      await logActivity(ctx, {
+        type: 'GENERIC',
+        message: `${admin.name} changed ${target.name}'s role from ${target.role} to ${user.role}.`,
+        meta: { targetUserId: id, previousRole: target.role, newRole: user.role },
+      });
+    }
+    if (profileChanging) {
+      await logActivity(ctx, {
+        type: 'GENERIC',
+        message: `${admin.name} changed ${target.name}'s role profile from ${target.roleProfile ?? 'none'} to ${user.roleProfile ?? 'none'}.`,
+        meta: { targetUserId: id, previousRoleProfile: target.roleProfile, newRoleProfile: user.roleProfile },
+      });
+    }
+    if (deactivating) {
+      await logActivity(ctx, {
+        type: 'GENERIC',
+        message: `${admin.name} deactivated ${target.name}'s account.`,
+        meta: { targetUserId: id },
+      });
+    } else if (activating) {
+      await logActivity(ctx, {
+        type: 'GENERIC',
+        message: `${admin.name} activated ${target.name}'s account.`,
+        meta: { targetUserId: id },
+      });
+    }
     return toUserDTO(user);
   }
 
   /** Admin resets another user's password and revokes their sessions (W4-1). */
   async function resetUserPassword(id: string, input: z.infer<typeof requests.adminResetPasswordSchema>): Promise<void> {
-    requireAdmin(ctx);
-    const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    const admin = requireAdmin(ctx);
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, name: true } });
     if (!target) throw AppError.notFound('User');
     await prisma.user.update({ where: { id }, data: { passwordHash: await hashPassword(input.newPassword) } });
     await revokeAllSessions(id, 'password_reset');
+    await logActivity(ctx, {
+      type: 'GENERIC',
+      message: `${admin.name} reset ${target.name}'s password.`,
+      meta: { targetUserId: id },
+    });
   }
 
   /** Admin removes a user (W4-1). Cannot remove your own account. */
   async function removeUser(id: string): Promise<void> {
     const admin = requireAdmin(ctx);
     if (id === admin.id) throw AppError.badRequest('You cannot delete your own account.');
-    const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, name: true } });
     if (!target) throw AppError.notFound('User');
     await prisma.user.delete({ where: { id } });
+    await logActivity(ctx, {
+      type: 'GENERIC',
+      message: `${admin.name} removed ${target.name}'s account.`,
+      meta: { targetUserId: id },
+    });
   }
 
   /** Admin: list the brand ids a user is scoped to — empty means unscoped (W4-4). */
@@ -532,8 +579,8 @@ export function makeAuthService(ctx: DomainContext) {
    * An empty list clears the scope (the user becomes unscoped and sees all).
    */
   async function setUserBrandAccess(id: string, brandIds: string[]): Promise<string[]> {
-    requireAdmin(ctx);
-    const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    const admin = requireAdmin(ctx);
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, name: true } });
     if (!target) throw AppError.notFound('User');
     const unique = [...new Set(brandIds)];
     if (unique.length > 0) {
@@ -546,6 +593,14 @@ export function makeAuthService(ctx: DomainContext) {
         ? [prisma.userBrandAccess.createMany({ data: unique.map((brandId) => ({ userId: id, brandId })) })]
         : []),
     ]);
+    await logActivity(ctx, {
+      type: 'GENERIC',
+      message:
+        unique.length > 0
+          ? `${admin.name} set ${target.name}'s brand access to ${unique.length} brand${unique.length === 1 ? '' : 's'}.`
+          : `${admin.name} cleared ${target.name}'s brand access (now unscoped).`,
+      meta: { targetUserId: id, brandIds: unique },
+    });
     return unique;
   }
 
@@ -562,8 +617,8 @@ export function makeAuthService(ctx: DomainContext) {
    *  already validated against the canonical list at the Zod layer. Mirrors
    *  setUserBrandAccess exactly. */
   async function setUserCountryAccess(id: string, countryCodes: string[]): Promise<string[]> {
-    requireAdmin(ctx);
-    const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    const admin = requireAdmin(ctx);
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, name: true } });
     if (!target) throw AppError.notFound('User');
     const unique = [...new Set(countryCodes)];
     await prisma.$transaction([
@@ -572,6 +627,14 @@ export function makeAuthService(ctx: DomainContext) {
         ? [prisma.userCountryAccess.createMany({ data: unique.map((countryCode) => ({ userId: id, countryCode })) })]
         : []),
     ]);
+    await logActivity(ctx, {
+      type: 'GENERIC',
+      message:
+        unique.length > 0
+          ? `${admin.name} set ${target.name}'s country access to ${unique.length} countr${unique.length === 1 ? 'y' : 'ies'}.`
+          : `${admin.name} cleared ${target.name}'s country access (now unscoped).`,
+      meta: { targetUserId: id, countryCodes: unique },
+    });
     return unique;
   }
 
@@ -580,8 +643,8 @@ export function makeAuthService(ctx: DomainContext) {
     id: string,
     overrides: { capability: (typeof CAPABILITIES)[number]; granted: boolean }[],
   ): Promise<void> {
-    requireAdmin(ctx);
-    const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    const admin = requireAdmin(ctx);
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, name: true } });
     if (!target) throw AppError.notFound('User');
     await prisma.$transaction([
       prisma.userCapability.deleteMany({ where: { userId: id } }),
@@ -589,6 +652,16 @@ export function makeAuthService(ctx: DomainContext) {
         ? [prisma.userCapability.createMany({ data: overrides.map((o) => ({ userId: id, capability: o.capability, granted: o.granted })) })]
         : []),
     ]);
+    const granted = overrides.filter((o) => o.granted).map((o) => o.capability);
+    const revoked = overrides.filter((o) => !o.granted).map((o) => o.capability);
+    await logActivity(ctx, {
+      type: 'GENERIC',
+      message:
+        overrides.length > 0
+          ? `${admin.name} updated ${target.name}'s capability overrides (${granted.length} granted, ${revoked.length} revoked).`
+          : `${admin.name} cleared ${target.name}'s capability overrides.`,
+      meta: { targetUserId: id, granted, revoked },
+    });
   }
 
   /**

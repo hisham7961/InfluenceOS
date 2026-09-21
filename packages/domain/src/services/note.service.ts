@@ -186,6 +186,14 @@ export function makeNoteService(ctx: DomainContext) {
   }
 
   async function listForInfluencer(influencerId: string): Promise<NoteDTO[]> {
+    // Security & Authorization Freeze Gate — an influencer's own notes were
+    // reachable by direct id with no scope check at all (resolveContext()'s
+    // influencerId branch never applied here, since this function bypasses
+    // it entirely). Mirrors influencer.service.ts's own country-scope guard.
+    const inf = await prisma.influencer.findUnique({ where: { id: influencerId }, select: { id: true, countryCode: true } });
+    if (!inf) throw AppError.notFound('Influencer');
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, inf.countryCode)) throw AppError.notFound('Influencer');
     const notes = await prisma.note.findMany({
       where: { influencerId, parentId: null },
       orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
@@ -207,6 +215,13 @@ export function makeNoteService(ctx: DomainContext) {
 
   /** Internal notes / pinned Manager Callouts on a piece of content (Content Command Center + Operations Intelligence passes) — reuses this SAME Note model, never a parallel content-comment system. */
   async function listForContent(publishedContentId: string): Promise<NoteDTO[]> {
+    // Security & Authorization Freeze Gate — Manager Callouts / comments on a
+    // piece of content were reachable by direct content id with no brand-scope
+    // check (resolveContext()'s publishedContentId branch never applied here,
+    // since this function bypasses it entirely).
+    const pc = await prisma.publishedContent.findUnique({ where: { id: publishedContentId }, select: { id: true, brandId: true } });
+    if (!pc) throw AppError.notFound('Content');
+    await assertInScope(pc.brandId);
     const notes = await prisma.note.findMany({
       where: { publishedContentId, parentId: null },
       orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],

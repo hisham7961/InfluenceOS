@@ -9,9 +9,11 @@ import type { z } from '@influenceos/contracts';
 import { normalizeCountryToCode, PLATFORMS, parseCsvRecords, type Platform } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireAnyCapability, requireCapability } from '../lib/authz';
 import { logActivity } from '../lib/helpers';
+import { isCountryOutOfScope, scopedCountryCodes } from '../lib/scope';
 import { makeCampaignInfluencerService } from './campaign-influencer.service';
+import { makeCampaignService } from './campaign.service';
 import { makeDataQualityService } from './data-quality.service';
 import { makeSourcingService } from './sourcing.service';
 
@@ -58,6 +60,15 @@ interface PlannedCsvRow {
   notes: string | null;
   /** Set when the row is malformed and can never be added (no name/username, or no resolvable country for a new creator). */
   invalid: string | null;
+  /**
+   * Set when the row resolves to a real (existing or would-be-created) creator
+   * that is outside the actor's own country scope (Security & Authorization
+   * Freeze Gate — every row needs its OWN scope check, not just the
+   * batch-level campaign check). The campaign being in scope never authorizes
+   * an out-of-scope CREATOR, whether that creator already exists or this row
+   * would create them. Reported, never silently dropped or silently widened.
+   */
+  outOfScope: string | null;
 }
 
 const PLATFORM_SET = new Set<string>(PLATFORMS);
@@ -79,13 +90,20 @@ function pick(rec: Record<string, string>, ...keys: string[]): string {
 export function makeBulkService(ctx: DomainContext) {
   const { prisma } = ctx;
 
+  /**
+   * Security & Authorization Freeze Gate — every bulk mutation in this file
+   * fans out from a campaignId, so this one shared lookup is what keeps all
+   * of them brand-scope-checked: previously a raw, unchecked
+   * `prisma.campaign.findUnique`, meaning a brand-scoped actor could reach
+   * (and mutate) another brand's campaign roster/deliverables/candidates by
+   * id alone, exactly the "child-resource campaign-scope bypass" already
+   * fixed in campaign-influencer.service.ts, expense.service.ts and
+   * sourcing.service.ts. Delegates to campaign.service.ts's own
+   * assertInScope so there is one scope check to get right, not one per call
+   * site here to independently remember.
+   */
   async function campaignOrThrow(campaignId: string) {
-    const campaign = await prisma.campaign.findUnique({
-      where: { id: campaignId },
-      select: { id: true, name: true, brandId: true },
-    });
-    if (!campaign) throw AppError.notFound('Campaign');
-    return campaign;
+    return makeCampaignService(ctx).assertInScope(campaignId);
   }
 
   /**
@@ -99,16 +117,23 @@ export function makeBulkService(ctx: DomainContext) {
   async function planAddInfluencers(campaignId: string, input: BulkRosterAdd): Promise<PlannedAddRow[]> {
     await campaignOrThrow(campaignId);
     const influencerIds = input.rows.map((r) => r.influencerId);
-    const [influencers, onRosterRows] = await Promise.all([
-      prisma.influencer.findMany({ where: { id: { in: influencerIds } }, select: { id: true, displayName: true } }),
+    const [influencers, onRosterRows, countryScope] = await Promise.all([
+      prisma.influencer.findMany({ where: { id: { in: influencerIds } }, select: { id: true, displayName: true, countryCode: true } }),
       prisma.campaignInfluencer.findMany({ where: { campaignId, influencerId: { in: influencerIds } }, select: { influencerId: true } }),
+      scopedCountryCodes(ctx),
     ]);
     const byId = new Map(influencers.map((i) => [i.id, i]));
     const onRoster = new Set(onRosterRows.map((r) => r.influencerId));
 
     return input.rows.map((row) => {
       const inf = byId.get(row.influencerId);
-      if (!inf) {
+      // The campaign being in scope never authorizes an out-of-scope CREATOR
+      // (Security & Authorization Freeze Gate — every row needs its OWN
+      // scope check, mirrors campaign-influencer.service.ts::add()'s per-row
+      // countryCode check, which ultimately backs execute() for this same
+      // row). Masked identically to a truly-missing influencer so preview
+      // never reveals more than execute would, and the two can never diverge.
+      if (!inf || isCountryOutOfScope(countryScope, inf.countryCode)) {
         return { row, influencerId: row.influencerId, label: null, willApply: false, reason: 'notFound', message: 'Influencer not found' };
       }
       if (onRoster.has(row.influencerId)) {
@@ -127,7 +152,13 @@ export function makeBulkService(ctx: DomainContext) {
 
   /** Dry-run preview of a bulk roster add — never writes (gap #6). */
   async function previewAddInfluencers(campaignId: string, input: BulkRosterAdd): Promise<BulkPreviewDTO> {
-    requireActor(ctx);
+    // Capability grants WHAT; scope grants WHERE — both required, even for a
+    // read-only preview, since a preview row can reveal an out-of-scope
+    // influencer's display name / roster status (Security & Authorization
+    // Freeze Gate). Mirrors what execute() ultimately requires via
+    // campaign-influencer.service.ts::add(), so a capability-less caller
+    // never sees more in preview than they could ever apply.
+    await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
     const rows = await planAddInfluencers(campaignId, input);
     const dtoRows: BulkRowResultDTO[] = rows.map((r) => ({
       influencerId: r.influencerId,
@@ -154,7 +185,13 @@ export function makeBulkService(ctx: DomainContext) {
    * so the client can show exactly what happened.
    */
   async function addInfluencers(campaignId: string, input: BulkRosterAdd): Promise<BulkResultDTO> {
-    const actor = requireActor(ctx);
+    // Fail fast with one clean 403 rather than every row silently reporting
+    // 'failed' — every row here is routed through campaign-influencer.
+    // service.ts::add(), which already enforces this same capability
+    // internally, so a capability-less actor could never actually succeed
+    // today; this just gives consistent UX with the rest of this file
+    // (Security & Authorization Freeze Gate).
+    const actor = await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
     const campaign = await campaignOrThrow(campaignId);
     const roster = makeCampaignInfluencerService(ctx);
     const plannedRows = await planAddInfluencers(campaignId, input);
@@ -211,7 +248,11 @@ export function makeBulkService(ctx: DomainContext) {
     campaignId: string,
     input: DeliverableTemplate,
   ): Promise<DeliverableTemplateResultDTO> {
-    const actor = requireActor(ctx);
+    // This bulk-creates Deliverable rows across the whole roster via a raw
+    // createMany — it must require the same capability deliverable.
+    // service.ts's own single-deliverable create gates behind (Security &
+    // Authorization Freeze Gate), not just authentication.
+    const actor = await requireCapability(ctx, 'CAMPAIGNS_MANAGE');
     const campaign = await campaignOrThrow(campaignId);
 
     const rosterRows = await prisma.campaignInfluencer.findMany({
@@ -268,7 +309,7 @@ export function makeBulkService(ctx: DomainContext) {
    * without writing anything. Shared by `planImportCandidatesCsv` (and so by
    * both preview and execute) so the resolution logic can never drift.
    */
-  async function planCsvRow(rec: Record<string, string>): Promise<PlannedCsvRow> {
+  async function planCsvRow(rec: Record<string, string>, countryScope: string[] | null): Promise<PlannedCsvRow> {
     const displayName = pick(rec, 'displayname', 'display name', 'name');
     const username = pick(rec, 'username', 'handle');
     const platformRaw = pick(rec, 'platform').toUpperCase();
@@ -276,7 +317,7 @@ export function makeBulkService(ctx: DomainContext) {
     const label = displayName || username || null;
 
     if (!displayName && !username) {
-      return { label, existingInfluencerId: null, createData: null, alreadyCandidate: false, fitScore: null, notes: null, invalid: 'Row has no name or username.' };
+      return { label, existingInfluencerId: null, createData: null, alreadyCandidate: false, fitScore: null, notes: null, invalid: 'Row has no name or username.', outOfScope: null };
     }
 
     const fitRaw = pick(rec, 'fitscore', 'fit score');
@@ -285,21 +326,30 @@ export function makeBulkService(ctx: DomainContext) {
     const notes = pick(rec, 'notes') || null;
 
     // Resolve the influencer: (platform, username) first, then display name.
-    let influencer: { id: string } | null = null;
+    let influencer: { id: string; countryCode: string | null } | null = null;
     if (username && platform) {
       influencer = await prisma.influencer.findFirst({
         where: { primaryPlatform: platform, primaryUsername: { equals: username, mode: 'insensitive' } },
-        select: { id: true },
+        select: { id: true, countryCode: true },
       });
     }
     if (!influencer && displayName) {
       influencer = await prisma.influencer.findFirst({
         where: { displayName: { equals: displayName, mode: 'insensitive' } },
-        select: { id: true },
+        select: { id: true, countryCode: true },
       });
     }
     if (influencer) {
-      return { label, existingInfluencerId: influencer.id, createData: null, alreadyCandidate: false, fitScore, notes, invalid: null };
+      // The campaign being in scope never authorizes an out-of-scope
+      // CREATOR (Security & Authorization Freeze Gate) — mirrors
+      // campaign-influencer.service.ts::add()'s per-row countryCode check. A
+      // country-scoped actor must not import an existing out-of-scope
+      // creator as a candidate merely by naming them in a CSV row. Reported
+      // (not silently dropped) but without exposing the matched record.
+      if (isCountryOutOfScope(countryScope, influencer.countryCode)) {
+        return { label, existingInfluencerId: null, createData: null, alreadyCandidate: false, fitScore, notes, invalid: null, outOfScope: 'This creator is outside your assigned scope.' };
+      }
+      return { label, existingInfluencerId: influencer.id, createData: null, alreadyCandidate: false, fitScore, notes, invalid: null, outOfScope: null };
     }
 
     // countryCode is required on every new influencer (drives country
@@ -312,7 +362,13 @@ export function makeBulkService(ctx: DomainContext) {
       const invalid = countryRaw
         ? `Country "${countryRaw}" was not recognized — use a country name or ISO code (e.g. Kuwait or KW).`
         : 'A Country column is required to add a new creator.';
-      return { label, existingInfluencerId: null, createData: null, alreadyCandidate: false, fitScore, notes, invalid };
+      return { label, existingInfluencerId: null, createData: null, alreadyCandidate: false, fitScore, notes, invalid, outOfScope: null };
+    }
+    // A country-scoped actor must not use a CSV import as a side door to
+    // create a brand-new creator outside their own assigned territory —
+    // same rule as importing an existing out-of-scope creator, above.
+    if (isCountryOutOfScope(countryScope, countryCodeResolved)) {
+      return { label, existingInfluencerId: null, createData: null, alreadyCandidate: false, fitScore, notes, invalid: null, outOfScope: 'This row\'s country is outside your assigned scope.' };
     }
 
     return {
@@ -332,6 +388,7 @@ export function makeBulkService(ctx: DomainContext) {
       fitScore,
       notes,
       invalid: null,
+      outOfScope: null,
     };
   }
 
@@ -345,9 +402,15 @@ export function makeBulkService(ctx: DomainContext) {
    */
   async function planImportCandidatesCsv(campaignId: string, input: CandidateCsvImport): Promise<PlannedCsvRow[]> {
     await campaignOrThrow(campaignId);
+    // Resolved once per import, not per row — every row is checked against
+    // the SAME actor scope (Security & Authorization Freeze Gate: every row
+    // in a bulk operation needs its own scope check, e.g. an influencer's
+    // countryCode — the campaign being in scope never authorizes an
+    // out-of-scope creator).
+    const countryScope = await scopedCountryCodes(ctx);
     const records = parseCsvRecords(input.csv);
     const rows: PlannedCsvRow[] = [];
-    for (const rec of records) rows.push(await planCsvRow(rec));
+    for (const rec of records) rows.push(await planCsvRow(rec, countryScope));
 
     // A row that resolved to an existing influencer may already be a
     // candidate on this campaign — check in one batched, read-only query
@@ -379,7 +442,16 @@ export function makeBulkService(ctx: DomainContext) {
    * the preview fixes the CSV first.
    */
   async function previewImportCandidatesCsv(campaignId: string, input: CandidateCsvImport): Promise<BulkPreviewDTO> {
-    requireActor(ctx);
+    // Capability grants WHAT; scope grants WHERE — both required, even for a
+    // read-only preview: this route can create NEW Influencer rows on
+    // execute (a genuine capability-bypass side door if left bare), and the
+    // preview itself resolves and exposes existing-creator matches, so it
+    // needs the same access as execute (Security & Authorization Freeze
+    // Gate — "Preview itself may expose creator data so also needs correct
+    // access"). Mirrors sourcing.service.ts::add()'s own gate, since a
+    // resolved existing-influencer row is ultimately added as a candidate
+    // through that same service.
+    await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
     const plannedRows = await planImportCandidatesCsv(campaignId, input);
     const dataQuality = makeDataQualityService(ctx);
 
@@ -388,6 +460,13 @@ export function makeBulkService(ctx: DomainContext) {
     for (const r of plannedRows) {
       if (r.invalid) {
         dtoRows.push({ influencerId: null, label: r.label, status: 'skipped', id: null, message: r.invalid });
+        continue;
+      }
+      if (r.outOfScope) {
+        // Report the category (Out of Scope), never the full matched record
+        // — a capability-less/out-of-scope caller must not learn more from
+        // preview than execute would ever let them act on.
+        dtoRows.push({ influencerId: null, label: r.label, status: 'skipped', id: null, message: r.outOfScope });
         continue;
       }
       if (r.existingInfluencerId) {
@@ -438,7 +517,13 @@ export function makeBulkService(ctx: DomainContext) {
    * reported added/skipped/failed.
    */
   async function importCandidatesCsv(campaignId: string, input: CandidateCsvImport): Promise<BulkResultDTO> {
-    const actor = requireActor(ctx);
+    // This creates NEW Influencer rows via a raw prisma.influencer.create,
+    // completely bypassing influencer.service.ts::create()'s own
+    // INFLUENCERS_MANAGE gate — a genuine capability-bypass side door left
+    // as bare requireActor. Mirrors campaign-influencer.service.ts::add()'s
+    // and sourcing.service.ts::add()'s capability pair (Security &
+    // Authorization Freeze Gate).
+    const actor = await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
     const campaign = await campaignOrThrow(campaignId);
     const sourcing = makeSourcingService(ctx);
     const plannedRows = await planImportCandidatesCsv(campaignId, input);
@@ -447,6 +532,10 @@ export function makeBulkService(ctx: DomainContext) {
     for (const r of plannedRows) {
       if (r.invalid) {
         results.push({ influencerId: null, label: r.label, status: 'failed', id: null, message: r.invalid });
+        continue;
+      }
+      if (r.outOfScope) {
+        results.push({ influencerId: null, label: r.label, status: 'failed', id: null, message: r.outOfScope });
         continue;
       }
 

@@ -12,6 +12,7 @@ import { requireActor } from '../lib/authz';
 import { iso } from '../lib/helpers';
 import { toActivityDTO } from '../lib/mappers';
 import { resolveScopeCurrency, subtractMoney, sumMoney, toDecimal } from '../lib/money';
+import { isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
 /** submissions()'s return shape — the real DeliverableSubmissionDTO fields
  *  (mirrors submission.service.ts's toDTO exactly) plus just enough campaign
@@ -37,19 +38,53 @@ const PAID_DEAL_TYPES = ['PAID', 'PAID_PLUS_GIFTED'] as const;
 export function makeCreator360Service(ctx: DomainContext) {
   const { prisma } = ctx;
 
+  /**
+   * Direct-ID scope gate (Security & Authorization Freeze Gate,
+   * aggregate-leak-audit) — mirrors influencer.service.ts's own detail()
+   * gate exactly (country, then brand): a country-scoped actor can never
+   * reach an out-of-scope creator's 360 by guessing/pasting its id, and a
+   * brand-scoped actor can never reach a creator they have no BrandInfluencer
+   * relationship with in their own scope (including one with no
+   * BrandInfluencer rows at all). This only gates the CREATOR-level profile
+   * being visible at all — every panel below (snapshot/reliability/
+   * submissions/timeline) additionally re-applies brand scope to its own
+   * underlying campaign/payment/UGC rows, because this creator may have
+   * collaborated with brands beyond the actor's own scope and "the main
+   * page was authorized" must never imply every panel's data is too.
+   */
   async function assertVisible(id: string): Promise<void> {
-    const exists = await prisma.influencer.count({ where: { id } });
-    if (!exists) throw AppError.notFound('Influencer');
+    const inf = await prisma.influencer.findUnique({ where: { id }, select: { countryCode: true } });
+    if (!inf) throw AppError.notFound('Influencer');
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, inf.countryCode)) throw AppError.notFound('Influencer');
+    const brandScope = await scopedBrandIds(ctx);
+    if (brandScope) {
+      const match = await prisma.brandInfluencer.findFirst({
+        where: { influencerId: id, brandId: { in: brandScope } },
+        select: { id: true },
+      });
+      if (!match) throw AppError.notFound('Influencer');
+    }
   }
 
   async function snapshot(influencerId: string): Promise<CreatorSnapshotDTO> {
     requireActor(ctx);
     await assertVisible(influencerId);
 
+    // Per-panel brand scope (Security & Authorization Freeze Gate) — a
+    // creator can have real collaborations with brands beyond the actor's
+    // own scope; assertVisible() above only established that AT LEAST ONE
+    // is in scope. Every number here (brandsWorkedWith, currentCampaigns,
+    // rateRange, outstandingPayment, activeDeliverables/Shipments, open
+    // logistics issues, mostRecentShipment) must be computed from ONLY the
+    // actor's in-scope campaigns, never the creator's full cross-brand history.
+    const brandScope = await scopedBrandIds(ctx);
+    const ciBrandScopeWhere = brandScope ? { campaign: { brandId: { in: brandScope } } } : {};
+
     const [influencer, cis, lastNoteAt] = await Promise.all([
       prisma.influencer.findUnique({ where: { id: influencerId }, select: { owner: { select: { name: true } } } }),
       prisma.campaignInfluencer.findMany({
-        where: { influencerId },
+        where: { influencerId, ...ciBrandScopeWhere },
         select: {
           agreedCost: true,
           paidAmount: true,
@@ -73,7 +108,13 @@ export function makeCreator360Service(ctx: DomainContext) {
           },
         },
       }),
-      prisma.note.aggregate({ where: { influencerId }, _max: { createdAt: true } }),
+      // A Note can carry its own brandId (a brand-specific comment thread) or
+      // none (a general creator-relationship note) — only exclude the former
+      // when it names an out-of-scope brand, never a brand-less note.
+      prisma.note.aggregate({
+        where: { influencerId, ...(brandScope ? { OR: [{ brandId: null }, { brandId: { in: brandScope } }] } : {}) },
+        _max: { createdAt: true },
+      }),
     ]);
     if (!influencer) throw AppError.notFound('Influencer');
 
@@ -163,9 +204,13 @@ export function makeCreator360Service(ctx: DomainContext) {
     requireActor(ctx);
     await assertVisible(influencerId);
 
+    // Per-panel brand scope — this creator's on-time/late history must only
+    // reflect the actor's in-scope campaigns (never bypass scope just
+    // because assertVisible() already authorized the creator's profile).
+    const brandScope = await scopedBrandIds(ctx);
     const rows = await prisma.deliverable.findMany({
       where: {
-        campaignInfluencer: { influencerId },
+        campaignInfluencer: { influencerId, ...(brandScope ? { campaign: { brandId: { in: brandScope } } } : {}) },
         dueDate: { not: null },
         publishedAt: { not: null },
       },
@@ -204,8 +249,15 @@ export function makeCreator360Service(ctx: DomainContext) {
     requireActor(ctx);
     await assertVisible(influencerId);
 
+    // Per-panel brand scope — the UGC tab must only surface submissions from
+    // the actor's in-scope campaigns for this creator.
+    const brandScope = await scopedBrandIds(ctx);
     const rows = await prisma.deliverableSubmission.findMany({
-      where: { deliverable: { campaignInfluencer: { influencerId } } },
+      where: {
+        deliverable: {
+          campaignInfluencer: { influencerId, ...(brandScope ? { campaign: { brandId: { in: brandScope } } } : {}) },
+        },
+      },
       include: {
         submittedBy: { select: { name: true } },
         reviewedBy: { select: { name: true } },
@@ -254,21 +306,32 @@ export function makeCreator360Service(ctx: DomainContext) {
     const limit = query.limit ?? 30;
     const before = query.cursor ? new Date(query.cursor) : null;
 
+    // Per-panel brand scope — every one of the five sources below must be
+    // independently narrowed to the actor's in-scope brands, exactly like
+    // snapshot()/reliability()/submissions() above (never bypass scope just
+    // because assertVisible() already authorized this creator's profile).
+    const brandScope = await scopedBrandIds(ctx);
+    const brandNullableWhere = brandScope ? { OR: [{ brandId: null }, { brandId: { in: brandScope } }] } : {};
+    const ciCampaignScopeWhere = brandScope ? { campaign: { brandId: { in: brandScope } } } : {};
+
     const [activities, notes, submissionRows, contacted, usageRights] = await Promise.all([
       prisma.activityLog.findMany({
-        where: { influencerId, ...(before ? { createdAt: { lt: before } } : {}) },
+        where: { influencerId, ...brandNullableWhere, ...(before ? { createdAt: { lt: before } } : {}) },
         include: { actor: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
         take: limit,
       }),
       prisma.note.findMany({
-        where: { influencerId, parentId: null, ...(before ? { createdAt: { lt: before } } : {}) },
+        where: { influencerId, parentId: null, ...brandNullableWhere, ...(before ? { createdAt: { lt: before } } : {}) },
         include: { author: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
         take: limit,
       }),
       prisma.deliverableSubmission.findMany({
-        where: { deliverable: { campaignInfluencer: { influencerId } }, ...(before ? { updatedAt: { lt: before } } : {}) },
+        where: {
+          deliverable: { campaignInfluencer: { influencerId, ...ciCampaignScopeWhere } },
+          ...(before ? { updatedAt: { lt: before } } : {}),
+        },
         include: { deliverable: { select: { id: true, campaignInfluencerId: true, campaignInfluencer: { select: { campaignId: true } } } } },
         orderBy: { updatedAt: 'desc' },
         take: limit,
@@ -278,7 +341,7 @@ export function makeCreator360Service(ctx: DomainContext) {
       // for a row where it's null (an invited-but-not-yet-contacted creator
       // gets no event, not a fabricated one).
       prisma.campaignInfluencer.findMany({
-        where: { influencerId, dateContacted: before ? { not: null, lt: before } : { not: null } },
+        where: { influencerId, dateContacted: before ? { not: null, lt: before } : { not: null }, ...ciCampaignScopeWhere },
         include: { campaign: { select: { id: true, name: true } } },
         orderBy: { dateContacted: 'desc' },
         take: limit,
@@ -290,9 +353,11 @@ export function makeCreator360Service(ctx: DomainContext) {
       // only ever bump `status` + `updatedAt`, and `updatedAt` is shared by
       // every field on the row, not a dedicated "status changed at" column),
       // so a single grant event carrying the row's CURRENT status is the
-      // honest representation — never a guessed history.
+      // honest representation — never a guessed history. UsageRight.brandId
+      // is a required (non-nullable) column, so unlike ActivityLog/Note above
+      // this is a plain `{ in: scope }` filter, no null-passthrough needed.
       prisma.usageRight.findMany({
-        where: { influencerId, ...(before ? { createdAt: { lt: before } } : {}) },
+        where: { influencerId, ...(brandScope ? { brandId: { in: brandScope } } : {}), ...(before ? { createdAt: { lt: before } } : {}) },
         orderBy: { createdAt: 'desc' },
         take: limit,
       }),

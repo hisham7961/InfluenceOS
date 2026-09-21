@@ -10,7 +10,7 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { requireActor } from '../lib/authz';
-import { scopedBrandIds } from '../lib/scope';
+import { scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
 // Matches the established z.infer<typeof requests.xSchema> pattern the rest
 // of the domain package uses for its request-input types (duplicateCheckSchema
@@ -147,12 +147,45 @@ export function makeDataQualityService(ctx: DomainContext) {
     return [brandId];
   }
 
+  // Security & Authorization Freeze Gate (aggregate-leak-audit, spec §49-55)
+  // — country scope, composed alongside brand scope into every finding
+  // below. This is the EXACT leak the spec calls out by name: a KW-only
+  // country-scoped actor (UserCountryAccess rows for KW only, no
+  // UserBrandAccess rows — so brand-unscoped) must never learn e.g. "27
+  // Saudi creators missing phone" from these aggregate counts, even though
+  // every individual SA creator record stays unreachable to them everywhere
+  // else in the app.
+  //
+  // `influencerBrandWhere`/`shipmentBrandWhere` below fold BOTH brand and
+  // country scope together for every finding EXCEPT the two "missing
+  // canonical country" ones — those set `countryCode`/`destinationCountryCode`
+  // to `null` themselves, and a flat object spread of `{ countryCode: { in:
+  // [...] } }` followed by `countryCode: null` would silently overwrite (last
+  // key wins) rather than AND, accidentally dropping the scope check exactly
+  // where it matters most. Those two counts instead use `missingCountryFilter`
+  // directly: per `isCountryOutOfScope` (lib/scope.ts), an uncategorized
+  // record is ALWAYS out of scope for a country-scoped actor, so their count
+  // for "creators/shipments with no canonical country" is correctly always 0
+  // — `{ in: [] }` (matches nothing) rather than `null` (matches everything
+  // uncategorized) once the actor is country-scoped.
   async function report(brandId?: string): Promise<DataQualityReportDTO> {
     requireActor(ctx);
     const brandIds = await effectiveBrandIds(brandId);
-    const influencerBrandWhere = brandIds ? { brandInfluencers: { some: { brandId: { in: brandIds } } } } : {};
+    const countryScope = await scopedCountryCodes(ctx);
+
+    const influencerBrandOnlyWhere = brandIds ? { brandInfluencers: { some: { brandId: { in: brandIds } } } } : {};
+    const influencerBrandWhere = {
+      ...influencerBrandOnlyWhere,
+      ...(countryScope ? { countryCode: { in: countryScope } } : {}),
+    };
+    const missingCountryFilter: { in: string[] } | null = countryScope ? { in: [] } : null;
     const campaignBrandWhere = brandIds ? { brandId: { in: brandIds } } : {};
-    const shipmentBrandWhere = brandIds ? { campaignInfluencer: { campaign: { brandId: { in: brandIds } } } } : {};
+    const shipmentBrandOnlyWhere = brandIds ? { campaignInfluencer: { campaign: { brandId: { in: brandIds } } } } : {};
+    const shipmentBrandWhere = {
+      ...shipmentBrandOnlyWhere,
+      ...(countryScope ? { destinationCountryCode: { in: countryScope } } : {}),
+    };
+    const missingDestinationCountryFilter: { in: string[] } | null = countryScope ? { in: [] } : null;
     const contentBrandWhere = brandIds ? { brandId: { in: brandIds } } : {};
 
     const engagedWhere: Prisma.InfluencerWhereInput = { relationshipStatus: { in: [...ENGAGED_RELATIONSHIP_STATUSES] } };
@@ -189,8 +222,12 @@ export function makeDataQualityService(ctx: DomainContext) {
       }),
       // 1. Missing canonical country — split by relationship engagement (see
       // ENGAGED_RELATIONSHIP_STATUSES doc comment for the severity rule).
-      prisma.influencer.count({ where: { ...influencerBrandWhere, countryCode: null, ...engagedWhere } }),
-      prisma.influencer.count({ where: { ...influencerBrandWhere, countryCode: null, ...prospectWhere } }),
+      // Uses influencerBrandOnlyWhere + missingCountryFilter (see the doc
+      // comment above `report()`), never influencerBrandWhere directly — that
+      // already carries `countryCode: { in: scope } }`, which a flat spread
+      // next to a literal `countryCode: null` here would silently overwrite.
+      prisma.influencer.count({ where: { ...influencerBrandOnlyWhere, countryCode: missingCountryFilter, ...engagedWhere } }),
+      prisma.influencer.count({ where: { ...influencerBrandOnlyWhere, countryCode: missingCountryFilter, ...prospectWhere } }),
       // 2. Missing relationship owner — same engaged/prospect split.
       prisma.influencer.count({ where: { ...influencerBrandWhere, ownerId: null, ...engagedWhere } }),
       prisma.influencer.count({ where: { ...influencerBrandWhere, ownerId: null, ...prospectWhere } }),
@@ -209,8 +246,16 @@ export function makeDataQualityService(ctx: DomainContext) {
       prisma.productShipment.count({
         where: { ...shipmentBrandWhere, status: { in: [...ACTIVE_SHIPMENT_STATUSES] }, OR: [{ phone: null }, { phone: '' }] },
       }),
+      // Same overwrite hazard as the influencer "missing country" checks
+      // above — shipmentBrandOnlyWhere + missingDestinationCountryFilter,
+      // never shipmentBrandWhere (which already sets destinationCountryCode
+      // to the scope's `{ in }` filter).
       prisma.productShipment.count({
-        where: { ...shipmentBrandWhere, status: { in: [...ACTIVE_SHIPMENT_STATUSES] }, destinationCountryCode: null },
+        where: {
+          ...shipmentBrandOnlyWhere,
+          status: { in: [...ACTIVE_SHIPMENT_STATUSES] },
+          destinationCountryCode: missingDestinationCountryFilter,
+        },
       }),
       // 6. Campaign missing an owner — the SAME condition
       // dashboard.service.ts::attention() already canonically computes as
@@ -330,7 +375,18 @@ export function makeDataQualityService(ctx: DomainContext) {
   async function duplicates(brandId?: string): Promise<DuplicateCandidateDTO[]> {
     requireActor(ctx);
     const brandIds = await effectiveBrandIds(brandId);
-    const where = brandIds ? { brandInfluencers: { some: { brandId: { in: brandIds } } } } : {};
+    const countryScope = await scopedCountryCodes(ctx);
+    // Brand + country scope (same posture as report() above) — a duplicate
+    // candidate's `reasons` carry REAL field values (an actual email/phone/
+    // handle), so this bulk clustering report must never surface an
+    // out-of-scope creator's identity just because they happen to share a
+    // phone number with an in-scope one. checkDuplicate() below is the one
+    // deliberate exception (see its own doc comment): a single-candidate,
+    // no-field-values-of-others-leaked check run before creating a record.
+    const where = {
+      ...(brandIds ? { brandInfluencers: { some: { brandId: { in: brandIds } } } } : {}),
+      ...(countryScope ? { countryCode: { in: countryScope } } : {}),
+    };
 
     const influencers = await prisma.influencer.findMany({
       where,

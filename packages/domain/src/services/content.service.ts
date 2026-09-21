@@ -24,7 +24,7 @@ import { AppError } from '../errors';
 import { requireActor, requireCapability } from '../lib/authz';
 import { resolveContentAssociation } from '../lib/content-association';
 import { createNotification, iso, logActivity } from '../lib/helpers';
-import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
+import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 import {
   toBrandSummary,
   toContentMetricsDTO,
@@ -104,9 +104,38 @@ export function makeContentService(ctx: DomainContext) {
     });
   }
 
+  /**
+   * Direct-ID Brand + Creator Country scope guard (Security & Authorization
+   * Freeze Gate, section 37 item 2) — every accessor that resolves a SINGLE
+   * content row by id (detail, update, refresh, manual metrics, metrics
+   * history, monitoring events) must independently confirm the actor's own
+   * scope, not merely rely on out-of-scope rows being filtered out of
+   * feed()'s list. Mirrors campaign.service.ts's assertInScope() and
+   * influencer.service.ts's detail()/update(): reads as not-found, never
+   * forbidden, so a scoped actor can never even confirm an out-of-scope
+   * content id exists. `brandId == null` content (never linked to a brand)
+   * is not brand-restricted — matches create()/update()'s existing posture
+   * via resolveContentAssociation, which never restricts fully-unassigned
+   * content — and `influencerId == null` content carries no creator-country
+   * dimension to restrict.
+   */
+  async function assertContentInScope(pc: { brandId: string | null; influencerId: string | null }): Promise<void> {
+    const brandScope = await scopedBrandIds(ctx);
+    if (pc.brandId && isBrandOutOfScope(brandScope, pc.brandId)) throw AppError.notFound('Content');
+    if (!pc.influencerId) return;
+    const countryScope = await scopedCountryCodes(ctx);
+    if (!countryScope) return;
+    const influencer = await prisma.influencer.findUnique({
+      where: { id: pc.influencerId },
+      select: { countryCode: true },
+    });
+    if (isCountryOutOfScope(countryScope, influencer?.countryCode ?? null)) throw AppError.notFound('Content');
+  }
+
   async function loadDTO(id: string): Promise<PublishedContentDTO> {
     const pc = await prisma.publishedContent.findUnique({ where: { id }, include: relIncludeFor(ctx.actor?.id) });
     if (!pc) throw AppError.notFound('Content');
+    await assertContentInScope({ brandId: pc.brandId, influencerId: pc.influencerId });
     return mapRow(pc);
   }
 
@@ -282,6 +311,29 @@ export function makeContentService(ctx: DomainContext) {
       where.availabilityStatus = { in: REMOVED_STATUSES };
     }
 
+    // Security & Authorization Freeze Gate, section 37 item 2 — Brand +
+    // Creator Country scope, composed server-side into the feed query itself
+    // (never a client-side post-filter of a downloaded page), same posture
+    // as every other brand-touching service (campaign.service.ts's
+    // buildWhere(), influencer.service.ts's buildWhere()). Content with no
+    // brand (brandId == null) stays visible to a scoped actor — matches
+    // create()/update()'s own posture via resolveContentAssociation, which
+    // never restricts fully-unassigned content — and content with no
+    // influencer carries no creator-country dimension to restrict. An
+    // explicit out-of-scope filter.brandId/influencerId above still matches
+    // nothing once ANDed with these conditions, same as every other scoped
+    // list.
+    const scopeConditions: Prisma.PublishedContentWhereInput[] = [];
+    const brandScope = await scopedBrandIds(ctx);
+    if (brandScope) {
+      scopeConditions.push({ OR: [{ brandId: { in: brandScope } }, { brandId: null }] });
+    }
+    const countryScope = await scopedCountryCodes(ctx);
+    if (countryScope) {
+      scopeConditions.push({ OR: [{ influencerId: null }, { influencer: { countryCode: { in: countryScope } } }] });
+    }
+    if (scopeConditions.length) where.AND = scopeConditions;
+
     const rows = await prisma.publishedContent.findMany({
       where,
       include: relIncludeFor(actorId),
@@ -304,14 +356,14 @@ export function makeContentService(ctx: DomainContext) {
     const existing = await prisma.publishedContent.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Content');
 
-    // A scoped operator can't touch content outside their brand access at
-    // all — not just re-link it elsewhere (WORKFLOW_GAP_MATRIX.md,
-    // "Permissions/privacy"). Reads as not-found rather than forbidden, same
-    // posture as brand.service.ts — never confirms the row exists.
+    // A scoped operator can't touch content outside their brand access — or,
+    // when it's tied to an influencer, their creator-country access — at all
+    // (Security & Authorization Freeze Gate, section 37 item 2;
+    // WORKFLOW_GAP_MATRIX.md, "Permissions/privacy"). Reads as not-found
+    // rather than forbidden, same posture as brand.service.ts — never
+    // confirms the row exists.
+    await assertContentInScope({ brandId: existing.brandId, influencerId: existing.influencerId });
     const scope = await scopedBrandIds(ctx);
-    if (existing.brandId && isBrandOutOfScope(scope, existing.brandId)) {
-      throw AppError.notFound('Content');
-    }
 
     // Re-linking (assign/change/remove influencer, campaign or deliverable) goes
     // through the same centralized resolver as create() — this is what makes
@@ -384,6 +436,15 @@ export function makeContentService(ctx: DomainContext) {
   }
 
   async function metricsHistory(id: string): Promise<ContentMetricsDTO[]> {
+    // Direct-ID scope guard (Security & Authorization Freeze Gate, section 37
+    // item 2) — a scoped actor can't read another brand/creator-country's
+    // metric history by id, same as detail()/update().
+    const existing = await prisma.publishedContent.findUnique({
+      where: { id },
+      select: { brandId: true, influencerId: true },
+    });
+    if (!existing) throw AppError.notFound('Content');
+    await assertContentInScope(existing);
     const snaps = await prisma.contentMetricSnapshot.findMany({
       where: { publishedContentId: id },
       orderBy: { capturedAt: 'asc' },
@@ -393,6 +454,14 @@ export function makeContentService(ctx: DomainContext) {
   }
 
   async function monitoring(id: string): Promise<MonitoringEventDTO[]> {
+    // Direct-ID scope guard (Security & Authorization Freeze Gate, section 37
+    // item 2) — same as metricsHistory() above.
+    const existing = await prisma.publishedContent.findUnique({
+      where: { id },
+      select: { brandId: true, influencerId: true },
+    });
+    if (!existing) throw AppError.notFound('Content');
+    await assertContentInScope(existing);
     const events = await prisma.contentMonitoringEvent.findMany({
       where: { publishedContentId: id },
       orderBy: { checkedAt: 'desc' },
@@ -459,18 +528,28 @@ export function makeContentService(ctx: DomainContext) {
     await requireCapability(ctx, 'CONTENT_MANAGE');
     const existing = await prisma.publishedContent.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Content');
+    // Direct-ID scope guard (Security & Authorization Freeze Gate, section 37
+    // item 2) — checked BEFORE recordMetrics() writes anything, so an
+    // out-of-scope call never leaves a side effect behind even though it's
+    // ultimately rejected.
+    await assertContentInScope({ brandId: existing.brandId, influencerId: existing.influencerId });
     await recordMetrics(id, input, 'MANUAL');
     return loadDTO(id);
   }
 
   /**
    * Availability + metric sync via the platform adapter. Shared by the worker
-   * and an on-demand refresh button. Records monitoring events, status changes
-   * and alerts. Never throws on provider failure.
+   * (system context, unscoped) and an on-demand refresh button. Records
+   * monitoring events, status changes and alerts. Never throws on provider
+   * failure.
    */
   async function refresh(id: string): Promise<PublishedContentDTO> {
     const pc = await prisma.publishedContent.findUnique({ where: { id } });
     if (!pc) throw AppError.notFound('Content');
+    // Direct-ID scope guard (Security & Authorization Freeze Gate, section 37
+    // item 2) — checked BEFORE any monitoring event/notification/adapter call
+    // runs, so an out-of-scope refresh never leaves a side effect behind.
+    await assertContentInScope({ brandId: pc.brandId, influencerId: pc.influencerId });
     const adapter = getAdapter(pc.platform, { credentials: ctx.credentials });
 
     // Availability

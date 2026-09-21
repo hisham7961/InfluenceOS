@@ -7,6 +7,7 @@ import {
 import type { z } from '@influenceos/contracts';
 import { bestScore } from '@influenceos/shared';
 import type { DomainContext } from '../context';
+import { scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
 type SearchInput = z.infer<typeof requests.searchSchema>;
 type SearchPageInput = z.infer<typeof requests.searchPageSchema>;
@@ -25,13 +26,39 @@ export function makeSearchService(ctx: DomainContext) {
   async function search(input: SearchInput): Promise<SearchResultDTO[]> {
     const { q, limit, brandId } = input;
 
+    // Brand + country scope (Security & Authorization Freeze Gate,
+    // aggregate-leak-audit) — composed server-side into EVERY entity type's
+    // query, never a client-side post-filter of a downloaded page. Mirrors
+    // campaign.service.ts's buildWhere()/influencer.service.ts's buildWhere()
+    // posture exactly: an out-of-scope explicit brandId matches nothing
+    // rather than silently widening; an unscoped actor (ADMIN, or no
+    // explicit UserBrandAccess/UserCountryAccess rows) is untouched. Without
+    // this, search/autocomplete would leak an out-of-scope entity's
+    // name/username/phone/campaign through its result snippet even though
+    // the entity itself is unreachable everywhere else in the app.
+    const brandScope = await scopedBrandIds(ctx);
+    const countryScope = await scopedCountryCodes(ctx);
+    const scopedBrandIdFilter = brandId
+      ? brandScope && !brandScope.includes(brandId)
+        ? { in: [] }
+        : brandId
+      : brandScope
+        ? { in: brandScope }
+        : undefined;
+
     const [influencers, campaigns, brands, content] = await Promise.all([
       prisma.influencer.findMany({
         where: {
-          OR: [
-            { displayName: { contains: q, mode: 'insensitive' } },
-            { primaryUsername: { contains: q, mode: 'insensitive' } },
-            { socialAccounts: { some: { username: { contains: q, mode: 'insensitive' } } } },
+          AND: [
+            {
+              OR: [
+                { displayName: { contains: q, mode: 'insensitive' } },
+                { primaryUsername: { contains: q, mode: 'insensitive' } },
+                { socialAccounts: { some: { username: { contains: q, mode: 'insensitive' } } } },
+              ],
+            },
+            ...(brandScope ? [{ brandInfluencers: { some: { brandId: { in: brandScope } } } }] : []),
+            ...(countryScope ? [{ countryCode: { in: countryScope } }] : []),
           ],
         },
         select: {
@@ -47,7 +74,7 @@ export function makeSearchService(ctx: DomainContext) {
       prisma.campaign.findMany({
         where: {
           name: { contains: q, mode: 'insensitive' },
-          ...(brandId ? { brandId } : {}),
+          ...(scopedBrandIdFilter !== undefined ? { brandId: scopedBrandIdFilter } : {}),
         },
         select: {
           id: true,
@@ -58,7 +85,10 @@ export function makeSearchService(ctx: DomainContext) {
         take: limit,
       }),
       prisma.brand.findMany({
-        where: { name: { contains: q, mode: 'insensitive' } },
+        where: {
+          name: { contains: q, mode: 'insensitive' },
+          ...(brandScope ? { id: { in: brandScope } } : {}),
+        },
         select: { id: true, name: true, slug: true, logoUrl: true },
         take: limit,
       }),
@@ -68,6 +98,7 @@ export function makeSearchService(ctx: DomainContext) {
             { caption: { contains: q, mode: 'insensitive' } },
             { originalUrl: { contains: q, mode: 'insensitive' } },
           ],
+          ...(brandScope ? { brandId: { in: brandScope } } : {}),
         },
         select: {
           id: true,
@@ -131,17 +162,37 @@ export function makeSearchService(ctx: DomainContext) {
     const types = new Set(input.types && input.types.length > 0 ? input.types : requests.SEARCH_RESULT_TYPES);
     const contains = { contains: q, mode: 'insensitive' as const };
 
+    // Brand + country scope — same posture as search() above, composed into
+    // every candidate query here too (this is a SEPARATE query path, not a
+    // wrapper around search(), so it must independently enforce scope rather
+    // than inherit it).
+    const brandScope = await scopedBrandIds(ctx);
+    const countryScope = await scopedCountryCodes(ctx);
+    const scopedBrandIdFilter = brandId
+      ? brandScope && !brandScope.includes(brandId)
+        ? { in: [] }
+        : brandId
+      : brandScope
+        ? { in: brandScope }
+        : undefined;
+
     const [influencers, campaigns, brands, content] = await Promise.all([
       types.has('influencer')
         ? prisma.influencer.findMany({
             where: {
-              OR: [
-                { displayName: contains },
-                { fullName: contains },
-                { primaryUsername: contains },
-                { socialAccounts: { some: { username: contains } } },
-                { tags: { some: { tag: { name: contains } } } },
-                { notes: { some: { body: contains } } },
+              AND: [
+                {
+                  OR: [
+                    { displayName: contains },
+                    { fullName: contains },
+                    { primaryUsername: contains },
+                    { socialAccounts: { some: { username: contains } } },
+                    { tags: { some: { tag: { name: contains } } } },
+                    { notes: { some: { body: contains } } },
+                  ],
+                },
+                ...(brandScope ? [{ brandInfluencers: { some: { brandId: { in: brandScope } } } }] : []),
+                ...(countryScope ? [{ countryCode: { in: countryScope } }] : []),
               ],
             },
             select: {
@@ -164,7 +215,7 @@ export function makeSearchService(ctx: DomainContext) {
             where: {
               AND: [
                 { OR: [{ name: contains }, { description: contains }] },
-                ...(brandId ? [{ brandId }] : []),
+                ...(scopedBrandIdFilter !== undefined ? [{ brandId: scopedBrandIdFilter }] : []),
               ],
             },
             select: { id: true, name: true, description: true, coverUrl: true, brand: { select: { name: true } } },
@@ -173,14 +224,22 @@ export function makeSearchService(ctx: DomainContext) {
         : [],
       types.has('brand')
         ? prisma.brand.findMany({
-            where: { OR: [{ name: contains }, { notes: { some: { body: contains } } }] },
+            where: {
+              AND: [
+                { OR: [{ name: contains }, { notes: { some: { body: contains } } }] },
+                ...(brandScope ? [{ id: { in: brandScope } }] : []),
+              ],
+            },
             select: { id: true, name: true, slug: true, logoUrl: true, notes: { select: { body: true }, take: 10 } },
             take: CANDIDATE_CAP,
           })
         : [],
       types.has('published_content')
         ? prisma.publishedContent.findMany({
-            where: { OR: [{ caption: contains }, { originalUrl: contains }] },
+            where: {
+              OR: [{ caption: contains }, { originalUrl: contains }],
+              ...(brandScope ? { brandId: { in: brandScope } } : {}),
+            },
             select: {
               id: true,
               platform: true,

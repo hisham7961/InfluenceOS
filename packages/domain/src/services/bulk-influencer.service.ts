@@ -4,6 +4,7 @@ import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor, requireAdmin } from '../lib/authz';
 import { logActivity } from '../lib/helpers';
+import { isCountryOutOfScope, scopedCountryCodes } from '../lib/scope';
 
 type BulkInfluencerRequest = z.infer<typeof requests.bulkInfluencerRequestSchema>;
 
@@ -29,62 +30,99 @@ interface PlannedRow {
 export function makeBulkInfluencerService(ctx: DomainContext) {
   const { prisma } = ctx;
 
-  async function planAssignOwner(influencerIds: string[], ownerId: string): Promise<PlannedRow[]> {
+  async function planAssignOwner(influencerIds: string[], ownerId: string, countryScope: string[] | null): Promise<PlannedRow[]> {
     const owner = await prisma.user.findUnique({ where: { id: ownerId }, select: { id: true, isActive: true } });
     if (!owner || !owner.isActive) throw AppError.badRequest('That owner account does not exist or is inactive.');
 
-    const rows = await prisma.influencer.findMany({ where: { id: { in: influencerIds } }, select: { id: true, displayName: true, ownerId: true } });
+    const rows = await prisma.influencer.findMany({ where: { id: { in: influencerIds } }, select: { id: true, displayName: true, ownerId: true, countryCode: true } });
     const byId = new Map(rows.map((r) => [r.id, r]));
     return influencerIds.map((id) => {
       const inf = byId.get(id);
-      if (!inf) return { influencerId: id, label: null, willApply: false, message: 'Influencer not found' };
+      // Security & Authorization Freeze Gate — every row in a bulk operation
+      // needs its OWN scope check. A country-scoped actor must not reach
+      // (or even learn the display name of) an out-of-scope creator just by
+      // naming its id in a directory-wide bulk selection. Masked identically
+      // to a truly-missing influencer, mirroring influencer.service.ts's own
+      // direct-ID scope check (detail()), so preview never leaks more than a
+      // capability-less/out-of-scope caller should see.
+      if (!inf || isCountryOutOfScope(countryScope, inf.countryCode)) return { influencerId: id, label: null, willApply: false, message: 'Influencer not found' };
       if (inf.ownerId === ownerId) return { influencerId: id, label: inf.displayName, willApply: false, message: 'Already assigned to this owner' };
       return { influencerId: id, label: inf.displayName, willApply: true, message: null };
     });
   }
 
-  async function planAddTag(influencerIds: string[], tagId: string): Promise<PlannedRow[]> {
+  async function planAddTag(influencerIds: string[], tagId: string | null, countryScope: string[] | null): Promise<PlannedRow[]> {
+    // tagId is null when the named tag doesn't exist yet (planning must never
+    // create it — see findTagId, below) — filter on a sentinel that can never
+    // match a real tag id, rather than branching the select shape.
     const rows = await prisma.influencer.findMany({
       where: { id: { in: influencerIds } },
-      select: { id: true, displayName: true, tags: { where: { tagId }, select: { id: true } } },
+      select: { id: true, displayName: true, countryCode: true, tags: { where: { tagId: tagId ?? '__no-such-tag__' }, select: { id: true } } },
     });
     const byId = new Map(rows.map((r) => [r.id, r]));
     return influencerIds.map((id) => {
       const inf = byId.get(id);
-      if (!inf) return { influencerId: id, label: null, willApply: false, message: 'Influencer not found' };
+      if (!inf || isCountryOutOfScope(countryScope, inf.countryCode)) return { influencerId: id, label: null, willApply: false, message: 'Influencer not found' };
       if (inf.tags.length > 0) return { influencerId: id, label: inf.displayName, willApply: false, message: 'Already tagged' };
       return { influencerId: id, label: inf.displayName, willApply: true, message: null };
     });
   }
 
-  async function planSetRelationshipStatus(influencerIds: string[], status: string): Promise<PlannedRow[]> {
-    const rows = await prisma.influencer.findMany({ where: { id: { in: influencerIds } }, select: { id: true, displayName: true, relationshipStatus: true } });
+  async function planSetRelationshipStatus(influencerIds: string[], status: string, countryScope: string[] | null): Promise<PlannedRow[]> {
+    const rows = await prisma.influencer.findMany({ where: { id: { in: influencerIds } }, select: { id: true, displayName: true, relationshipStatus: true, countryCode: true } });
     const byId = new Map(rows.map((r) => [r.id, r]));
     return influencerIds.map((id) => {
       const inf = byId.get(id);
-      if (!inf) return { influencerId: id, label: null, willApply: false, message: 'Influencer not found' };
+      if (!inf || isCountryOutOfScope(countryScope, inf.countryCode)) return { influencerId: id, label: null, willApply: false, message: 'Influencer not found' };
       if (inf.relationshipStatus === status) return { influencerId: id, label: inf.displayName, willApply: false, message: `Already ${status.toLowerCase()}` };
       return { influencerId: id, label: inf.displayName, willApply: true, message: null };
     });
   }
 
-  /** Resolves the tag once (findOrCreate-by-name), shared by preview and execute so both see the same tagId. */
+  /** Read-only tag lookup for planning — a preview must never create data as
+   *  a side effect (only execute()'s applyRow may). Returns null when no tag
+   *  with this name exists yet, which planAddTag treats as "nobody has it". */
+  async function findTagId(tagName: string): Promise<string | null> {
+    const tag = await prisma.tag.findUnique({ where: { name: tagName }, select: { id: true } });
+    return tag?.id ?? null;
+  }
+
+  /** Resolves the tag once (findOrCreate-by-name) for a REAL write — used only by execute()'s applyRow, never by planning. */
   async function resolveTagId(tagName: string): Promise<string> {
     const tag = await prisma.tag.upsert({ where: { name: tagName }, update: {}, create: { name: tagName } });
     return tag.id;
   }
 
   async function plan(input: BulkInfluencerRequest): Promise<PlannedRow[]> {
+    // Country scope resolved once per call, shared by every row's check
+    // below (Security & Authorization Freeze Gate — every row needs its own
+    // scope check, e.g. an influencer's countryCode).
+    const countryScope = await scopedCountryCodes(ctx);
     switch (input.action) {
       case 'ASSIGN_OWNER':
-        return planAssignOwner(input.influencerIds, input.ownerId);
+        return planAssignOwner(input.influencerIds, input.ownerId, countryScope);
       case 'ADD_TAG':
-        return planAddTag(input.influencerIds, await resolveTagId(input.tagName));
+        // findTagId (read-only) — NOT resolveTagId (upsert) — planning must
+        // stay side-effect-free even when called from preview(); execute()'s
+        // applyRow does the real find-or-create write.
+        return planAddTag(input.influencerIds, await findTagId(input.tagName), countryScope);
       case 'SET_RELATIONSHIP_STATUS':
-        return planSetRelationshipStatus(input.influencerIds, input.status);
+        return planSetRelationshipStatus(input.influencerIds, input.status, countryScope);
     }
   }
 
+  /**
+   * True read-only dry run — requires only authentication (execute() alone
+   * carries the ADMIN gate), but must never write and must never reveal more
+   * about an out-of-scope creator than a capability-less/out-of-scope caller
+   * should see (Security & Authorization Freeze Gate). `plan()` now (a)
+   * resolves ADD_TAG's tag with a plain lookup rather than the
+   * find-or-create upsert execute() uses, so naming a brand-new tag in a
+   * preview alone can no longer create it as a side effect, and (b) masks
+   * any row whose influencer is outside the actor's own country scope
+   * identically to a truly-missing one, so preview can never leak an
+   * out-of-scope creator's display name / owner / tags / relationship status.
+   */
   async function preview(input: BulkInfluencerRequest): Promise<BulkPreviewDTO> {
     requireActor(ctx);
     const rows = await plan(input);
