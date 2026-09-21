@@ -13,6 +13,8 @@ export default getRequestConfig(async () => {
   const store = await cookies();
   const cookieLocale = store.get('locale')?.value;
   const locale: Locale = cookieLocale === 'ar' ? 'ar' : 'en';
-  const messages = (await import(`../../messages/${locale}.json`)).default;
+  // messages/{locale}/index.ts merges every per-namespace message file into
+  // one object — see messages/en/index.ts for the namespace list.
+  const messages = (await import(`../../messages/${locale}/index`)).default;
   return { locale, messages };
 });

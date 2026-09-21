@@ -1,0 +1,237 @@
+{
+  "relationshipStatus": {
+    "PROSPECT": "Prospect",
+    "CONTACTED": "Contacted",
+    "NEGOTIATING": "Negotiating",
+    "ACTIVE": "Active",
+    "RECURRING": "Recurring",
+    "PAST": "Past collaboration",
+    "DECLINED": "Declined",
+    "BLACKLISTED": "Blacklisted"
+  },
+  "dealType": {
+    "FREE": "Unpaid collaboration",
+    "PAID": "Paid",
+    "GIFTED_PRODUCT": "Gifted product",
+    "PAID_PLUS_GIFTED": "Paid + gifted"
+  },
+  "campaignStatus": {
+    "DRAFT": "Draft",
+    "PLANNING": "Planning",
+    "ACTIVE": "Active",
+    "PAUSED": "Paused",
+    "COMPLETED": "Completed",
+    "CANCELLED": "Cancelled"
+  },
+  "campaignObjective": {
+    "AWARENESS": "Brand Awareness",
+    "ENGAGEMENT": "Engagement",
+    "CONVERSIONS": "Conversions",
+    "LAUNCH": "Launch",
+    "UGC": "UGC",
+    "OTHER": "Other"
+  },
+  "participationStatus": {
+    "INVITED": "Invited",
+    "CONFIRMED": "Confirmed",
+    "IN_PROGRESS": "In Progress",
+    "COMPLETED": "Completed",
+    "DECLINED": "Declined",
+    "DROPPED": "Dropped"
+  },
+  "deliverableType": {
+    "POST": "Post",
+    "STORY": "Story",
+    "REEL": "Reel",
+    "SHORT": "Short",
+    "VIDEO": "Video",
+    "LIVE": "Livestream",
+    "TWEET": "Post (X)",
+    "SNAP": "Snap",
+    "CAROUSEL": "Carousel",
+    "UGC": "UGC",
+    "OTHER": "Other"
+  },
+  "deliverableStatus": {
+    "PLANNED": "Planned",
+    "SENT_TO_INFLUENCER": "Sent to Influencer",
+    "AWAITING_PUBLICATION": "Awaiting Publication",
+    "IN_REVIEW": "In Review",
+    "CHANGES_REQUESTED": "Changes Requested",
+    "APPROVED": "Approved",
+    "PUBLISHED": "Published",
+    "VERIFIED": "Verified",
+    "MISSED": "Missed",
+    "CANCELLED": "Cancelled"
+  },
+  "submissionStatus": {
+    "DRAFT": "Draft",
+    "IN_REVIEW": "In Review",
+    "CHANGES_REQUESTED": "Changes Requested",
+    "APPROVED": "Approved",
+    "REJECTED": "Rejected"
+  },
+  "usageRightType": {
+    "ORGANIC": "Organic",
+    "PAID_ADS": "Paid Ads",
+    "WHITELISTING": "Whitelisting",
+    "BROADCAST": "Broadcast",
+    "OTHER": "Other"
+  },
+  "usageRightStatus": {
+    "ACTIVE": "Active",
+    "EXPIRED": "Expired",
+    "REVOKED": "Revoked"
+  },
+  "usageRightEffectiveStatus": {
+    "ACTIVE": "Active",
+    "EXPIRING_SOON": "Expiring Soon",
+    "EXPIRED": "Expired",
+    "REVOKED": "Revoked"
+  },
+  "candidateStatus": {
+    "CONSIDERING": "Considering",
+    "SHORTLISTED": "Shortlisted",
+    "APPROVED": "Approved",
+    "REJECTED": "Rejected",
+    "CONVERTED": "Converted to Roster"
+  },
+  "shipmentStatus": {
+    "PENDING": "Pending",
+    "SHIPPED": "Shipped",
+    "IN_TRANSIT": "In Transit",
+    "DELIVERED": "Delivered",
+    "RETURNED": "Returned",
+    "FAILED": "Delivery Failed"
+  },
+  "contentStatus": {
+    "LIVE": "Live",
+    "REMOVED": "Removed",
+    "PRIVATE": "Private",
+    "UNAVAILABLE": "Unavailable",
+    "BROKEN_LINK": "Broken Link",
+    "UNKNOWN": "Unknown"
+  },
+  "paymentStatus": {
+    "NOT_APPLICABLE": "Not Applicable",
+    "UNPAID": "Unpaid",
+    "PARTIALLY_PAID": "Partially Paid",
+    "PAID": "Paid"
+  },
+  "expenseType": {
+    "INFLUENCER_FEE": "Influencer Fee",
+    "GIFT_PRODUCT": "Gifted Product",
+    "PRODUCTION": "Production",
+    "ADS": "Ads",
+    "SHIPPING": "Shipping",
+    "OTHER": "Other"
+  },
+  "priority": {
+    "LOW": "Low",
+    "MEDIUM": "Medium",
+    "HIGH": "High"
+  },
+  "contactMethod": {
+    "WHATSAPP": "WhatsApp",
+    "EMAIL": "Email",
+    "PHONE": "Phone",
+    "INSTAGRAM_DM": "Instagram DM",
+    "OTHER": "Other"
+  },
+  "audienceHealth": {
+    "HEALTHY": "Healthy",
+    "REVIEW": "Needs Review",
+    "LIMITED_DATA": "Limited Data"
+  },
+  "dataSource": {
+    "MANUAL": "Manual",
+    "OFFICIAL_API": "Official API",
+    "EMBED": "Official Embed",
+    "UNAVAILABLE": "Unavailable"
+  },
+  "inspirationCategory": {
+    "TREND": "Trend",
+    "HOOK": "Hook",
+    "UGC_STYLE": "UGC Style",
+    "PRODUCT_DEMO": "Product Demo",
+    "BEFORE_AFTER": "Before / After",
+    "EDUCATIONAL": "Educational",
+    "STORYTELLING": "Storytelling",
+    "VIRAL_FORMAT": "Viral Format",
+    "COMPETITOR": "Competitor",
+    "AUDIO_TREND": "Audio Trend",
+    "OTHER": "Other"
+  },
+  "roleProfile": {
+    "ADMIN": "System Admin",
+    "GENERAL_MANAGER": "General Manager",
+    "OPERATIONS_MANAGER": "Operations Manager",
+    "LOGISTICS": "Logistics",
+    "INFLUENCER_MANAGER": "Influencer Manager",
+    "VIEWER": "Viewer"
+  },
+  "capability": {
+    "USERS_MANAGE": "Manage users",
+    "ROLES_MANAGE": "Manage roles & permissions",
+    "BRANDS_VIEW": "View brands",
+    "BRANDS_MANAGE": "Manage brands",
+    "CAMPAIGNS_VIEW": "View campaigns",
+    "CAMPAIGNS_MANAGE": "Manage campaigns",
+    "INFLUENCERS_VIEW": "View influencers",
+    "INFLUENCERS_MANAGE": "Manage influencers",
+    "CONTENT_VIEW": "View content",
+    "CONTENT_MANAGE": "Manage content",
+    "UGC_REVIEW": "Review UGC submissions",
+    "LOGISTICS_VIEW": "View logistics",
+    "LOGISTICS_MANAGE": "Manage shipments",
+    "LOGISTICS_ASSIGN": "Assign shipments",
+    "LOGISTICS_ADDRESS_VIEW": "View shipping addresses",
+    "LOGISTICS_ADDRESS_EDIT": "Edit shipping addresses",
+    "LOGISTICS_ISSUE_MANAGE": "Manage address clarifications",
+    "FINANCE_VIEW": "View finance",
+    "FINANCE_MANAGE": "Manage finance",
+    "REPORTS_VIEW": "View reports",
+    "OPERATIONS_VIEW": "View operations",
+    "SYSTEM_SETTINGS_MANAGE": "Manage system settings",
+    "INTEGRATIONS_MANAGE": "Manage integrations"
+  },
+  "logisticsIssueType": {
+    "MISSING_ADDRESS": "Missing Address",
+    "INCOMPLETE_ADDRESS": "Incomplete Address",
+    "UNCLEAR_ADDRESS": "Unclear Address",
+    "MISSING_PHONE": "Missing Phone Number",
+    "INVALID_PHONE": "Invalid Phone Number",
+    "MISSING_AREA_CITY": "Missing Area/City",
+    "COUNTRY_MISMATCH": "Country Mismatch",
+    "LOCATION_CLARIFICATION": "Location Clarification",
+    "OTHER": "Other"
+  },
+  "logisticsIssueStatus": {
+    "OPEN": "Open",
+    "RESOLVED": "Resolved",
+    "CANCELLED": "Cancelled"
+  },
+  "addressHealth": {
+    "COMPLETE": "Complete",
+    "INCOMPLETE": "Incomplete",
+    "CLARIFICATION_REQUESTED": "Clarification Requested",
+    "RESOLVED": "Resolved"
+  },
+  "contentReviewStatus": {
+    "NEW": "New",
+    "SEEN": "Seen",
+    "REVIEWED": "Reviewed"
+  },
+  "contentAssociationStatus": {
+    "FULLY_LINKED": "Fully Linked",
+    "CAMPAIGN_LINKED": "Campaign Linked Only",
+    "INFLUENCER_LINKED": "Influencer Linked Only",
+    "UNASSIGNED": "Unassigned"
+  },
+  "integrationStatus": {
+    "ENABLED": "Enabled",
+    "DISABLED": "Disabled",
+    "NOT_CONFIGURED": "Not Configured",
+    "ERROR": "Error"
+  }
+}

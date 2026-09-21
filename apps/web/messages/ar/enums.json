@@ -1,0 +1,237 @@
+{
+  "relationshipStatus": {
+    "PROSPECT": "مؤثر محتمل",
+    "CONTACTED": "تم التواصل",
+    "NEGOTIATING": "قيد التفاوض",
+    "ACTIVE": "نشط",
+    "RECURRING": "متكرر التعاون",
+    "PAST": "تعاون سابق",
+    "DECLINED": "مرفوض",
+    "BLACKLISTED": "محظور"
+  },
+  "dealType": {
+    "FREE": "تعاون بدون مقابل",
+    "PAID": "مدفوع",
+    "GIFTED_PRODUCT": "منتج مجاني مقابل التعاون",
+    "PAID_PLUS_GIFTED": "مدفوع + منتج"
+  },
+  "campaignStatus": {
+    "DRAFT": "مسودة",
+    "PLANNING": "قيد التخطيط",
+    "ACTIVE": "نشطة",
+    "PAUSED": "متوقفة مؤقتًا",
+    "COMPLETED": "مكتملة",
+    "CANCELLED": "ملغاة"
+  },
+  "campaignObjective": {
+    "AWARENESS": "الوعي بالعلامة التجارية",
+    "ENGAGEMENT": "التفاعل",
+    "CONVERSIONS": "التحويلات",
+    "LAUNCH": "الإطلاق",
+    "UGC": "محتوى UGC",
+    "OTHER": "أخرى"
+  },
+  "participationStatus": {
+    "INVITED": "تمت الدعوة",
+    "CONFIRMED": "مؤكد",
+    "IN_PROGRESS": "قيد التنفيذ",
+    "COMPLETED": "مكتمل",
+    "DECLINED": "اعتذر",
+    "DROPPED": "تم الاستبعاد"
+  },
+  "deliverableType": {
+    "POST": "منشور",
+    "STORY": "ستوري",
+    "REEL": "ريل",
+    "SHORT": "فيديو قصير",
+    "VIDEO": "فيديو",
+    "LIVE": "بث مباشر",
+    "TWEET": "منشور (X)",
+    "SNAP": "سناب",
+    "CAROUSEL": "منشور متعدد الصور",
+    "UGC": "محتوى UGC",
+    "OTHER": "أخرى"
+  },
+  "deliverableStatus": {
+    "PLANNED": "مخطط",
+    "SENT_TO_INFLUENCER": "أُرسل إلى المؤثر",
+    "AWAITING_PUBLICATION": "بانتظار النشر",
+    "IN_REVIEW": "قيد المراجعة",
+    "CHANGES_REQUESTED": "مطلوب تعديلات",
+    "APPROVED": "معتمد",
+    "PUBLISHED": "منشور",
+    "VERIFIED": "تم التحقق",
+    "MISSED": "متأخر",
+    "CANCELLED": "ملغى"
+  },
+  "submissionStatus": {
+    "DRAFT": "مسودة",
+    "IN_REVIEW": "قيد المراجعة",
+    "CHANGES_REQUESTED": "مطلوب تعديلات",
+    "APPROVED": "معتمد",
+    "REJECTED": "مرفوض"
+  },
+  "usageRightType": {
+    "ORGANIC": "استخدام عضوي",
+    "PAID_ADS": "إعلانات مدفوعة",
+    "WHITELISTING": "التفويض الإعلاني",
+    "BROADCAST": "البث",
+    "OTHER": "أخرى"
+  },
+  "usageRightStatus": {
+    "ACTIVE": "نشط",
+    "EXPIRED": "منتهي الصلاحية",
+    "REVOKED": "ملغى"
+  },
+  "usageRightEffectiveStatus": {
+    "ACTIVE": "نشط",
+    "EXPIRING_SOON": "ينتهي قريبًا",
+    "EXPIRED": "منتهي الصلاحية",
+    "REVOKED": "ملغى"
+  },
+  "candidateStatus": {
+    "CONSIDERING": "قيد الدراسة",
+    "SHORTLISTED": "ضمن القائمة المختصرة",
+    "APPROVED": "معتمد",
+    "REJECTED": "مرفوض",
+    "CONVERTED": "تمت إضافته للحملة"
+  },
+  "shipmentStatus": {
+    "PENDING": "بانتظار المعالجة",
+    "SHIPPED": "تم الشحن",
+    "IN_TRANSIT": "قيد النقل",
+    "DELIVERED": "تم التسليم",
+    "RETURNED": "مرتجع",
+    "FAILED": "تعذر التسليم"
+  },
+  "contentStatus": {
+    "LIVE": "متاح",
+    "REMOVED": "تمت الإزالة",
+    "PRIVATE": "خاص",
+    "UNAVAILABLE": "غير متاح",
+    "BROKEN_LINK": "رابط غير صالح",
+    "UNKNOWN": "غير معروف"
+  },
+  "paymentStatus": {
+    "NOT_APPLICABLE": "غير منطبق",
+    "UNPAID": "غير مدفوع",
+    "PARTIALLY_PAID": "مدفوع جزئيًا",
+    "PAID": "مدفوع"
+  },
+  "expenseType": {
+    "INFLUENCER_FEE": "أجر المؤثر",
+    "GIFT_PRODUCT": "منتج مجاني",
+    "PRODUCTION": "الإنتاج",
+    "ADS": "الإعلانات",
+    "SHIPPING": "الشحن",
+    "OTHER": "أخرى"
+  },
+  "priority": {
+    "LOW": "منخفضة",
+    "MEDIUM": "متوسطة",
+    "HIGH": "عالية"
+  },
+  "contactMethod": {
+    "WHATSAPP": "واتساب",
+    "EMAIL": "البريد الإلكتروني",
+    "PHONE": "الهاتف",
+    "INSTAGRAM_DM": "رسالة مباشرة على إنستغرام",
+    "OTHER": "أخرى"
+  },
+  "audienceHealth": {
+    "HEALTHY": "جيد",
+    "REVIEW": "يحتاج مراجعة",
+    "LIMITED_DATA": "بيانات محدودة"
+  },
+  "dataSource": {
+    "MANUAL": "يدوي",
+    "OFFICIAL_API": "واجهة API الرسمية",
+    "EMBED": "تضمين رسمي",
+    "UNAVAILABLE": "غير متاح"
+  },
+  "inspirationCategory": {
+    "TREND": "ترند",
+    "HOOK": "افتتاحية جذابة",
+    "UGC_STYLE": "أسلوب UGC",
+    "PRODUCT_DEMO": "عرض المنتج",
+    "BEFORE_AFTER": "قبل وبعد",
+    "EDUCATIONAL": "تعليمي",
+    "STORYTELLING": "سرد قصصي",
+    "VIRAL_FORMAT": "تنسيق رائج",
+    "COMPETITOR": "منافس",
+    "AUDIO_TREND": "ترند صوتي",
+    "OTHER": "أخرى"
+  },
+  "roleProfile": {
+    "ADMIN": "مسؤول النظام",
+    "GENERAL_MANAGER": "المدير العام",
+    "OPERATIONS_MANAGER": "مدير العمليات",
+    "LOGISTICS": "مسؤول الخدمات اللوجستية",
+    "INFLUENCER_MANAGER": "مسؤول متابعة المؤثرين",
+    "VIEWER": "مشاهِد"
+  },
+  "capability": {
+    "USERS_MANAGE": "إدارة المستخدمين",
+    "ROLES_MANAGE": "إدارة الأدوار والصلاحيات",
+    "BRANDS_VIEW": "عرض العلامات التجارية",
+    "BRANDS_MANAGE": "إدارة العلامات التجارية",
+    "CAMPAIGNS_VIEW": "عرض الحملات",
+    "CAMPAIGNS_MANAGE": "إدارة الحملات",
+    "INFLUENCERS_VIEW": "عرض المؤثرين",
+    "INFLUENCERS_MANAGE": "إدارة المؤثرين",
+    "CONTENT_VIEW": "عرض المحتوى",
+    "CONTENT_MANAGE": "إدارة المحتوى",
+    "UGC_REVIEW": "مراجعة محتوى UGC المُقدَّم",
+    "LOGISTICS_VIEW": "عرض الخدمات اللوجستية",
+    "LOGISTICS_MANAGE": "إدارة الشحنات",
+    "LOGISTICS_ASSIGN": "إسناد الشحنات",
+    "LOGISTICS_ADDRESS_VIEW": "عرض عناوين الشحن",
+    "LOGISTICS_ADDRESS_EDIT": "تعديل عناوين الشحن",
+    "LOGISTICS_ISSUE_MANAGE": "إدارة طلبات توضيح العنوان",
+    "FINANCE_VIEW": "عرض البيانات المالية",
+    "FINANCE_MANAGE": "إدارة البيانات المالية",
+    "REPORTS_VIEW": "عرض التقارير",
+    "OPERATIONS_VIEW": "عرض العمليات",
+    "SYSTEM_SETTINGS_MANAGE": "إدارة إعدادات النظام",
+    "INTEGRATIONS_MANAGE": "إدارة التكاملات"
+  },
+  "logisticsIssueType": {
+    "MISSING_ADDRESS": "عنوان مفقود",
+    "INCOMPLETE_ADDRESS": "عنوان غير مكتمل",
+    "UNCLEAR_ADDRESS": "عنوان غير واضح",
+    "MISSING_PHONE": "رقم هاتف مفقود",
+    "INVALID_PHONE": "رقم هاتف غير صحيح",
+    "MISSING_AREA_CITY": "المنطقة/المدينة مفقودة",
+    "COUNTRY_MISMATCH": "عدم تطابق الدولة",
+    "LOCATION_CLARIFICATION": "توضيح الموقع",
+    "OTHER": "أخرى"
+  },
+  "logisticsIssueStatus": {
+    "OPEN": "مفتوحة",
+    "RESOLVED": "تم الحل",
+    "CANCELLED": "ملغاة"
+  },
+  "addressHealth": {
+    "COMPLETE": "مكتمل",
+    "INCOMPLETE": "غير مكتمل",
+    "CLARIFICATION_REQUESTED": "تم طلب توضيح العنوان",
+    "RESOLVED": "تم الحل"
+  },
+  "contentReviewStatus": {
+    "NEW": "جديد",
+    "SEEN": "تم الاطلاع",
+    "REVIEWED": "تمت المراجعة"
+  },
+  "contentAssociationStatus": {
+    "FULLY_LINKED": "مرتبط بالكامل",
+    "CAMPAIGN_LINKED": "مرتبط بالحملة فقط",
+    "INFLUENCER_LINKED": "مرتبط بالمؤثر فقط",
+    "UNASSIGNED": "غير مرتبط"
+  },
+  "integrationStatus": {
+    "ENABLED": "مفعّل",
+    "DISABLED": "معطّل",
+    "NOT_CONFIGURED": "غير مهيأ",
+    "ERROR": "خطأ"
+  }
+}
