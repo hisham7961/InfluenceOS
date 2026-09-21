@@ -45,6 +45,7 @@ import type {
   ProviderCredentialStatusDTO,
   InfluencerDetailDTO,
   InfluencerSummaryDTO,
+  IntegrityFindingDTO,
   InspirationItemDTO,
   LogisticsRequestDTO,
   MonitoringEventDTO,
@@ -356,6 +357,10 @@ export function createClient(config: ClientConfig) {
     dataQuality: {
       report: (brandId?: string) => http.get<DataQualityReportDTO>(`${V}/data-quality/report`, { query: { brandId } }),
       duplicates: (brandId?: string) => http.get<DuplicateCandidateDTO[]>(`${V}/data-quality/duplicates`, { query: { brandId } }),
+    },
+
+    integrityGuard: {
+      findings: (brandId?: string) => http.get<IntegrityFindingDTO[]>(`${V}/integrity/findings`, { query: { brandId } }),
     },
 
     calendar: {

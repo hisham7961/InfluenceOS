@@ -12,9 +12,10 @@ export const dynamic = 'force-dynamic';
  */
 export default async function DataQualityPage() {
   const api = getServerApi();
-  const [report, duplicates, brands] = await Promise.all([
+  const [report, duplicates, integrityFindings, brands] = await Promise.all([
     api.dataQuality.report(),
     api.dataQuality.duplicates(),
+    api.integrityGuard.findings(),
     api.brands.list(),
   ]);
 
@@ -22,9 +23,9 @@ export default async function DataQualityPage() {
     <div>
       <PageHeader
         title="Data Quality"
-        description="Missing or incomplete records and possible duplicate creators across your roster, so nothing quietly falls through the cracks."
+        description="Missing or incomplete records, possible duplicate creators, and relational inconsistencies across your workflow — so nothing quietly falls through the cracks."
       />
-      <DataQualityWorkspace initialReport={report} initialDuplicates={duplicates} brands={brands} />
+      <DataQualityWorkspace initialReport={report} initialDuplicates={duplicates} initialIntegrityFindings={integrityFindings} brands={brands} />
     </div>
   );
 }

@@ -27,6 +27,7 @@ import { makeExpenseService } from './services/expense.service';
 import { makeInfluencerService } from './services/influencer.service';
 import { makeInspirationService } from './services/inspiration.service';
 import { makeIntegrationService } from './services/integration.service';
+import { makeIntegrityGuardService } from './services/integrity-guard.service';
 import { makeNoteService } from './services/note.service';
 import { makeNotificationService } from './services/notification.service';
 import { makePlatformService } from './services/platform.service';
@@ -50,6 +51,7 @@ export function createServices(ctx: DomainContext) {
     influencers: makeInfluencerService(ctx),
     creator360: makeCreator360Service(ctx),
     dataQuality: makeDataQualityService(ctx),
+    integrityGuard: makeIntegrityGuardService(ctx),
     inspiration: makeInspirationService(ctx),
     socialAccounts: makeSocialAccountService(ctx),
     providers: makeProviderService(ctx),

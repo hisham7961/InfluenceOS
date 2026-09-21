@@ -3,8 +3,8 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, CircleAlert, Fingerprint, Info, ShieldQuestion } from 'lucide-react';
-import type { BrandSummaryDTO, DataQualityFindingDTO, DataQualityReportDTO, DuplicateCandidateDTO, Tone } from '@influenceos/contracts';
+import { AlertTriangle, CircleAlert, Fingerprint, GitBranch, Info, ShieldQuestion } from 'lucide-react';
+import type { BrandSummaryDTO, DataQualityFindingDTO, DataQualityReportDTO, DuplicateCandidateDTO, IntegrityFindingDTO, Tone } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +40,16 @@ const CONFIDENCE_LABEL: Record<DuplicateCandidateDTO['confidence'], string> = {
   exact: 'Likely the same creator',
   strongPossible: 'Possibly the same creator',
   possible: 'Worth a look',
+};
+
+const INTEGRITY_SEVERITY_TONE: Record<IntegrityFindingDTO['severity'], Tone> = {
+  error: 'danger',
+  warning: 'warning',
+};
+
+const INTEGRITY_SEVERITY_LABEL: Record<IntegrityFindingDTO['severity'], string> = {
+  error: 'Error',
+  warning: 'Warning',
 };
 
 const REASON_LABEL: Record<DuplicateCandidateDTO['reasons'][number]['field'], string> = {
@@ -89,13 +99,34 @@ function DuplicateRow({ candidate }: { candidate: DuplicateCandidateDTO }) {
   );
 }
 
+function IntegrityFindingRow({ finding }: { finding: IntegrityFindingDTO }) {
+  return (
+    <Link
+      href={finding.link}
+      className="flex items-start justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-surface-muted"
+    >
+      <div className="flex min-w-0 items-start gap-2.5">
+        <Badge tone={INTEGRITY_SEVERITY_TONE[finding.severity]} className="mt-0.5 shrink-0">
+          {INTEGRITY_SEVERITY_LABEL[finding.severity]}
+        </Badge>
+        <div className="min-w-0">
+          <p className="text-foreground">{finding.title}</p>
+          <p className="truncate text-xs text-muted-foreground">{finding.evidence}</p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export function DataQualityWorkspace({
   initialReport,
   initialDuplicates,
+  initialIntegrityFindings,
   brands,
 }: {
   initialReport: DataQualityReportDTO;
   initialDuplicates: DuplicateCandidateDTO[];
+  initialIntegrityFindings: IntegrityFindingDTO[];
   brands: BrandSummaryDTO[];
 }) {
   const [brandId, setBrandId] = React.useState('');
@@ -110,10 +141,17 @@ export function DataQualityWorkspace({
     queryFn: () => api.dataQuality.duplicates(brandId || undefined),
     initialData: !brandId ? initialDuplicates : undefined,
   });
+  const integrityQuery = useQuery({
+    queryKey: ['integrity-findings', brandId] as const,
+    queryFn: () => api.integrityGuard.findings(brandId || undefined),
+    initialData: !brandId ? initialIntegrityFindings : undefined,
+  });
 
   const findings = reportQuery.data?.findings ?? [];
   const duplicates = duplicatesQuery.data ?? [];
+  const integrityFindings = integrityQuery.data ?? [];
   const attentionCount = findings.filter((f) => (f.severity === 'critical' || f.severity === 'needsAttention') && f.count > 0).length;
+  const integrityErrorCount = integrityFindings.filter((f) => f.severity === 'error').length;
 
   return (
     <div className="space-y-6">
@@ -189,7 +227,38 @@ export function DataQualityWorkspace({
         </CardContent>
       </Card>
 
-      {reportQuery.isError || duplicatesQuery.isError ? (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <GitBranch className="h-4 w-4 text-muted-foreground" />
+            Workflow Integrity Findings
+            {integrityErrorCount > 0 ? <Badge tone="danger">{integrityErrorCount} error{integrityErrorCount === 1 ? '' : 's'}</Badge> : null}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-2">
+          {integrityQuery.isLoading ? (
+            <div className="space-y-2 p-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : integrityFindings.length === 0 ? (
+            <EmptyState
+              icon={ShieldQuestion}
+              title="No inconsistencies found"
+              description="Content, deliverables, campaigns and usage rights all check out against each other right now."
+            />
+          ) : (
+            <div className="divide-y divide-border/60">
+              {integrityFindings.map((f) => (
+                <IntegrityFindingRow key={f.id} finding={f} />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {reportQuery.isError || duplicatesQuery.isError || integrityQuery.isError ? (
         <EmptyState icon={AlertTriangle} title="Couldn't load data quality" description="Try reloading the page." />
       ) : null}
     </div>
