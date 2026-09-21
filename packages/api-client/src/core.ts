@@ -125,6 +125,9 @@ export class HttpCore {
   patch<T>(path: string, body?: unknown, opts?: RequestOptions) {
     return this.request<T>('PATCH', path, { ...opts, body });
   }
+  put<T>(path: string, body?: unknown, opts?: RequestOptions) {
+    return this.request<T>('PUT', path, { ...opts, body });
+  }
   del<T>(path: string, opts?: RequestOptions) {
     return this.request<T>('DELETE', path, opts);
   }

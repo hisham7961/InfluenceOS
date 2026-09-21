@@ -76,12 +76,29 @@ const LEGACY_STAFF_CAPABILITIES: readonly Capability[] = ALL_CAPABILITIES.filter
 );
 
 type RoleLike = { role: Actor['role']; roleProfile: RoleProfile | null };
+type OverrideLike = { capability: Capability; granted: boolean };
 
 function baseCapabilities(user: RoleLike): readonly Capability[] {
   if (user.role === 'ADMIN') return ALL_CAPABILITIES;
   if (user.roleProfile) return ROLE_PROFILE_CAPABILITIES[user.roleProfile];
   if (user.role === 'VIEWER') return ROLE_PROFILE_CAPABILITIES.VIEWER;
   return LEGACY_STAFF_CAPABILITIES;
+}
+
+/**
+ * Pure resolution step: Role Profile (or legacy role) default, plus explicit
+ * overrides. No I/O — this is the ONE place the actual resolution rule lives,
+ * so both the live DB-backed path (resolveCapabilitiesFor) and the
+ * hypothetical "what would this look like" Permission Preview (which simulates
+ * an unsaved edit and must never touch the database) call the exact same logic.
+ */
+export function resolveEffectiveCapabilities(user: RoleLike, overrides: readonly OverrideLike[]): Set<Capability> {
+  const base = new Set(baseCapabilities(user));
+  for (const o of overrides) {
+    if (o.granted) base.add(o.capability);
+    else base.delete(o.capability);
+  }
+  return base;
 }
 
 /**
@@ -93,13 +110,8 @@ function baseCapabilities(user: RoleLike): readonly Capability[] {
  * actually gates access — never a second, drifting approximation.
  */
 export async function resolveCapabilitiesFor(ctx: DomainContext, user: { id: string } & RoleLike): Promise<Set<Capability>> {
-  const base = new Set(baseCapabilities(user));
   const overrides = await ctx.prisma.userCapability.findMany({ where: { userId: user.id } });
-  for (const o of overrides) {
-    if (o.granted) base.add(o.capability);
-    else base.delete(o.capability);
-  }
-  return base;
+  return resolveEffectiveCapabilities(user, overrides);
 }
 
 /**

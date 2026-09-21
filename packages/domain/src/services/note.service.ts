@@ -4,6 +4,7 @@ import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor, requireOwnerOrAdmin } from '../lib/authz';
+import { hasCapability } from '../lib/capabilities';
 import { createNotification, iso, logActivity } from '../lib/helpers';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
 
@@ -131,6 +132,13 @@ export function makeNoteService(ctx: DomainContext) {
       const item = await prisma.inspirationItem.findUnique({ where: { id: input.inspirationItemId }, select: { id: true, brandId: true, title: true } });
       if (!item) throw AppError.notFound('Inspiration item');
       return { brandId: item.brandId, campaignId: null, link: `/inspiration/${item.id}`, label: item.title ?? 'a trend' };
+    }
+    if (input.channel === 'logistics') {
+      // The Logistics Team Chat is restricted to people who can actually see
+      // logistics data — a capability check, not a hardcoded role check
+      // (Advanced Roles pass), so it stays correct as Role Profiles evolve.
+      if (!(await hasCapability(ctx, 'LOGISTICS_VIEW'))) throw AppError.forbidden('You do not have access to the Logistics channel.');
+      return { brandId: null, campaignId: null, link: '/logistics', label: 'Logistics Team' };
     }
     if (input.channel) {
       return { brandId: null, campaignId: null, link: '/team', label: 'General' };
@@ -448,6 +456,7 @@ export function makeNoteService(ctx: DomainContext) {
   /** Parses a `conversationKey` exactly as `<CommentThread>` builds it — 'channel:general' or 'campaign:{id}' — into the Note filter that scopes it. Unknown/malformed keys resolve to `null` and are skipped, never thrown. */
   function conversationWhere(key: string): Prisma.NoteWhereInput | null {
     if (key === 'channel:general') return { channel: 'general' };
+    if (key === 'channel:logistics') return { channel: 'logistics' };
     const campaignMatch = /^campaign:(.+)$/.exec(key);
     if (campaignMatch) return { campaignId: campaignMatch[1] };
     return null;

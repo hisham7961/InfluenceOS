@@ -14,6 +14,7 @@ import type {
   BulkResultDTO,
   CalendarEventDTO,
   CampaignCandidateDTO,
+  CapabilityPreviewLineDTO,
   CampaignDetailDTO,
   CampaignEfficiencyDTO,
   CampaignInfluencerDTO,
@@ -48,6 +49,8 @@ import type {
   InfluencerSummaryDTO,
   IntegrityFindingDTO,
   InspirationItemDTO,
+  LogisticsCountrySummaryDTO,
+  LogisticsIssueDTO,
   LogisticsRequestDTO,
   MonitoringEventDTO,
   NoteDTO,
@@ -66,6 +69,7 @@ import type {
   TeamMemberRefDTO,
   UploadTicketDTO,
   UsageRightDTO,
+  UserAdminDetailDTO,
   UserDTO,
 } from '@influenceos/contracts';
 import { HttpCore, type ClientConfig } from './core';
@@ -109,6 +113,30 @@ export function createClient(config: ClientConfig) {
       create: (body: In<typeof requests.registerUserSchema>) => http.post<UserDTO>(`${V}/users`, body),
       // Lightweight id/name/avatar-only directory for the @mention picker — any authenticated user may read it.
       directory: () => http.get<TeamMemberRefDTO[]>(`${V}/users/directory`),
+      update: (id: string, body: In<typeof requests.userAdminUpdateSchema>) =>
+        http.patch<UserDTO>(`${V}/users/${id}`, body),
+      remove: (id: string) => http.del<void>(`${V}/users/${id}`),
+      resetPassword: (id: string, body: In<typeof requests.adminResetPasswordSchema>) =>
+        http.post<void>(`${V}/users/${id}/reset-password`, body),
+      getBrandAccess: (id: string) => http.get<string[]>(`${V}/users/${id}/brand-access`),
+      setBrandAccess: (id: string, brandIds: string[]) =>
+        http.put<string[]>(`${V}/users/${id}/brand-access`, { brandIds }),
+      // Country scope (Advanced Roles pass) — mirrors brand access exactly.
+      getCountryAccess: (id: string) => http.get<string[]>(`${V}/users/${id}/country-access`),
+      setCountryAccess: (id: string, countryCodes: string[]) =>
+        http.put<string[]>(`${V}/users/${id}/country-access`, { countryCodes }),
+      // Role Profile + scope + capability-override resolved view, with a
+      // "this user can/cannot" preview built from the same resolution logic
+      // that actually gates access.
+      getPermissions: (id: string) => http.get<UserAdminDetailDTO>(`${V}/users/${id}/permissions`),
+      setCapabilities: (id: string, body: In<typeof requests.capabilityOverridesSetSchema>) =>
+        http.put<void>(`${V}/users/${id}/capabilities`, body),
+      // Hypothetical, unsaved "this user can/cannot" preview — never persists.
+      previewPermissions: (id: string, body: In<typeof requests.permissionPreviewSchema>) =>
+        http.post<{ effectiveCapabilities: string[]; permissionPreview: CapabilityPreviewLineDTO[] }>(
+          `${V}/users/${id}/permissions/preview`,
+          body,
+        ),
     },
 
     brands: {
@@ -293,11 +321,27 @@ export function createClient(config: ClientConfig) {
         http.get<{ data: LogisticsRequestDTO[]; hasMore: boolean; nextCursor: string | null }>(`${V}/shipments`, {
           query: params,
         }),
+      // Country-first summary strip — respects scope + every filter except the country facet itself.
+      summary: (params?: QueryParams) => http.get<LogisticsCountrySummaryDTO[]>(`${V}/shipments/summary`, { query: params }),
       get: (id: string) => http.get<ProductShipmentDTO>(`${V}/shipments/${id}`),
       update: (id: string, body: In<typeof requests.shipmentUpdateSchema>) =>
         http.patch<ProductShipmentDTO>(`${V}/shipments/${id}`, body),
       updateStatus: (id: string, body: In<typeof requests.shipmentStatusSchema>) =>
         http.post<ProductShipmentDTO>(`${V}/shipments/${id}/status`, body),
+      // Assign (or unassign with userId: null) the logistics operator responsible for fulfilment.
+      assign: (id: string, userId: string | null) =>
+        http.post<ProductShipmentDTO>(`${V}/shipments/${id}/assign`, { userId }),
+    },
+
+    // Address Clarification workflow (Advanced Roles pass) — reuses the same
+    // shipment rows; a LogisticsIssue is a separate blocker record, never a
+    // ShipmentStatus overload.
+    logisticsIssues: {
+      list: (shipmentId: string) => http.get<LogisticsIssueDTO[]>(`${V}/shipments/${shipmentId}/issues`),
+      create: (shipmentId: string, body: In<typeof requests.logisticsIssueCreateSchema>) =>
+        http.post<LogisticsIssueDTO>(`${V}/shipments/${shipmentId}/issues`, body),
+      resolve: (id: string) => http.post<LogisticsIssueDTO>(`${V}/logistics-issues/${id}/resolve`),
+      cancel: (id: string) => http.post<LogisticsIssueDTO>(`${V}/logistics-issues/${id}/cancel`),
     },
 
     inspiration: {

@@ -25,8 +25,8 @@ export interface CommentContext {
   deliverableId?: string;
   shipmentId?: string;
   inspirationItemId?: string;
-  /** Only 'general' exists today (noteCreateSchema's NOTE_CHANNELS) — kept a literal so create() below satisfies the request schema without a cast. */
-  channel?: 'general';
+  /** Mirrors noteCreateSchema's NOTE_CHANNELS — kept a literal union so create() below satisfies the request schema without a cast. */
+  channel?: 'general' | 'logistics';
   // Indexable so this is structurally a valid query-string payload for api.notes.list().
   [key: string]: string | undefined;
 }

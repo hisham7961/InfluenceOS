@@ -220,6 +220,20 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).auth.getUserPermissions(req.params.id),
   );
 
+  r.post(
+    '/users/:id/permissions/preview',
+    {
+      preHandler: [requireAdmin],
+      schema: {
+        tags: ['Settings'],
+        summary: 'Preview the "this user can/cannot" effect of a HYPOTHETICAL, unsaved role/capability edit (admin, never persists)',
+        params: userIdParam,
+        body: requests.permissionPreviewSchema,
+      },
+    },
+    async (req) => servicesFor(req).auth.previewUserPermissions(req.params.id, req.body),
+  );
+
   r.put(
     '/users/:id/capabilities',
     {

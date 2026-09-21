@@ -28,6 +28,19 @@ export async function shipmentRoutes(app: FastifyInstance): Promise<void> {
   );
 
   r.get(
+    '/shipments/summary',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Logistics'],
+        summary: 'Per-destination-country shipment counts for the country-first workspace summary strip',
+        querystring: requests.shipmentSummarySchema,
+      },
+    },
+    async (req) => servicesFor(req).shipments.summary(req.query),
+  );
+
+  r.get(
     '/shipments/:id',
     { preHandler: [requireAuth], schema: { tags: ['Logistics'], summary: 'Get one shipment', params: idParam } },
     async (req) => servicesFor(req).shipments.get(req.params.id),

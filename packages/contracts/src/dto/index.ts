@@ -216,6 +216,17 @@ export interface InfluencerRelationshipHistoryDTO {
 export interface InfluencerDetailDTO extends InfluencerSummaryDTO {
   bio: string | null;
   city: string | null;
+  /** Canonical country code (Advanced Roles & Logistics Operations pass) —
+   *  distinct from the free-text `country` on InfluencerSummaryDTO; drives
+   *  country scoping/filtering. Editable independently of any one shipment. */
+  countryCode: string | null;
+  /** The creator's DEFAULT shipping address, reused as a starting point for a
+   *  new shipment — a shipment always COPIES these into its own columns at
+   *  creation time, so editing this here never rewrites a past shipment. */
+  addressLine1: string | null;
+  addressLine2: string | null;
+  postalCode: string | null;
+  deliveryInstructions: string | null;
   languages: string[];
   pricingNotes: string | null;
   internalNotes: string | null;
@@ -570,6 +581,18 @@ export interface LogisticsRequestDTO extends ProductShipmentDTO {
   brand: { id: string; name: string } | null;
   campaign: { id: string; name: string } | null;
   deliverableType: DeliverableType | null;
+}
+
+/** Per-destination-country counts for the Logistics workspace's country-first
+ *  summary strip (Advanced Roles & Logistics Operations pass) — respects the
+ *  viewer's own country/brand scope and every active filter except the
+ *  country facet itself. `countryCode: null` buckets shipments with no
+ *  destination country recorded yet. */
+export interface LogisticsCountrySummaryDTO {
+  countryCode: string | null;
+  countryName: string | null;
+  total: number;
+  needsAttention: number;
 }
 
 // --- Scripts ---------------------------------------------------------------

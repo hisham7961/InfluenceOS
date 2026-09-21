@@ -18,7 +18,7 @@ import type { ClientType, User } from '@influenceos/database';
 import type { Actor, DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor, requireAdmin } from '../lib/authz';
-import { resolveCapabilitiesFor } from '../lib/capabilities';
+import { resolveCapabilitiesFor, resolveEffectiveCapabilities } from '../lib/capabilities';
 import { open, seal } from '../lib/crypto';
 
 const ACCESS_TTL_SEC = 60 * 15; // 15 minutes
@@ -625,6 +625,39 @@ export function makeAuthService(ctx: DomainContext) {
   }
 
   /**
+   * The Permission Preview computed for a HYPOTHETICAL, unsaved edit — the
+   * Admin Users edit screen calls this on every pending change (role profile,
+   * capability toggle) so "This user can/cannot" always reflects what Save
+   * would actually produce, before it's persisted. Any field left out of
+   * `input` falls back to the user's currently saved value, so previewing one
+   * changed field doesn't lose the others. Never writes to the database —
+   * compare setUserCapabilityOverrides/updateUser, which do.
+   */
+  async function previewUserPermissions(
+    id: string,
+    input: z.infer<typeof requests.permissionPreviewSchema>,
+  ): Promise<{ effectiveCapabilities: (typeof CAPABILITIES)[number][]; permissionPreview: CapabilityPreviewLineDTO[] }> {
+    requireAdmin(ctx);
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) throw AppError.notFound('User');
+    const hypotheticalProfile = input.roleProfile === undefined ? user.roleProfile : input.roleProfile;
+    let hypotheticalOverrides = input.overrides;
+    if (hypotheticalOverrides === undefined) {
+      const rows = await prisma.userCapability.findMany({ where: { userId: id }, select: { capability: true, granted: true } });
+      hypotheticalOverrides = rows;
+    }
+    const effective = resolveEffectiveCapabilities({ role: user.role, roleProfile: hypotheticalProfile }, hypotheticalOverrides);
+    const overrideMap = new Map(hypotheticalOverrides.map((o) => [o.capability, o.granted]));
+    const permissionPreview: CapabilityPreviewLineDTO[] = CAPABILITIES.map((capability) => ({
+      capability,
+      label: CAPABILITY_LABELS[capability],
+      granted: effective.has(capability),
+      isOverride: overrideMap.has(capability),
+    }));
+    return { effectiveCapabilities: CAPABILITIES.filter((c) => effective.has(c)), permissionPreview };
+  }
+
+  /**
    * Change the authenticated user's own password. Requires the current
    * password. **Session policy:** on success ALL of the user's sessions are
    * revoked (including the caller's), so any token derived from the old
@@ -673,6 +706,7 @@ export function makeAuthService(ctx: DomainContext) {
     setUserCountryAccess,
     setUserCapabilityOverrides,
     getUserPermissions,
+    previewUserPermissions,
     hashPassword,
   };
 }

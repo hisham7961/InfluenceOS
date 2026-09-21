@@ -1,6 +1,7 @@
 import {
   requests,
   type AddressHealth,
+  type LogisticsCountrySummaryDTO,
   type LogisticsIssueDTO,
   type LogisticsRequestDTO,
   type ProductShipmentDTO,
@@ -8,6 +9,7 @@ import {
   type ShipmentStatus,
 } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
+import { countryName } from '@influenceos/shared';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
@@ -19,6 +21,11 @@ type ShipmentCreate = z.infer<typeof requests.shipmentCreateSchema>;
 type ShipmentUpdate = z.infer<typeof requests.shipmentUpdateSchema>;
 type ShipmentStatusInput = z.infer<typeof requests.shipmentStatusSchema>;
 type ShipmentFilter = z.infer<typeof requests.shipmentFilterSchema>;
+type ShipmentSummaryFilter = z.infer<typeof requests.shipmentSummarySchema>;
+/** Statuses that always count as "needs attention" in the country summary,
+ *  regardless of open issues — mirrors the canonical Needs Attention service's
+ *  logistics reasoning (failed/returned shipments are actionable on their own). */
+const ATTENTION_STATUSES: ShipmentStatus[] = ['FAILED', 'RETURNED'];
 
 const issueInclude = {
   createdBy: { select: { name: true } },
@@ -228,16 +235,20 @@ export function makeShipmentService(ctx: DomainContext) {
   }
 
   /**
-   * The cross-campaign `/logistics` workspace — reads the SAME shipment rows
-   * (never a copy), with just enough context (creator/brand/campaign/
-   * deliverable) to be usable without a second lookup per row.
+   * The ONE place `/logistics` workspace filters become a Prisma where-clause
+   * — used by both listAll() (the row-by-row table) and summary() (the
+   * per-country facet counts), so the two can never silently drift apart.
+   * Brand and country scope (Advanced Roles pass) are ALWAYS enforced here,
+   * never left to the caller — an out-of-scope explicit filter matches
+   * nothing rather than silently widening. `ignoreCountryFilter` is set by
+   * summary() alone: a facet count ignores its own filter dimension so every
+   * country's count stays visible while one is selected, the scope
+   * restriction still applies underneath it.
    */
-  async function listAll(filter: ShipmentFilter): Promise<{ data: LogisticsRequestDTO[]; hasMore: boolean; nextCursor: string | null }> {
-    // A scoped operator's cross-campaign workspace only ever shows their
-    // brands — an explicit brandId filter outside that scope matches nothing
-    // rather than silently widening or leaking other brands' shipments.
-    // Country scope (Advanced Roles pass) composes with brand scope, checked
-    // against the SHIPMENT'S OWN destination — never the campaign's brand.
+  async function buildWhere(
+    filter: ShipmentFilter | ShipmentSummaryFilter,
+    opts: { ignoreCountryFilter?: boolean } = {},
+  ): Promise<Prisma.ProductShipmentWhereInput> {
     const scope = await scopedBrandIds(ctx);
     const brandIdFilter: string | { in: string[] } | undefined = filter.brandId
       ? scope && !scope.includes(filter.brandId)
@@ -248,10 +259,11 @@ export function makeShipmentService(ctx: DomainContext) {
         : undefined;
 
     const countryScope = await scopedCountryCodes(ctx);
-    const destinationCountryFilter: string | { in: string[] } | undefined = filter.destinationCountryCode
-      ? countryScope && !countryScope.includes(filter.destinationCountryCode)
+    const explicitCountry = opts.ignoreCountryFilter ? undefined : 'destinationCountryCode' in filter ? filter.destinationCountryCode : undefined;
+    const destinationCountryFilter: string | { in: string[] } | undefined = explicitCountry
+      ? countryScope && !countryScope.includes(explicitCountry)
         ? { in: [] }
-        : filter.destinationCountryCode
+        : explicitCountry
       : countryScope
         ? { in: countryScope }
         : undefined;
@@ -279,7 +291,17 @@ export function makeShipmentService(ctx: DomainContext) {
       };
     }
     if (filter.hasOpenIssue) where.issues = { some: { status: 'OPEN' } };
+    if (filter.needsAttention) where.OR = [{ issues: { some: { status: 'OPEN' } } }, { status: { in: ATTENTION_STATUSES } }];
+    return where;
+  }
 
+  /**
+   * The cross-campaign `/logistics` workspace — reads the SAME shipment rows
+   * (never a copy), with just enough context (creator/brand/campaign/
+   * deliverable) to be usable without a second lookup per row.
+   */
+  async function listAll(filter: ShipmentFilter): Promise<{ data: LogisticsRequestDTO[]; hasMore: boolean; nextCursor: string | null }> {
+    const where = await buildWhere(filter);
     const rows = await prisma.productShipment.findMany({
       where,
       include: {
@@ -319,6 +341,34 @@ export function makeShipmentService(ctx: DomainContext) {
       }),
     );
     return { data, hasMore, nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null };
+  }
+
+  /**
+   * Country-first summary strip for the `/logistics` workspace — one row per
+   * destination country (respecting the viewer's own country/brand scope),
+   * each with a total and a "needs attention" count (an OPEN LogisticsIssue,
+   * or a FAILED/RETURNED status). Two groupBy queries, never N per-country
+   * round trips.
+   */
+  async function summary(filter: ShipmentSummaryFilter): Promise<LogisticsCountrySummaryDTO[]> {
+    const where = await buildWhere(filter, { ignoreCountryFilter: true });
+    const [totals, attention] = await Promise.all([
+      prisma.productShipment.groupBy({ by: ['destinationCountryCode'], where, _count: { _all: true } }),
+      prisma.productShipment.groupBy({
+        by: ['destinationCountryCode'],
+        where: { ...where, OR: [{ issues: { some: { status: 'OPEN' } } }, { status: { in: ATTENTION_STATUSES } }] },
+        _count: { _all: true },
+      }),
+    ]);
+    const attentionByCountry = new Map(attention.map((a) => [a.destinationCountryCode, a._count._all]));
+    return totals
+      .map((t) => ({
+        countryCode: t.destinationCountryCode,
+        countryName: countryName(t.destinationCountryCode),
+        total: t._count._all,
+        needsAttention: attentionByCountry.get(t.destinationCountryCode) ?? 0,
+      }))
+      .sort((a, b) => b.total - a.total);
   }
 
   async function create(campaignInfluencerId: string, input: ShipmentCreate): Promise<ProductShipmentDTO> {
@@ -558,7 +608,7 @@ export function makeShipmentService(ctx: DomainContext) {
     }
   }
 
-  return { get: loadDTO, listForCampaignInfluencer, listForDeliverable, listForCampaign, listAll, create, update, updateStatus, assign };
+  return { get: loadDTO, listForCampaignInfluencer, listForDeliverable, listForCampaign, listAll, summary, create, update, updateStatus, assign };
 }
 
 export type ShipmentService = ReturnType<typeof makeShipmentService>;

@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Check, Mail, Plus, ShieldCheck, UserPlus } from 'lucide-react';
 import type { UserRole, UserDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
-import { USER_ROLES } from '@influenceos/shared';
+import { ROLE_PROFILE_LABELS, USER_ROLES } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { UserEditSheet } from './user-edit-sheet';
 
 function errorMessage(e: unknown): string {
   return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
@@ -45,6 +46,7 @@ export function UsersClient({ initial }: { initial: UserDTO[] }) {
   });
 
   const users = usersQuery.data ?? [];
+  const [editingUserId, setEditingUserId] = React.useState<string | null>(null);
 
   return (
     <div className="space-y-5">
@@ -66,17 +68,23 @@ export function UsersClient({ initial }: { initial: UserDTO[] }) {
       ) : (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   <th className="px-5 py-3">User</th>
                   <th className="px-5 py-3">Email</th>
                   <th className="px-5 py-3">Role</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {users.map((u) => (
-                  <tr key={u.id} className="transition-colors hover:bg-surface-muted/50">
+                  <tr
+                    key={u.id}
+                    className="cursor-pointer transition-colors hover:bg-surface-muted/50"
+                    onClick={() => setEditingUserId(u.id)}
+                  >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         <Avatar name={u.name} src={u.avatarUrl} size="sm" />
@@ -90,10 +98,31 @@ export function UsersClient({ initial }: { initial: UserDTO[] }) {
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
-                      <Badge tone={u.role === 'ADMIN' ? 'accent' : 'info'} className="gap-1">
-                        <ShieldCheck className="h-3 w-3" />
-                        {ROLE_LABEL[u.role]}
-                      </Badge>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge tone={u.role === 'ADMIN' ? 'accent' : 'info'} className="gap-1">
+                          <ShieldCheck className="h-3 w-3" />
+                          {ROLE_LABEL[u.role]}
+                        </Badge>
+                        {u.roleProfile && (
+                          <Badge tone="neutral">{ROLE_PROFILE_LABELS[u.roleProfile]}</Badge>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <Badge tone={u.isActive ? 'success' : 'neutral'}>{u.isActive ? 'Active' : 'Inactive'}</Badge>
+                    </td>
+                    <td className="px-5 py-3.5 text-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingUserId(u.id);
+                        }}
+                      >
+                        Edit access
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -102,6 +131,8 @@ export function UsersClient({ initial }: { initial: UserDTO[] }) {
           </div>
         </Card>
       )}
+
+      <UserEditSheet userId={editingUserId} onOpenChange={(open) => !open && setEditingUserId(null)} />
     </div>
   );
 }

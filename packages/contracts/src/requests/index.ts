@@ -176,6 +176,20 @@ export const capabilityOverridesSetSchema = z.object({
 });
 export type CapabilityOverridesSetInput = z.infer<typeof capabilityOverridesSetSchema>;
 
+/**
+ * Hypothetical "what would this look like" input for the Admin Users edit
+ * screen's Permission Preview (Advanced Roles pass) — every field is
+ * optional and, when omitted, the user's CURRENTLY SAVED value is used
+ * instead, so previewing a role-profile change alone (with no override
+ * edits yet) still reflects the user's real existing overrides. This never
+ * writes to the database — see setUserCapabilityOverrides for the real save.
+ */
+export const permissionPreviewSchema = z.object({
+  roleProfile: z.enum(ROLE_PROFILES).optional().nullable(),
+  overrides: z.array(z.object({ capability: z.enum(CAPABILITIES), granted: z.boolean() })).max(CAPABILITIES.length).optional(),
+});
+export type PermissionPreviewInput = z.infer<typeof permissionPreviewSchema>;
+
 /** UI preferences persisted on the user account (so they follow the user across
  *  devices and to future mobile clients). Both optional — a request updates only
  *  the fields it carries. */
@@ -225,7 +239,17 @@ export const influencerCreateSchema = z.object({
   avatarOverrideUrl: safeUrl,
   bio: optionalString,
   country: optionalString,
+  /** Canonical country code (Advanced Roles & Logistics Operations pass) —
+   *  distinct from the free-text `country` above; drives country scoping. */
+  countryCode: countryCode.optional().nullable(),
   city: optionalString,
+  /** The creator's DEFAULT shipping address — a new shipment starts from
+   *  this but always copies it into its own columns, so editing it here
+   *  never rewrites a past shipment (see ProductShipment.destinationCountryCode). */
+  addressLine1: z.string().trim().max(300).optional().nullable(),
+  addressLine2: z.string().trim().max(300).optional().nullable(),
+  postalCode: z.string().trim().max(40).optional().nullable(),
+  deliveryInstructions: z.string().trim().max(500).optional().nullable(),
   category: optionalString,
   languages: stringArray,
   email: z.string().email().optional().nullable().or(z.literal('')),
@@ -561,22 +585,37 @@ export const shipmentFilterSchema = z.object({
   destinationCountryCode: countryCode.optional(),
   /** The creator's own profile country — distinct from destinationCountryCode. */
   influencerCountryCode: countryCode.optional(),
-  /** A specific assignee's user id, or the literal 'unassigned'. */
+  /** A specific assignee's user id, or the literal 'me' / 'unassigned'. */
   assigneeId: z.string().min(1).optional(),
   requesterId: cuid.optional(),
   courier: z.string().trim().max(120).optional(),
   productName: z.string().trim().max(200).optional(),
   dateFrom: z.coerce.date().optional(),
   dateTo: z.coerce.date().optional(),
+  /** Address Problem filter — an OPEN LogisticsIssue exists on the shipment. */
   hasOpenIssue: z.coerce.boolean().optional(),
+  /** Needs Attention filter — the broader "actionable now" set: an open
+   *  address issue OR a FAILED/RETURNED shipment. Mirrors summary()'s
+   *  attention count exactly, so the two are never out of sync. */
+  needsAttention: z.coerce.boolean().optional(),
   cursor: z.string().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+/** Per-destination-country counts for the Logistics workspace's country-first
+ *  summary strip — every dimension EXCEPT destinationCountryCode itself (a
+ *  facet count ignores its own filter so every country's count stays visible
+ *  while one is selected). */
+export const shipmentSummarySchema = shipmentFilterSchema.omit({
+  destinationCountryCode: true,
+  cursor: true,
+  limit: true,
 });
 export type ShipmentCreateInput = z.infer<typeof shipmentCreateSchema>;
 export type ShipmentUpdateInput = z.infer<typeof shipmentUpdateSchema>;
 export type ShipmentStatusInput = z.infer<typeof shipmentStatusSchema>;
 export type ShipmentAssignInput = z.infer<typeof shipmentAssignSchema>;
 export type ShipmentFilterInput = z.infer<typeof shipmentFilterSchema>;
+export type ShipmentSummaryInput = z.infer<typeof shipmentSummarySchema>;
 
 // --- Logistics issues (Advanced Roles & Logistics Operations pass) ---------
 /** Report a blocker on a shipment (e.g. an unclear/incomplete address) —
@@ -739,7 +778,11 @@ export const attachmentCompleteSchema = z.object({
 // `mentionedUserIds` is explicit, structured data from the composer's @mention
 // picker, never parsed out of free text server-side (avoids ambiguous-name
 // false matches).
-const NOTE_CHANNELS = ['general'] as const;
+// 'logistics' is the always-open Logistics Team Chat (Advanced Roles &
+// Logistics Operations pass) — channel-level coordination ("DHL pickup
+// delayed today"), kept distinct from per-shipment Comments (shipmentId
+// context below), though both reuse this SAME Note/Collaboration primitive.
+const NOTE_CHANNELS = ['general', 'logistics'] as const;
 export const noteCreateSchema = z
   .object({
     body: z.string().trim().min(1).max(5000),
