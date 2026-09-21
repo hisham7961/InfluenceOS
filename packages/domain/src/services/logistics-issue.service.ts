@@ -6,7 +6,7 @@ import { AppError } from '../errors';
 import { requireActor, requireCapability } from '../lib/authz';
 import { hasCapability } from '../lib/capabilities';
 import { createNotification, logActivity } from '../lib/helpers';
-import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
+import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
 type IssueCreate = z.infer<typeof requests.logisticsIssueCreateSchema>;
 
@@ -61,6 +61,12 @@ export function makeLogisticsIssueService(ctx: DomainContext) {
     if (!shipment) throw AppError.notFound('Shipment');
     const scope = await scopedBrandIds(ctx);
     if (isBrandOutOfScope(scope, shipment.campaignInfluencer.campaign.brandId)) throw AppError.notFound('Shipment');
+    // Country scope (Advanced Roles pass) composes with brand scope — same
+    // direct-ID posture as shipment.service.ts itself: a country-scoped
+    // actor can never list/create an issue on an out-of-scope shipment by
+    // guessing its id, not merely have it hidden in a filtered list.
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, shipment.destinationCountryCode)) throw AppError.notFound('Shipment');
     return shipment;
   }
 
@@ -146,6 +152,7 @@ export function makeLogisticsIssueService(ctx: DomainContext) {
         shipment: {
           select: {
             id: true,
+            destinationCountryCode: true,
             campaignInfluencer: { select: { campaignId: true, influencerId: true, campaign: { select: { brandId: true } } } },
           },
         },
@@ -154,6 +161,8 @@ export function makeLogisticsIssueService(ctx: DomainContext) {
     if (!existing) throw AppError.notFound('Logistics issue');
     const scope = await scopedBrandIds(ctx);
     if (isBrandOutOfScope(scope, existing.shipment.campaignInfluencer.campaign.brandId)) throw AppError.notFound('Logistics issue');
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, existing.shipment.destinationCountryCode)) throw AppError.notFound('Logistics issue');
     return existing;
   }
 

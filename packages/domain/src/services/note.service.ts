@@ -6,7 +6,7 @@ import { AppError } from '../errors';
 import { requireActor, requireOwnerOrAdmin } from '../lib/authz';
 import { hasCapability } from '../lib/capabilities';
 import { createNotification, iso, logActivity } from '../lib/helpers';
-import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
+import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
 type NoteCreate = z.infer<typeof requests.noteCreateSchema>;
 
@@ -60,6 +60,11 @@ interface ResolvedContext {
   link: string;
   /** Human label for the context, used in notification titles ("Mona mentioned you on a Content comment"). */
   label: string;
+  /** Set only for a shipment context (Advanced Roles pass) — the SAME
+   *  direct-ID country-scope posture shipment.service.ts itself enforces,
+   *  so a country-scoped actor can't read/post shipment comments outside
+   *  their scope just because brand scope alone would allow it. */
+  countryCode?: string | null;
 }
 
 /** A context identifier — used both to create a message and to list/filter a thread. Not derived from the Zod-inferred `NoteCreate` type so `channel` stays a plain string (the create schema narrows it to a fixed literal set; Prisma's column is a free string). */
@@ -122,11 +127,11 @@ export function makeNoteService(ctx: DomainContext) {
     if (input.shipmentId) {
       const s = await prisma.productShipment.findUnique({
         where: { id: input.shipmentId },
-        select: { id: true, campaignInfluencer: { select: { campaign: { select: { id: true, brandId: true, name: true } } } } },
+        select: { id: true, destinationCountryCode: true, campaignInfluencer: { select: { campaign: { select: { id: true, brandId: true, name: true } } } } },
       });
       if (!s) throw AppError.notFound('Shipment');
       const c = s.campaignInfluencer.campaign;
-      return { brandId: c.brandId, campaignId: c.id, link: `/campaigns/${c.id}?tab=shipments`, label: `a shipment on ${c.name}` };
+      return { brandId: c.brandId, campaignId: c.id, link: `/campaigns/${c.id}?tab=shipments`, label: `a shipment on ${c.name}`, countryCode: s.destinationCountryCode };
     }
     if (input.inspirationItemId) {
       const item = await prisma.inspirationItem.findUnique({ where: { id: input.inspirationItemId }, select: { id: true, brandId: true, title: true } });
@@ -148,11 +153,19 @@ export function makeNoteService(ctx: DomainContext) {
     throw AppError.badRequest('A message must be attached to a context or be a reply.');
   }
 
-  /** Enforce brand scope for a resolved context — a brand-scoped user (W4-4) must never read/write outside their scope. */
-  async function assertInScope(brandId: string | null): Promise<void> {
-    if (!brandId) return;
-    const scope = await scopedBrandIds(ctx);
-    if (isBrandOutOfScope(scope, brandId)) throw AppError.notFound('Context');
+  /** Enforce brand scope for a resolved context — a brand-scoped user (W4-4)
+   *  must never read/write outside their scope. `countryCode` is set only
+   *  for a shipment context (Advanced Roles pass) — composes with brand
+   *  scope, same direct-ID posture shipment.service.ts itself enforces. */
+  async function assertInScope(brandId: string | null, countryCode?: string | null): Promise<void> {
+    if (brandId) {
+      const scope = await scopedBrandIds(ctx);
+      if (isBrandOutOfScope(scope, brandId)) throw AppError.notFound('Context');
+    }
+    if (countryCode !== undefined) {
+      const countryScope = await scopedCountryCodes(ctx);
+      if (isCountryOutOfScope(countryScope, countryCode)) throw AppError.notFound('Context');
+    }
   }
 
   async function listForInfluencer(influencerId: string): Promise<NoteDTO[]> {
@@ -205,7 +218,7 @@ export function makeNoteService(ctx: DomainContext) {
   /** Generic context list — Deliverable/Shipment/Inspiration comments and Campaign/General chat, each with one level of replies inlined. */
   async function list(context: NoteContext, query: { cursor?: string; limit?: number } = {}): Promise<{ data: NoteDTO[]; nextCursor: string | null; hasMore: boolean }> {
     const resolved = await resolveContext(context);
-    await assertInScope(resolved.brandId);
+    await assertInScope(resolved.brandId, resolved.countryCode);
     const limit = query.limit ?? 30;
     const where: Prisma.NoteWhereInput = {
       parentId: null,
@@ -253,7 +266,7 @@ export function makeNoteService(ctx: DomainContext) {
       : input;
 
     const resolved = await resolveContext(context);
-    await assertInScope(resolved.brandId);
+    await assertInScope(resolved.brandId, resolved.countryCode);
 
     // Pinning at creation time follows the same authorization rule as the
     // dedicated pin() endpoint (PART 8) — never silently accepted from any actor.
@@ -370,7 +383,7 @@ export function makeNoteService(ctx: DomainContext) {
       channel: existing.channel ?? undefined,
     };
     const resolved = await resolveContext(context);
-    await assertInScope(resolved.brandId);
+    await assertInScope(resolved.brandId, resolved.countryCode);
     if (!(await actorCanPin(resolved, existing.authorId))) {
       throw AppError.forbidden('Only an admin, the campaign owner, or the author may pin a message.');
     }

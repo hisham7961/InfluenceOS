@@ -28,6 +28,11 @@ const ROLE_PROFILE_CAPABILITIES: Record<RoleProfile, readonly Capability[]> = {
     'REPORTS_VIEW',
     'OPERATIONS_VIEW',
   ],
+  // Deliberately WITHOUT LOGISTICS_ADDRESS_VIEW: an Operations/Control Room
+  // Manager sees that a shipment exists and its status/addressHealth (an
+  // issue exists, is being worked), never the literal address/phone, unless
+  // explicitly granted via a UserCapability override — "wide operational
+  // data, not system config" (Advanced Roles pass spec).
   OPERATIONS_MANAGER: [
     'BRANDS_VIEW',
     'CAMPAIGNS_VIEW',
@@ -35,7 +40,6 @@ const ROLE_PROFILE_CAPABILITIES: Record<RoleProfile, readonly Capability[]> = {
     'CONTENT_VIEW',
     'UGC_REVIEW',
     'LOGISTICS_VIEW',
-    'LOGISTICS_ADDRESS_VIEW',
     'REPORTS_VIEW',
     'OPERATIONS_VIEW',
   ],

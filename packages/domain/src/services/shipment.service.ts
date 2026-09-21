@@ -14,6 +14,7 @@ import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor, requireCapability } from '../lib/authz';
+import { hasCapability } from '../lib/capabilities';
 import { createNotification, iso, logActivity } from '../lib/helpers';
 import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
@@ -148,11 +149,18 @@ export function makeShipmentService(ctx: DomainContext) {
   // the creator's full residential address/phone — "Full residential address
   // should not be unnecessarily available to unauthorized users"
   // (WORKFLOW_GAP_MATRIX.md, Permissions/privacy). City/country stay visible
-  // (general location, not PII-sensitive); ADMIN/STAFF need the rest to
-  // actually fulfil shipments, so only VIEWER is redacted.
-  const isViewer = ctx.actor?.role === 'VIEWER';
-  function redact<T extends ProductShipmentDTO>(dto: T): T {
-    if (!isViewer) return dto;
+  // (general location, not PII-sensitive). Capability-based (Advanced Roles
+  // pass), not a role check: an Operations Manager may see that an address
+  // issue EXISTS (status/addressHealth) without the literal address unless
+  // they hold LOGISTICS_ADDRESS_VIEW; ADMIN/legacy STAFF/anyone actually
+  // holding the capability sees the full record.
+  let canViewAddressPromise: Promise<boolean> | null = null;
+  function canViewAddress(): Promise<boolean> {
+    if (!canViewAddressPromise) canViewAddressPromise = hasCapability(ctx, 'LOGISTICS_ADDRESS_VIEW');
+    return canViewAddressPromise;
+  }
+  function redactWith<T extends ProductShipmentDTO>(dto: T, canView: boolean): T {
+    if (canView) return dto;
     return {
       ...dto,
       phone: null,
@@ -161,6 +169,9 @@ export function makeShipmentService(ctx: DomainContext) {
       postalCode: null,
       deliveryInstructions: null,
     };
+  }
+  async function redact<T extends ProductShipmentDTO>(dto: T): Promise<T> {
+    return redactWith(dto, await canViewAddress());
   }
 
   async function ciContext(campaignInfluencerId: string) {
@@ -211,7 +222,8 @@ export function makeShipmentService(ctx: DomainContext) {
       include: itemsInclude,
       orderBy: { createdAt: 'desc' },
     });
-    return rows.map((r) => redact(toDTO(r)));
+    const canView = await canViewAddress();
+    return rows.map((r) => redactWith(toDTO(r), canView));
   }
 
   /** Shipments fulfilling one specific deliverable. */
@@ -221,7 +233,8 @@ export function makeShipmentService(ctx: DomainContext) {
       include: itemsInclude,
       orderBy: { createdAt: 'desc' },
     });
-    return rows.map((r) => redact(toDTO(r)));
+    const canView = await canViewAddress();
+    return rows.map((r) => redactWith(toDTO(r), canView));
   }
 
   /** Every shipment for a campaign's roster in one query (W3-5 web surface). */
@@ -231,7 +244,8 @@ export function makeShipmentService(ctx: DomainContext) {
       include: itemsInclude,
       orderBy: { updatedAt: 'desc' },
     });
-    return rows.map((r) => redact(toDTO(r)));
+    const canView = await canViewAddress();
+    return rows.map((r) => redactWith(toDTO(r), canView));
   }
 
   /**
@@ -324,21 +338,25 @@ export function makeShipmentService(ctx: DomainContext) {
 
     const hasMore = rows.length > filter.limit;
     const page = rows.slice(0, filter.limit);
+    const canView = await canViewAddress();
     const data: LogisticsRequestDTO[] = page.map((s) =>
-      redact({
-        ...toDTO(s),
-        influencer: s.campaignInfluencer.influencer
-          ? {
-              id: s.campaignInfluencer.influencer.id,
-              displayName: s.campaignInfluencer.influencer.displayName,
-              avatarUrl: s.campaignInfluencer.influencer.avatarOverrideUrl ?? s.campaignInfluencer.influencer.resolvedAvatarUrl ?? null,
-              countryCode: s.campaignInfluencer.influencer.countryCode,
-            }
-          : null,
-        brand: s.campaignInfluencer.campaign.brand,
-        campaign: { id: s.campaignInfluencer.campaign.id, name: s.campaignInfluencer.campaign.name },
-        deliverableType: s.deliverable?.type ?? null,
-      }),
+      redactWith(
+        {
+          ...toDTO(s),
+          influencer: s.campaignInfluencer.influencer
+            ? {
+                id: s.campaignInfluencer.influencer.id,
+                displayName: s.campaignInfluencer.influencer.displayName,
+                avatarUrl: s.campaignInfluencer.influencer.avatarOverrideUrl ?? s.campaignInfluencer.influencer.resolvedAvatarUrl ?? null,
+                countryCode: s.campaignInfluencer.influencer.countryCode,
+              }
+            : null,
+          brand: s.campaignInfluencer.campaign.brand,
+          campaign: { id: s.campaignInfluencer.campaign.id, name: s.campaignInfluencer.campaign.name },
+          deliverableType: s.deliverable?.type ?? null,
+        },
+        canView,
+      ),
     );
     return { data, hasMore, nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null };
   }

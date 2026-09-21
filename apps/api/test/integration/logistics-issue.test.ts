@@ -195,6 +195,36 @@ describe('Advanced Roles — Address Clarification workflow', () => {
     const direct = await app.inject({ method: 'GET', url: `/api/v1/shipments/${shipmentId}`, headers: kwAuth });
     expect(direct.statusCode).toBe(404);
 
+    // The same direct-ID posture extends to LogisticsIssue operations on
+    // that out-of-scope shipment — listing, creating, and (via a guessed
+    // issue id) resolving/cancelling must all be rejected, not merely
+    // omitted from a filtered list.
+    const issuesList = await app.inject({ method: 'GET', url: `/api/v1/shipments/${shipmentId}/issues`, headers: kwAuth });
+    expect(issuesList.statusCode).toBe(404);
+
+    const issuesCreate = await app.inject({
+      method: 'POST',
+      url: `/api/v1/shipments/${shipmentId}/issues`,
+      headers: kwAuth,
+      payload: { type: 'MISSING_PHONE', description: 'Should never be created by a KW-scoped actor.' },
+    });
+    expect(issuesCreate.statusCode).toBe(404);
+
+    // A fresh issue on the SA shipment, created by an in-scope admin, must
+    // also be unreachable by id for the KW-scoped actor.
+    const freshIssueId = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/v1/shipments/${shipmentId}/issues`,
+        headers: admin,
+        payload: { type: 'OTHER', description: 'A second issue for the direct-ID resolve/cancel check.' },
+      })
+    ).json() as { id: string };
+    const guessedResolve = await app.inject({ method: 'POST', url: `/api/v1/logistics-issues/${freshIssueId.id}/resolve`, headers: kwAuth });
+    expect(guessedResolve.statusCode).toBe(404);
+    const guessedCancel = await app.inject({ method: 'POST', url: `/api/v1/logistics-issues/${freshIssueId.id}/cancel`, headers: kwAuth });
+    expect(guessedCancel.statusCode).toBe(404);
+
     await deleteUser(kwUserId);
   });
 });
