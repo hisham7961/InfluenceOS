@@ -18,6 +18,7 @@ import { buildCursorPage } from '../lib/cursor';
 import { iso, logActivity } from '../lib/helpers';
 import { sumMoney, toDecimal } from '../lib/money';
 import { toInfluencerSummary, toSocialAccountDTO } from '../lib/mappers';
+import { isCountryOutOfScope, scopedCountryCodes } from '../lib/scope';
 
 const { assessAudienceHealth } = sharedMetrics;
 
@@ -51,13 +52,32 @@ const EXPORT_MAX_ROWS = 50_000;
 export function makeInfluencerService(ctx: DomainContext) {
   const { prisma } = ctx;
 
-  function buildWhere(filter: Omit<InfluencerFilter, 'page' | 'pageSize'>): Prisma.InfluencerWhereInput {
+  async function buildWhere(filter: Omit<InfluencerFilter, 'page' | 'pageSize'>): Promise<Prisma.InfluencerWhereInput> {
     const and: Prisma.InfluencerWhereInput[] = [];
     if (filter.active !== undefined) and.push({ isActive: filter.active });
     if (filter.relationshipStatus) and.push({ relationshipStatus: filter.relationshipStatus });
     if (filter.country) and.push({ country: { equals: filter.country, mode: 'insensitive' } });
+    if (filter.city) and.push({ city: { equals: filter.city, mode: 'insensitive' } });
+    if (filter.ownerId) and.push({ ownerId: filter.ownerId === 'unowned' ? null : filter.ownerId });
     if (filter.category) and.push({ category: { equals: filter.category, mode: 'insensitive' } });
     if (filter.brandId) and.push({ brandInfluencers: { some: { brandId: filter.brandId } } });
+
+    // Country scope (Advanced Roles & Logistics Operations pass) — composed
+    // server-side into every directory query, never a client-side post-filter
+    // of a downloaded page. Mirrors the same isCountryOutOfScope posture
+    // shipment.service.ts uses: an out-of-scope explicit countryCode matches
+    // nothing rather than silently widening; an unrestricted actor (ADMIN, or
+    // no explicit UserCountryAccess rows) is untouched.
+    const countryScope = await scopedCountryCodes(ctx);
+    if (countryScope) {
+      and.push(
+        filter.countryCode
+          ? { countryCode: countryScope.includes(filter.countryCode) ? filter.countryCode : { in: [] } }
+          : { countryCode: { in: countryScope } },
+      );
+    } else if (filter.countryCode) {
+      and.push({ countryCode: filter.countryCode });
+    }
     if (filter.campaignId)
       and.push({ campaignInfluencers: { some: { campaignId: filter.campaignId } } });
     if (filter.tag) and.push({ tags: { some: { tag: { name: filter.tag } } } });
@@ -113,7 +133,7 @@ export function makeInfluencerService(ctx: DomainContext) {
   }
 
   async function list(filter: InfluencerFilter): Promise<Paginated<InfluencerSummaryDTO>> {
-    const where = buildWhere(filter);
+    const where = await buildWhere(filter);
     const [total, rows] = await Promise.all([
       prisma.influencer.count({ where }),
       prisma.influencer.findMany({
@@ -135,7 +155,7 @@ export function makeInfluencerService(ctx: DomainContext) {
   // — the id tiebreaker makes paging stable even when createdAt ties — and is
   // backed by the Influencer_createdAt_id index. No total count (unbounded feed).
   async function listCursor(filter: InfluencerCursorQuery): Promise<CursorPage<InfluencerSummaryDTO>> {
-    const where = buildWhere(filter);
+    const where = await buildWhere(filter);
     const rows = await prisma.influencer.findMany({
       where,
       include: summaryInclude,
@@ -150,7 +170,7 @@ export function makeInfluencerService(ctx: DomainContext) {
   // record per influencer, with their contact + reach + tags — for CSV/JSON
   // download. Collections are pre-joined so every field is a single cell.
   async function exportRows(filter: InfluencerExportQuery): Promise<InfluencerExportRowDTO[]> {
-    const where = buildWhere(filter);
+    const where = await buildWhere(filter);
     const rows = await prisma.influencer.findMany({
       where,
       include: exportInclude,
@@ -250,6 +270,11 @@ export function makeInfluencerService(ctx: DomainContext) {
       include: { ...summaryInclude, owner: { select: { id: true, name: true } } },
     });
     if (!inf) throw AppError.notFound('Influencer');
+    // Direct-ID country scope (Advanced Roles pass) — a country-scoped actor
+    // (e.g. a KW-only Influencer Manager) can never reach an out-of-scope
+    // creator by guessing its id; not merely have it hidden in a filtered list.
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, inf.countryCode)) throw AppError.notFound('Influencer');
 
     const [socialAccounts, audience, cis] = await Promise.all([
       socialAccountsFor(id),
@@ -402,6 +427,8 @@ export function makeInfluencerService(ctx: DomainContext) {
     requireActor(ctx);
     const existing = await prisma.influencer.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Influencer');
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, existing.countryCode)) throw AppError.notFound('Influencer');
     const email = input.email === '' ? null : input.email;
     await prisma.influencer.update({
       where: { id },

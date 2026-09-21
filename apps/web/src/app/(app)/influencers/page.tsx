@@ -36,6 +36,8 @@ export default async function InfluencersPage({
     q: sp.q || undefined,
     platform: sp.platform || undefined,
     country: sp.country || undefined,
+    countryCode: sp.countryCode || undefined,
+    city: sp.city || undefined,
     category: sp.category || undefined,
     relationshipStatus: sp.relationshipStatus || undefined,
     minFollowers: sp.minFollowers ? Number(sp.minFollowers) : undefined,
@@ -45,7 +47,7 @@ export default async function InfluencersPage({
   });
 
   const hasFilters = Boolean(
-    sp.q || sp.platform || sp.country || sp.category || sp.relationshipStatus || sp.minFollowers || sp.maxFollowers,
+    sp.q || sp.platform || sp.country || sp.countryCode || sp.city || sp.category || sp.relationshipStatus || sp.minFollowers || sp.maxFollowers,
   );
 
   return (
@@ -75,7 +77,7 @@ export default async function InfluencersPage({
         }
       />
 
-      <DirectoryFilters q={sp.q} platform={sp.platform} relationshipStatus={sp.relationshipStatus} />
+      <DirectoryFilters q={sp.q} platform={sp.platform} relationshipStatus={sp.relationshipStatus} countryCode={sp.countryCode} city={sp.city} />
 
       {influencers.length === 0 ? (
         <EmptyState

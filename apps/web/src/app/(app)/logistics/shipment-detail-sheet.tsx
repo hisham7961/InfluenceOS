@@ -391,22 +391,38 @@ function IssueSection({ shipment, onChanged }: { shipment: LogisticsRequestDTO; 
 
   const resolve = useMutation({
     mutationFn: async (issue: LogisticsIssueDTO) => {
+      let addressUpdateFailed = false;
       if (updateDefaultAddress && shipment.influencer) {
-        await api.influencers.update(shipment.influencer.id, {
-          addressLine1: shipment.addressLine1,
-          addressLine2: shipment.addressLine2,
-          city: shipment.city,
-          country: shipment.country,
-          countryCode: shipment.destinationCountryCode,
-          postalCode: shipment.postalCode,
-          deliveryInstructions: shipment.deliveryInstructions,
-          mobile: shipment.phone ?? undefined,
-        });
+        // Best-effort: a creator's own country can differ from this
+        // shipment's destination (e.g. a one-off delivery outside their
+        // usual market), which can put the creator's profile outside this
+        // actor's own country scope even though the shipment itself is in
+        // scope. That must never block resolving the actual issue — it's
+        // reported, not swallowed.
+        try {
+          await api.influencers.update(shipment.influencer.id, {
+            addressLine1: shipment.addressLine1,
+            addressLine2: shipment.addressLine2,
+            city: shipment.city,
+            country: shipment.country,
+            countryCode: shipment.destinationCountryCode,
+            postalCode: shipment.postalCode,
+            deliveryInstructions: shipment.deliveryInstructions,
+            mobile: shipment.phone ?? undefined,
+          });
+        } catch {
+          addressUpdateFailed = true;
+        }
       }
-      return api.logisticsIssues.resolve(issue.id);
+      const resolved = await api.logisticsIssues.resolve(issue.id);
+      return { resolved, addressUpdateFailed };
     },
-    onSuccess: () => {
-      toast.success('Issue resolved.');
+    onSuccess: ({ addressUpdateFailed }) => {
+      if (addressUpdateFailed) {
+        toast.warning("Issue resolved, but the creator's default address could not be updated (outside your access).");
+      } else {
+        toast.success('Issue resolved.');
+      }
       setUpdateDefaultAddress(false);
       refresh();
     },

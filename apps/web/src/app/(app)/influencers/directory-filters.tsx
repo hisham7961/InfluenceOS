@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
-import { PLATFORMS, PLATFORM_META, RELATIONSHIP_STATUSES, RELATIONSHIP_STATUS_LABELS } from '@influenceos/shared';
+import { COUNTRIES, PLATFORMS, PLATFORM_META, RELATIONSHIP_STATUSES, RELATIONSHIP_STATUS_LABELS } from '@influenceos/shared';
 import { SearchInput } from '@/components/ui/search-input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,29 +16,39 @@ export interface DirectoryFiltersProps {
   q?: string;
   platform?: string;
   relationshipStatus?: string;
+  countryCode?: string;
+  city?: string;
 }
 
-/** Search + platform + relationship filter bar for the influencer directory. Drives the URL, the server page re-reads it. */
-export function DirectoryFilters({ q, platform, relationshipStatus }: DirectoryFiltersProps) {
+/** Search + platform + relationship + country/city filter bar for the influencer directory. Drives the URL, the server page re-reads it — every dimension is a real server-side filter, never a client-side post-filter of a downloaded page. */
+export function DirectoryFilters({ q, platform, relationshipStatus, countryCode, city }: DirectoryFiltersProps) {
   const router = useRouter();
   const [search, setSearch] = React.useState(q ?? '');
+  const [cityInput, setCityInput] = React.useState(city ?? '');
 
   // Keep the local input in sync when filters change via a Select or Reset (which don't touch this state directly).
   React.useEffect(() => {
     setSearch(q ?? '');
   }, [q]);
+  React.useEffect(() => {
+    setCityInput(city ?? '');
+  }, [city]);
 
-  function navigate(next: { q?: string; platform?: string; relationshipStatus?: string }) {
+  function navigate(next: { q?: string; platform?: string; relationshipStatus?: string; countryCode?: string; city?: string }) {
     const merged = {
       q: next.q !== undefined ? next.q : (q ?? ''),
       platform: next.platform !== undefined ? next.platform : (platform ?? ''),
       relationshipStatus:
         next.relationshipStatus !== undefined ? next.relationshipStatus : (relationshipStatus ?? ''),
+      countryCode: next.countryCode !== undefined ? next.countryCode : (countryCode ?? ''),
+      city: next.city !== undefined ? next.city : (city ?? ''),
     };
     const params = new URLSearchParams();
     if (merged.q) params.set('q', merged.q);
     if (merged.platform) params.set('platform', merged.platform);
     if (merged.relationshipStatus) params.set('relationshipStatus', merged.relationshipStatus);
+    if (merged.countryCode) params.set('countryCode', merged.countryCode);
+    if (merged.city) params.set('city', merged.city);
     // Changing a filter always resets pagination back to page 1.
     const qs = params.toString();
     router.push(qs ? `/influencers?${qs}` : '/influencers');
@@ -49,7 +59,12 @@ export function DirectoryFilters({ q, platform, relationshipStatus }: DirectoryF
     navigate({ q: search.trim() });
   }
 
-  const hasActiveFilters = Boolean(q || platform || relationshipStatus);
+  function handleCitySubmit(event: React.FormEvent) {
+    event.preventDefault();
+    navigate({ city: cityInput.trim() });
+  }
+
+  const hasActiveFilters = Boolean(q || platform || relationshipStatus || countryCode || city);
 
   return (
     <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-card sm:flex-row sm:items-center">
@@ -94,11 +109,29 @@ export function DirectoryFilters({ q, platform, relationshipStatus }: DirectoryF
           </SelectContent>
         </Select>
 
+        <Select value={countryCode || ALL} onValueChange={(value) => navigate({ countryCode: value === ALL ? '' : value })}>
+          <SelectTrigger className="h-10 w-full sm:w-44">
+            <SelectValue placeholder="Country" />
+          </SelectTrigger>
+          <SelectContent className="max-h-72">
+            <SelectItem value={ALL}>All countries</SelectItem>
+            {COUNTRIES.map((c) => (
+              <SelectItem key={c.code} value={c.code}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <form onSubmit={handleCitySubmit} className="w-full sm:w-40">
+          <SearchInput value={cityInput} onChange={(e) => setCityInput(e.target.value)} placeholder="City" aria-label="Filter by city" />
+        </form>
+
         <div className="flex items-center gap-2 sm:ms-auto">
           <SavedViews
             scope="influencers"
             basePath="/influencers"
-            current={{ q: q ?? '', platform: platform ?? '', relationshipStatus: relationshipStatus ?? '' }}
+            current={{ q: q ?? '', platform: platform ?? '', relationshipStatus: relationshipStatus ?? '', countryCode: countryCode ?? '', city: city ?? '' }}
           />
           {hasActiveFilters ? (
             <Button

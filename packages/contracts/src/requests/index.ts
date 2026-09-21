@@ -280,9 +280,15 @@ export const influencerFilterSchema = paginationSchema.extend({
   brandId: cuid.optional(),
   platform: platformEnum.optional(),
   country: z.string().max(80).optional(),
+  /** Canonical country code (Advanced Roles & Logistics Operations pass) —
+   *  server-side, never a client-side post-filter of a downloaded page. */
+  countryCode: countryCode.optional(),
+  city: z.string().max(120).optional(),
   category: z.string().max(80).optional(),
   tag: z.string().max(80).optional(),
   relationshipStatus: z.enum(RELATIONSHIP_STATUSES).optional(),
+  /** Relationship owner/assignee (W4-5) — the literal 'unowned' matches ownerId: null. */
+  ownerId: z.string().min(1).optional(),
   minFollowers: z.coerce.number().int().min(0).optional(),
   maxFollowers: z.coerce.number().int().min(0).optional(),
   dealHistory: z.enum(['FREE', 'PAID', 'ANY']).optional(),
