@@ -106,7 +106,7 @@ test('Content Command Center: per-user review state, Timeline grouping, Review M
 
   // --- Brand page: Mission Control is brand-scoped, Review Mode reviews content #2 ---
   await page.goto(brandUrl);
-  const reviewButton = page.getByRole('button', { name: /Review \d+ New Videos/ });
+  const reviewButton = page.getByRole('button', { name: /Review \d+ New Videos?/ });
   await expect(reviewButton).toBeVisible();
   await reviewButton.click();
   // This click triggers a real network round trip (api.content.feed) before
@@ -123,7 +123,7 @@ test('Content Command Center: per-user review state, Timeline grouping, Review M
   await page.keyboard.press('Escape');
 
   // Caught up — clicking again with nothing left to review shows the message, not the dialog.
-  await page.getByRole('button', { name: /Review \d+ New Videos/ }).click();
+  await page.getByRole('button', { name: /Review \d+ New Videos?/ }).click();
   await expect(page.getByText(/caught up/i)).toBeVisible({ timeout: 10_000 });
 });
 
@@ -143,13 +143,18 @@ test('RTL: Timeline and Mission Control render correctly in Arabic', async ({ pa
   await page.getByRole('button', { name: 'Toggle language' }).click();
   await page.waitForFunction(() => document.documentElement.dir === 'rtl');
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-  await expect(page.getByRole('heading', { name: 'Mission Control' })).toBeVisible();
+  // Full Arabic translation (Localization pass) means the heading itself is
+  // now translated, not just the layout direction — "مركز العمليات" is the
+  // canonical Arabic for "Mission Control" (messages/ar/dashboard.json).
+  await expect(page.getByRole('heading', { name: 'مركز العمليات' })).toBeVisible();
 
   await page.goto('/content');
-  await expect(page.getByRole('heading', { name: 'Live Content' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'المحتوى المنشور' })).toBeVisible();
 
-  // Switch back to English so later runs aren't affected.
-  await page.getByRole('button', { name: 'Toggle language' }).click();
+  // Switch back to English so later runs aren't affected. The toggle
+  // button's own accessible name is translated too (correct a11y behavior),
+  // so it now reads its Arabic label while the page is in RTL.
+  await page.getByRole('button', { name: 'تبديل اللغة' }).click();
   await page.waitForFunction(() => document.documentElement.dir === 'ltr');
 });
 

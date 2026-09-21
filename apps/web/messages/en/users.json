@@ -43,7 +43,7 @@
     "errorGeneric": "Something went wrong. Please try again."
   },
   "editSheet": {
-    "description": "{email} — Role Profile, capabilities, brand & country scope.",
+    "description": "<email>{value}</email> — Role Profile, capabilities, brand & country scope.",
     "legacyRole": "Legacy role",
     "accountStatus": "Account status",
     "saveChanges": "Save changes",

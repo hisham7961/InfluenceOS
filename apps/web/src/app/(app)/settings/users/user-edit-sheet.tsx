@@ -155,7 +155,8 @@ export function UserEditSheet({
               </SheetTitle>
               <SheetDescription>
                 {t.rich('editSheet.description', {
-                  email: () => <BidiText as="span">{detail.email}</BidiText>,
+                  email: (chunks) => <BidiText as="span">{chunks}</BidiText>,
+                  value: detail.email,
                 })}
               </SheetDescription>
             </SheetHeader>
