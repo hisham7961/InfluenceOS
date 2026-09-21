@@ -16,6 +16,7 @@ import type {
   CampaignDetailDTO,
   CampaignEfficiencyDTO,
   CampaignInfluencerDTO,
+  CampaignOperationsBoardDTO,
   CampaignSummaryDTO,
   ClientConfigDTO,
   ContentMetricsDTO,
@@ -219,6 +220,8 @@ export function createClient(config: ClientConfig) {
       shipments: (id: string) => http.get<ProductShipmentDTO[]>(`${V}/campaigns/${id}/shipments`),
       // Submission review queue across a campaign (W3-1 web surface).
       submissions: (id: string) => http.get<DeliverableSubmissionDTO[]>(`${V}/campaigns/${id}/submissions`),
+      // Campaign Operations Board — per-influencer stage pipeline (Operations Intelligence).
+      operationsBoard: (id: string) => http.get<CampaignOperationsBoardDTO>(`${V}/campaigns/${id}/operations-board`),
       get: (idOrSlug: string) => http.get<CampaignDetailDTO>(`${V}/campaigns/${idOrSlug}`),
       create: (body: In<typeof requests.campaignCreateSchema>) =>
         http.post<CampaignDetailDTO>(`${V}/campaigns`, body),

@@ -14,6 +14,7 @@ import { makeBulkService } from './services/bulk.service';
 import { makeCalendarService } from './services/calendar.service';
 import { makeCampaignService } from './services/campaign.service';
 import { makeCampaignInfluencerService } from './services/campaign-influencer.service';
+import { makeCampaignOperationsService } from './services/campaign-operations.service';
 import { makeContentService } from './services/content.service';
 import { makeCredentialService } from './services/credential.service';
 import { makeCreatorOAuthService } from './services/creator-oauth.service';
@@ -51,6 +52,7 @@ export function createServices(ctx: DomainContext) {
     providers: makeProviderService(ctx),
     campaigns: makeCampaignService(ctx),
     campaignInfluencers: makeCampaignInfluencerService(ctx),
+    campaignOperations: makeCampaignOperationsService(ctx),
     sourcing: makeSourcingService(ctx),
     bulk: makeBulkService(ctx),
     shipments: makeShipmentService(ctx),

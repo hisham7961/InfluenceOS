@@ -87,6 +87,7 @@ import { CommentThread } from '@/components/collaboration/comment-thread';
 import { SourcingTab } from './sourcing-tab';
 import { ShipmentsTab } from './shipments-tab';
 import { SubmissionsTab } from './submissions-tab';
+import { OperationsBoardTab } from './operations-board-tab';
 import { formatCompact, formatCurrency, formatPercent, relativeTime, shortDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import {
@@ -145,6 +146,7 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="sourcing">Sourcing</TabsTrigger>
         <TabsTrigger value="influencers">Influencers</TabsTrigger>
+        <TabsTrigger value="operations">Operations Board</TabsTrigger>
         <TabsTrigger value="deliverables">Deliverables</TabsTrigger>
         <TabsTrigger value="submissions">Submissions</TabsTrigger>
         <TabsTrigger value="scripts">Scripts</TabsTrigger>
@@ -167,6 +169,10 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
 
       <TabsContent value="influencers">
         <InfluencersTab campaignId={campaign.id} influencers={influencers} />
+      </TabsContent>
+
+      <TabsContent value="operations">
+        <OperationsBoardTab campaignId={campaign.id} />
       </TabsContent>
 
       <TabsContent value="deliverables">

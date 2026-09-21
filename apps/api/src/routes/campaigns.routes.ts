@@ -62,6 +62,12 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
   );
 
   r.get(
+    '/campaigns/:id/operations-board',
+    { preHandler: [requireAuth], schema: { tags: ['Campaigns'], summary: 'Campaign Operations Board — per-influencer stage pipeline (Operations Intelligence)', params: idParam } },
+    async (req) => servicesFor(req).campaignOperations.board(req.params.id),
+  );
+
+  r.get(
     '/campaigns/:idOrSlug/efficiency',
     {
       preHandler: [requireAuth],
