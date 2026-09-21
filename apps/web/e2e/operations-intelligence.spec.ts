@@ -268,22 +268,29 @@ test('Data Quality Center shows Findings, Duplicate Creators, and Workflow Integ
   // server-fetched initialData (see data-quality-workspace.tsx) — a network
   // trace confirmed every request (SSR page load + background fetches)
   // completes in ~2-3s, and a screenshot taken the moment a wait timed out
-  // showed the page already fully and correctly rendered. This is never
-  // waiting on a slow query or missing data; it's this Chromium tab's own
-  // JS thread occasionally going unscheduled for tens of seconds on this
-  // heavily-loaded, CPU-limited local sandbox, then rendering everything in
-  // one burst once it runs (see FINAL REPORT / remaining limitations). A
-  // fresh navigation gives another chance to land in a scheduled window, so
-  // retry once via reload rather than only widening the timeout further.
-  const findings = page.getByText('Data Quality Findings', { exact: true });
-  try {
-    await expect(findings).toBeVisible({ timeout: 60_000 });
-  } catch {
-    await page.reload();
-    await expect(findings).toBeVisible({ timeout: 60_000 });
+  // showed the page already fully and correctly rendered. Data volume is
+  // trivial (seed + this file's own fixtures — tens of rows) and neither
+  // query does O(n^2) work, so this is never a slow query or missing data;
+  // it's transient contention on a shared, resource-constrained host —
+  // locally, the Chromium tab's own JS thread occasionally going
+  // unscheduled under `next dev`'s footprint; in CI, the "Full stack E2E"
+  // job's Postgres+Redis+API+worker+web+browser all time-slicing one
+  // shared 2-core runner (a real CI run hit a 74s Postgres checkpoint
+  // write stall mid-suite). A fresh navigation gives another chance to
+  // land outside the contention window, so retry once via reload on each
+  // card rather than only widening the timeout further.
+  async function expectCardVisible(title: string) {
+    const locator = page.getByText(title, { exact: true });
+    try {
+      await expect(locator).toBeVisible({ timeout: 60_000 });
+    } catch {
+      await page.reload();
+      await expect(locator).toBeVisible({ timeout: 60_000 });
+    }
   }
-  await expect(page.getByText('Possible Duplicate Creators', { exact: true })).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByText('Workflow Integrity Findings', { exact: true })).toBeVisible({ timeout: 60_000 });
+  await expectCardVisible('Data Quality Findings');
+  await expectCardVisible('Possible Duplicate Creators');
+  await expectCardVisible('Workflow Integrity Findings');
 });
 
 test('Executive dashboard shows budget KPIs, Today/Since-yesterday, Brands and Top creators', async ({ page }) => {

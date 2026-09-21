@@ -51,33 +51,122 @@ export function makeIntegrityGuardService(ctx: DomainContext) {
     const campaignBrandWhere = brandIds ? { brandId: { in: brandIds } } : {};
     const out: IntegrityFindingDTO[] = [];
 
-    // Rules 1 & 2: content associated to a deliverable, but the content's own
-    // campaign/influencer tag disagrees with the deliverable's actual roster
-    // row. WF-6 enforces this at write time going forward; this catches
-    // anything that predates that, or slipped through another path.
-    const contentRows = await prisma.publishedContent.findMany({
-      where: { deliverableId: { not: null }, ...(brandIds ? { brandId: { in: brandIds } } : {}) },
-      select: {
-        id: true,
-        originalUrl: true,
-        campaignId: true,
-        influencerId: true,
-        campaign: { select: { name: true } },
-        influencer: { select: { displayName: true } },
-        deliverable: {
-          select: {
-            campaignInfluencer: {
-              select: {
-                campaignId: true,
-                influencerId: true,
-                campaign: { select: { name: true } },
-                influencer: { select: { displayName: true } },
+    // Rules 1-7 read disjoint tables/filters off the same `brandIds` scope —
+    // no rule depends on another's result, so run them concurrently rather
+    // than as six sequential round trips (mirrors data-quality.service.ts's
+    // report(), and halves this endpoint's exposure to a single slow query
+    // or transient stall turning into a cumulative multi-query timeout).
+    const [contentRows, productDeliverables, deliverablesWithApproval, completedCampaigns, overpaid, usageRights] = await Promise.all([
+      // Rules 1 & 2: content associated to a deliverable, but the content's
+      // own campaign/influencer tag disagrees with the deliverable's actual
+      // roster row. WF-6 enforces this at write time going forward; this
+      // catches anything that predates that, or slipped through another path.
+      prisma.publishedContent.findMany({
+        where: { deliverableId: { not: null }, ...(brandIds ? { brandId: { in: brandIds } } : {}) },
+        select: {
+          id: true,
+          originalUrl: true,
+          campaignId: true,
+          influencerId: true,
+          campaign: { select: { name: true } },
+          influencer: { select: { displayName: true } },
+          deliverable: {
+            select: {
+              campaignInfluencer: {
+                select: {
+                  campaignId: true,
+                  influencerId: true,
+                  campaign: { select: { name: true } },
+                  influencer: { select: { displayName: true } },
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
+      // Rule 3: a deliverable that required shipping a product has reached a
+      // done state, but no shipment tied to it ever reached DELIVERED.
+      prisma.deliverable.findMany({
+        where: {
+          requiresProduct: true,
+          status: { in: [...DONE_DELIVERABLE_STATUSES] },
+          campaignInfluencer: { campaign: campaignBrandWhere },
+        },
+        select: {
+          id: true,
+          platform: true,
+          status: true,
+          shipments: { select: { status: true } },
+          campaignInfluencer: { select: { campaign: { select: { name: true } }, influencer: { select: { displayName: true } } } },
+        },
+      }),
+      // Rule 4: the latest submission on a deliverable was approved, but the
+      // deliverable's own status was never advanced to reflect that — the
+      // transactional update in submission.service.ts's approve() step should
+      // always keep these in lockstep, so a mismatch here means something
+      // outside that path touched one side only.
+      prisma.deliverable.findMany({
+        where: {
+          submissions: { some: { status: 'APPROVED' } },
+          campaignInfluencer: { campaign: campaignBrandWhere },
+        },
+        select: {
+          id: true,
+          status: true,
+          platform: true,
+          campaignInfluencer: { select: { campaign: { select: { name: true } }, influencer: { select: { displayName: true } } } },
+          submissions: { orderBy: { version: 'desc' }, take: 1, select: { status: true, version: true } },
+        },
+      }),
+      // Rule 5: a campaign marked COMPLETED still has deliverables sitting in
+      // a non-terminal state — the campaign says the work is done, the
+      // roster says otherwise.
+      prisma.campaign.findMany({
+        where: { status: 'COMPLETED', ...campaignBrandWhere },
+        select: {
+          id: true,
+          name: true,
+          campaignInfluencers: {
+            select: {
+              deliverables: { select: { id: true, status: true, dueDate: true } },
+              influencer: { select: { displayName: true } },
+            },
+          },
+        },
+      }),
+      // Rule 6: a paid amount recorded against a roster row exceeds what was
+      // actually agreed — a real financial discrepancy, not a display issue.
+      prisma.campaignInfluencer.findMany({
+        where: {
+          paidAmount: { not: null },
+          agreedCost: { not: null },
+          campaign: campaignBrandWhere,
+        },
+        select: {
+          id: true,
+          paidAmount: true,
+          agreedCost: true,
+          currency: true,
+          campaign: { select: { id: true, name: true, currency: true } },
+          influencer: { select: { displayName: true } },
+        },
+      }),
+      // Rule 7: a usage right's brand doesn't match the brand of the
+      // campaign/content it's actually scoped to — usage rights are
+      // brand-owned legal terms, so a cross-brand mismatch is a real error.
+      prisma.usageRight.findMany({
+        where: brandIds ? { brandId: { in: brandIds } } : {},
+        select: {
+          id: true,
+          brandId: true,
+          campaignId: true,
+          publishedContentId: true,
+          campaign: { select: { name: true, brandId: true } },
+          publishedContent: { select: { originalUrl: true, brandId: true } },
+        },
+      }),
+    ]);
+
     for (const c of contentRows) {
       const ci = c.deliverable?.campaignInfluencer;
       if (!ci) continue;
@@ -109,22 +198,6 @@ export function makeIntegrityGuardService(ctx: DomainContext) {
       }
     }
 
-    // Rule 3: a deliverable that required shipping a product has reached a
-    // done state, but no shipment tied to it ever reached DELIVERED.
-    const productDeliverables = await prisma.deliverable.findMany({
-      where: {
-        requiresProduct: true,
-        status: { in: [...DONE_DELIVERABLE_STATUSES] },
-        campaignInfluencer: { campaign: campaignBrandWhere },
-      },
-      select: {
-        id: true,
-        platform: true,
-        status: true,
-        shipments: { select: { status: true } },
-        campaignInfluencer: { select: { campaign: { select: { name: true } }, influencer: { select: { displayName: true } } } },
-      },
-    });
     for (const d of productDeliverables) {
       if (d.shipments.some((s) => s.status === 'DELIVERED')) continue;
       const shipmentState = d.shipments.length === 0 ? 'no shipment was ever created' : 'no linked shipment reached Delivered';
@@ -141,24 +214,6 @@ export function makeIntegrityGuardService(ctx: DomainContext) {
       );
     }
 
-    // Rule 4: the latest submission on a deliverable was approved, but the
-    // deliverable's own status was never advanced to reflect that — the
-    // transactional update in submission.service.ts's approve() step should
-    // always keep these in lockstep, so a mismatch here means something
-    // outside that path touched one side only.
-    const deliverablesWithApproval = await prisma.deliverable.findMany({
-      where: {
-        submissions: { some: { status: 'APPROVED' } },
-        campaignInfluencer: { campaign: campaignBrandWhere },
-      },
-      select: {
-        id: true,
-        status: true,
-        platform: true,
-        campaignInfluencer: { select: { campaign: { select: { name: true } }, influencer: { select: { displayName: true } } } },
-        submissions: { orderBy: { version: 'desc' }, take: 1, select: { status: true, version: true } },
-      },
-    });
     for (const d of deliverablesWithApproval) {
       const latest = d.submissions[0];
       if (!latest || latest.status !== 'APPROVED') continue;
@@ -176,22 +231,6 @@ export function makeIntegrityGuardService(ctx: DomainContext) {
       );
     }
 
-    // Rule 5: a campaign marked COMPLETED still has deliverables sitting in a
-    // non-terminal state — the campaign says the work is done, the roster
-    // says otherwise.
-    const completedCampaigns = await prisma.campaign.findMany({
-      where: { status: 'COMPLETED', ...campaignBrandWhere },
-      select: {
-        id: true,
-        name: true,
-        campaignInfluencers: {
-          select: {
-            deliverables: { select: { id: true, status: true, dueDate: true } },
-            influencer: { select: { displayName: true } },
-          },
-        },
-      },
-    });
     for (const camp of completedCampaigns) {
       const open = camp.campaignInfluencers.flatMap((ci) =>
         ci.deliverables.filter((d) => !TERMINAL_DELIVERABLE_STATUSES.has(d.status)).map((d) => ({ ...d, influencer: ci.influencer.displayName })),
@@ -211,23 +250,6 @@ export function makeIntegrityGuardService(ctx: DomainContext) {
       );
     }
 
-    // Rule 6: a paid amount recorded against a roster row exceeds what was
-    // actually agreed — a real financial discrepancy, not a display issue.
-    const overpaid = await prisma.campaignInfluencer.findMany({
-      where: {
-        paidAmount: { not: null },
-        agreedCost: { not: null },
-        campaign: campaignBrandWhere,
-      },
-      select: {
-        id: true,
-        paidAmount: true,
-        agreedCost: true,
-        currency: true,
-        campaign: { select: { id: true, name: true, currency: true } },
-        influencer: { select: { displayName: true } },
-      },
-    });
     for (const row of overpaid) {
       if (row.paidAmount == null || row.agreedCost == null) continue;
       if (row.paidAmount.lte(row.agreedCost)) continue;
@@ -245,20 +267,6 @@ export function makeIntegrityGuardService(ctx: DomainContext) {
       );
     }
 
-    // Rule 7: a usage right's brand doesn't match the brand of the
-    // campaign/content it's actually scoped to — usage rights are
-    // brand-owned legal terms, so a cross-brand mismatch is a real error.
-    const usageRights = await prisma.usageRight.findMany({
-      where: brandIds ? { brandId: { in: brandIds } } : {},
-      select: {
-        id: true,
-        brandId: true,
-        campaignId: true,
-        publishedContentId: true,
-        campaign: { select: { name: true, brandId: true } },
-        publishedContent: { select: { originalUrl: true, brandId: true } },
-      },
-    });
     for (const ur of usageRights) {
       if (ur.campaign && ur.campaign.brandId !== ur.brandId) {
         out.push(
