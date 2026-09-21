@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -140,11 +140,40 @@ export interface WorkspaceProps {
   contentFeed: PublishedContentDTO[];
 }
 
+const WORKSPACE_TABS = [
+  'overview',
+  'sourcing',
+  'influencers',
+  'operations',
+  'deliverables',
+  'submissions',
+  'scripts',
+  'content',
+  'shipments',
+  'costs',
+  'performance',
+  'files',
+  'activity',
+  'discussion',
+] as const;
+
 /** The campaign control room — tabs covering everything about one campaign. */
 export function Workspace({ campaign, influencers, costs, scripts, contentFeed }: WorkspaceProps) {
   const discussionUnread = useConversationUnread(`campaign:${campaign.id}`);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Deep-linkable (Campaign Operations Board / Needs Attention / Creator 360
+  // all link here with `?tab=…`) — controlled, seeded from the URL, and kept
+  // in sync on every switch so those links actually land on the right tab.
+  const requestedTab = searchParams.get('tab');
+  const initialTab = WORKSPACE_TABS.find((t) => t === requestedTab) ?? 'overview';
+  const [tab, setTab] = React.useState<string>(initialTab);
+  function changeTab(next: string) {
+    setTab(next);
+    router.replace(`/campaigns/${campaign.id}?tab=${next}`, { scroll: false });
+  }
   return (
-    <Tabs defaultValue="overview">
+    <Tabs value={tab} onValueChange={changeTab}>
       <TabsList className="flex-wrap">
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="sourcing">Sourcing</TabsTrigger>
