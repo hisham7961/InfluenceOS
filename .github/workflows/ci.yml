@@ -302,7 +302,18 @@ jobs:
       WORKER_PORT: '4100'
       WEB_ORIGIN: http://localhost:3000
       E2E_BASE_URL: http://localhost:3000
-      MONITOR_CRON: '*/1 * * * *'
+      # The "Start worker" step's lastMaintenanceAt check is satisfied by the
+      # worker's own unconditional one-shot 'sweep-now' job at startup
+      # (apps/worker/src/index.ts), not by this cron — so it doesn't need to
+      # be frequent here. A 1-minute cadence was previously set, but the
+      # *recurring* sweep re-firing during the ~2.5min Playwright run
+      # competes for CPU/DB with concurrent page loads on this shared
+      # 2-core runner and was the root cause of intermittent E2E timeouts
+      # (evidenced by: failures reproduced only in CI, never locally where
+      # MONITOR_CRON defaults to */30; failures landed on whichever
+      # assertion happened to run near a sweep, not the same one twice).
+      # Matches the app's own default cadence.
+      MONITOR_CRON: '*/30 * * * *'
       CI: 'true'
       # Real MinIO for the object-storage round-trip (verifies storage in-stack).
       S3_TEST_ENDPOINT: http://localhost:9000
