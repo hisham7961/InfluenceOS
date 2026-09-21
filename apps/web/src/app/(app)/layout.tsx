@@ -18,6 +18,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </AppShell>
     );
   } catch {
-    redirect('/login');
+    // Route through a Route Handler (never straight to /login): a Server
+    // Component can't clear cookies, so a stale access-token cookie would
+    // survive the redirect and middleware would immediately bounce /login
+    // back to /, looping forever. See api/session/expire/route.ts.
+    redirect('/api/session/expire');
   }
 }
