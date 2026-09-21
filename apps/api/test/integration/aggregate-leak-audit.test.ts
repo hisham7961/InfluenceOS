@@ -63,6 +63,11 @@ describe('aggregate-leak-audit — data-quality.service.ts country scope', () =>
   let kwUser: ScopedUser;
   let kwInfluencerId: string;
   let saInfluencerId: string;
+  let kwBeforeCount: number;
+  let adminBeforeCount: number;
+
+  const engagedNoMobileCount = (json: unknown): number =>
+    ((json as DataQualityReportDTO).findings.find((f) => f.id === 'influencer-engaged-no-mobile') ?? { count: 0 }).count;
 
   beforeAll(async () => {
     app = await makeApp();
@@ -75,6 +80,13 @@ describe('aggregate-leak-audit — data-quality.service.ts country scope', () =>
     // resolves to null (brand-unscoped) but scopedCountryCodes resolves to
     // ['KW']. This is exactly the spec's example actor.
     await setCountryAccess(app, admin, kwUser.userId, ['KW']);
+
+    // Baseline BEFORE the fixtures exist (never a bare global count — the
+    // shared test DB has other rows) — a DELTA is measured against this.
+    const kwBefore = await app.inject({ method: 'GET', url: '/api/v1/data-quality/report', headers: kwUser.auth });
+    kwBeforeCount = engagedNoMobileCount(kwBefore.json());
+    const adminBefore = await app.inject({ method: 'GET', url: '/api/v1/data-quality/report', headers: admin });
+    adminBeforeCount = engagedNoMobileCount(adminBefore.json());
 
     kwInfluencerId = idOf(
       await app.inject({
@@ -106,27 +118,16 @@ describe('aggregate-leak-audit — data-quality.service.ts country scope', () =>
 
   it('report(): a KW-only country-scoped actor\'s aggregate counts exclude an SA-only creator — the spec\'s own example ("27 Saudi creators missing phone")', async () => {
     // Both fixtures are ACTIVE with no mobile on file, so each is one unit of
-    // 'influencer-engaged-no-mobile'. Measure the DELTA this fixture pair
-    // contributes (never a bare global count — the shared test DB has other
-    // rows), for both the KW-scoped actor and an unscoped admin.
-    const before = await app.inject({ method: 'GET', url: '/api/v1/data-quality/report', headers: kwUser.auth });
-    const beforeCount = ((before.json() as DataQualityReportDTO).findings.find((f) => f.id === 'influencer-engaged-no-mobile') ?? { count: 0 }).count;
-
-    const adminBefore = await app.inject({ method: 'GET', url: '/api/v1/data-quality/report', headers: admin });
-    const adminBeforeCount = ((adminBefore.json() as DataQualityReportDTO).findings.find((f) => f.id === 'influencer-engaged-no-mobile') ?? { count: 0 }).count;
-
-    // Give both fixtures the finding-triggering shape (ACTIVE + no mobile) —
-    // already true from creation above; this call just re-confirms the KW
-    // fixture stays untouched by anything else in the suite.
+    // 'influencer-engaged-no-mobile'.
     const kwRes = await app.inject({ method: 'GET', url: '/api/v1/data-quality/report', headers: kwUser.auth });
     expect(kwRes.statusCode).toBe(200);
-    const kwCount = ((kwRes.json() as DataQualityReportDTO).findings.find((f) => f.id === 'influencer-engaged-no-mobile') ?? { count: 0 }).count;
+    const kwCount = engagedNoMobileCount(kwRes.json());
     // Only the KW creator is counted for the KW-scoped actor — the SA
     // creator contributes 0 to their delta.
-    expect(kwCount - beforeCount).toBe(1);
+    expect(kwCount - kwBeforeCount).toBe(1);
 
     const adminRes = await app.inject({ method: 'GET', url: '/api/v1/data-quality/report', headers: admin });
-    const adminCount = ((adminRes.json() as DataQualityReportDTO).findings.find((f) => f.id === 'influencer-engaged-no-mobile') ?? { count: 0 }).count;
+    const adminCount = engagedNoMobileCount(adminRes.json());
     // An unscoped admin sees both.
     expect(adminCount - adminBeforeCount).toBe(2);
   });
@@ -205,17 +206,20 @@ describe('aggregate-leak-audit — creator360.service.ts per-panel brand scope',
     );
 
     // A published (on-time) deliverable on EACH side, so reliability()'s
-    // sampleSize is a clean per-brand signal.
+    // sampleSize is a clean per-brand signal. publishedAt is never inferred
+    // from a status change (deliverable.service.ts's update()) — it must be
+    // passed explicitly, same as this file's own reliability() query, which
+    // requires BOTH dueDate and publishedAt set.
     const dueA = new Date(Date.now() - 3600_000).toISOString();
     const delA = idOf(
       await app.inject({ method: 'POST', url: `/api/v1/campaign-influencers/${ciA}/deliverables`, headers: admin, payload: { platform: 'INSTAGRAM', type: 'REEL', dueDate: dueA } }),
     );
-    await app.inject({ method: 'PATCH', url: `/api/v1/deliverables/${delA}`, headers: admin, payload: { status: 'PUBLISHED' } });
+    await app.inject({ method: 'PATCH', url: `/api/v1/deliverables/${delA}`, headers: admin, payload: { status: 'PUBLISHED', publishedAt: dueA } });
     const dueB = new Date(Date.now() - 3600_000).toISOString();
     const delB = idOf(
       await app.inject({ method: 'POST', url: `/api/v1/campaign-influencers/${ciB}/deliverables`, headers: admin, payload: { platform: 'INSTAGRAM', type: 'REEL', dueDate: dueB } }),
     );
-    await app.inject({ method: 'PATCH', url: `/api/v1/deliverables/${delB}`, headers: admin, payload: { status: 'PUBLISHED' } });
+    await app.inject({ method: 'PATCH', url: `/api/v1/deliverables/${delB}`, headers: admin, payload: { status: 'PUBLISHED', publishedAt: dueB } });
 
     // A UGC submission on Brand B's deliverable only.
     await app.inject({
@@ -309,6 +313,10 @@ describe('aggregate-leak-audit — dashboard.service.ts scope on the Mission Con
     campaignBId = idOf(
       await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: admin, payload: { brandId: brandBId, name: `AggLeak Dash Camp B ${Date.now()}`, status: 'ACTIVE', currency: 'KWD' } }),
     );
+    // Creating a campaign with no explicit ownerId defaults it to the actor —
+    // PATCH it to a genuinely null owner so it's a real 'campaigns-missing-
+    // owner' attention item for Brand B to (not) leak.
+    await app.inject({ method: 'PATCH', url: `/api/v1/campaigns/${campaignBId}`, headers: admin, payload: { ownerId: null } });
     const infB = idOf(
       await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `AggLeak Dash Creator B ${Date.now()}`, countryCode: 'KW' } }),
     );
@@ -348,20 +356,27 @@ describe('aggregate-leak-audit — dashboard.service.ts scope on the Mission Con
     const res = await app.inject({ method: 'GET', url: '/api/v1/dashboard/global', headers: brandAUser.auth });
     expect(res.statusCode).toBe(200);
     const dash = res.json() as GlobalDashboardDTO;
-    expect(dash.upcomingContent.every((c) => c.campaignName !== `AggLeak Dash Camp B ${''}`.trim() || true)).toBe(true);
-    // Precise: nothing in this Brand-A-scoped actor's feed names Brand B.
+    // Nothing in this Brand-A-scoped actor's feed names Brand B.
     expect(dash.upcomingContent.some((c) => c.brandName.startsWith('AggLeak Dash B'))).toBe(false);
     expect(dash.recentActivity.every((a) => !a.message.includes('AggLeak Dash Camp B'))).toBe(true);
   });
 
   it('GET /dashboard/attention?brandId=<out-of-scope> returns nothing for a brand-scoped actor, rather than bypassing scope on an explicit brandId', async () => {
+    // Positive baseline: an unscoped admin passing the SAME brandId sees the
+    // real 'campaigns-missing-owner' item — proves the fixture is real, not
+    // that the item was empty to begin with (which would make this test
+    // pass trivially regardless of the fix).
+    const adminRes = await app.inject({ method: 'GET', url: `/api/v1/dashboard/attention?brandId=${brandBId}`, headers: admin });
+    const adminItems = adminRes.json() as { id: string }[];
+    expect(adminItems.some((i) => i.id === 'campaigns-missing-owner')).toBe(true);
+
     // Before the fix, attentionBrandFilter() returned `{ brandId }` for ANY
     // explicit brandId with no scope check at all, so a Brand-A-scoped actor
-    // passing Brand B's id got Brand B's attention items in full.
+    // passing Brand B's id got the SAME Brand B item back in full.
     const res = await app.inject({ method: 'GET', url: `/api/v1/dashboard/attention?brandId=${brandBId}`, headers: brandAUser.auth });
     expect(res.statusCode).toBe(200);
-    const items = res.json() as unknown[];
-    expect(items).toHaveLength(0);
+    const items = res.json() as { id: string }[];
+    expect(items.some((i) => i.id === 'campaigns-missing-owner')).toBe(false);
 
     // Positive control — the same actor DOES see Brand A's own (empty, but
     // reachable) attention slice without a 403/404, proving this is a scope
