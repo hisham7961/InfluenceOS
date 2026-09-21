@@ -18,15 +18,15 @@ No secrets, credentials, or credential values appear in this document.
 
 | Classification | Count | Meaning |
 |---|---:|---|
-| **OK** | 154 | Full chain present and either directly wired to a UI caller, or reachable through a legitimate internal path (helper called by a routed sibling function, worker job, request-auth middleware, or a documented redirect/webhook route that a client library correctly has no method for) |
-| **NO-CLIENT** | 18 | Route exists, `api-client` has **no** wrapper method for it |
+| **OK** | 155 | Full chain present and either directly wired to a UI caller, or reachable through a legitimate internal path (helper called by a routed sibling function, worker job, request-auth middleware, or a documented redirect/webhook route that a client library correctly has no method for) |
+| **NO-CLIENT** | 17 | Route exists, `api-client` has **no** wrapper method for it |
 | **DEAD-CLIENT-METHOD** | 14 | Route **and** client method both exist, but the client method has zero web callers **and** the exact same data is already fully available to the UI through another endpoint it actually calls (redundant/superseded — safe-to-remove candidates) |
 | **NO-UI-internal** | 5 | Route and client method exist, no web caller, but there's a documented, plausible reason (mobile-first-not-yet-built, deliberate soft-delete design, etc.) |
 | **NO-UI-gap** | 9 | Route and client method (or route alone, for the sourcing/candidate group counted under NO-CLIENT) exist, no web caller, and **no** plausible reason — an operator would reasonably want this and it appears to have simply never been wired into the UI |
 | **NO-ROUTE** | 2 | Exported service function with no HTTP route, no worker caller, and no internal caller anywhere in the codebase — genuine dead code |
 | **DEAD-ROUTE** | 0 | No routes were found that are registered but never call any service function, or that are otherwise unreachable — all 186 routes are live and registered |
 
-Note: `shipment.service.ts`'s `listForDeliverable` was NO-ROUTE at audit time; a concurrent Final Completion Pass work-stream (gap #9, Deliverable→Shipment nav) added its route/client method/UI caller shortly after this table was drafted, and the row below was corrected post-hoc to OK — the counts above already reflect that correction (154 OK / 2 NO-ROUTE), not a full audit re-run.
+Note: two rows were corrected post-hoc as concurrent Final Completion Pass work-streams landed fixes for gaps this same audit had just found — the counts above already reflect both corrections, neither is a full audit re-run: (1) `shipment.service.ts`'s `listForDeliverable` was NO-ROUTE at audit time; gap #9 (Deliverable→Shipment nav) added its route/client method/UI caller. (2) `bulk.service.ts`'s `addInfluencers` was NO-CLIENT/NO-UI-gap at audit time; gap #6 (bulk-preview unification) added its client method, a Preview step, and a real UI.
 
 Note: several `NO-CLIENT` rows (the entire single-candidate CRUD lifecycle: get/add/update/decide/convert/remove) represent one coherent feature gap — the Sourcing pipeline is read-only + bulk-CSV-import only in the web app even though the backend fully supports adding, editing, deciding on, converting, and removing individual candidates. See "Most concerning findings" below.
 
@@ -118,7 +118,7 @@ Note: several `NO-CLIENT` rows (the entire single-candidate CRUD lifecycle: get/
 
 | Function | Route | Client Method | Web UI Caller(s) | Classification | Notes |
 |---|---|---|---|---|---|
-| addInfluencers | POST /campaigns/:id/influencers/bulk | *(none)* | *(none found)* | **NO-CLIENT / NO-UI-gap** | "Add many influencers to a campaign roster at once (W3-4)" — fully built server-side, has no client wrapper at all, and no UI. Influencers can currently only be added to a campaign roster one at a time from the web app. |
+| addInfluencers | POST /campaigns/:id/influencers/bulk | `campaigns.addRosterInfluencers` | bulk-add-influencers-dialog.tsx (campaign workspace, Influencers tab) | OK | Was NO-CLIENT/NO-UI-gap at audit time (this row's original note said "influencers can currently only be added to a campaign roster one at a time"); the Final Completion Pass (gap #6, closed by a concurrent work-stream landing right after this table was drafted) added `previewAddInfluencers`/the client method/a real bulk-add UI with a Preview step. Corrected post-hoc — not a re-run of the full audit. |
 | applyDeliverableTemplate | POST /campaigns/:id/deliverable-template | *(none)* | *(none found)* | **NO-CLIENT / NO-UI-gap** | "Apply a deliverable template across the campaign roster (W3-4)" — same situation; server-built, unreachable from web. |
 | importCandidatesCsv | POST /campaigns/:id/candidates/import | `campaigns.importCandidates` | `import-candidates-dialog.tsx` | OK | |
 
@@ -434,7 +434,7 @@ Note: several `NO-CLIENT` rows (the entire single-candidate CRUD lifecycle: get/
 4. **No maintenance-mode toggle.** `isMaintenanceActive()` gates every single API request, but `platform.updateClientConfig` (the only way to flip it) has no UI caller anywhere.
 5. **Brand↔influencer relationship linking (`brandInfluencers.upsert`/`.remove`) has no UI** — relationships are shown read-only on the influencer profile with no way to create or remove them.
 6. **Manual content metrics (`content.addManualMetrics`) and metric history (`content.metricsHistory`) have no UI**, despite the route being explicitly built for "platforms without an official API" — a real, named use case.
-7. **Bulk roster operations (`bulk.addInfluencers`, `bulk.applyDeliverableTemplate`) have no client method at all**, let alone UI — influencers can only be added to a campaign one at a time from the web app despite a "W3-4" bulk-roster feature existing server-side.
+7. **`bulk.applyDeliverableTemplate` still has no client method at all**, let alone UI — a campaign's roster can only be fanned out a deliverable template one member at a time from the web app despite the server-side "W3-4" feature existing. (`bulk.addInfluencers`, the sibling finding in this same row at audit time, gained a client method, a Preview step, and a real UI from a concurrent Final Completion Pass work-stream — see the campaigns table above; only `applyDeliverableTemplate` remains a gap.)
 8. **@mentions have no inbox.** Users can tag each other in any comment thread, but `notes.listMentionsForUser` (`notes.mentions`) is never called — there's no page to see "what I was mentioned in."
 9. **No dedicated, shareable search-results page.** Only the Cmd+K quick-search (`search.search`) is wired; the paginated, ranked `search.searchPage` ("indexes notes + tags," W3-6) is unused.
 10. **One genuinely dead service function with no callers anywhere** (safe-to-remove candidate, not a gap): `brandInfluencer.service.ts`'s `get`. (`shipment.service.ts`'s `listForDeliverable` was dead at audit time but gained a route/client/UI caller from a concurrent work-stream — see the shipment table above; no longer dead.) A second, `creatorOAuth.service.ts`'s `accessToken`, is dead but was clearly built ahead of a not-yet-wired metrics-fetcher feature (its own comment says so) — worth keeping and finishing rather than deleting.
