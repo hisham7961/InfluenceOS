@@ -133,7 +133,11 @@ export function ImportCandidatesDialog({ campaignId }: { campaignId: string }) {
             {duplicateWarnings.length > 0 ? (
               <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-foreground">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
-                <p>
+                {/* min-w-0 lets this text wrap onto multiple lines instead of
+                    being clipped at the dialog's edge — a flex child's
+                    default min-width:auto otherwise refuses to shrink below
+                    its unwrapped content width. */}
+                <p className="min-w-0 flex-1">
                   {duplicateWarnings.length} row{duplicateWarnings.length === 1 ? '' : 's'} may duplicate an existing creator — review the
                   warnings below. Importing will still create a new influencer for each unless you fix the row and preview again.
                 </p>
@@ -143,7 +147,11 @@ export function ImportCandidatesDialog({ campaignId }: { campaignId: string }) {
             <div className="max-h-72 space-y-1.5 overflow-y-auto rounded-lg border border-border p-2 text-sm">
               {preview.rows.map((row, i) => (
                 <div key={i} className="flex items-start justify-between gap-3 px-2 py-1.5">
-                  <div className="min-w-0">
+                  {/* flex-1 alongside min-w-0 so this block is actually
+                      constrained to the row's available width — without it,
+                      the row (and the whole dialog) could overflow instead of
+                      the text cleanly truncating with an ellipsis. */}
+                  <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{row.label ?? 'Row'}</p>
                     {row.message ? <p className="truncate text-xs text-muted-foreground">{row.message}</p> : null}
                   </div>
@@ -158,6 +166,7 @@ export function ImportCandidatesDialog({ campaignId }: { campaignId: string }) {
           <Field label="CSV" hint="One creator per row. The first row is the header.">
             <Textarea
               autoFocus
+              dir="ltr"
               value={csv}
               onChange={(e) => setCsv(e.target.value)}
               placeholder={SAMPLE}

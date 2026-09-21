@@ -121,9 +121,12 @@ function DuplicateWarningCard({ matches, onDismiss }: { matches: DuplicateCandid
 
         <div className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-lg border border-border/60 bg-surface">
           {matches.map((m) => (
-            <div key={m.influencerId} className="flex items-center gap-3 px-3 py-2.5">
+            <div key={m.influencerId} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
               <Avatar name={m.displayName} src={m.avatarUrl} size="sm" />
-              <div className="min-w-0 flex-1">
+              {/* basis-40 gives this block a width floor so a narrow row wraps
+                  the "Open existing profile" button onto its own line instead
+                  of squeezing the name/reason text down to a few characters. */}
+              <div className="min-w-0 flex-1 basis-40">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="truncate text-sm font-medium text-foreground">{m.displayName}</p>
                   <Badge tone={CONFIDENCE_TONE[m.confidence]}>{CONFIDENCE_LABEL[m.confidence]}</Badge>
