@@ -189,8 +189,14 @@ test('operator drives the full content-association + logistics workflow through 
 
   // Advance status from the cross-campaign workspace — proves two-way sync
   // (the campaign Shipments tab reads the exact same row, never a copy).
-  const logisticsRow = page.locator('tr', { hasText: INFLUENCER }).first();
-  await logisticsRow.getByRole('combobox').click();
+  // The status control lives inside the shipment's own detail sheet (opened
+  // by clicking its row), not as an inline row-level combobox — the table
+  // row itself only shows a read-only status badge.
+  await page.getByText(INFLUENCER).first().click();
+  const shipmentSheet = page.getByRole('dialog');
+  await shipmentSheet.getByRole('combobox').first().click();
   await page.getByRole('option', { name: 'Shipped' }).click();
-  await expect(logisticsRow.getByText('Shipped').first()).toBeVisible({ timeout: 10_000 });
+  await expect(shipmentSheet.getByText('Shipped').first()).toBeVisible({ timeout: 10_000 });
+  await shipmentSheet.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
 });
