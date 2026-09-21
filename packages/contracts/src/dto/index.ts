@@ -595,6 +595,17 @@ export interface LogisticsCountrySummaryDTO {
   needsAttention: number;
 }
 
+/** Per-country counts for the Influencer Directory's country-first summary
+ *  strip (item 80/81 — "All Creators 284, Kuwait 126…" clickable into the
+ *  same directory's countryCode filter) — respects the viewer's own
+ *  brand/country scope and every active filter except the country facet
+ *  itself. `countryCode: null` buckets creators with no country on file yet. */
+export interface InfluencerCountrySummaryDTO {
+  countryCode: string | null;
+  countryName: string | null;
+  total: number;
+}
+
 // --- Scripts ---------------------------------------------------------------
 export interface ScriptVersionDTO {
   id: string;

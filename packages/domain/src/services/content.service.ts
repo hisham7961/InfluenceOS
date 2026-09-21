@@ -21,7 +21,7 @@ import type { z } from '@influenceos/contracts';
 import { Prisma, type ContentStatus } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireActor, requireCapability } from '../lib/authz';
 import { resolveContentAssociation } from '../lib/content-association';
 import { createNotification, iso, logActivity } from '../lib/helpers';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
@@ -111,7 +111,7 @@ export function makeContentService(ctx: DomainContext) {
   }
 
   async function create(input: ContentCreate): Promise<PublishedContentDTO> {
-    requireActor(ctx);
+    await requireCapability(ctx, 'CONTENT_MANAGE');
     const normalized = normalizeContentUrl(input.url);
     if (!normalized) {
       throw AppError.badRequest('That URL is not from a supported platform (Instagram, TikTok, YouTube, Snapchat, X).');
@@ -300,7 +300,7 @@ export function makeContentService(ctx: DomainContext) {
   }
 
   async function update(id: string, input: ContentUpdate): Promise<PublishedContentDTO> {
-    requireActor(ctx);
+    await requireCapability(ctx, 'CONTENT_MANAGE');
     const existing = await prisma.publishedContent.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Content');
 
@@ -456,7 +456,7 @@ export function makeContentService(ctx: DomainContext) {
 
   /** Manual metric entry for platforms with no official metrics API. */
   async function addManualMetrics(id: string, input: ManualMetrics): Promise<PublishedContentDTO> {
-    requireActor(ctx);
+    await requireCapability(ctx, 'CONTENT_MANAGE');
     const existing = await prisma.publishedContent.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Content');
     await recordMetrics(id, input, 'MANUAL');

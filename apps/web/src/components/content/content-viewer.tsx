@@ -1,5 +1,6 @@
 'use client';
 import * as React from 'react';
+import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bookmark, BookmarkCheck, Check, ChevronLeft, ChevronRight, ExternalLink, Pin, RefreshCw, SkipForward, Undo2 } from 'lucide-react';
 import type { ContentViewerStateDTO, PublishedContentDTO } from '@influenceos/contracts';
@@ -285,8 +286,24 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
       <div className="flex items-center gap-3">
         <Avatar name={content.influencer?.displayName ?? '—'} src={content.influencer?.avatarUrl} size="md" />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold">{content.influencer?.displayName ?? 'Unassigned'}</p>
-          <p className="truncate text-xs text-muted-foreground">{content.campaign?.name ?? content.brand?.name ?? '—'}</p>
+          {content.influencer ? (
+            <Link href={`/influencers/${content.influencer.id}`} className="truncate font-semibold hover:underline">
+              {content.influencer.displayName}
+            </Link>
+          ) : (
+            <p className="truncate font-semibold">Unassigned</p>
+          )}
+          {content.campaign ? (
+            <Link href={`/campaigns/${content.campaign.id}`} className="truncate text-xs text-muted-foreground hover:underline">
+              {content.campaign.name}
+            </Link>
+          ) : content.brand ? (
+            <Link href={`/brands/${content.brand.slug}`} className="truncate text-xs text-muted-foreground hover:underline">
+              {content.brand.name}
+            </Link>
+          ) : (
+            <p className="truncate text-xs text-muted-foreground">—</p>
+          )}
         </div>
         <Badge tone={reviewStatus === 'NEW' ? 'info' : reviewStatus === 'REVIEWED' ? 'success' : 'neutral'}>
           {reviewStatus === 'NEW' ? 'New' : reviewStatus === 'REVIEWED' ? 'Reviewed' : 'Seen'}
@@ -296,7 +313,15 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
       <div className="flex flex-wrap items-center gap-2">
         <PlatformBadge platform={content.platform} withLabel />
         <ContentStatusBadge status={content.availabilityStatus} />
-        {content.deliverable ? <Badge tone="accent">{content.deliverable.type}</Badge> : null}
+        {content.deliverable ? (
+          content.campaign ? (
+            <Link href={`/campaigns/${content.campaign.id}?tab=submissions`}>
+              <Badge tone="accent">{content.deliverable.type}</Badge>
+            </Link>
+          ) : (
+            <Badge tone="accent">{content.deliverable.type}</Badge>
+          )
+        ) : null}
       </div>
 
       {content.caption ? <p className="text-sm text-muted-foreground">{content.caption}</p> : null}

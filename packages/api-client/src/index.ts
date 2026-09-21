@@ -45,6 +45,7 @@ import type {
   IntegrationCapabilityDTO,
   IntegrationDTO,
   ProviderCredentialStatusDTO,
+  InfluencerCountrySummaryDTO,
   InfluencerDetailDTO,
   InfluencerSummaryDTO,
   IntegrityFindingDTO,
@@ -162,6 +163,9 @@ export function createClient(config: ClientConfig) {
       // Stable cursor pagination for the directory (W7-2 / mobile-ready feeds).
       listCursor: (params?: QueryParams) =>
         http.get<CursorPage<InfluencerSummaryDTO>>(`${V}/influencers/cursor`, { query: params }),
+      // Country-first summary strip — respects scope + every filter except the country facet itself.
+      countrySummary: (params?: QueryParams) =>
+        http.get<InfluencerCountrySummaryDTO[]>(`${V}/influencers/country-summary`, { query: params }),
       // Export influencers + their info. Raw form returns the file Response
       // (CSV by default, `format=json` for structured rows) — for programmatic
       // / mobile use. `exportUrl` builds a same-origin href for a browser

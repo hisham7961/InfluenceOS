@@ -32,6 +32,31 @@ async function createStaff(app: FastifyInstance, label: string): Promise<{ userI
 
 const idOf = (r: { json: () => unknown }) => (r.json() as { id: string }).id;
 
+/** A staff user with a given Role Profile set BEFORE first login — a
+ *  profile/role PATCH after login revokes existing sessions (SEC-03), so
+ *  logging in only once the profile is already set avoids that entirely. */
+async function createProfiledStaff(
+  app: FastifyInstance,
+  admin: Record<string, string>,
+  label: string,
+  roleProfile: string,
+): Promise<{ userId: string; auth: Record<string, string> }> {
+  const { PrismaClient } = await import('@influenceos/database');
+  const { hash } = await import('@node-rs/argon2');
+  const prisma = new PrismaClient();
+  const email = `comments_${label}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}@example.test`;
+  const password = 'Str0ng-Passw0rd!';
+  const user = await prisma.user.create({
+    data: { email, name: `Staff ${label}`, role: 'STAFF', passwordHash: await hash(password) },
+  });
+  await prisma.$disconnect();
+  const patch = await app.inject({ method: 'PATCH', url: `/api/v1/users/${user.id}`, headers: admin, payload: { roleProfile } });
+  if (patch.statusCode !== 200) throw new Error(`Failed to set roleProfile: ${patch.statusCode} ${patch.body}`);
+  const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password } });
+  const token = (login.json() as { tokens: { accessToken: string } }).tokens.accessToken;
+  return { userId: user.id, auth: { authorization: `Bearer ${token}` } };
+}
+
 describe('OI-2 — Collaboration Layer: mentions, notifications, pin authorization', () => {
   let app: FastifyInstance;
   let admin: Record<string, string>;
@@ -288,6 +313,71 @@ describe('OI-2 — Collaboration Layer: mentions, notifications, pin authorizati
         await deleteUser(author.userId);
         await deleteUser(bystander.userId);
       }
+    });
+
+    // Manager Callout (Master Reconciliation pass) — a pin on PublishedContent
+    // is a prominent callout every employee opening that video sees, so
+    // self-authorship alone must not qualify: only ADMIN or an actor with
+    // CONTENT_MANAGE may pin a content note. Distinct from the campaign-chat
+    // rules above (content has no campaignId, so the owner-exception never
+    // applies here either).
+    describe('content pin authorization (Manager Callout)', () => {
+      let contentId: string;
+
+      beforeAll(async () => {
+        contentId = idOf(
+          await app.inject({
+            method: 'POST',
+            url: '/api/v1/content',
+            headers: admin,
+            payload: { url: `https://instagram.com/p/pin-callout-${Date.now()}`, influencerId },
+          }),
+        );
+      });
+
+      afterAll(async () => {
+        const { PrismaClient } = await import('@influenceos/database');
+        const prisma = new PrismaClient();
+        await prisma.note.deleteMany({ where: { publishedContentId: contentId } }).catch(() => undefined);
+        await prisma.publishedContent.delete({ where: { id: contentId } }).catch(() => undefined);
+        await prisma.$disconnect();
+      });
+
+      async function createContentNote(auth: Record<string, string>): Promise<NoteDTO> {
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/v1/notes',
+          headers: auth,
+          payload: { publishedContentId: contentId, body: `Content callout ${Date.now()}` },
+        });
+        expect(res.statusCode).toBe(201);
+        return res.json() as NoteDTO;
+      }
+
+      it('a LOGISTICS-profile actor (no CONTENT_MANAGE) cannot self-pin their own content comment', async () => {
+        const staff = await createProfiledStaff(app, admin, 'content-pin-logistics', 'LOGISTICS');
+        try {
+          const note = await createContentNote(staff.auth);
+          const res = await pinAs(note.id, true, staff.auth);
+          expect(res.statusCode).toBe(403);
+        } finally {
+          await deleteUser(staff.userId);
+        }
+      });
+
+      it('a GENERAL_MANAGER-profile actor (has CONTENT_MANAGE) can pin a content comment they did not author', async () => {
+        const author = await createStaff(app, 'content-pin-author');
+        const manager = await createProfiledStaff(app, admin, 'content-pin-manager', 'GENERAL_MANAGER');
+        try {
+          const note = await createContentNote(author.auth);
+          const res = await pinAs(note.id, true, manager.auth);
+          expect(res.statusCode).toBe(200);
+          expect((res.json() as NoteDTO).pinned).toBe(true);
+        } finally {
+          await deleteUser(author.userId);
+          await deleteUser(manager.userId);
+        }
+      });
     });
   });
 });

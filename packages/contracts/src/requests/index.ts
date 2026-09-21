@@ -301,6 +301,16 @@ export const influencerFilterSchema = paginationSchema.extend({
 });
 export type InfluencerFilter = z.infer<typeof influencerFilterSchema>;
 
+// Per-country influencer counts for the directory's country-first summary
+// strip (mirrors shipmentSummarySchema) — respects scope + every active
+// filter except the country facet itself, plus offset pagination.
+export const influencerCountrySummarySchema = influencerFilterSchema.omit({
+  countryCode: true,
+  page: true,
+  pageSize: true,
+});
+export type InfluencerCountrySummaryInput = z.infer<typeof influencerCountrySummarySchema>;
+
 // Influencer data export (CSV/JSON). Reuses the directory filters so an export
 // mirrors exactly what the user is looking at, but drops offset pagination —
 // the whole matching set is streamed (bounded server-side). `format` picks the

@@ -2,7 +2,7 @@ import { requests, type CostSummaryDTO, type ExpenseDTO } from '@influenceos/con
 import type { z } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireCapability } from '../lib/authz';
 import { logActivity } from '../lib/helpers';
 import { moneyNumberOr0, toMoneyNumber } from '../lib/money';
 import { toExpenseDTO } from '../lib/mappers';
@@ -35,7 +35,7 @@ export function makeExpenseService(ctx: DomainContext) {
   }
 
   async function create(input: ExpenseCreate): Promise<ExpenseDTO> {
-    const actor = requireActor(ctx);
+    const actor = await requireCapability(ctx, 'FINANCE_MANAGE');
 
     const campaign = await prisma.campaign.findUnique({
       where: { id: input.campaignId },
@@ -81,7 +81,7 @@ export function makeExpenseService(ctx: DomainContext) {
   }
 
   async function update(id: string, input: ExpenseUpdate): Promise<ExpenseDTO> {
-    const actor = requireActor(ctx);
+    const actor = await requireCapability(ctx, 'FINANCE_MANAGE');
     const existing = await prisma.campaignExpense.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Expense');
 
@@ -123,7 +123,7 @@ export function makeExpenseService(ctx: DomainContext) {
   }
 
   async function remove(id: string): Promise<void> {
-    requireActor(ctx);
+    await requireCapability(ctx, 'FINANCE_MANAGE');
     const existing = await prisma.campaignExpense.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Expense');
     await prisma.campaignExpense.delete({ where: { id } });

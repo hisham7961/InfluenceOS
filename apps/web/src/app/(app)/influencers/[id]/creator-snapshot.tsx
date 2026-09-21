@@ -6,6 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, relativeTime } from '@/lib/format';
 
+// Below this many completed deliverables, a colored on-time percentage would
+// overstate confidence (e.g. one late delivery reading as a flat "0% on
+// time" danger badge) — show the raw count instead.
+const MIN_RELIABILITY_SAMPLE = 3;
+
 function Stat({ icon: Icon, label, value, hint }: { icon: React.ComponentType<{ className?: string }>; label: string; value: React.ReactNode; hint?: string }) {
   return (
     <div className="flex items-start gap-2.5">
@@ -105,6 +110,13 @@ export function CreatorSnapshot({
           </div>
           {reliability.sampleSize === 0 ? (
             <Badge tone="neutral">No completed deliverables with a due date yet</Badge>
+          ) : reliability.sampleSize < MIN_RELIABILITY_SAMPLE ? (
+            // Too few data points to color-code with confidence (a single
+            // deliverable would otherwise render as a misleadingly definite
+            // 100%/0% success/danger badge) — show the real count, neutral tone.
+            <Badge tone="neutral">
+              {reliability.onTime}/{reliability.sampleSize} on time — limited history, not enough to judge yet
+            </Badge>
           ) : (
             <>
               <Badge tone={onTimeRate! >= 80 ? 'success' : onTimeRate! >= 50 ? 'warning' : 'danger'}>

@@ -12,7 +12,7 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireCapability } from '../lib/authz';
 import { buildCursorPage } from '../lib/cursor';
 import { iso, logActivity, uniqueSlug } from '../lib/helpers';
 import { toMoneyNumber, type MoneyInput } from '../lib/money';
@@ -158,7 +158,7 @@ export function makeCampaignService(ctx: DomainContext) {
   }
 
   async function create(input: CampaignCreate): Promise<CampaignDetailDTO> {
-    requireActor(ctx);
+    await requireCapability(ctx, 'CAMPAIGNS_MANAGE');
     const brand = await prisma.brand.findUnique({ where: { id: input.brandId } });
     if (!brand) throw AppError.notFound('Brand');
     const slug = await uniqueSlug(
@@ -197,7 +197,7 @@ export function makeCampaignService(ctx: DomainContext) {
   }
 
   async function update(id: string, input: CampaignUpdate): Promise<CampaignDetailDTO> {
-    requireActor(ctx);
+    await requireCapability(ctx, 'CAMPAIGNS_MANAGE');
     const existing = await prisma.campaign.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Campaign');
 

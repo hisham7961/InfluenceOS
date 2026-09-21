@@ -3,11 +3,24 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
-import { COUNTRIES, PLATFORMS, PLATFORM_META, RELATIONSHIP_STATUSES, RELATIONSHIP_STATUS_LABELS } from '@influenceos/shared';
+import {
+  COUNTRIES,
+  PLATFORMS,
+  PLATFORM_META,
+  RELATIONSHIP_STATUSES,
+  RELATIONSHIP_STATUS_LABELS,
+} from '@influenceos/shared';
 import { SearchInput } from '@/components/ui/search-input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { SavedViews } from './saved-views';
+import { InfluencerCountryStrip } from './influencer-country-strip';
 
 /** Sentinel value for Radix Select's "no filter" option (Select forbids an empty-string item value). */
 const ALL = 'all';
@@ -21,7 +34,13 @@ export interface DirectoryFiltersProps {
 }
 
 /** Search + platform + relationship + country/city filter bar for the influencer directory. Drives the URL, the server page re-reads it — every dimension is a real server-side filter, never a client-side post-filter of a downloaded page. */
-export function DirectoryFilters({ q, platform, relationshipStatus, countryCode, city }: DirectoryFiltersProps) {
+export function DirectoryFilters({
+  q,
+  platform,
+  relationshipStatus,
+  countryCode,
+  city,
+}: DirectoryFiltersProps) {
   const router = useRouter();
   const [search, setSearch] = React.useState(q ?? '');
   const [cityInput, setCityInput] = React.useState(city ?? '');
@@ -34,12 +53,20 @@ export function DirectoryFilters({ q, platform, relationshipStatus, countryCode,
     setCityInput(city ?? '');
   }, [city]);
 
-  function navigate(next: { q?: string; platform?: string; relationshipStatus?: string; countryCode?: string; city?: string }) {
+  function navigate(next: {
+    q?: string;
+    platform?: string;
+    relationshipStatus?: string;
+    countryCode?: string;
+    city?: string;
+  }) {
     const merged = {
       q: next.q !== undefined ? next.q : (q ?? ''),
       platform: next.platform !== undefined ? next.platform : (platform ?? ''),
       relationshipStatus:
-        next.relationshipStatus !== undefined ? next.relationshipStatus : (relationshipStatus ?? ''),
+        next.relationshipStatus !== undefined
+          ? next.relationshipStatus
+          : (relationshipStatus ?? ''),
       countryCode: next.countryCode !== undefined ? next.countryCode : (countryCode ?? ''),
       city: next.city !== undefined ? next.city : (city ?? ''),
     };
@@ -67,83 +94,108 @@ export function DirectoryFilters({ q, platform, relationshipStatus, countryCode,
   const hasActiveFilters = Boolean(q || platform || relationshipStatus || countryCode || city);
 
   return (
-    <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-card sm:flex-row sm:items-center">
-      <form onSubmit={handleSearchSubmit} className="relative flex-1 sm:max-w-sm">
-        <SearchInput
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search by name or @username…"
-          aria-label="Search influencers"
-        />
-      </form>
+    <div className="mb-6 space-y-3">
+      <InfluencerCountryStrip
+        filters={{ q, platform, relationshipStatus, countryCode, city }}
+        selected={countryCode ?? ''}
+        onSelect={(code) => navigate({ countryCode: code })}
+      />
 
-      <div className="flex flex-1 flex-wrap items-center gap-3">
-        <Select value={platform || ALL} onValueChange={(value) => navigate({ platform: value === ALL ? '' : value })}>
-          <SelectTrigger className="h-10 w-full sm:w-44">
-            <SelectValue placeholder="Platform" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All platforms</SelectItem>
-            {PLATFORMS.map((p) => (
-              <SelectItem key={p} value={p}>
-                {PLATFORM_META[p].label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={relationshipStatus || ALL}
-          onValueChange={(value) => navigate({ relationshipStatus: value === ALL ? '' : value })}
-        >
-          <SelectTrigger className="h-10 w-full sm:w-48">
-            <SelectValue placeholder="Relationship" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All relationships</SelectItem>
-            {RELATIONSHIP_STATUSES.map((status) => (
-              <SelectItem key={status} value={status}>
-                {RELATIONSHIP_STATUS_LABELS[status]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={countryCode || ALL} onValueChange={(value) => navigate({ countryCode: value === ALL ? '' : value })}>
-          <SelectTrigger className="h-10 w-full sm:w-44">
-            <SelectValue placeholder="Country" />
-          </SelectTrigger>
-          <SelectContent className="max-h-72">
-            <SelectItem value={ALL}>All countries</SelectItem>
-            {COUNTRIES.map((c) => (
-              <SelectItem key={c.code} value={c.code}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <form onSubmit={handleCitySubmit} className="w-full sm:w-40">
-          <SearchInput value={cityInput} onChange={(e) => setCityInput(e.target.value)} placeholder="City" aria-label="Filter by city" />
+      <div className="border-border bg-card shadow-card flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center">
+        <form onSubmit={handleSearchSubmit} className="relative flex-1 sm:max-w-sm">
+          <SearchInput
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by name or @username…"
+            aria-label="Search influencers"
+          />
         </form>
 
-        <div className="flex items-center gap-2 sm:ms-auto">
-          <SavedViews
-            scope="influencers"
-            basePath="/influencers"
-            current={{ q: q ?? '', platform: platform ?? '', relationshipStatus: relationshipStatus ?? '', countryCode: countryCode ?? '', city: city ?? '' }}
-          />
-          {hasActiveFilters ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push('/influencers')}
-              className="text-muted-foreground"
-            >
-              <X className="h-3.5 w-3.5" /> Reset
-            </Button>
-          ) : null}
+        <div className="flex flex-1 flex-wrap items-center gap-3">
+          <Select
+            value={platform || ALL}
+            onValueChange={(value) => navigate({ platform: value === ALL ? '' : value })}
+          >
+            <SelectTrigger className="h-10 w-full sm:w-44">
+              <SelectValue placeholder="Platform" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All platforms</SelectItem>
+              {PLATFORMS.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {PLATFORM_META[p].label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={relationshipStatus || ALL}
+            onValueChange={(value) => navigate({ relationshipStatus: value === ALL ? '' : value })}
+          >
+            <SelectTrigger className="h-10 w-full sm:w-48">
+              <SelectValue placeholder="Relationship" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All relationships</SelectItem>
+              {RELATIONSHIP_STATUSES.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {RELATIONSHIP_STATUS_LABELS[status]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={countryCode || ALL}
+            onValueChange={(value) => navigate({ countryCode: value === ALL ? '' : value })}
+          >
+            <SelectTrigger className="h-10 w-full sm:w-44">
+              <SelectValue placeholder="Country" />
+            </SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value={ALL}>All countries</SelectItem>
+              {COUNTRIES.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <form onSubmit={handleCitySubmit} className="w-full sm:w-40">
+            <SearchInput
+              value={cityInput}
+              onChange={(e) => setCityInput(e.target.value)}
+              placeholder="City"
+              aria-label="Filter by city"
+            />
+          </form>
+
+          <div className="flex items-center gap-2 sm:ms-auto">
+            <SavedViews
+              scope="influencers"
+              basePath="/influencers"
+              current={{
+                q: q ?? '',
+                platform: platform ?? '',
+                relationshipStatus: relationshipStatus ?? '',
+                countryCode: countryCode ?? '',
+                city: city ?? '',
+              }}
+            />
+            {hasActiveFilters ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push('/influencers')}
+                className="text-muted-foreground"
+              >
+                <X className="h-3.5 w-3.5" /> Reset
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

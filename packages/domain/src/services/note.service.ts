@@ -278,7 +278,7 @@ export function makeNoteService(ctx: DomainContext) {
 
     // Pinning at creation time follows the same authorization rule as the
     // dedicated pin() endpoint (PART 8) — never silently accepted from any actor.
-    const canPin = input.pinned ? await actorCanPin(resolved) : true;
+    const canPin = input.pinned ? await actorCanPin(context, resolved) : true;
     if (input.pinned && !canPin) throw AppError.forbidden('Only an admin, the campaign owner, or the author may pin a message.');
 
     const mentionIds = Array.from(new Set((input.mentionedUserIds ?? []).filter((id) => id !== actor.id)));
@@ -365,14 +365,25 @@ export function makeNoteService(ctx: DomainContext) {
     // notify every brand-scoped user on every pinned chat message.
   }
 
-  /** PART 8's pin authorization: ADMIN always; the campaign's own owner within their campaign; otherwise only the note's own author. */
-  async function actorCanPin(resolved: ResolvedContext, authorId?: string | null): Promise<boolean> {
+  /**
+   * PART 8's pin authorization: ADMIN always; the campaign's own owner within
+   * their campaign; otherwise only the note's own author — EXCEPT on
+   * PublishedContent, where a pin becomes a prominent "Manager Callout" every
+   * employee opening that video sees (Master Reconciliation pass). A content
+   * note has no campaignId in its resolved context (content may be
+   * influencer-only, with no campaign at all), so without this carve-out the
+   * check would silently collapse to "any staff member may self-pin their own
+   * comment" — letting a non-manager author their own Manager Callout. On
+   * content, self-authorship no longer qualifies; CONTENT_MANAGE does.
+   */
+  async function actorCanPin(context: NoteContext, resolved: ResolvedContext, authorId?: string | null): Promise<boolean> {
     const actor = requireActor(ctx);
     if (actor.role === 'ADMIN') return true;
     if (resolved.campaignId) {
       const campaign = await prisma.campaign.findUnique({ where: { id: resolved.campaignId }, select: { ownerId: true } });
       if (campaign?.ownerId === actor.id) return true;
     }
+    if (context.publishedContentId) return hasCapability(ctx, 'CONTENT_MANAGE');
     return authorId != null && authorId === actor.id;
   }
 
@@ -392,7 +403,7 @@ export function makeNoteService(ctx: DomainContext) {
     };
     const resolved = await resolveContext(context);
     await assertInScope(resolved.brandId, resolved.countryCode);
-    if (!(await actorCanPin(resolved, existing.authorId))) {
+    if (!(await actorCanPin(context, resolved, existing.authorId))) {
       throw AppError.forbidden('Only an admin, the campaign owner, or the author may pin a message.');
     }
     const note = await prisma.note.update({ where: { id }, data: { pinned }, include: noteInclude });

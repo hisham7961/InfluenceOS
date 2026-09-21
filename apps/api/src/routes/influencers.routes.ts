@@ -64,6 +64,19 @@ export async function influencerRoutes(app: FastifyInstance): Promise<void> {
   );
 
   r.get(
+    '/influencers/country-summary',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Influencers'],
+        summary: 'Per-country creator counts for the directory country-first summary strip',
+        querystring: requests.influencerCountrySummarySchema,
+      },
+    },
+    async (req) => servicesFor(req).influencers.countrySummary(req.query),
+  );
+
+  r.get(
     '/influencers/export',
     {
       preHandler: [requireAuth],

@@ -1,8 +1,9 @@
-import { metrics as sharedMetrics, type Platform } from '@influenceos/shared';
+import { countryName, metrics as sharedMetrics, type Platform } from '@influenceos/shared';
 import {
   buildOffsetPagination,
   requests,
   type CursorPage,
+  type InfluencerCountrySummaryDTO,
   type InfluencerDetailDTO,
   type InfluencerExportRowDTO,
   type InfluencerSummaryDTO,
@@ -13,18 +14,19 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireCapability } from '../lib/authz';
 import { buildCursorPage } from '../lib/cursor';
 import { iso, logActivity } from '../lib/helpers';
 import { sumMoney, toDecimal } from '../lib/money';
 import { toInfluencerSummary, toSocialAccountDTO } from '../lib/mappers';
-import { isCountryOutOfScope, scopedCountryCodes } from '../lib/scope';
+import { isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
 const { assessAudienceHealth } = sharedMetrics;
 
 type InfluencerCreate = z.infer<typeof requests.influencerCreateSchema>;
 type InfluencerUpdate = z.infer<typeof requests.influencerUpdateSchema>;
 type InfluencerFilter = z.infer<typeof requests.influencerFilterSchema>;
+type InfluencerCountrySummaryQuery = z.infer<typeof requests.influencerCountrySummarySchema>;
 type InfluencerCursorQuery = z.infer<typeof requests.influencerCursorSchema>;
 type InfluencerExportQuery = z.infer<typeof requests.influencerExportSchema>;
 
@@ -52,7 +54,10 @@ const EXPORT_MAX_ROWS = 50_000;
 export function makeInfluencerService(ctx: DomainContext) {
   const { prisma } = ctx;
 
-  async function buildWhere(filter: Omit<InfluencerFilter, 'page' | 'pageSize'>): Promise<Prisma.InfluencerWhereInput> {
+  async function buildWhere(
+    filter: Omit<InfluencerFilter, 'page' | 'pageSize'>,
+    opts: { ignoreCountryFilter?: boolean } = {},
+  ): Promise<Prisma.InfluencerWhereInput> {
     const and: Prisma.InfluencerWhereInput[] = [];
     if (filter.active !== undefined) and.push({ isActive: filter.active });
     if (filter.relationshipStatus) and.push({ relationshipStatus: filter.relationshipStatus });
@@ -60,23 +65,42 @@ export function makeInfluencerService(ctx: DomainContext) {
     if (filter.city) and.push({ city: { equals: filter.city, mode: 'insensitive' } });
     if (filter.ownerId) and.push({ ownerId: filter.ownerId === 'unowned' ? null : filter.ownerId });
     if (filter.category) and.push({ category: { equals: filter.category, mode: 'insensitive' } });
-    if (filter.brandId) and.push({ brandInfluencers: { some: { brandId: filter.brandId } } });
+
+    // Brand scope (W4-4) — composed server-side into every directory query,
+    // same posture as every other brand-touching service (content.service.ts,
+    // shipment.service.ts, analytics.service.ts): an out-of-scope explicit
+    // brandId filter matches nothing rather than silently widening; an
+    // unscoped actor (ADMIN, or no explicit UserBrandAccess rows) is untouched.
+    const brandScope = await scopedBrandIds(ctx);
+    if (brandScope) {
+      and.push({
+        brandInfluencers: {
+          some: { brandId: filter.brandId ? (brandScope.includes(filter.brandId) ? filter.brandId : { in: [] }) : { in: brandScope } },
+        },
+      });
+    } else if (filter.brandId) {
+      and.push({ brandInfluencers: { some: { brandId: filter.brandId } } });
+    }
 
     // Country scope (Advanced Roles & Logistics Operations pass) — composed
     // server-side into every directory query, never a client-side post-filter
     // of a downloaded page. Mirrors the same isCountryOutOfScope posture
     // shipment.service.ts uses: an out-of-scope explicit countryCode matches
     // nothing rather than silently widening; an unrestricted actor (ADMIN, or
-    // no explicit UserCountryAccess rows) is untouched.
+    // no explicit UserCountryAccess rows) is untouched. `ignoreCountryFilter`
+    // is set by countrySummary() alone: a facet count ignores its own filter
+    // dimension so every country's count stays visible while one is selected,
+    // the scope restriction still applies underneath it.
     const countryScope = await scopedCountryCodes(ctx);
+    const explicitCountryCode = opts.ignoreCountryFilter ? undefined : filter.countryCode;
     if (countryScope) {
       and.push(
-        filter.countryCode
-          ? { countryCode: countryScope.includes(filter.countryCode) ? filter.countryCode : { in: [] } }
+        explicitCountryCode
+          ? { countryCode: countryScope.includes(explicitCountryCode) ? explicitCountryCode : { in: [] } }
           : { countryCode: { in: countryScope } },
       );
-    } else if (filter.countryCode) {
-      and.push({ countryCode: filter.countryCode });
+    } else if (explicitCountryCode) {
+      and.push({ countryCode: explicitCountryCode });
     }
     if (filter.campaignId)
       and.push({ campaignInfluencers: { some: { campaignId: filter.campaignId } } });
@@ -149,6 +173,28 @@ export function makeInfluencerService(ctx: DomainContext) {
       data: await toSummaries(rows),
       pagination: buildOffsetPagination(filter.page, filter.pageSize, total),
     };
+  }
+
+  /**
+   * Per-country creator counts for the directory's country-first summary
+   * strip (item 80/81 of the Master Reconciliation pass) — "All Creators
+   * 284, Kuwait 126, …", clicking a chip filters the SAME directory via
+   * countryCode. Mirrors shipment.service.ts's summary(): one groupBy, never
+   * N per-country round trips, and never a client-side count of a downloaded
+   * page. Respects scope + every active filter except the country facet
+   * itself (ignoreCountryFilter), so every country's count stays visible
+   * while one is selected.
+   */
+  async function countrySummary(filter: InfluencerCountrySummaryQuery): Promise<InfluencerCountrySummaryDTO[]> {
+    const where = await buildWhere(filter, { ignoreCountryFilter: true });
+    const rows = await prisma.influencer.groupBy({ by: ['countryCode'], where, _count: { _all: true } });
+    return rows
+      .map((r) => ({
+        countryCode: r.countryCode,
+        countryName: countryName(r.countryCode),
+        total: r._count._all,
+      }))
+      .sort((a, b) => b.total - a.total);
   }
 
   // Keyset (cursor) directory paging (W7-2). Orders by (createdAt desc, id desc)
@@ -379,7 +425,7 @@ export function makeInfluencerService(ctx: DomainContext) {
   }
 
   async function create(input: InfluencerCreate): Promise<InfluencerDetailDTO> {
-    requireActor(ctx);
+    await requireCapability(ctx, 'INFLUENCERS_MANAGE');
     const email = input.email === '' ? null : (input.email ?? null);
     const influencer = await prisma.influencer.create({
       data: {
@@ -424,7 +470,7 @@ export function makeInfluencerService(ctx: DomainContext) {
   }
 
   async function update(id: string, input: InfluencerUpdate): Promise<InfluencerDetailDTO> {
-    requireActor(ctx);
+    await requireCapability(ctx, 'INFLUENCERS_MANAGE');
     const existing = await prisma.influencer.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Influencer');
     const countryScope = await scopedCountryCodes(ctx);
@@ -519,7 +565,7 @@ export function makeInfluencerService(ctx: DomainContext) {
     );
   }
 
-  return { list, listCursor, exportRows, detail, create, update, socialAccountsFor, audienceFor, followerSeries };
+  return { list, listCursor, countrySummary, exportRows, detail, create, update, socialAccountsFor, audienceFor, followerSeries };
 }
 
 export type InfluencerService = ReturnType<typeof makeInfluencerService>;

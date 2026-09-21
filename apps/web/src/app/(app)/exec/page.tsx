@@ -90,7 +90,12 @@ export default async function ExecPage() {
               tone={dash.digest.shipmentsFailed > 0 ? 'danger' : undefined}
               href="/logistics?status=FAILED"
             />
-            <Metric label="UGC awaiting review" value={dash.digest.ugcAwaitingReview} tone={dash.digest.ugcAwaitingReview > 0 ? 'danger' : undefined} />
+            <Metric
+              label="UGC awaiting review"
+              value={dash.digest.ugcAwaitingReview}
+              tone={dash.digest.ugcAwaitingReview > 0 ? 'danger' : undefined}
+              href="/"
+            />
           </CardContent>
         </Card>
       </section>
