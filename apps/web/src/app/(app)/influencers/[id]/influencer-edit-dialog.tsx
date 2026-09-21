@@ -8,6 +8,7 @@ import { Check, Pencil } from 'lucide-react';
 import type { InfluencerDetailDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import {
+  COUNTRIES,
   PRIORITIES,
   PRIORITY_LABELS,
   RELATIONSHIP_STATUSES,
@@ -42,6 +43,8 @@ function errorMessage(e: unknown): string {
   return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
 }
 
+const NO_COUNTRY = '__none__';
+
 /** "Edit influencer" trigger + dialog for the 360 profile. Patches the core profile + contact fields. */
 export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDetailDTO }) {
   const router = useRouter();
@@ -53,6 +56,7 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
   const [primaryUsername, setPrimaryUsername] = React.useState(influencer.primaryUsername ?? '');
   const [category, setCategory] = React.useState(influencer.category ?? '');
   const [country, setCountry] = React.useState(influencer.country ?? '');
+  const [countryCode, setCountryCode] = React.useState(influencer.countryCode ?? NO_COUNTRY);
   const [city, setCity] = React.useState(influencer.city ?? '');
   const [languages, setLanguages] = React.useState(influencer.languages.join(', '));
   const [email, setEmail] = React.useState(influencer.contact.email ?? '');
@@ -74,6 +78,7 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
     setPrimaryUsername(influencer.primaryUsername ?? '');
     setCategory(influencer.category ?? '');
     setCountry(influencer.country ?? '');
+    setCountryCode(influencer.countryCode ?? NO_COUNTRY);
     setCity(influencer.city ?? '');
     setLanguages(influencer.languages.join(', '));
     setEmail(influencer.contact.email ?? '');
@@ -94,6 +99,7 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
         primaryUsername: primaryUsername.trim() || null,
         category: category.trim() || null,
         country: country.trim() || null,
+        countryCode: countryCode === NO_COUNTRY ? null : countryCode,
         city: city.trim() || null,
         languages: splitList(languages),
         email: email.trim() || null,
@@ -142,8 +148,26 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
             <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Beauty, Fitness, Food…" />
           </Field>
 
-          <Field label="Country">
-            <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Kuwait" />
+          <Field label="Country" hint="The creator's own profile country — distinct from where a specific shipment ships to.">
+            <Select
+              value={countryCode}
+              onValueChange={(v) => {
+                setCountryCode(v);
+                setCountry(v === NO_COUNTRY ? '' : (COUNTRIES.find((c) => c.code === v)?.name ?? country));
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value={NO_COUNTRY}>No country set</SelectItem>
+                {COUNTRIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
           <Field label="City">
             <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Kuwait City" />
