@@ -290,7 +290,7 @@ describe('Security & Authorization Freeze Gate §37/46/47 — content, saved vie
       // Positive control: the admin's OWN view of the (unrestricted) target
       // list includes both creators.
       const asAdmin = (
-        await app.inject({ method: 'GET', url: `/api/v1/influencers?pageSize=200`, headers: admin })
+        await app.inject({ method: 'GET', url: `/api/v1/influencers?pageSize=100`, headers: admin })
       ).json() as Paginated<InfluencerSummaryDTO>;
       const adminIds = asAdmin.data.map((r) => r.id);
       expect(adminIds).toContain(kwInfluencer2);
@@ -310,7 +310,7 @@ describe('Security & Authorization Freeze Gate §37/46/47 — content, saved vie
       // no scope of its own, and the view's admin creator's broader access
       // never leaks through it.
       const params = new URLSearchParams(view!.filters as Record<string, string>);
-      params.set('pageSize', '200');
+      params.set('pageSize', '100');
       const asStaff = (
         await app.inject({ method: 'GET', url: `/api/v1/influencers?${params.toString()}`, headers: countryStaff2.auth })
       ).json() as Paginated<InfluencerSummaryDTO>;
