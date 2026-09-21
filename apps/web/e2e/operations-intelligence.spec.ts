@@ -260,58 +260,26 @@ test('Needs Attention deep-links from Mission Control to a real record', async (
 });
 
 test('Data Quality Center shows Findings, Duplicate Creators, and Workflow Integrity cards', async ({ page }) => {
-  test.setTimeout(240_000);
-  // Temporary diagnostic instrumentation: this test has timed out on the
-  // first card twice in CI (both the initial attempt and the reload retry,
-  // in two separate runs) despite a local investigation finding no O(n^2)
-  // query and trivial data volume. Logging request/response timing to
-  // stdout (captured in the CI job log, unlike a Playwright HTML report —
-  // this repo's CI reporter is 'github', which produces no artifact) lets
-  // the next failure show whether the server responded slowly or the
-  // response never reached this page at all, instead of guessing again.
-  const t0 = Date.now();
-  const since = () => `+${((Date.now() - t0) / 1000).toFixed(1)}s`;
-  page.on('request', (req) => {
-    if (/data-quality|integrity|brands|duplicates/i.test(req.url())) {
-      console.log(`[DQ-DIAG ${since()}] REQ  ${req.method()} ${req.url()}`);
-    }
-  });
-  page.on('response', (res) => {
-    if (/data-quality|integrity|brands|duplicates/i.test(res.url())) {
-      console.log(`[DQ-DIAG ${since()}] RES  ${res.status()} ${res.url()}`);
-    }
-  });
   await signIn(page, ADMIN.email, ADMIN.password);
-  console.log(`[DQ-DIAG ${since()}] signed in, navigating to /data-quality`);
   await page.goto('/data-quality');
-  console.log(`[DQ-DIAG ${since()}] navigation resolved`);
   await expect(page.getByRole('heading', { name: 'Data Quality' })).toBeVisible();
-  console.log(`[DQ-DIAG ${since()}] heading visible`);
-  // All three card titles render unconditionally from the page's own
-  // server-fetched initialData (see data-quality-workspace.tsx). Data volume
-  // is trivial (seed + this file's own fixtures — tens of rows) and neither
-  // query does O(n^2) work, so a timeout here is not expected to be a slow
-  // query or missing data — but this has now failed identically on two
-  // separate CI runs (both attempts, same first card each time), so treat
-  // that as still under investigation rather than assume it's the same
-  // resource-contention artifact diagnosed locally. A fresh navigation
-  // gives another chance to land outside any transient contention window,
-  // so retry once via reload on each card while the DQ-DIAG logging above
-  // captures what's actually happening on the next failure.
-  async function expectCardVisible(title: string) {
-    const locator = page.getByText(title, { exact: true });
-    try {
-      await expect(locator).toBeVisible({ timeout: 60_000 });
-    } catch {
-      console.log(`[DQ-DIAG ${since()}] "${title}" not visible after 60s, reloading`);
-      await page.reload();
-      await expect(locator).toBeVisible({ timeout: 60_000 });
-    }
-    console.log(`[DQ-DIAG ${since()}] "${title}" visible`);
-  }
-  await expectCardVisible('Data Quality Findings');
-  await expectCardVisible('Possible Duplicate Creators');
-  await expectCardVisible('Workflow Integrity Findings');
+  // Root cause of the earlier flake/timeout: "Data Quality Findings" and
+  // "Workflow Integrity Findings" each render with a conditional count badge
+  // (e.g. "4 need attention") immediately after the title with no separator
+  // in the JSX, so once real data pushes that count above zero the
+  // element's accessible text becomes e.g. "Data Quality Findings4 need
+  // attention" — never an exact match for the bare title. A direct DOM
+  // query confirmed the mismatch (0 exact matches, 1 substring match, with
+  // that exact merged string as the element's text), ruling out every
+  // server- or client-side cause a network/console/error-based
+  // investigation had considered first. A substring match is correct and
+  // unambiguous for these two. "Possible Duplicate Creators" has no badge,
+  // so it stays exact — its own page description text contains "possible
+  // duplicate creators" as a substring, which a non-exact match would also
+  // (wrongly) hit.
+  await expect(page.getByText('Data Quality Findings')).toBeVisible();
+  await expect(page.getByText('Possible Duplicate Creators', { exact: true })).toBeVisible();
+  await expect(page.getByText('Workflow Integrity Findings')).toBeVisible();
 });
 
 test('Executive dashboard shows budget KPIs, Today/Since-yesterday, Brands and Top creators', async ({ page }) => {
@@ -319,7 +287,9 @@ test('Executive dashboard shows budget KPIs, Today/Since-yesterday, Brands and T
   await page.goto('/exec');
   await expect(page.getByRole('heading', { name: 'Executive dashboard' })).toBeVisible();
   await expect(page.getByText('Today', { exact: true })).toBeVisible();
-  await expect(page.getByText('Since yesterday')).toBeVisible();
+  // Non-exact would also match the page's own description text ("...what
+  // changed since yesterday..."), which contains this substring.
+  await expect(page.getByText('Since yesterday', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Brands' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Top creators' })).toBeVisible();
 });
