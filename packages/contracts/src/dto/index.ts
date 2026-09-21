@@ -866,6 +866,7 @@ export interface InspirationItemDTO {
   campaignId: string | null;
   campaignName: string | null;
   scriptReferenceId: string | null;
+  scriptReferenceTitle: string | null;
   status: InspirationStatus;
   pinned: boolean;
   submittedById: string | null;

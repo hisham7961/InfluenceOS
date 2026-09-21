@@ -1,9 +1,10 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ExternalLink, Lightbulb, Pin, Plus, Trash2 } from 'lucide-react';
+import { ExternalLink, FileText, Lightbulb, Pin, Plus, Trash2, X } from 'lucide-react';
 import type { BrandSummaryDTO, InspirationItemDTO } from '@influenceos/contracts';
 import { INSPIRATION_CATEGORIES, INSPIRATION_CATEGORY_LABELS, type InspirationCategory } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
@@ -34,7 +35,11 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
   const [note, setNote] = React.useState('');
   const [category, setCategory] = React.useState<InspirationCategory>('TREND');
   const [brandId, setBrandId] = React.useState<string>('');
+  const [campaignId, setCampaignId] = React.useState<string>('');
   const [tags, setTags] = React.useState('');
+
+  const campaigns = useQuery({ queryKey: ['campaigns', 'options'], queryFn: () => api.campaigns.list({ pageSize: 100 }) });
+  const campaignOptions = (campaigns.data?.data ?? []).filter((c) => !brandId || c.brandId === brandId);
 
   function reset() {
     setUrl('');
@@ -42,6 +47,7 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
     setNote('');
     setCategory('TREND');
     setBrandId('');
+    setCampaignId('');
     setTags('');
   }
 
@@ -53,6 +59,7 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
         note: note.trim() || undefined,
         category,
         brandId: brandId || undefined,
+        campaignId: campaignId || undefined,
         tags: tags
           .split(',')
           .map((t) => t.trim())
@@ -99,7 +106,13 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
               </Select>
             </Field>
             <Field label="Relevant brand (optional)">
-              <Select value={brandId || CATEGORY_ALL} onValueChange={(v) => setBrandId(v === CATEGORY_ALL ? '' : v)}>
+              <Select
+                value={brandId || CATEGORY_ALL}
+                onValueChange={(v) => {
+                  setBrandId(v === CATEGORY_ALL ? '' : v);
+                  setCampaignId('');
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -114,6 +127,21 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
               </Select>
             </Field>
           </div>
+          <Field label="Relevant campaign (optional)" hint="Lets you later link this to a script in that campaign">
+            <Select value={campaignId || CATEGORY_ALL} onValueChange={(v) => setCampaignId(v === CATEGORY_ALL ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={CATEGORY_ALL}>None</SelectItem>
+                {campaignOptions.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
           <Field label="Tags (comma-separated, optional)">
             <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="hook, skincare, before-after" />
           </Field>
@@ -163,6 +191,71 @@ function InspirationCard({ item, onOpen }: { item: InspirationItemDTO; onOpen: (
   );
 }
 
+function ScriptLinkPicker({ item }: { item: InspirationItemDTO }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = React.useState(false);
+  const scripts = useQuery({
+    queryKey: ['campaign-scripts', item.campaignId],
+    queryFn: () => api.campaigns.scripts(item.campaignId!),
+    enabled: open,
+  });
+
+  const link = useMutation({
+    mutationFn: (scriptReferenceId: string | null) => api.inspiration.update(item.id, { scriptReferenceId }),
+    onSuccess: () => {
+      toast.success(item.scriptReferenceId ? 'Script unlinked' : 'Script linked');
+      queryClient.invalidateQueries({ queryKey: ['inspiration'] });
+      setOpen(false);
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  if (item.scriptReferenceId) {
+    return (
+      <div className="flex items-center gap-2 text-sm">
+        <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+        <Link href={`/campaigns/${item.campaignId}?tab=scripts`} className="text-brand hover:underline">
+          {item.scriptReferenceTitle ?? 'Linked script'}
+        </Link>
+        <Button variant="ghost" size="icon-sm" title="Unlink" disabled={link.isPending} onClick={() => link.mutate(null)}>
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  }
+
+  if (!item.campaignId) return null;
+
+  return (
+    <div className="relative">
+      <Button type="button" variant="outline" size="sm" onClick={() => setOpen((v) => !v)}>
+        <FileText className="h-3.5 w-3.5" /> Link a script
+      </Button>
+      {open ? (
+        <div className="absolute z-10 mt-1 w-64 rounded-lg border border-border bg-card p-1 shadow-card">
+          {scripts.isLoading ? (
+            <p className="px-2 py-1.5 text-xs text-muted-foreground">Loading…</p>
+          ) : (scripts.data ?? []).length === 0 ? (
+            <p className="px-2 py-1.5 text-xs text-muted-foreground">No scripts on this campaign yet.</p>
+          ) : (
+            (scripts.data ?? []).map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => link.mutate(s.id)}
+                disabled={link.isPending}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-muted"
+              >
+                {s.title}
+              </button>
+            ))
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function InspirationDetail({ item, onClose }: { item: InspirationItemDTO; onClose: () => void }) {
   const queryClient = useQueryClient();
   const { user } = useApp();
@@ -191,6 +284,7 @@ function InspirationDetail({ item, onClose }: { item: InspirationItemDTO; onClos
           <h2 className="mt-2 text-lg font-semibold">{item.title ?? 'Untitled'}</h2>
           <p className="text-xs text-muted-foreground">
             Saved by {item.submittedByName ?? 'Unknown'} · {relativeTime(item.createdAt)}
+            {item.campaignName ? ` · ${item.campaignName}` : ''}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -222,6 +316,8 @@ function InspirationDetail({ item, onClose }: { item: InspirationItemDTO; onClos
           ))}
         </div>
       )}
+
+      {item.campaignId ? <ScriptLinkPicker item={item} /> : null}
 
       <div className="border-t border-border pt-4">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Discussion</p>

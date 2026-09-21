@@ -769,6 +769,7 @@ export const inspirationUpdateSchema = z.object({
   tags: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
   brandId: cuid.optional().nullable(),
   campaignId: cuid.optional().nullable(),
+  scriptReferenceId: cuid.optional().nullable(),
   status: z.enum(INSPIRATION_STATUSES).optional(),
   pinned: z.boolean().optional(),
 });

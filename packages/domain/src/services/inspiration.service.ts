@@ -13,6 +13,7 @@ type InspirationFilter = z.infer<typeof requests.inspirationFilterSchema>;
 const inspirationInclude = {
   brand: { select: { id: true, name: true } },
   campaign: { select: { id: true, name: true } },
+  scriptReference: { select: { id: true, title: true } },
   submittedBy: { select: { id: true, name: true } },
   _count: { select: { comments: true } },
 } satisfies Prisma.InspirationItemInclude;
@@ -34,6 +35,7 @@ function toDTO(row: InspirationRow): InspirationItemDTO {
     campaignId: row.campaignId,
     campaignName: row.campaign?.name ?? null,
     scriptReferenceId: row.scriptReferenceId,
+    scriptReferenceTitle: row.scriptReference?.title ?? null,
     status: row.status,
     pinned: row.pinned,
     submittedById: row.submittedById,
@@ -143,6 +145,7 @@ export function makeInspirationService(ctx: DomainContext) {
         tags: input.tags ?? undefined,
         brandId: input.brandId !== undefined ? input.brandId : undefined,
         campaignId: input.campaignId !== undefined ? input.campaignId : undefined,
+        scriptReferenceId: input.scriptReferenceId !== undefined ? input.scriptReferenceId : undefined,
         status: input.status ?? undefined,
         pinned: input.pinned ?? undefined,
       },
