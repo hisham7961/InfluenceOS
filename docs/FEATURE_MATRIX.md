@@ -6,7 +6,7 @@ Every major capability, its backend/API/web status, and whether it is **Mobile R
 (business logic server-side, documented API, server-side auth + permissions, stable
 contracts, media represented independently of the web UI — spec addendum §37).
 
-**Coverage:** 32 features · API ready 31 · Web ready 32 · Mobile ready 29 · Admin-desktop-only 3 · **Mobile readiness 100%** (of SHARED features).
+**Coverage:** 36 features · API ready 35 · Web ready 36 · Mobile ready 32 · Admin-desktop-only 4 · **Mobile readiness 100%** (of SHARED features).
 
 | Feature | Module | Class | API | Web | Mobile Ready | Roles | Flag |
 |---|---|---|---|---|:---:|---|---|
@@ -18,6 +18,8 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Deliverables | Deliverables | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Deliverable Submissions & Review | Deliverables | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Logistics & Shipments | Logistics | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Logistics Address Clarification | Logistics | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Logistics Team Chat | Logistics | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Scripts & References | Scripts | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Published Content & Player | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | liveContentEnabled |
 | Content Command Center (New/Seen/Reviewed/Review Later) | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
@@ -42,6 +44,8 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Data Quality | Data Quality | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Workflow Integrity Guard | Data Quality | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Bulk Creator Actions | Influencers | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Advanced Roles & Capabilities | Settings | ADMIN_DESKTOP_ONLY | READY | READY | — | ADMIN | — |
+| Country Scoping | Logistics | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 
 ## API endpoints by feature
 
@@ -108,9 +112,23 @@ contracts, media represented independently of the web UI — spec addendum §37)
 - `POST /api/v1/campaign-influencers/:id/shipments`
 - `GET /api/v1/campaigns/:id/shipments`
 - `GET /api/v1/shipments`
+- `GET /api/v1/shipments/summary`
 - `GET /api/v1/shipments/:id`
 - `PATCH /api/v1/shipments/:id`
 - `POST /api/v1/shipments/:id/status`
+- `POST /api/v1/shipments/:id/assign`
+
+### Logistics Address Clarification
+
+- `GET /api/v1/shipments/:id/issues`
+- `POST /api/v1/shipments/:id/issues`
+- `POST /api/v1/logistics-issues/:id/resolve`
+- `POST /api/v1/logistics-issues/:id/cancel`
+
+### Logistics Team Chat
+
+- `GET /api/v1/notes`
+- `POST /api/v1/notes`
 
 ### Scripts & References
 
@@ -203,6 +221,16 @@ contracts, media represented independently of the web UI — spec addendum §37)
 
 - `GET /api/v1/users`
 - `POST /api/v1/users`
+- `PATCH /api/v1/users/:id`
+- `DELETE /api/v1/users/:id`
+- `POST /api/v1/users/:id/reset-password`
+- `GET /api/v1/users/:id/brand-access`
+- `PUT /api/v1/users/:id/brand-access`
+- `GET /api/v1/users/:id/country-access`
+- `PUT /api/v1/users/:id/country-access`
+- `GET /api/v1/users/:id/permissions`
+- `POST /api/v1/users/:id/permissions/preview`
+- `PUT /api/v1/users/:id/capabilities`
 
 ### Content Monitoring
 
@@ -231,3 +259,17 @@ contracts, media represented independently of the web UI — spec addendum §37)
 
 - `POST /api/v1/influencers/bulk/preview`
 - `POST /api/v1/influencers/bulk/execute`
+
+### Advanced Roles & Capabilities
+
+- `GET /api/v1/users/:id/permissions`
+- `POST /api/v1/users/:id/permissions/preview`
+- `PUT /api/v1/users/:id/capabilities`
+- `PATCH /api/v1/users/:id`
+
+### Country Scoping
+
+- `GET /api/v1/users/:id/country-access`
+- `PUT /api/v1/users/:id/country-access`
+- `GET /api/v1/shipments`
+- `GET /api/v1/influencers`
