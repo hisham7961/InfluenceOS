@@ -3,10 +3,11 @@
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { AtSign, MessageSquare, Pencil, Pin, PinOff, Reply, Send, Trash2, X } from 'lucide-react';
+import { AtSign, FileText, MessageSquare, Paperclip, Pencil, Pin, PinOff, Reply, Send, Trash2, X } from 'lucide-react';
 import type { CursorPage, NoteDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
+import { toBrowserUrl, uploadAttachment } from '@/lib/upload';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';
 import { Avatar } from '@/components/ui/avatar';
@@ -59,7 +60,7 @@ export function Composer({
   autoFocus,
   onCancel,
 }: {
-  onSubmit: (body: string, mentionedUserIds: string[]) => void;
+  onSubmit: (body: string, mentionedUserIds: string[], files: File[]) => void;
   pending: boolean;
   placeholder: string;
   autoFocus?: boolean;
@@ -68,7 +69,9 @@ export function Composer({
   const [body, setBody] = React.useState('');
   const [mentions, setMentions] = React.useState<Mention[]>([]);
   const [mentionQuery, setMentionQuery] = React.useState<{ start: number; query: string } | null>(null);
+  const [files, setFiles] = React.useState<File[]>([]);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const directory = useMentionDirectory();
   const { user } = useApp();
 
@@ -101,61 +104,125 @@ export function Composer({
     const trimmed = body.trim();
     if (!trimmed) return;
     const mentionedUserIds = mentions.filter((m) => body.includes(`@${m.name}`)).map((m) => m.id);
-    onSubmit(trimmed, mentionedUserIds);
+    onSubmit(trimmed, mentionedUserIds, files);
     setBody('');
     setMentions([]);
     setMentionQuery(null);
+    setFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   return (
-    <div className="relative flex gap-2">
-      <Popover open={mentionQuery !== null && filtered.length > 0}>
-        <PopoverAnchor asChild>
-          <Textarea
-            ref={textareaRef}
-            value={body}
-            onChange={handleChange}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                submit();
-              }
-              if (e.key === 'Escape' && onCancel) onCancel();
-            }}
-            placeholder={placeholder}
-            rows={2}
-            autoFocus={autoFocus}
-            className="text-sm"
-          />
-        </PopoverAnchor>
-        <PopoverContent align="start" className="w-64 p-1" onOpenAutoFocus={(e) => e.preventDefault()}>
-          <p className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground">
-            <AtSign className="h-3 w-3" /> Mention someone
-          </p>
-          {filtered.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => pickMention(m)}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-muted"
-            >
-              <Avatar name={m.name} size="xs" />
-              {m.name}
-            </button>
+    <div className="space-y-1.5">
+      {files.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {files.map((f, i) => (
+            <span key={`${f.name}-${i}`} className="inline-flex items-center gap-1 rounded-md bg-surface-muted px-2 py-1 text-xs">
+              <FileText className="h-3 w-3 text-muted-foreground" />
+              <span className="max-w-[10rem] truncate">{f.name}</span>
+              <button
+                type="button"
+                onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                aria-label={`Remove ${f.name}`}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
           ))}
-        </PopoverContent>
-      </Popover>
-      <div className="flex flex-col justify-end gap-1">
-        <Button type="button" size="icon-sm" disabled={!body.trim() || pending} onClick={submit} aria-label="Send">
-          <Send className="h-3.5 w-3.5" />
-        </Button>
-        {onCancel && (
-          <Button type="button" size="icon-sm" variant="ghost" onClick={onCancel} aria-label="Cancel">
-            <X className="h-3.5 w-3.5" />
+        </div>
+      )}
+      <div className="relative flex gap-2">
+        <Popover open={mentionQuery !== null && filtered.length > 0}>
+          <PopoverAnchor asChild>
+            <Textarea
+              ref={textareaRef}
+              value={body}
+              onChange={handleChange}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  submit();
+                }
+                if (e.key === 'Escape' && onCancel) onCancel();
+              }}
+              placeholder={placeholder}
+              rows={2}
+              autoFocus={autoFocus}
+              className="text-sm"
+            />
+          </PopoverAnchor>
+          <PopoverContent align="start" className="w-64 p-1" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <p className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground">
+              <AtSign className="h-3 w-3" /> Mention someone
+            </p>
+            {filtered.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => pickMention(m)}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-muted"
+              >
+                <Avatar name={m.name} size="xs" />
+                {m.name}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={(e) => e.target.files && setFiles((prev) => [...prev, ...Array.from(e.target.files!)])}
+        />
+        <div className="flex flex-col justify-end gap-1">
+          <Button type="button" size="icon-sm" variant="ghost" title="Attach a file" onClick={() => fileInputRef.current?.click()} aria-label="Attach a file">
+            <Paperclip className="h-3.5 w-3.5" />
           </Button>
-        )}
+          <Button type="button" size="icon-sm" disabled={!body.trim() || pending} onClick={submit} aria-label="Send">
+            <Send className="h-3.5 w-3.5" />
+          </Button>
+          {onCancel && (
+            <Button type="button" size="icon-sm" variant="ghost" onClick={onCancel} aria-label="Cancel">
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+/** Opens a file attached to a message. Deliberately fetches a fresh signed
+ *  URL on click rather than embedding one in the note payload — the same
+ *  on-demand pattern AttachmentsPanel already uses, since a cached signed
+ *  URL would just expire before anyone gets around to clicking it. */
+export function AttachmentChip({ id, fileName }: { id: string; fileName: string }) {
+  const [pending, setPending] = React.useState(false);
+
+  async function open() {
+    setPending(true);
+    try {
+      const attachment = await api.files.get(id);
+      window.open(toBrowserUrl(attachment.downloadUrl), '_blank', 'noreferrer');
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : 'Could not open the file.');
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={open}
+      disabled={pending}
+      className="inline-flex items-center gap-1 rounded-md bg-surface px-2 py-1 text-xs text-foreground/80 hover:bg-surface-muted disabled:opacity-50"
+    >
+      <FileText className="h-3 w-3 text-muted-foreground" />
+      <span className="max-w-[10rem] truncate">{fileName}</span>
+    </button>
   );
 }
 
@@ -231,6 +298,13 @@ function MessageRow({
           />
         ) : (
           <p className={cn('whitespace-pre-wrap text-foreground/90', deleted && 'italic text-muted-foreground')}>{note.body}</p>
+        )}
+        {!deleted && note.attachments.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {note.attachments.map((a) => (
+              <AttachmentChip key={a.id} id={a.id} fileName={a.fileName} />
+            ))}
+          </div>
         )}
         {!deleted && (
           <div className="mt-1 flex items-center gap-1">
@@ -339,8 +413,23 @@ export function CommentThread({
   }
 
   const post = useMutation({
-    mutationFn: (input: { body: string; mentionedUserIds: string[]; parentId?: string }) =>
-      api.notes.create({ ...context, body: input.body, mentionedUserIds: input.mentionedUserIds, parentId: input.parentId }),
+    mutationFn: async (input: { body: string; mentionedUserIds: string[]; parentId?: string; files: File[] }) => {
+      const note = await api.notes.create({ ...context, body: input.body, mentionedUserIds: input.mentionedUserIds, parentId: input.parentId });
+      // The upload target needs the note's own id, so attachments can only
+      // go up after the note exists — same two-phase signed flow used
+      // everywhere else (uploadAttachment), never a bespoke chat-only path.
+      // A file failing to attach shouldn't hide that the message itself
+      // sent successfully, so failures here surface per-file, not as a
+      // reason to roll back or block the message.
+      for (const file of input.files) {
+        try {
+          await uploadAttachment(file, { noteId: note.id });
+        } catch (e) {
+          toast.error(`"${file.name}" didn't attach: ${e instanceof ApiError ? e.message : 'upload failed'}`);
+        }
+      }
+      return note;
+    },
     onSuccess: () => {
       setReplyTo(null);
       queryClient.invalidateQueries({ queryKey });
@@ -365,7 +454,7 @@ export function CommentThread({
       <Composer
         placeholder={composerPlaceholder}
         pending={post.isPending}
-        onSubmit={(body, mentionedUserIds) => post.mutate({ body, mentionedUserIds })}
+        onSubmit={(body, mentionedUserIds, files) => post.mutate({ body, mentionedUserIds, files })}
       />
 
       {thread.isLoading ? null : messages.length === 0 ? (
@@ -385,7 +474,7 @@ export function CommentThread({
                     pending={post.isPending}
                     autoFocus
                     onCancel={() => setReplyTo(null)}
-                    onSubmit={(body, mentionedUserIds) => post.mutate({ body, mentionedUserIds, parentId: note.id })}
+                    onSubmit={(body, mentionedUserIds, files) => post.mutate({ body, mentionedUserIds, files, parentId: note.id })}
                   />
                 </div>
               )}

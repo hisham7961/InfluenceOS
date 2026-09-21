@@ -1,4 +1,4 @@
-import { requests, type ConversationUnreadDTO, type MentionRefDTO, type NoteDTO } from '@influenceos/contracts';
+import { requests, type AttachmentKind, type ConversationUnreadDTO, type MentionRefDTO, type NoteDTO } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
@@ -19,6 +19,11 @@ export interface NoteUpdateInput {
 const noteInclude = {
   author: { select: { id: true, name: true } },
   mentions: { include: { user: { select: { id: true, name: true } } } },
+  // Lightweight only — no signed download URL here (those expire and are
+  // never worth computing for a whole list; the client fetches one fresh
+  // via GET /files/:id, same pattern AttachmentsPanel already uses, only
+  // when a person actually clicks a file).
+  attachments: { select: { id: true, fileName: true, mimeType: true, sizeBytes: true, kind: true }, orderBy: { createdAt: 'asc' } },
 } satisfies Prisma.NoteInclude;
 
 type NoteRow = Prisma.NoteGetPayload<{ include: typeof noteInclude }>;
@@ -47,6 +52,9 @@ function toNoteDTO(row: NoteRow, replies?: NoteDTO[]): NoteDTO {
     editedAt: iso(row.editedAt),
     deleted,
     mentions: deleted ? [] : toMentionRefs(row),
+    attachments: deleted
+      ? []
+      : row.attachments.map((a) => ({ id: a.id, fileName: a.fileName, mimeType: a.mimeType, sizeBytes: a.sizeBytes, kind: (a.kind ?? 'other') as AttachmentKind })),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     ...(replies ? { replies } : {}),

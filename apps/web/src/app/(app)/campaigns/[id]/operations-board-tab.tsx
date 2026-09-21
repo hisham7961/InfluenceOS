@@ -3,13 +3,14 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Circle, Clock, Minus, TriangleAlert } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Circle, Clock, Minus, TriangleAlert } from 'lucide-react';
 import type { CampaignOperationsRowDTO, CampaignOperationsStageDTO, Tone } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
 import { cn } from '@/lib/cn';
 
@@ -92,6 +93,16 @@ export function OperationsBoardTab({ campaignId }: { campaignId: string }) {
     queryFn: () => api.campaigns.operationsBoard(campaignId),
   });
 
+  // The SAME canonical Needs Attention list Mission Control renders
+  // (dashboard.service.ts::attention()), scoped to this campaign — a real
+  // slice of that one source, not a second calculation. This is additional
+  // to the per-row derived stage state above: it also surfaces item kinds
+  // the stage columns don't carry, such as a usage right expiring soon.
+  const { data: attention } = useQuery({
+    queryKey: ['campaign-attention', campaignId],
+    queryFn: () => api.dashboard.attention({ campaignId }),
+  });
+
   const rows = data?.rows ?? [];
   const filtered = filter === ALL ? rows : rows.filter((r) => r.filterBuckets.includes(filter));
 
@@ -115,6 +126,22 @@ export function OperationsBoardTab({ campaignId }: { campaignId: string }) {
 
   return (
     <div className="space-y-4">
+      {attention && attention.length > 0 ? (
+        <Card className="divide-y divide-border">
+          {attention.map((item) => (
+            <Link key={item.id} href={item.link} className="flex items-start gap-3 p-3 transition-colors hover:bg-surface-muted">
+              <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${item.severity === 'danger' ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'}`}>
+                <AlertTriangle className="h-3.5 w-3.5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium leading-snug">{item.title}</p>
+                <p className="text-xs text-muted-foreground">{item.description}</p>
+              </div>
+            </Link>
+          ))}
+        </Card>
+      ) : null}
+
       <div className="flex flex-wrap gap-1.5">
         <Button variant={filter === ALL ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter(ALL)}>
           All ({rows.length})

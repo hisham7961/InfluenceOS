@@ -233,19 +233,33 @@ export function makeDashboardService(ctx: DomainContext) {
 
   /**
    * The ONE canonical operational-attention source (Operations Intelligence
-   * pass, PART 55) — Mission Control, the Campaign/Creator contextual views
-   * and the Operations page all render a brandId/campaignId/influencerId-
-   * filtered slice of this SAME list, never a second calculation.
+   * pass, PART 55). Mission Control renders a brandId-filtered slice
+   * directly (via `global()`); the Campaign Operations Board renders a
+   * campaignId-filtered slice via the same function (never a second
+   * calculation of these item kinds) alongside its own per-row derived
+   * stage state, which answers a different question ("where is THIS
+   * CampaignInfluencer's progress") than this list does ("what across the
+   * system needs a human to act"). The Executive Brief intentionally does
+   * NOT source its KPI digest from here — those are unlimited aggregate
+   * counts computed by analytics.service.ts, whereas this list is capped at
+   * `limit` and item-shaped; forcing the digest through this capped list
+   * would silently undercount at scale.
    */
-  async function attention(brandId?: string, limit = 12): Promise<AttentionItemDTO[]> {
+  async function attention(brandId?: string, campaignId?: string, limit = 12): Promise<AttentionItemDTO[]> {
     const now = new Date();
     const in5 = new Date(now.getTime() + 5 * 864e5);
     const in14 = new Date(now.getTime() + 14 * 864e5);
     const out: AttentionItemDTO[] = [];
 
     const bf = await attentionBrandFilter(brandId);
-    const deliverableBf = bf.brandId ? { campaignInfluencer: { campaign: { brandId: bf.brandId } } } : {};
-    const shipmentBf = bf.brandId ? { campaignInfluencer: { campaign: { brandId: bf.brandId } } } : {};
+    // campaignId narrows further within whatever brand scope already applies
+    // (never a way to escape it) — a scoped user passing a campaignId from
+    // another brand simply gets zero rows, same as any other out-of-scope
+    // filter in this codebase.
+    const ciFilter = { ...(bf.brandId ? { campaign: { brandId: bf.brandId } } : {}), ...(campaignId ? { campaignId } : {}) };
+    const deliverableBf = Object.keys(ciFilter).length ? { campaignInfluencer: ciFilter } : {};
+    const shipmentBf = deliverableBf;
+    const directCampaignFilter = campaignId ? { campaignId } : {};
 
     const [overdue, removed, endingSoon, unassignedCount, shipmentIssues, expiringRights, ownerlessCount, ugcAwaiting, logisticsIssues] =
       await Promise.all([
@@ -260,20 +274,23 @@ export function makeDashboardService(ctx: DomainContext) {
           take: limit,
         }),
         prisma.publishedContent.findMany({
-          where: { availabilityStatus: { in: [...REMOVED_STATUSES] }, ...bf },
+          where: { availabilityStatus: { in: [...REMOVED_STATUSES] }, ...bf, ...directCampaignFilter },
           include: { influencer: { select: { displayName: true } } },
           orderBy: { lastCheckedAt: 'desc' },
           take: limit,
         }),
         prisma.campaign.findMany({
-          where: { status: 'ACTIVE', endDate: { gte: now, lte: in5 }, ...bf },
+          where: { status: 'ACTIVE', endDate: { gte: now, lte: in5 }, ...bf, ...(campaignId ? { id: campaignId } : {}) },
           orderBy: { endDate: 'asc' },
           take: limit,
         }),
         // Content Command Center pass — reuses the SAME "no campaign, no
         // influencer" derivation as everywhere else (never a stored column),
-        // one roll-up entry rather than a row per item.
-        prisma.publishedContent.count({ where: { campaignId: null, influencerId: null, ...bf } }),
+        // one roll-up entry rather than a row per item. Not meaningful when
+        // scoped to a single campaign (unassigned content has no campaign by
+        // definition), so skip the query entirely rather than return a
+        // confusing always-zero count.
+        campaignId ? Promise.resolve(0) : prisma.publishedContent.count({ where: { campaignId: null, influencerId: null, ...bf } }),
         prisma.productShipment.findMany({
           where: { status: { in: ['FAILED', 'RETURNED'] }, ...shipmentBf },
           include: {
@@ -285,14 +302,17 @@ export function makeDashboardService(ctx: DomainContext) {
           take: limit,
         }),
         prisma.usageRight.findMany({
-          where: { status: 'ACTIVE', expiresAt: { gte: now, lte: in14 }, ...bf },
+          where: { status: 'ACTIVE', expiresAt: { gte: now, lte: in14 }, ...bf, ...directCampaignFilter },
           include: { brand: { select: { name: true } } },
           orderBy: { expiresAt: 'asc' },
           take: limit,
         }),
-        prisma.campaign.count({ where: { ownerId: null, status: { in: ['ACTIVE', 'PLANNING'] }, ...bf } }),
+        // "Campaigns missing an owner" is a discovery item, not something a
+        // single already-open campaign's own board needs restated — skip
+        // when scoped, same reasoning as unassignedCount above.
+        campaignId ? Promise.resolve(0) : prisma.campaign.count({ where: { ownerId: null, status: { in: ['ACTIVE', 'PLANNING'] }, ...bf } }),
         prisma.deliverableSubmission.findMany({
-          where: { status: 'IN_REVIEW', deliverable: { campaignInfluencer: { campaign: bf.brandId ? { brandId: bf.brandId } : {} } } },
+          where: { status: 'IN_REVIEW', deliverable: { campaignInfluencer: ciFilter } },
           include: {
             deliverable: {
               select: {
@@ -309,7 +329,7 @@ export function makeDashboardService(ctx: DomainContext) {
         // records the Logistics workspace and Influencer 360 show, surfaced
         // here as an actionable attention item, never a duplicate calculation.
         prisma.logisticsIssue.findMany({
-          where: { status: 'OPEN', shipment: { campaignInfluencer: { campaign: bf.brandId ? { brandId: bf.brandId } : {} } } },
+          where: { status: 'OPEN', shipment: { campaignInfluencer: ciFilter } },
           include: {
             shipment: {
               select: {

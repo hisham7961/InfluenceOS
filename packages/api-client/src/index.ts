@@ -391,8 +391,8 @@ export function createClient(config: ClientConfig) {
     dashboard: {
       global: (brandId?: string) =>
         http.get<GlobalDashboardDTO>(`${V}/dashboard/global`, { query: { brandId } }),
-      attention: (brandId?: string) =>
-        http.get<GlobalDashboardDTO['attention']>(`${V}/dashboard/attention`, { query: { brandId } }),
+      attention: (opts?: { brandId?: string; campaignId?: string }) =>
+        http.get<GlobalDashboardDTO['attention']>(`${V}/dashboard/attention`, { query: { brandId: opts?.brandId, campaignId: opts?.campaignId } }),
       whatsNew: (brandId?: string) =>
         http.get<GlobalDashboardDTO['whatsNew']>(`${V}/whats-new`, { query: { brandId } }),
       // Advances the caller's own "since your last visit" checkpoint — call

@@ -891,10 +891,23 @@ export interface NoteDTO {
   /** True once soft-deleted — `body` is already replaced with "[deleted]" when this is true. */
   deleted: boolean;
   mentions: MentionRefDTO[];
+  attachments: NoteAttachmentRefDTO[];
   createdAt: string;
   updatedAt: string;
   /** Only present on a top-level fetch; one level deep. */
   replies?: NoteDTO[];
+}
+
+/** A file attached to a Note/message — deliberately without a signed download
+ *  URL (those expire; the client fetches one fresh via GET /files/:id, the
+ *  same on-demand pattern AttachmentsPanel already uses, only when someone
+ *  actually opens the file). */
+export interface NoteAttachmentRefDTO {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  kind: AttachmentKind;
 }
 
 /** A lightweight team-directory entry for the @mention picker — no email/role/lockout fields. */

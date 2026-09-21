@@ -107,4 +107,49 @@ describe('OI-8 — Needs Attention canonical service', () => {
     await prisma.brand.delete({ where: { id: otherBrandId } }).catch(() => undefined);
     await prisma.$disconnect();
   });
+
+  it('is campaignId-scoped — the Campaign Operations Board sees only ITS campaign\'s items, even from the same brand', async () => {
+    // A second campaign in the SAME brand, with its own overdue deliverable —
+    // proves campaignId narrows within the brand rather than only brandId
+    // mattering (dashboard.service.ts's attention(brandId, campaignId)).
+    const otherCampaignId = idOf(
+      await app.inject({
+        method: 'POST',
+        url: '/api/v1/campaigns',
+        headers: auth,
+        payload: { brandId, name: `Attention Camp 2 ${Date.now()}`, status: 'ACTIVE', endDate: daysFromNow(3) },
+      }),
+    );
+    const influencerId2 = idOf(
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Attention Creator 2 ${Date.now()}` } }),
+    );
+    const ciId2 = idOf(
+      await app.inject({
+        method: 'POST',
+        url: `/api/v1/campaigns/${otherCampaignId}/influencers`,
+        headers: auth,
+        payload: { influencerId: influencerId2, dealType: 'GIFTED_PRODUCT' },
+      }),
+    );
+    const otherDeliverableId = idOf(
+      await app.inject({
+        method: 'POST',
+        url: `/api/v1/campaign-influencers/${ciId2}/deliverables`,
+        headers: auth,
+        payload: { platform: 'INSTAGRAM', type: 'REEL', dueDate: daysAgo(1) },
+      }),
+    );
+
+    const res = await app.inject({ method: 'GET', url: `/api/v1/dashboard/attention?campaignId=${campaignId}`, headers: auth });
+    expect(res.statusCode).toBe(200);
+    const items = res.json() as AttentionItemDTO[];
+    expect(items.some((i) => i.id === `overdue-${deliverableId}`)).toBe(true);
+    expect(items.every((i) => i.id !== `overdue-${otherDeliverableId}`)).toBe(true);
+    expect(items.every((i) => !i.campaignId || i.campaignId === campaignId)).toBe(true);
+
+    const { PrismaClient } = await import('@influenceos/database');
+    const prisma = new PrismaClient();
+    await prisma.campaign.delete({ where: { id: otherCampaignId } }).catch(() => undefined);
+    await prisma.$disconnect();
+  });
 });

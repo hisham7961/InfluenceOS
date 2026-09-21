@@ -4,6 +4,7 @@ import { z } from '@influenceos/contracts';
 import { requireAuth, servicesFor } from '../http';
 
 const brandQuery = z.object({ brandId: z.string().optional() });
+const attentionQuery = z.object({ brandId: z.string().optional(), campaignId: z.string().optional() });
 
 export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
   const r = app.withTypeProvider<ZodTypeProvider>();
@@ -16,8 +17,11 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
 
   r.get(
     '/dashboard/attention',
-    { preHandler: [requireAuth], schema: { tags: ['Dashboard'], summary: 'Items that need attention', querystring: brandQuery } },
-    async (req) => servicesFor(req).dashboard.attention(req.query.brandId),
+    {
+      preHandler: [requireAuth],
+      schema: { tags: ['Dashboard'], summary: 'Items that need attention (optionally scoped to one campaign)', querystring: attentionQuery },
+    },
+    async (req) => servicesFor(req).dashboard.attention(req.query.brandId, req.query.campaignId),
   );
 
   r.get(

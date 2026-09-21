@@ -8,11 +8,12 @@ import { Pin, PinOff, StickyNote, Trash2 } from 'lucide-react';
 import type { NoteDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
+import { uploadAttachment } from '@/lib/upload';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Composer } from '@/components/collaboration/comment-thread';
+import { AttachmentChip, Composer } from '@/components/collaboration/comment-thread';
 import { relativeTime } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
@@ -38,8 +39,23 @@ export function NotesPanel({ influencerId, notes }: { influencerId: string; note
   }
 
   const createNote = useMutation({
-    mutationFn: ({ body, mentionedUserIds }: { body: string; mentionedUserIds: string[] }) =>
-      api.notes.create({ body, influencerId, mentionedUserIds }),
+    mutationFn: async ({ body, mentionedUserIds, files }: { body: string; mentionedUserIds: string[]; files: File[] }) => {
+      const note = await api.notes.create({ body, influencerId, mentionedUserIds });
+      if (files.length === 0) return note;
+      for (const file of files) {
+        try {
+          await uploadAttachment(file, { noteId: note.id });
+        } catch (e) {
+          toast.error(`"${file.name}" didn't attach: ${e instanceof ApiError ? e.message : 'upload failed'}`);
+        }
+      }
+      // The note object returned above predates its own attachments (they
+      // can only be uploaded once the note exists) — re-fetch the list so
+      // the card we prepend actually shows what just got attached, instead
+      // of a stale zero-attachments snapshot.
+      const refreshed = await api.influencers.notes(influencerId);
+      return refreshed.find((n) => n.id === note.id) ?? note;
+    },
     onSuccess: (note) => {
       setItems((prev) => [note, ...prev]);
       toast.success('Note added');
@@ -75,7 +91,7 @@ export function NotesPanel({ influencerId, notes }: { influencerId: string; note
       <Card className="h-fit p-4">
         <p className="mb-3 text-sm font-semibold">Add a note</p>
         <Composer
-          onSubmit={(body, mentionedUserIds) => createNote.mutate({ body, mentionedUserIds })}
+          onSubmit={(body, mentionedUserIds, files) => createNote.mutate({ body, mentionedUserIds, files })}
           pending={createNote.isPending}
           placeholder="Log a call, a rate negotiation, a red flag… use @ to mention someone"
         />
@@ -99,6 +115,13 @@ export function NotesPanel({ influencerId, notes }: { influencerId: string; note
                     <span className="text-xs text-muted-foreground">{relativeTime(note.createdAt)}</span>
                   </div>
                   <p className="whitespace-pre-wrap text-sm text-foreground">{note.body}</p>
+                  {note.attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {note.attachments.map((a) => (
+                        <AttachmentChip key={a.id} id={a.id} fileName={a.fileName} />
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex shrink-0 items-center gap-0.5">
                   <Button
