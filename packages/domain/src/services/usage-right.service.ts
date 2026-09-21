@@ -4,8 +4,9 @@ import { Prisma } from '@influenceos/database';
 import { computeUsageRightEffectiveStatus, daysUntilExpiry } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireCapability } from '../lib/authz';
 import { iso, logActivity } from '../lib/helpers';
+import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
 
 type UsageRightCreate = z.infer<typeof requests.usageRightCreateSchema>;
 type UsageRightUpdate = z.infer<typeof requests.usageRightUpdateSchema>;
@@ -56,10 +57,24 @@ function toDTO(r: Row): UsageRightDTO {
 export function makeUsageRightService(ctx: DomainContext) {
   const { prisma } = ctx;
 
+  // Security & Authorization Freeze Gate, section 44 — "do not allow rights
+  // to be created against unauthorized Brands via direct IDs". Previously
+  // this checked only that the brand EXISTED, never that it was within the
+  // actor's own UserBrandAccess — the exact same class of gap campaign.
+  // service.ts had before its own fix (an explicit, client-supplied id/
+  // brandId with no actor-scope check composed in).
   async function brandOrThrow(brandId: string) {
     const brand = await prisma.brand.findUnique({ where: { id: brandId }, select: { id: true } });
     if (!brand) throw AppError.notFound('Brand');
+    const scope = await scopedBrandIds(ctx);
+    if (isBrandOutOfScope(scope, brand.id)) throw AppError.notFound('Brand');
     return brand;
+  }
+
+  /** Direct-ID brand scope for a lookup keyed by the UsageRight's own id (get/update/revoke) — a scoped actor must not reach another brand's license merely by knowing/guessing its id. */
+  async function assertRightInScope(brandId: string): Promise<void> {
+    const scope = await scopedBrandIds(ctx);
+    if (isBrandOutOfScope(scope, brandId)) throw AppError.notFound('Usage right');
   }
 
   /** Guard that referenced campaign/influencer/content actually belong under the brand. */
@@ -93,11 +108,22 @@ export function makeUsageRightService(ctx: DomainContext) {
   async function get(id: string): Promise<UsageRightDTO> {
     const row = await prisma.usageRight.findUnique({ where: { id }, include: usageRightInclude });
     if (!row) throw AppError.notFound('Usage right');
+    // Direct-ID brand scope — a scoped actor must not read another brand's
+    // license merely by knowing/guessing its id.
+    await assertRightInScope(row.brandId);
     return toDTO(row);
   }
 
   async function create(brandId: string, input: UsageRightCreate): Promise<UsageRightDTO> {
-    const actor = requireActor(ctx);
+    // Capability grants WHAT; brandOrThrow's scope check grants WHERE — both
+    // required. This was previously bare requireActor(ctx): ANY authenticated
+    // user could record/alter licensing terms for ANY brand. No dedicated
+    // usage-rights capability exists in the vocabulary (capabilities.ts); a
+    // usage right is a brand-owned legal/licensing term (see this file's own
+    // doc comment), so BRANDS_MANAGE — not CONTENT_MANAGE/CAMPAIGNS_MANAGE,
+    // which govern the content/campaign records a right merely references —
+    // is the closest existing fit.
+    const actor = await requireCapability(ctx, 'BRANDS_MANAGE');
     await brandOrThrow(brandId);
     await assertReferences(brandId, input);
 
@@ -140,9 +166,10 @@ export function makeUsageRightService(ctx: DomainContext) {
   }
 
   async function update(id: string, input: UsageRightUpdate): Promise<UsageRightDTO> {
-    requireActor(ctx);
+    await requireCapability(ctx, 'BRANDS_MANAGE');
     const existing = await prisma.usageRight.findUnique({ where: { id }, select: { brandId: true } });
     if (!existing) throw AppError.notFound('Usage right');
+    await assertRightInScope(existing.brandId);
     await assertReferences(existing.brandId, {
       campaignId: input.campaignId ?? null,
       influencerId: input.influencerId ?? null,
@@ -175,9 +202,10 @@ export function makeUsageRightService(ctx: DomainContext) {
 
   /** Manually revoke a license (rights withdrawn before natural expiry). */
   async function revoke(id: string): Promise<UsageRightDTO> {
-    const actor = requireActor(ctx);
+    const actor = await requireCapability(ctx, 'BRANDS_MANAGE');
     const existing = await prisma.usageRight.findUnique({ where: { id }, select: { id: true, brandId: true, status: true } });
     if (!existing) throw AppError.notFound('Usage right');
+    await assertRightInScope(existing.brandId);
     if (existing.status === 'REVOKED') throw AppError.badRequest('This usage right is already revoked.');
 
     const row = await prisma.$transaction(async (tx) => {

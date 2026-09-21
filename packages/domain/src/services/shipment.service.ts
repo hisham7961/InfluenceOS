@@ -418,6 +418,30 @@ export function makeShipmentService(ctx: DomainContext) {
       .sort((a, b) => b.total - a.total);
   }
 
+  /**
+   * The recipient/address-identifying fields on a shipment update — a
+   * materially more sensitive edit than courier/tracking/status/notes (see
+   * update(), below). Kept as an explicit literal list (rather than derived
+   * from shipmentUpdateSchema's keys) so it's obvious at a glance which
+   * fields are address-tier, and so it stays stable if an unrelated field is
+   * ever added to the schema.
+   */
+  const SHIPMENT_ADDRESS_FIELDS = [
+    'recipientName',
+    'phone',
+    'addressLine1',
+    'addressLine2',
+    'city',
+    'country',
+    'destinationCountryCode',
+    'postalCode',
+    'deliveryInstructions',
+  ] as const satisfies readonly (keyof ShipmentUpdate)[];
+
+  function touchesAddressFields(input: ShipmentUpdate): boolean {
+    return SHIPMENT_ADDRESS_FIELDS.some((key) => input[key] !== undefined);
+  }
+
   async function create(campaignInfluencerId: string, input: ShipmentCreate): Promise<ProductShipmentDTO> {
     const actor = await requireCapability(ctx, 'LOGISTICS_MANAGE');
     const ci = await ciContext(campaignInfluencerId);
@@ -514,6 +538,24 @@ export function makeShipmentService(ctx: DomainContext) {
   /** Update fulfilment details (address, courier, tracking, notes) — never the campaignInfluencerId/deliverableId/items. */
   async function update(shipmentId: string, input: ShipmentUpdate): Promise<ProductShipmentDTO> {
     const actor = await requireCapability(ctx, 'LOGISTICS_MANAGE');
+    // Split gate (Security & Authorization Freeze Gate): LOGISTICS_MANAGE alone
+    // covers courier/tracking/status/notes, but recipient/address fields
+    // (SHIPMENT_ADDRESS_FIELDS) additionally require LOGISTICS_ADDRESS_EDIT —
+    // capabilities.ts deliberately withholds LOGISTICS_ADDRESS_EDIT from
+    // GENERAL_MANAGER ("wide operational data, not system config") while still
+    // granting it LOGISTICS_MANAGE, so without this second check a GENERAL_MANAGER
+    // (or anyone else holding LOGISTICS_MANAGE but not LOGISTICS_ADDRESS_EDIT)
+    // could silently edit a creator's phone/address through this endpoint despite
+    // the role design withholding that specific power. create() (above) is
+    // deliberately NOT split the same way: a requester supplies the shipment's
+    // initial shipping info once, as part of standing the shipment up in the
+    // first place — the same LOGISTICS_MANAGE gate that lets them create the
+    // shipment lets them fill in where it goes. It's specifically a LATER
+    // correction of an already-created shipment's address that this extra gate
+    // protects, which is what update() (and only update()) does.
+    if (touchesAddressFields(input)) {
+      await requireCapability(ctx, 'LOGISTICS_ADDRESS_EDIT');
+    }
     const existing = await prisma.productShipment.findUnique({
       where: { id: shipmentId },
       include: { campaignInfluencer: { select: { campaignId: true, influencerId: true, campaign: { select: { brandId: true } } } } },

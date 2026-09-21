@@ -3,7 +3,7 @@ import { requests, type SocialAccountDTO, type DataSource } from '@influenceos/c
 import type { z } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireCapability } from '../lib/authz';
 import { logActivity } from '../lib/helpers';
 import { toSocialAccountDTO } from '../lib/mappers';
 
@@ -56,7 +56,9 @@ export function makeSocialAccountService(ctx: DomainContext) {
   }
 
   async function create(input: SocialAccountCreate): Promise<SocialAccountDTO> {
-    requireActor(ctx);
+    // Security & Authorization Freeze Gate — bare requireActor let ANY
+    // authenticated user link a social account to any influencer.
+    await requireCapability(ctx, 'INFLUENCERS_MANAGE');
     const influencer = await prisma.influencer.findUnique({ where: { id: input.influencerId } });
     if (!influencer) throw AppError.notFound('Influencer');
 
@@ -118,7 +120,7 @@ export function makeSocialAccountService(ctx: DomainContext) {
   }
 
   async function update(id: string, input: SocialAccountUpdate): Promise<SocialAccountDTO> {
-    requireActor(ctx);
+    await requireCapability(ctx, 'INFLUENCERS_MANAGE');
     const existing = await prisma.socialAccount.findUnique({ where: { id }, select: accountSelect });
     if (!existing) throw AppError.notFound('Social account');
 
@@ -201,7 +203,7 @@ export function makeSocialAccountService(ctx: DomainContext) {
   }
 
   async function remove(id: string): Promise<void> {
-    requireActor(ctx);
+    await requireCapability(ctx, 'INFLUENCERS_MANAGE');
     const existing = await prisma.socialAccount.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Social account');
     await prisma.socialAccount.delete({ where: { id } });

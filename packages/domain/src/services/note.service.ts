@@ -7,6 +7,7 @@ import { requireActor, requireOwnerOrAdmin } from '../lib/authz';
 import { hasCapability } from '../lib/capabilities';
 import { createNotification, iso, logActivity } from '../lib/helpers';
 import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
+import { makeCampaignService } from './campaign.service';
 
 type NoteCreate = z.infer<typeof requests.noteCreateSchema>;
 
@@ -119,8 +120,16 @@ export function makeNoteService(ctx: DomainContext) {
       return { brandId: pc.brandId, campaignId: null, link: `/content/${pc.id}`, label: 'a video' };
     }
     if (input.campaignId) {
-      const campaign = await prisma.campaign.findUnique({ where: { id: input.campaignId }, select: { id: true, brandId: true, name: true } });
-      if (!campaign) throw AppError.notFound('Campaign');
+      // Security & Authorization Freeze Gate, section 39 (Campaign Chat
+      // Authorization) — resolve via the shared, brand-scope-checked lookup
+      // instead of a raw findUnique. `list()`/`create()`/`pin()` already
+      // re-assert scope on the resolved brandId below (assertInScope here is
+      // belt-and-suspenders: it fails fast, before any Note data is touched,
+      // rather than relying on every future caller to remember the second
+      // check), so a brand-scoped actor can never list or post Campaign Chat
+      // messages for a campaign outside their brand access, even by
+      // supplying its id directly.
+      const campaign = await makeCampaignService(ctx).assertInScope(input.campaignId);
       return { brandId: campaign.brandId, campaignId: campaign.id, link: `/campaigns/${campaign.id}?tab=discussion`, label: campaign.name };
     }
     if (input.deliverableId) {

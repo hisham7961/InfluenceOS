@@ -9,7 +9,7 @@ import {
 } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireActor, requireCapability } from '../lib/authz';
 import { seal, open } from '../lib/crypto';
 
 /**
@@ -142,7 +142,9 @@ export function makeCreatorOAuthService(ctx: DomainContext) {
   }
 
   async function disconnect(influencerId: string, platformRaw: string): Promise<{ ok: true }> {
-    requireActor(ctx);
+    // Security & Authorization Freeze Gate — bare requireActor let ANY
+    // authenticated user rip out another creator's OAuth connection.
+    await requireCapability(ctx, 'INFLUENCERS_MANAGE');
     const platform = asCreatorPlatform(platformRaw);
     await prisma.creatorOAuthToken.deleteMany({ where: { influencerId, platform } });
     return { ok: true };

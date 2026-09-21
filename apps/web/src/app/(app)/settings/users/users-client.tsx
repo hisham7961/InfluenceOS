@@ -70,11 +70,11 @@ export function UsersClient({ initial }: { initial: UserDTO[] }) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
-                <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  <th className="px-5 py-3">User</th>
-                  <th className="px-5 py-3">Email</th>
-                  <th className="px-5 py-3">Role</th>
-                  <th className="px-5 py-3">Status</th>
+                <tr className="border-b border-border bg-surface-muted/60 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <th className="px-5 py-3 text-start">User</th>
+                  <th className="px-5 py-3 text-start">Email</th>
+                  <th className="px-5 py-3 text-start">Role</th>
+                  <th className="px-5 py-3 text-start">Status</th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>

@@ -7,7 +7,7 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireActor, requireCapability } from '../lib/authz';
 import { createNotification, iso, logActivity } from '../lib/helpers';
 import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
@@ -211,7 +211,12 @@ export function makeSubmissionService(ctx: DomainContext) {
   }
 
   async function review(submissionId: string, input: SubmissionReview): Promise<DeliverableSubmissionDTO> {
-    const actor = requireActor(ctx);
+    // HIGH severity (Security & Authorization Freeze Gate): this approves or
+    // rejects a creator's UGC submission, completing the deliverable and
+    // triggering payment-due state — was previously a bare requireActor, so
+    // ANY authenticated user could review. Scope (brand/country) is already
+    // enforced below via assertSubmissionInScope.
+    const actor = await requireCapability(ctx, 'UGC_REVIEW');
     await assertSubmissionInScope(submissionId);
     const existing = await prisma.deliverableSubmission.findUnique({
       where: { id: submissionId },

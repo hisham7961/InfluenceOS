@@ -20,6 +20,7 @@ import { AppError } from '../errors';
 import { requireActor, requireAdmin } from '../lib/authz';
 import { resolveCapabilitiesFor, resolveEffectiveCapabilities } from '../lib/capabilities';
 import { open, seal } from '../lib/crypto';
+import { logActivity } from '../lib/helpers';
 
 const ACCESS_TTL_SEC = 60 * 15; // 15 minutes
 /** Consecutive failed logins before a short account lockout kicks in. */

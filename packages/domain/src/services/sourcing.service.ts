@@ -9,10 +9,11 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireAnyCapability } from '../lib/authz';
 import { iso, logActivity } from '../lib/helpers';
 import { toInfluencerSummary } from '../lib/mappers';
 import { makeCampaignInfluencerService } from './campaign-influencer.service';
+import { makeCampaignService } from './campaign.service';
 
 type CandidateCreate = z.infer<typeof requests.candidateCreateSchema>;
 type CandidateUpdate = z.infer<typeof requests.candidateUpdateSchema>;
@@ -71,13 +72,14 @@ function toDTO(c: Row): CampaignCandidateDTO {
 export function makeSourcingService(ctx: DomainContext) {
   const { prisma } = ctx;
 
+  // Security & Authorization Freeze Gate, section 10 — a child resource
+  // (a sourcing candidate) must not be reachable once its parent Campaign is
+  // out of the actor's brand scope, even though this file's own queries only
+  // ever filtered by campaignId/candidateId. Delegates to the shared,
+  // brand-scope-checked lookup every other campaign-child service reuses,
+  // instead of a raw, unchecked `prisma.campaign.findUnique`.
   async function campaignOrThrow(campaignId: string) {
-    const campaign = await prisma.campaign.findUnique({
-      where: { id: campaignId },
-      select: { id: true, name: true, brandId: true },
-    });
-    if (!campaign) throw AppError.notFound('Campaign');
-    return campaign;
+    return makeCampaignService(ctx).assertInScope(campaignId);
   }
 
   async function listForCampaign(campaignId: string, status?: CandidateStatus): Promise<CampaignCandidateDTO[]> {
@@ -93,11 +95,18 @@ export function makeSourcingService(ctx: DomainContext) {
   async function get(id: string): Promise<CampaignCandidateDTO> {
     const row = await prisma.campaignCandidate.findUnique({ where: { id }, include: candidateInclude });
     if (!row) throw AppError.notFound('Candidate');
+    // Direct-ID brand scope — a scoped actor must not read an out-of-scope
+    // campaign's candidate merely by guessing/knowing its id.
+    await campaignOrThrow(row.campaignId);
     return toDTO(row);
   }
 
   async function add(campaignId: string, input: CandidateCreate): Promise<CampaignCandidateDTO> {
-    const actor = requireActor(ctx);
+    // Capability grants WHAT; scope grants WHERE — both required. This was
+    // previously bare requireActor(ctx), meaning ANY authenticated user could
+    // add a sourcing candidate to any campaign regardless of brand access,
+    // mirroring the exact gap campaign-influencer.service.ts's roster add had.
+    const actor = await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
     const campaign = await campaignOrThrow(campaignId);
     const influencer = await prisma.influencer.findUnique({
       where: { id: input.influencerId },
@@ -133,9 +142,10 @@ export function makeSourcingService(ctx: DomainContext) {
   }
 
   async function update(id: string, input: CandidateUpdate): Promise<CampaignCandidateDTO> {
-    requireActor(ctx);
-    const existing = await prisma.campaignCandidate.findUnique({ where: { id }, select: { id: true } });
+    await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
+    const existing = await prisma.campaignCandidate.findUnique({ where: { id }, select: { id: true, campaignId: true } });
     if (!existing) throw AppError.notFound('Candidate');
+    await campaignOrThrow(existing.campaignId);
     const row = await prisma.campaignCandidate.update({
       where: { id },
       data: {
@@ -148,15 +158,16 @@ export function makeSourcingService(ctx: DomainContext) {
   }
 
   async function decide(id: string, input: CandidateDecisionInput): Promise<CampaignCandidateDTO> {
-    const actor = requireActor(ctx);
+    const actor = await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
     const existing = await prisma.campaignCandidate.findUnique({
       where: { id },
-      include: { campaign: { select: { brandId: true, name: true } }, influencer: { select: { displayName: true } } },
+      include: { influencer: { select: { displayName: true } } },
     });
     if (!existing) throw AppError.notFound('Candidate');
     if (existing.status === 'CONVERTED') {
       throw AppError.badRequest('This candidate has already been committed to the roster.');
     }
+    const campaign = await campaignOrThrow(existing.campaignId);
     const nextStatus = DECISION_STATUS[input.decision];
     const row = await prisma.campaignCandidate.update({
       where: { id },
@@ -170,8 +181,8 @@ export function makeSourcingService(ctx: DomainContext) {
     });
     await logActivity(ctx, {
       type: 'GENERIC',
-      message: `${actor.name} ${nextStatus.toLowerCase()} candidate ${existing.influencer.displayName} on ${existing.campaign.name}.`,
-      brandId: existing.campaign.brandId,
+      message: `${actor.name} ${nextStatus.toLowerCase()} candidate ${existing.influencer.displayName} on ${campaign.name}.`,
+      brandId: campaign.brandId,
       campaignId: existing.campaignId,
       influencerId: existing.influencerId,
       meta: { candidateId: id, decision: input.decision },
@@ -185,12 +196,16 @@ export function makeSourcingService(ctx: DomainContext) {
    * marks the candidate CONVERTED and links the created roster row.
    */
   async function convert(id: string, input: CandidateConvert): Promise<CampaignCandidateDTO> {
-    const actor = requireActor(ctx);
+    const actor = await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
     const existing = await prisma.campaignCandidate.findUnique({
       where: { id },
       select: { id: true, campaignId: true, influencerId: true, status: true },
     });
     if (!existing) throw AppError.notFound('Candidate');
+    // roster.add() below independently re-checks scope on this same
+    // campaignId, but failing fast here keeps convert()'s own error surface
+    // consistent with every other candidate mutation in this file.
+    await campaignOrThrow(existing.campaignId);
     if (existing.status === 'CONVERTED') {
       throw AppError.badRequest('This candidate has already been committed to the roster.');
     }
@@ -235,9 +250,10 @@ export function makeSourcingService(ctx: DomainContext) {
   }
 
   async function remove(id: string): Promise<void> {
-    requireActor(ctx);
-    const existing = await prisma.campaignCandidate.findUnique({ where: { id }, select: { id: true } });
+    await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
+    const existing = await prisma.campaignCandidate.findUnique({ where: { id }, select: { id: true, campaignId: true } });
     if (!existing) throw AppError.notFound('Candidate');
+    await campaignOrThrow(existing.campaignId);
     await prisma.campaignCandidate.delete({ where: { id } });
   }
 

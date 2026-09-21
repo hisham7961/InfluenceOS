@@ -2,10 +2,11 @@ import { requests, type BrandInfluencerDTO } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireCapability } from '../lib/authz';
 import { iso, logActivity } from '../lib/helpers';
 import { toMoneyNumber, type MoneyInput } from '../lib/money';
 import { toBrandSummary } from '../lib/mappers';
+import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
 
 type BrandInfluencerInput = z.infer<typeof requests.brandInfluencerSchema>;
 
@@ -67,7 +68,11 @@ export function makeBrandInfluencerService(ctx: DomainContext) {
   const { prisma } = ctx;
 
   async function upsert(input: BrandInfluencerInput): Promise<BrandInfluencerDTO> {
-    requireActor(ctx);
+    // Security & Authorization Freeze Gate — this creates/updates a
+    // Brand<->Influencer relationship including its financial fields
+    // (defaultRate/currency), status and priority; bare requireActor let ANY
+    // authenticated user edit it, regardless of role.
+    await requireCapability(ctx, 'INFLUENCERS_MANAGE');
 
     const [brand, influencer] = await Promise.all([
       prisma.brand.findUnique({ where: { id: input.brandId } }),
@@ -75,6 +80,14 @@ export function makeBrandInfluencerService(ctx: DomainContext) {
     ]);
     if (!brand) throw AppError.notFound('Brand');
     if (!influencer) throw AppError.notFound('Influencer');
+
+    // Capability grants WHAT; brand scope grants WHERE — both required
+    // (mirrors campaign.service.ts's create()/update()). A brand-scoped
+    // actor must not create/edit a relationship for a brand outside their
+    // access just because INFLUENCERS_MANAGE lets them touch relationships
+    // in general.
+    const scope = await scopedBrandIds(ctx);
+    if (isBrandOutOfScope(scope, input.brandId)) throw AppError.notFound('Brand');
 
     const existing = await prisma.brandInfluencer.findUnique({
       where: { brandId_influencerId: { brandId: input.brandId, influencerId: input.influencerId } },
@@ -134,9 +147,13 @@ export function makeBrandInfluencerService(ctx: DomainContext) {
   }
 
   async function remove(id: string): Promise<void> {
-    requireActor(ctx);
+    await requireCapability(ctx, 'INFLUENCERS_MANAGE');
     const existing = await prisma.brandInfluencer.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Brand-influencer relationship');
+    // Same brand-scope posture as upsert() — a brand-scoped actor must not
+    // remove a relationship for a brand outside their access.
+    const scope = await scopedBrandIds(ctx);
+    if (isBrandOutOfScope(scope, existing.brandId)) throw AppError.notFound('Brand-influencer relationship');
     await prisma.brandInfluencer.delete({ where: { id } });
     await logActivity(ctx, {
       type: 'GENERIC',

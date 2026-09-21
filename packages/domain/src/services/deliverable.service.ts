@@ -2,8 +2,9 @@ import { requests, type DeliverableDTO } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireCapability } from '../lib/authz';
 import { iso, logActivity } from '../lib/helpers';
+import { makeCampaignService } from './campaign.service';
 
 type DeliverableCreate = z.infer<typeof requests.deliverableCreateSchema>;
 type DeliverableUpdate = z.infer<typeof requests.deliverableUpdateSchema>;
@@ -58,8 +59,13 @@ export function makeDeliverableService(ctx: DomainContext) {
   }
 
   async function create(input: DeliverableCreate): Promise<DeliverableDTO> {
-    requireActor(ctx);
+    // Capability grants WHAT the actor can do; scope grants WHERE (Security &
+    // Authorization Freeze Gate) — this was previously a bare requireActor,
+    // meaning ANY authenticated user (regardless of Role Profile) could add a
+    // deliverable to any campaign influencer's roster.
+    await requireCapability(ctx, 'CAMPAIGNS_MANAGE');
     const ci = await campaignIdFor(input.campaignInfluencerId);
+    await makeCampaignService(ctx).assertInScope(ci.campaignId);
     const d = await prisma.deliverable.create({
       data: {
         campaignInfluencerId: input.campaignInfluencerId,
@@ -89,12 +95,15 @@ export function makeDeliverableService(ctx: DomainContext) {
   }
 
   async function update(id: string, input: DeliverableUpdate): Promise<DeliverableDTO> {
-    requireActor(ctx);
+    await requireCapability(ctx, 'CAMPAIGNS_MANAGE');
     const existing = await prisma.deliverable.findUnique({
       where: { id },
       include: { campaignInfluencer: { select: { campaignId: true, influencerId: true } } },
     });
     if (!existing) throw AppError.notFound('Deliverable');
+    // Direct-ID brand scope — CAMPAIGNS_MANAGE alone must never let a
+    // brand-scoped actor mutate a deliverable outside their brand access.
+    await makeCampaignService(ctx).assertInScope(existing.campaignInfluencer.campaignId);
 
     const d = await prisma.deliverable.update({
       where: { id },
@@ -129,9 +138,13 @@ export function makeDeliverableService(ctx: DomainContext) {
   }
 
   async function remove(id: string): Promise<void> {
-    requireActor(ctx);
-    const existing = await prisma.deliverable.findUnique({ where: { id } });
+    await requireCapability(ctx, 'CAMPAIGNS_MANAGE');
+    const existing = await prisma.deliverable.findUnique({
+      where: { id },
+      include: { campaignInfluencer: { select: { campaignId: true } } },
+    });
     if (!existing) throw AppError.notFound('Deliverable');
+    await makeCampaignService(ctx).assertInScope(existing.campaignInfluencer.campaignId);
     await prisma.deliverable.delete({ where: { id } });
   }
 

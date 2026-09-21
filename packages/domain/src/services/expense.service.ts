@@ -7,6 +7,7 @@ import { logActivity } from '../lib/helpers';
 import { moneyNumberOr0, toMoneyNumber } from '../lib/money';
 import { toExpenseDTO } from '../lib/mappers';
 import { computeCostSummary } from '../lib/progress';
+import { makeCampaignService } from './campaign.service';
 
 type ExpenseCreate = z.infer<typeof requests.expenseCreateSchema>;
 type ExpenseUpdate = z.infer<typeof requests.expenseUpdateSchema>;
@@ -17,6 +18,7 @@ export function makeExpenseService(ctx: DomainContext) {
   async function listForCampaign(
     campaignId: string,
   ): Promise<{ expenses: ExpenseDTO[]; summary: CostSummaryDTO }> {
+    await makeCampaignService(ctx).assertInScope(campaignId);
     const campaign = await prisma.campaign.findUnique({
       where: { id: campaignId },
       select: { currency: true, plannedBudget: true },
@@ -36,12 +38,10 @@ export function makeExpenseService(ctx: DomainContext) {
 
   async function create(input: ExpenseCreate): Promise<ExpenseDTO> {
     const actor = await requireCapability(ctx, 'FINANCE_MANAGE');
-
-    const campaign = await prisma.campaign.findUnique({
-      where: { id: input.campaignId },
-      select: { id: true },
-    });
-    if (!campaign) throw AppError.notFound('Campaign');
+    // FINANCE_MANAGE grants WHAT; brand scope grants WHERE — a brand-scoped
+    // finance actor must not create an expense against a campaign outside
+    // their brand access (section 43).
+    await makeCampaignService(ctx).assertInScope(input.campaignId);
 
     if (input.campaignInfluencerId) {
       const ci = await prisma.campaignInfluencer.findUnique({
@@ -84,6 +84,7 @@ export function makeExpenseService(ctx: DomainContext) {
     const actor = await requireCapability(ctx, 'FINANCE_MANAGE');
     const existing = await prisma.campaignExpense.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Expense');
+    await makeCampaignService(ctx).assertInScope(existing.campaignId);
 
     if (input.campaignInfluencerId !== undefined && input.campaignInfluencerId !== null) {
       const ci = await prisma.campaignInfluencer.findUnique({
@@ -126,6 +127,7 @@ export function makeExpenseService(ctx: DomainContext) {
     await requireCapability(ctx, 'FINANCE_MANAGE');
     const existing = await prisma.campaignExpense.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Expense');
+    await makeCampaignService(ctx).assertInScope(existing.campaignId);
     await prisma.campaignExpense.delete({ where: { id } });
   }
 

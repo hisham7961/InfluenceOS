@@ -52,3 +52,22 @@ export async function requireCapability(ctx: DomainContext, capability: Capabili
   if (await hasCapability(ctx, capability)) return actor;
   throw AppError.forbidden(`This action requires the ${capability} capability.`);
 }
+
+/**
+ * Same as requireCapability, but passes if the actor holds ANY one of the
+ * given capabilities (Security & Authorization Freeze Gate) — for the rare
+ * action that legitimately belongs to more than one role's remit (e.g.
+ * campaign-roster participation is both a Campaign action and a Creator-
+ * relationship action, so either CAMPAIGNS_MANAGE or INFLUENCERS_MANAGE
+ * should authorize it). Reach for requireCapability first; use this only
+ * when a single capability genuinely can't express the rule, per this
+ * codebase's centralization rule (never scatter role/profile comparisons —
+ * extend capabilities.ts or compose these two shared helpers instead).
+ */
+export async function requireAnyCapability(ctx: DomainContext, capabilities: Capability[]): Promise<Actor> {
+  const actor = requireActor(ctx);
+  for (const capability of capabilities) {
+    if (await hasCapability(ctx, capability)) return actor;
+  }
+  throw AppError.forbidden(`This action requires one of: ${capabilities.join(', ')}.`);
+}

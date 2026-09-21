@@ -51,6 +51,29 @@ const exportInclude = {
 // memory. Well above any realistic directory; a larger tenant would page.
 const EXPORT_MAX_ROWS = 50_000;
 
+/**
+ * The creator's shipping-profile fields — the ones that materially overlap
+ * with what a shipment's own address represents (mirrors shipment.service.ts's
+ * redactWith(): phone/addressLine1/addressLine2/postalCode/deliveryInstructions
+ * are gated behind LOGISTICS_ADDRESS_VIEW/EDIT there, while city/country stay
+ * visible — "general location, not PII-sensitive"). `city` and `countryCode`
+ * are deliberately excluded here for the same reason (plus countryCode is a
+ * directory/scoping field the Influencer Manager legitimately owns), and so
+ * is `mobile` — it's a general contact field used broadly across the app,
+ * not shipping-specific, so restricting it would over-restrict a routine
+ * profile edit. See update(), below (Security & Authorization Freeze Gate §16).
+ */
+const INFLUENCER_SHIPPING_ADDRESS_FIELDS = [
+  'addressLine1',
+  'addressLine2',
+  'postalCode',
+  'deliveryInstructions',
+] as const satisfies readonly (keyof InfluencerUpdate)[];
+
+function touchesShippingAddressFields(input: InfluencerUpdate): boolean {
+  return INFLUENCER_SHIPPING_ADDRESS_FIELDS.some((key) => input[key] !== undefined);
+}
+
 export function makeInfluencerService(ctx: DomainContext) {
   const { prisma } = ctx;
 
@@ -493,6 +516,17 @@ export function makeInfluencerService(ctx: DomainContext) {
 
   async function update(id: string, input: InfluencerUpdate): Promise<InfluencerDetailDTO> {
     await requireCapability(ctx, 'INFLUENCERS_MANAGE');
+    // A generic Influencer PATCH must not double as a back door around
+    // logistics address policy (Security & Authorization Freeze Gate §16):
+    // touching the creator's shipping-profile fields (see
+    // INFLUENCER_SHIPPING_ADDRESS_FIELDS) additionally requires
+    // LOGISTICS_ADDRESS_EDIT, the same capability that gates correcting those
+    // fields via a shipment's own address in shipment.service.ts's update().
+    // Every other field — name, category, tags, mobile, countryCode, owner,
+    // relationship status, etc. — stays gated by INFLUENCERS_MANAGE alone.
+    if (touchesShippingAddressFields(input)) {
+      await requireCapability(ctx, 'LOGISTICS_ADDRESS_EDIT');
+    }
     const existing = await prisma.influencer.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Influencer');
     const countryScope = await scopedCountryCodes(ctx);

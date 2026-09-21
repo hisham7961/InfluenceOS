@@ -3,7 +3,7 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireActor, requireCapability, requireOwnerOrAdmin } from '../lib/authz';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
 
 type InspirationCreate = z.infer<typeof requests.inspirationCreateSchema>;
@@ -103,7 +103,12 @@ export function makeInspirationService(ctx: DomainContext) {
   }
 
   async function create(input: InspirationCreate): Promise<InspirationItemDTO> {
-    const actor = requireActor(ctx);
+    // Capability grants WHAT the actor can do (Security & Authorization
+    // Freeze Gate) — this was previously a bare requireActor. CONTENT_MANAGE
+    // is the closest analog: Trends/Inspiration items are external reference
+    // content and there is no dedicated capability for them. Brand scope
+    // (WHERE) is already enforced below via assertInScope.
+    const actor = await requireCapability(ctx, 'CONTENT_MANAGE');
     if (input.brandId) await assertInScope(input.brandId);
     const row = await prisma.inspirationItem.create({
       data: {
@@ -124,7 +129,7 @@ export function makeInspirationService(ctx: DomainContext) {
   }
 
   async function update(id: string, input: InspirationUpdate): Promise<InspirationItemDTO> {
-    const actor = requireActor(ctx);
+    requireActor(ctx);
     const existing = await prisma.inspirationItem.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Inspiration item');
     await assertInScope(existing.brandId);
@@ -132,9 +137,10 @@ export function makeInspirationService(ctx: DomainContext) {
     if (input.pinned !== undefined && input.pinned !== existing.pinned) {
       // Pinning surfaces an item at the top of the whole team's feed — same
       // "admin or the person who put it there" bar as a pinned Note (PART 8),
-      // not open to every reader.
-      const canPin = actor.role === 'ADMIN' || existing.submittedById === actor.id;
-      if (!canPin) throw AppError.forbidden('Only an admin or the person who submitted it may pin an inspiration item.');
+      // not open to every reader. Centralized via requireOwnerOrAdmin
+      // (Security & Authorization Freeze Gate) instead of an inline
+      // actor.role/actor.id comparison.
+      requireOwnerOrAdmin(ctx, existing.submittedById, 'inspiration item');
     }
     const row = await prisma.inspirationItem.update({
       where: { id },
@@ -155,13 +161,12 @@ export function makeInspirationService(ctx: DomainContext) {
   }
 
   async function remove(id: string): Promise<void> {
-    const actor = requireActor(ctx);
     const existing = await prisma.inspirationItem.findUnique({ where: { id }, select: { brandId: true, submittedById: true } });
     if (!existing) throw AppError.notFound('Inspiration item');
     await assertInScope(existing.brandId);
-    if (actor.role !== 'ADMIN' && existing.submittedById !== actor.id) {
-      throw AppError.forbidden('You can only remove your own inspiration item.');
-    }
+    // Centralized via requireOwnerOrAdmin (Security & Authorization Freeze
+    // Gate) instead of an inline actor.role/actor.id comparison.
+    requireOwnerOrAdmin(ctx, existing.submittedById, 'inspiration item');
     await prisma.inspirationItem.delete({ where: { id } });
   }
 

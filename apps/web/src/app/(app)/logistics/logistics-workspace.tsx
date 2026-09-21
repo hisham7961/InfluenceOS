@@ -342,11 +342,11 @@ export function LogisticsWorkspace({
                 <TableBody>
                   {rows.map((s) => (
                     <TableRow key={s.id} className="cursor-pointer" onClick={() => setSelectedId(s.id)}>
-                      <TableCell className="ps-5">
+                      <TableCell className="max-w-[180px] ps-5">
                         {s.influencer ? (
-                          <span className="flex items-center gap-2.5">
+                          <span className="flex min-w-0 items-center gap-2.5">
                             <Avatar name={s.influencer.displayName} src={s.influencer.avatarUrl} size="xs" />
-                            <span className="truncate font-medium">{s.influencer.displayName}</span>
+                            <span className="min-w-0 truncate font-medium">{s.influencer.displayName}</span>
                           </span>
                         ) : (
                           <span className="text-muted-foreground">Unassigned</span>

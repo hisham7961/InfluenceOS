@@ -86,6 +86,14 @@ export function makeLogisticsIssueService(ctx: DomainContext) {
     explicit: string | null | undefined,
   ): Promise<string | null> {
     if (explicit) return explicit;
+    // Security & Authorization Freeze Gate, section 10/17 — this campaignId
+    // is NOT a fresh, attacker-controlled input: `shipment` is only ever the
+    // return value of `shipmentContext()` (its only caller is `create()`,
+    // right after `await shipmentContext(shipmentId)`), which has already
+    // brand- and country-scope-checked this exact campaign via
+    // `shipment.campaignInfluencer.campaign.brandId`. A second scope check
+    // here would be redundant, not defensive — reaching for `ownerId` (not
+    // selected by shipmentContext) needs its own lookup, but not its own gate.
     const campaign = await prisma.campaign.findUnique({
       where: { id: shipment.campaignInfluencer.campaignId },
       select: { ownerId: true },

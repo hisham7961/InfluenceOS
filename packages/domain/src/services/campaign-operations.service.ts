@@ -5,9 +5,8 @@ import {
   type CampaignOperationsStageState,
 } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
-import { AppError } from '../errors';
 import { requireActor } from '../lib/authz';
-import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
+import { makeCampaignService } from './campaign.service';
 
 type FilterBucket = CampaignOperationsRowDTO['filterBuckets'][number];
 
@@ -248,10 +247,11 @@ export function makeCampaignOperationsService(ctx: DomainContext) {
 
   async function board(campaignId: string): Promise<CampaignOperationsBoardDTO> {
     requireActor(ctx);
-    const campaign = await prisma.campaign.findUnique({ where: { id: campaignId }, select: { id: true, brandId: true } });
-    if (!campaign) throw AppError.notFound('Campaign');
-    const scope = await scopedBrandIds(ctx);
-    if (isBrandOutOfScope(scope, campaign.brandId)) throw AppError.notFound('Campaign');
+    // Security & Authorization Freeze Gate, section 10 — reuse the shared,
+    // brand-scope-checked campaign lookup instead of duplicating a raw
+    // findUnique + scope check here (this was already correct, just
+    // duplicated; now it can't independently drift from campaign.service.ts).
+    await makeCampaignService(ctx).assertInScope(campaignId);
 
     const rows = await prisma.campaignInfluencer.findMany({
       where: { campaignId },

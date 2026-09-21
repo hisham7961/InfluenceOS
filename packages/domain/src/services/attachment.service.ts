@@ -3,8 +3,9 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor, requireOwnerOrAdmin } from '../lib/authz';
+import { requireActor, requireAnyCapability, requireCapability, requireOwnerOrAdmin } from '../lib/authz';
 import { logActivity } from '../lib/helpers';
+import { isCountryOutOfScope, scopedCountryCodes } from '../lib/scope';
 import { buildStorageKey, getStorage, sanitizeFileName } from '../lib/storage';
 import {
   signDownloadTicket,
@@ -12,6 +13,7 @@ import {
   verifyDownloadTicket,
   verifyUploadTicket,
 } from '../lib/tokens';
+import { makeCampaignService } from './campaign.service';
 
 type Target = z.infer<typeof requests.attachmentTargetSchema>;
 type InitiateInput = z.infer<typeof requests.attachmentInitiateSchema>;
@@ -101,6 +103,73 @@ export function makeAttachmentService(ctx: DomainContext) {
     if (target.noteId && !(await prisma.note.count({ where: { id: target.noteId } }))) throw AppError.notFound('Note');
   }
 
+  /**
+   * Resolve the campaign and/or influencer context an attachment target
+   * implies, so initiate() (below) can apply the SAME capability + scope
+   * posture every other campaign-child / influencer mutation in this
+   * codebase uses, instead of only checking the target row exists
+   * (Security & Authorization Freeze Gate). Walks the same relations
+   * scopeFor()/assertTargetExists() already key off of — deliverable ->
+   * campaignInfluencer -> campaign (a Deliverable always belongs to one),
+   * scriptReference -> campaign (nullable — a script need not be tied to a
+   * campaign), and note -> campaign / deliverable / influencer — and checks
+   * fields in the SAME priority order scopeFor() does (campaignId,
+   * deliverableId, scriptReferenceId, influencerId, noteId), so the
+   * capability/scope check is always keyed off the exact field the upload's
+   * storage scope and DB row use.
+   *
+   * A note scoped to a shipment, published-content item, inspiration item,
+   * brand, or a general/logistics channel resolves to neither a campaign
+   * nor an influencer here — note.service.ts's own resolveContext() is the
+   * authority for those contexts (brand scope, shipment country scope,
+   * logistics-channel capability) and re-deriving all of that here would be
+   * guessing at rules owned by a concurrent pass on that file. initiate()
+   * falls back to a conservative manage-capability check for that residual
+   * case (see the comment there) rather than leaving it open to any actor.
+   */
+  async function resolveTargetContext(
+    target: Target,
+  ): Promise<{ campaignId: string | null; influencerId: string | null }> {
+    if (target.campaignId) return { campaignId: target.campaignId, influencerId: null };
+
+    if (target.deliverableId) {
+      const d = await prisma.deliverable.findUnique({
+        where: { id: target.deliverableId },
+        select: { campaignInfluencer: { select: { campaignId: true } } },
+      });
+      return { campaignId: d?.campaignInfluencer.campaignId ?? null, influencerId: null };
+    }
+
+    if (target.scriptReferenceId) {
+      const s = await prisma.scriptReference.findUnique({
+        where: { id: target.scriptReferenceId },
+        select: { campaignId: true },
+      });
+      return { campaignId: s?.campaignId ?? null, influencerId: null };
+    }
+
+    if (target.influencerId) return { campaignId: null, influencerId: target.influencerId };
+
+    if (target.noteId) {
+      const n = await prisma.note.findUnique({
+        where: { id: target.noteId },
+        select: { campaignId: true, deliverableId: true, influencerId: true },
+      });
+      if (n?.campaignId) return { campaignId: n.campaignId, influencerId: null };
+      if (n?.deliverableId) {
+        const d = await prisma.deliverable.findUnique({
+          where: { id: n.deliverableId },
+          select: { campaignInfluencer: { select: { campaignId: true } } },
+        });
+        return { campaignId: d?.campaignInfluencer.campaignId ?? null, influencerId: null };
+      }
+      if (n?.influencerId) return { campaignId: null, influencerId: n.influencerId };
+      return { campaignId: null, influencerId: null };
+    }
+
+    return { campaignId: null, influencerId: null };
+  }
+
   function validateMeta(mimeType: string, sizeBytes: number): AttachmentKind {
     const kind = ALLOWED[mimeType];
     if (!kind) {
@@ -126,6 +195,41 @@ export function makeAttachmentService(ctx: DomainContext) {
     const fileName = sanitizeFileName(input.fileName);
     const { scope } = scopeFor(input.target);
     await assertTargetExists(input.target);
+
+    // Security & Authorization Freeze Gate — initiate() previously only
+    // checked the target row EXISTS, with zero capability or scope check:
+    // any authenticated actor could mint an upload ticket (and, via
+    // complete(), create an Attachment row) against ANY campaign/
+    // deliverable/script/influencer/note by id, regardless of role or brand/
+    // country access. Resolve the target's effective campaign/influencer
+    // context (see resolveTargetContext above) and require the same posture
+    // every other campaign-child mutation (campaign-influencer.service.ts,
+    // expense.service.ts) and influencer mutation (influencer.service.ts)
+    // already enforces.
+    const { campaignId, influencerId } = await resolveTargetContext(input.target);
+    if (campaignId) {
+      // Capability grants WHAT; brand scope grants WHERE — both required.
+      await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
+      await makeCampaignService(ctx).assertInScope(campaignId);
+    } else if (influencerId) {
+      await requireCapability(ctx, 'INFLUENCERS_MANAGE');
+      const influencer = await prisma.influencer.findUnique({
+        where: { id: influencerId },
+        select: { countryCode: true },
+      });
+      const countryScope = await scopedCountryCodes(ctx);
+      if (!influencer || isCountryOutOfScope(countryScope, influencer.countryCode)) {
+        throw AppError.notFound('Influencer');
+      }
+    } else {
+      // Residual target types this service can't cleanly resolve to a
+      // campaign or influencer (see resolveTargetContext's doc comment) —
+      // least-surprising fix: still require SOME manage capability rather
+      // than leave this open to every logged-in actor, without guessing at
+      // note.service.ts's own brand/country/channel authorization rules for
+      // those contexts.
+      await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
+    }
 
     const storageKey = buildStorageKey(scope, fileName);
     const ticket = await signUploadTicket({

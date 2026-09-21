@@ -7,10 +7,12 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireAnyCapability } from '../lib/authz';
 import { iso, logActivity } from '../lib/helpers';
 import { toMoneyNumber, type MoneyInput } from '../lib/money';
 import { toInfluencerSummary } from '../lib/mappers';
+import { isCountryOutOfScope, scopedCountryCodes } from '../lib/scope';
+import { makeCampaignService } from './campaign.service';
 import { toDeliverableDTO } from './deliverable.service';
 
 type CIAdd = z.infer<typeof requests.campaignInfluencerCreateSchema>;
@@ -117,6 +119,11 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
   }
 
   async function listForCampaign(campaignId: string): Promise<CampaignInfluencerDTO[]> {
+    // Security & Authorization Freeze Gate, section 10 — a child resource
+    // must not be reachable when its parent Campaign is out of the actor's
+    // brand scope, even though this function's own where-clause only ever
+    // filtered by campaignId.
+    await makeCampaignService(ctx).assertInScope(campaignId);
     const rows = await prisma.campaignInfluencer.findMany({
       where: { campaignId },
       include: {
@@ -137,17 +144,28 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
       },
     });
     if (!ci) throw AppError.notFound('Campaign influencer');
+    await makeCampaignService(ctx).assertInScope(ci.campaignId);
     return toDTO(ci);
   }
 
   async function add(input: CIAdd): Promise<CampaignInfluencerDTO> {
-    requireActor(ctx);
-    const [campaign, influencer] = await Promise.all([
-      prisma.campaign.findUnique({ where: { id: input.campaignId }, select: { id: true, name: true, brandId: true } }),
-      prisma.influencer.findUnique({ where: { id: input.influencerId }, select: { id: true, displayName: true } }),
-    ]);
-    if (!campaign) throw AppError.notFound('Campaign');
+    // Capability grants WHAT; scope grants WHERE — both required. This was
+    // previously bare requireActor(ctx), meaning ANY authenticated user
+    // (not just those with INFLUENCERS_MANAGE/CAMPAIGNS_MANAGE) could add a
+    // creator to any campaign's roster regardless of brand access.
+    await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
+    const campaign = await makeCampaignService(ctx).assertInScope(input.campaignId);
+    const influencer = await prisma.influencer.findUnique({
+      where: { id: input.influencerId },
+      select: { id: true, displayName: true, countryCode: true },
+    });
     if (!influencer) throw AppError.notFound('Influencer');
+    // The campaign being in scope never authorizes an out-of-scope CREATOR —
+    // a country-scoped actor (e.g. a KW-only operator) must not be able to
+    // add an SA-based creator to a roster just because the campaign itself
+    // is one they can manage (section 21).
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, influencer.countryCode)) throw AppError.notFound('Influencer');
 
     const dup = await prisma.campaignInfluencer.findUnique({
       where: { campaignId_influencerId: { campaignId: input.campaignId, influencerId: input.influencerId } },
@@ -198,12 +216,13 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
   }
 
   async function update(id: string, input: CIUpdate): Promise<CampaignInfluencerDTO> {
-    requireActor(ctx);
+    await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
     const existing = await prisma.campaignInfluencer.findUnique({
       where: { id },
       select: { campaignId: true, influencerId: true },
     });
     if (!existing) throw AppError.notFound('Campaign influencer');
+    const campaign = await makeCampaignService(ctx).assertInScope(existing.campaignId);
     await prisma.campaignInfluencer.update({
       where: { id },
       data: {
@@ -222,28 +241,21 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
     });
     // A participation-status change may make this a (newly) committed or no
     // longer committed collaboration — recompute the relationship stats.
-    const campaign = await prisma.campaign.findUnique({
-      where: { id: existing.campaignId },
-      select: { brandId: true },
-    });
-    if (campaign) await syncRelationship(campaign.brandId, existing.influencerId);
+    await syncRelationship(campaign.brandId, existing.influencerId);
     return get(id);
   }
 
   async function remove(id: string): Promise<void> {
-    requireActor(ctx);
+    await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
     const existing = await prisma.campaignInfluencer.findUnique({
       where: { id },
       select: { campaignId: true, influencerId: true },
     });
     if (!existing) throw AppError.notFound('Campaign influencer');
-    const campaign = await prisma.campaign.findUnique({
-      where: { id: existing.campaignId },
-      select: { brandId: true },
-    });
+    const campaign = await makeCampaignService(ctx).assertInScope(existing.campaignId);
     await prisma.campaignInfluencer.delete({ where: { id } });
     // Removing a participation must not leave inflated stats behind.
-    if (campaign) await syncRelationship(campaign.brandId, existing.influencerId);
+    await syncRelationship(campaign.brandId, existing.influencerId);
   }
 
   return { listForCampaign, get, add, update, remove };

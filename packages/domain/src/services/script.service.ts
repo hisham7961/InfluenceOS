@@ -2,8 +2,9 @@ import { requests, type ScriptDTO, type ScriptVersionDTO } from '@influenceos/co
 import type { z } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireCapability } from '../lib/authz';
 import { logActivity } from '../lib/helpers';
+import { makeCampaignService } from './campaign.service';
 
 /*
  * Versioned scripts/references (ScriptReference + ScriptReferenceVersion).
@@ -98,7 +99,13 @@ export function makeScriptService(ctx: DomainContext) {
   }
 
   async function create(input: ScriptCreate): Promise<ScriptDTO> {
-    const actor = requireActor(ctx);
+    // Capability grants WHAT the actor can do; scope grants WHERE (Security &
+    // Authorization Freeze Gate) — this was previously a bare requireActor.
+    const actor = await requireCapability(ctx, 'CAMPAIGNS_MANAGE');
+    // A script isn't always attached to a campaign (campaignId is optional),
+    // but when it is, a brand-scoped actor must not create it under a
+    // campaign outside their brand access.
+    if (input.campaignId) await makeCampaignService(ctx).assertInScope(input.campaignId);
 
     if (input.deliverableId) {
       const deliverable = await prisma.deliverable.findUnique({
@@ -148,9 +155,10 @@ export function makeScriptService(ctx: DomainContext) {
   }
 
   async function addVersion(id: string, input: ScriptVersionInput): Promise<ScriptDTO> {
-    const actor = requireActor(ctx);
+    const actor = await requireCapability(ctx, 'CAMPAIGNS_MANAGE');
     const script = await prisma.scriptReference.findUnique({ where: { id } });
     if (!script) throw AppError.notFound('Script');
+    if (script.campaignId) await makeCampaignService(ctx).assertInScope(script.campaignId);
 
     const newVersion = script.currentVersion + 1;
     await prisma.scriptReferenceVersion.create({
