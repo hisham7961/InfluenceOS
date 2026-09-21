@@ -298,6 +298,19 @@ export const influencerFilterSchema = paginationSchema.extend({
   dealHistory: z.enum(['FREE', 'PAID', 'ANY']).optional(),
   active: z.coerce.boolean().optional(),
   campaignId: cuid.optional(),
+  // Data Quality Center deep-links (extending the existing Prisma-backed
+  // report(), never a client-side post-filter) — each mirrors exactly the
+  // condition report() counts, so a finding's count and its filtered
+  // destination never disagree.
+  /** countryCode IS NULL. */
+  missingCountry: z.coerce.boolean().optional(),
+  /** ownerId IS NULL — equivalent to `ownerId=unowned`, added for naming
+   *  symmetry with the other missing* deep-link filters here. */
+  missingOwner: z.coerce.boolean().optional(),
+  /** mobile IS NULL. */
+  missingPhone: z.coerce.boolean().optional(),
+  /** No SocialAccount rows at all. */
+  missingSocial: z.coerce.boolean().optional(),
 });
 export type InfluencerFilter = z.infer<typeof influencerFilterSchema>;
 
@@ -386,6 +399,11 @@ export const campaignFilterSchema = paginationSchema.extend({
   status: z.enum(CAMPAIGN_STATUSES).optional(),
   objective: z.enum(CAMPAIGN_OBJECTIVES).optional(),
   ownerId: cuid.optional(),
+  // Data Quality Center / Needs Attention deep-link (dashboard.service.ts's
+  // 'campaigns-missing-owner' item links to /campaigns?ownerMissing=1) —
+  // mirrors that item's exact condition so its count and destination never
+  // disagree: ownerId IS NULL AND status IN (ACTIVE, PLANNING).
+  ownerMissing: z.coerce.boolean().optional(),
 });
 export type CampaignFilter = z.infer<typeof campaignFilterSchema>;
 
@@ -618,6 +636,16 @@ export const shipmentFilterSchema = z.object({
    *  address issue OR a FAILED/RETURNED shipment. Mirrors summary()'s
    *  attention count exactly, so the two are never out of sync. */
   needsAttention: z.coerce.boolean().optional(),
+  // Data Quality Center deep-links — an ACTIVE shipment (not yet DELIVERED/
+  // FAILED/RETURNED) missing one of its own point-in-time snapshot fields.
+  // Each mirrors exactly the condition data-quality.service.ts counts, so a
+  // finding's count and its filtered destination never disagree.
+  /** Active shipment with no addressLine1 on file. */
+  missingAddress: z.coerce.boolean().optional(),
+  /** Active shipment with no phone on file. */
+  missingPhone: z.coerce.boolean().optional(),
+  /** Active shipment with no destinationCountryCode on file. */
+  missingDestinationCountry: z.coerce.boolean().optional(),
   cursor: z.string().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
@@ -957,6 +985,12 @@ export const activityFilterSchema = z.object({
   brandId: cuid.optional(),
   campaignId: cuid.optional(),
   influencerId: cuid.optional(),
+  /** Scopes to one piece of content (Content detail/viewer's Activity section) — a real ActivityLog column. */
+  publishedContentId: cuid.optional(),
+  /** Scopes to one shipment (Logistics shipment detail's Activity section). ActivityLog has no shipmentId
+   *  column (a shipment isn't one of its first-class relations) — every shipment-related logActivity() call
+   *  already stores `meta.shipmentId`, so this filters that JSON path instead of a dedicated column. */
+  shipmentId: cuid.optional(),
 });
 
 // --- Admin audit log -------------------------------------------------------

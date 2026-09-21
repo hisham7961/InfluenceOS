@@ -50,6 +50,11 @@ interface Filters {
   dateTo: string;
   hasOpenIssue: string;
   needsAttention: string;
+  // Not UI filter chips — deep-linked only, from the Data Quality Center's
+  // active-shipment findings (e.g. /logistics?missingAddress=true).
+  missingAddress: string;
+  missingPhone: string;
+  missingDestinationCountry: string;
 }
 
 const EMPTY_FILTERS: Filters = {
@@ -66,6 +71,9 @@ const EMPTY_FILTERS: Filters = {
   dateTo: '',
   hasOpenIssue: '',
   needsAttention: '',
+  missingAddress: '',
+  missingPhone: '',
+  missingDestinationCountry: '',
 };
 
 function readFilters(params: URLSearchParams): Filters {

@@ -66,6 +66,14 @@ export function makeInfluencerService(ctx: DomainContext) {
     if (filter.ownerId) and.push({ ownerId: filter.ownerId === 'unowned' ? null : filter.ownerId });
     if (filter.category) and.push({ category: { equals: filter.category, mode: 'insensitive' } });
 
+    // Data Quality Center deep-links — each mirrors exactly the condition
+    // data-quality.service.ts's report() counts, so a finding's count and
+    // its filtered destination here never disagree.
+    if (filter.missingCountry) and.push({ countryCode: null });
+    if (filter.missingOwner) and.push({ ownerId: null });
+    if (filter.missingPhone) and.push({ mobile: null });
+    if (filter.missingSocial) and.push({ socialAccounts: { none: {} } });
+
     // Brand scope (W4-4) — composed server-side into every directory query,
     // same posture as every other brand-touching service (content.service.ts,
     // shipment.service.ts, analytics.service.ts): an out-of-scope explicit
@@ -310,6 +318,19 @@ export function makeInfluencerService(ctx: DomainContext) {
     });
   }
 
+  /** Direct-ID brand scope (W4-4) — mirrors list()'s buildWhere `some: { brandId: { in: brandScope } }`
+   *  exactly: an influencer with no link into the actor's brand scope (including one with no
+   *  BrandInfluencer rows at all) is out of scope, not merely hidden from the filtered list. */
+  async function isInfluencerBrandOutOfScope(influencerId: string): Promise<boolean> {
+    const brandScope = await scopedBrandIds(ctx);
+    if (!brandScope) return false;
+    const match = await prisma.brandInfluencer.findFirst({
+      where: { influencerId, brandId: { in: brandScope } },
+      select: { id: true },
+    });
+    return !match;
+  }
+
   async function detail(id: string): Promise<InfluencerDetailDTO> {
     const inf = await prisma.influencer.findUnique({
       where: { id },
@@ -321,6 +342,7 @@ export function makeInfluencerService(ctx: DomainContext) {
     // creator by guessing its id; not merely have it hidden in a filtered list.
     const countryScope = await scopedCountryCodes(ctx);
     if (isCountryOutOfScope(countryScope, inf.countryCode)) throw AppError.notFound('Influencer');
+    if (await isInfluencerBrandOutOfScope(id)) throw AppError.notFound('Influencer');
 
     const [socialAccounts, audience, cis] = await Promise.all([
       socialAccountsFor(id),
@@ -475,6 +497,7 @@ export function makeInfluencerService(ctx: DomainContext) {
     if (!existing) throw AppError.notFound('Influencer');
     const countryScope = await scopedCountryCodes(ctx);
     if (isCountryOutOfScope(countryScope, existing.countryCode)) throw AppError.notFound('Influencer');
+    if (await isInfluencerBrandOutOfScope(id)) throw AppError.notFound('Influencer');
     const email = input.email === '' ? null : input.email;
     await prisma.influencer.update({
       where: { id },

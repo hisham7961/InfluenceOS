@@ -86,6 +86,15 @@ export function makeCampaignService(ctx: DomainContext) {
     if (filter.status) where.status = filter.status;
     if (filter.objective) where.objective = filter.objective;
     if (filter.ownerId) where.ownerId = filter.ownerId;
+    // Mirrors dashboard.service.ts's 'campaigns-missing-owner' Needs Attention
+    // item exactly, so its count and this deep link never disagree. Only
+    // applies the item's own ACTIVE/PLANNING constraint when the caller
+    // didn't already set an explicit status filter — an explicit filter.status
+    // (checked above) always wins rather than being silently clobbered.
+    if (filter.ownerMissing) {
+      where.ownerId = null;
+      if (!filter.status) where.status = { in: ['ACTIVE', 'PLANNING'] };
+    }
     if (filter.q) where.name = { contains: filter.q, mode: 'insensitive' };
     return where;
   }

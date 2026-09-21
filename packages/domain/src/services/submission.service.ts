@@ -9,6 +9,7 @@ import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor } from '../lib/authz';
 import { createNotification, iso, logActivity } from '../lib/helpers';
+import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
 type SubmissionCreate = z.infer<typeof requests.submissionCreateSchema>;
 type SubmissionReview = z.infer<typeof requests.submissionReviewSchema>;
@@ -62,22 +63,72 @@ function toDTO(s: Row): DeliverableSubmissionDTO {
 export function makeSubmissionService(ctx: DomainContext) {
   const { prisma } = ctx;
 
+  // Direct-ID brand/country authorization (mirrors shipment.service.ts's
+  // ciContext/loadDTO exactly): a scoped actor can never reach an
+  // out-of-brand or out-of-country creator's submissions by guessing an id,
+  // not merely have them hidden from a filtered list. Every function below
+  // that takes a deliverableId, campaignId, or submissionId funnels through
+  // one of these two checks.
+  async function assertScopeForCampaignInfluencer(brandId: string, countryCode: string | null): Promise<void> {
+    const brandScope = await scopedBrandIds(ctx);
+    if (isBrandOutOfScope(brandScope, brandId)) throw AppError.notFound('Deliverable');
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, countryCode)) throw AppError.notFound('Deliverable');
+  }
+
   async function deliverableContext(deliverableId: string) {
     const d = await prisma.deliverable.findUnique({
       where: { id: deliverableId },
-      include: { campaignInfluencer: { select: { campaignId: true, influencerId: true } } },
+      include: {
+        campaignInfluencer: {
+          select: {
+            campaignId: true,
+            influencerId: true,
+            campaign: { select: { brandId: true } },
+            influencer: { select: { countryCode: true } },
+          },
+        },
+      },
     });
     if (!d) throw AppError.notFound('Deliverable');
+    await assertScopeForCampaignInfluencer(d.campaignInfluencer.campaign.brandId, d.campaignInfluencer.influencer.countryCode);
     return { deliverable: d, campaignId: d.campaignInfluencer.campaignId, influencerId: d.campaignInfluencer.influencerId };
   }
 
+  /** Same direct-ID scope check as deliverableContext, keyed by a submission
+   *  instead of its deliverable — used by get/review/addComment, which are
+   *  addressed by submissionId, not deliverableId. */
+  async function assertSubmissionInScope(submissionId: string): Promise<{ deliverableId: string }> {
+    const sub = await prisma.deliverableSubmission.findUnique({
+      where: { id: submissionId },
+      select: {
+        deliverableId: true,
+        deliverable: {
+          select: {
+            campaignInfluencer: {
+              select: { campaign: { select: { brandId: true } }, influencer: { select: { countryCode: true } } },
+            },
+          },
+        },
+      },
+    });
+    if (!sub) throw AppError.notFound('Submission');
+    const brandScope = await scopedBrandIds(ctx);
+    if (isBrandOutOfScope(brandScope, sub.deliverable.campaignInfluencer.campaign.brandId)) throw AppError.notFound('Submission');
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, sub.deliverable.campaignInfluencer.influencer.countryCode)) throw AppError.notFound('Submission');
+    return { deliverableId: sub.deliverableId };
+  }
+
   async function get(submissionId: string): Promise<DeliverableSubmissionDTO> {
+    await assertSubmissionInScope(submissionId);
     const row = await prisma.deliverableSubmission.findUnique({ where: { id: submissionId }, include: submissionInclude });
     if (!row) throw AppError.notFound('Submission');
     return toDTO(row);
   }
 
   async function listForDeliverable(deliverableId: string): Promise<DeliverableSubmissionDTO[]> {
+    await deliverableContext(deliverableId);
     const rows = await prisma.deliverableSubmission.findMany({
       where: { deliverableId },
       orderBy: { version: 'asc' },
@@ -87,8 +138,19 @@ export function makeSubmissionService(ctx: DomainContext) {
   }
 
   /** Every submission across a campaign's deliverables — the review queue for
-   *  the whole campaign in one query (W3-1 web surface), newest first. */
+   *  the whole campaign in one query (W3-1 web surface), newest first. Brand
+   *  scope only (not country): this spans every creator on the campaign, and
+   *  a campaign belongs to exactly one brand. NOTE: campaign.service.ts
+   *  itself does not currently check actor brand scope for a campaignId
+   *  (its detail() only supports an optional explicit brandId narrowing
+   *  param from the route, not the actor's own UserBrandAccess) — that is a
+   *  separate, wider gap, out of scope for this fix; this check protects
+   *  submissions specifically regardless of that. */
   async function listForCampaign(campaignId: string): Promise<DeliverableSubmissionDTO[]> {
+    const campaign = await prisma.campaign.findUnique({ where: { id: campaignId }, select: { brandId: true } });
+    if (!campaign) throw AppError.notFound('Campaign');
+    const brandScope = await scopedBrandIds(ctx);
+    if (isBrandOutOfScope(brandScope, campaign.brandId)) throw AppError.notFound('Campaign');
     const rows = await prisma.deliverableSubmission.findMany({
       where: { deliverable: { campaignInfluencer: { campaignId } } },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -150,6 +212,7 @@ export function makeSubmissionService(ctx: DomainContext) {
 
   async function review(submissionId: string, input: SubmissionReview): Promise<DeliverableSubmissionDTO> {
     const actor = requireActor(ctx);
+    await assertSubmissionInScope(submissionId);
     const existing = await prisma.deliverableSubmission.findUnique({
       where: { id: submissionId },
       include: {
@@ -220,8 +283,7 @@ export function makeSubmissionService(ctx: DomainContext) {
 
   async function addComment(submissionId: string, input: SubmissionCommentInput): Promise<DeliverableSubmissionDTO> {
     const actor = requireActor(ctx);
-    const sub = await prisma.deliverableSubmission.findUnique({ where: { id: submissionId }, select: { id: true } });
-    if (!sub) throw AppError.notFound('Submission');
+    await assertSubmissionInScope(submissionId);
     await prisma.submissionComment.create({ data: { submissionId, authorId: actor.id, body: input.body } });
     return get(submissionId);
   }

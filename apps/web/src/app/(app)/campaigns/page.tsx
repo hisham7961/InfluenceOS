@@ -32,6 +32,10 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
       q: sp.q || undefined,
       brandId: sp.brandId || undefined,
       status: sp.status || undefined,
+      // Deep-link only (Data Quality Center / Needs Attention "campaigns
+      // missing an owner"), not a UI filter chip — same pattern as
+      // logistics-workspace.tsx's hasOpenIssue.
+      ownerMissing: sp.ownerMissing || undefined,
       page,
       pageSize: 24,
     }),

@@ -2,7 +2,19 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bookmark, BookmarkCheck, Check, ChevronLeft, ChevronRight, ExternalLink, Pin, RefreshCw, SkipForward, Undo2 } from 'lucide-react';
+import {
+  Activity as ActivityIcon,
+  Bookmark,
+  BookmarkCheck,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Pin,
+  RefreshCw,
+  SkipForward,
+  Undo2,
+} from 'lucide-react';
 import type { ContentViewerStateDTO, PublishedContentDTO } from '@influenceos/contracts';
 import { contentReviewStatus } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
@@ -14,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { SocialContentPlayer } from './social-content-player';
 import { CommentThread } from '@/components/collaboration/comment-thread';
+import { ActivityFeed } from '@/components/common/activity-feed';
 import { dateTime, formatCompact, relativeTime } from '@/lib/format';
 
 const EMPTY_STATE: ContentViewerStateDTO = { firstSeenAt: null, lastOpenedAt: null, reviewedAt: null, savedForLaterAt: null };
@@ -356,6 +369,23 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
           </a>
         </Button>
         <RefreshButton id={content.id} />
+      </div>
+
+      {/* Factual system history (ActivityLog) — reuses the SAME ActivityFeed the
+          Campaign workspace's Activity tab shows, scoped to this content's own
+          events (added, associations changed, availability/status changed).
+          Rendered as a shaded panel, distinct from the plain-header Notes/
+          CommentThread section below, which is human discussion, not history. */}
+      <div className="space-y-2 rounded-lg border border-border bg-surface-muted/40 p-3">
+        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <ActivityIcon className="h-3.5 w-3.5" /> Activity
+        </p>
+        <ActivityFeed
+          filter={{ publishedContentId: content.id, limit: 20 }}
+          queryKey={['content-activity', content.id]}
+          emptyTitle="No activity yet"
+          emptyDescription="Association changes, availability and status updates for this post will show up here."
+        />
       </div>
 
       <div className="space-y-2 border-t border-border pt-4">

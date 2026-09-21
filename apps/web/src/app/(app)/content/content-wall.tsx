@@ -192,25 +192,45 @@ export function ContentWall({
 
   const items = React.useMemo(() => query.data?.pages.flatMap((page) => page.data) ?? [], [query.data]);
 
-  // New-content-arrival (item 49): a background refetch may bring items the
-  // person hasn't seen without yanking their scroll position — surface a
-  // banner instead and let them opt in.
-  const topIdRef = React.useRef<string | null>(null);
-  const [newAvailable, setNewAvailable] = React.useState(false);
+  // New-content-arrival (item 49): a background refetch lands new pages
+  // straight into the query cache, so `items` above already carries them —
+  // without the anchor below, the Timeline/Grid would silently reorder under
+  // a person mid-read the instant the 60s poll resolves, and the "Show new
+  // content" banner would be lying about gating anything. `frozenTopId` is
+  // the id of the leading item the person has actually consented to see;
+  // everything the live feed now has ahead of it is held back (sliced off)
+  // until they click through. We only ever advance the anchor — on first
+  // load, on click, or when it's no longer present in the live data at all
+  // (e.g. the filters changed to a different view) — never on a same-view
+  // background refetch, which is the one case this exists to freeze.
+  const [frozenTopId, setFrozenTopId] = React.useState<string | null>(null);
+  // Picking a new filter set is a deliberate view change, not a background
+  // arrival — never gate it behind the banner. Resetting the anchor during
+  // render (React's documented pattern for "adjust state when a prop
+  // changes") lands before paint, so there's no stale-frame flash before the
+  // effect below would otherwise catch up.
+  const [anchorFilters, setAnchorFilters] = React.useState(filters);
+  if (filters !== anchorFilters) {
+    setAnchorFilters(filters);
+    setFrozenTopId(null);
+  }
   React.useEffect(() => {
-    const currentTop = items[0]?.id ?? null;
-    if (topIdRef.current === null) {
-      topIdRef.current = currentTop;
-      return;
-    }
-    if (currentTop && currentTop !== topIdRef.current && !query.isFetching) {
-      setNewAvailable(true);
-    }
-  }, [items, query.isFetching]);
+    if (query.isFetching) return;
+    const newTop = items[0];
+    if (!newTop) return;
+    const stillPresent = frozenTopId != null && items.some((item) => item.id === frozenTopId);
+    if (!stillPresent) setFrozenTopId(newTop.id);
+  }, [items, query.isFetching, frozenTopId]);
+
+  // Assumes the feed stays time-ordered (newest first) so only genuinely new
+  // items can land ahead of the anchor — an unrelated resort could in theory
+  // fool this count, but that's out of scope for this fix.
+  const anchorIndex = frozenTopId ? items.findIndex((item) => item.id === frozenTopId) : -1;
+  const pendingNewCount = anchorIndex > 0 ? anchorIndex : 0;
+  const displayItems = pendingNewCount > 0 ? items.slice(anchorIndex) : items;
 
   function showNewContent() {
-    topIdRef.current = items[0]?.id ?? null;
-    setNewAvailable(false);
+    setFrozenTopId(items[0]?.id ?? null);
   }
 
   React.useEffect(() => {
@@ -291,20 +311,20 @@ export function ContentWall({
         hasActiveFilters={hasActiveFilters}
         layout={layout}
         onLayoutChange={setLayout}
-        resultCount={items.length}
+        resultCount={displayItems.length}
       />
 
-      {newAvailable ? (
+      {pendingNewCount > 0 ? (
         <div className="flex items-center justify-center">
           <Button variant="secondary" size="sm" onClick={showNewContent} className="gap-1.5">
-            <Sparkles className="h-3.5 w-3.5" /> New content available — Show new content
+            <Sparkles className="h-3.5 w-3.5" /> {pendingNewCount} new {pendingNewCount === 1 ? 'item' : 'items'} — Show new content
           </Button>
         </div>
       ) : null}
 
       {isInitialLoading ? (
         <LoadingSkeleton layout={layout} />
-      ) : items.length === 0 ? (
+      ) : displayItems.length === 0 ? (
         <EmptyState
           icon={PlaySquare}
           title={hasActiveFilters ? 'No content matches your filters' : 'Nothing live yet'}
@@ -322,7 +342,7 @@ export function ContentWall({
           }
         />
       ) : layout === 'timeline' ? (
-        <ContentTimeline items={items} />
+        <ContentTimeline items={displayItems} />
       ) : layout === 'brand' ? (
         <BrandOverview
           brands={summary.data?.brands ?? []}
@@ -332,14 +352,14 @@ export function ContentWall({
           }}
         />
       ) : layout === 'grid' ? (
-        <ContentGrid items={items} />
+        <ContentGrid items={displayItems} />
       ) : layout === 'masonry' ? (
-        <ContentMasonry items={items} />
+        <ContentMasonry items={displayItems} />
       ) : (
-        <FeedLayout items={items} />
+        <FeedLayout items={displayItems} />
       )}
 
-      {items.length > 0 && query.hasNextPage && layout !== 'brand' ? (
+      {displayItems.length > 0 && query.hasNextPage && layout !== 'brand' ? (
         <div className="flex justify-center pt-2">
           <Button variant="outline" onClick={() => query.fetchNextPage()} disabled={query.isFetchingNextPage}>
             {query.isFetchingNextPage ? 'Loading…' : 'Load more'}

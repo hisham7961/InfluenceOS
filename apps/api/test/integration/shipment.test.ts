@@ -168,6 +168,35 @@ describe('Logistics — shipment tracking (evolved W3-5)', () => {
     expect(body.data.some((s) => s.id === firstShipmentId)).toBe(true);
   });
 
+  it('GET /deliverables/:id/shipments lists only the shipment(s) fulfilling that deliverable (never a campaign-influencer\'s other, unrelated shipments)', async () => {
+    const res = await app.inject({ method: 'GET', url: `/api/v1/deliverables/${deliverableId}/shipments`, headers: auth });
+    expect(res.statusCode).toBe(200);
+    const list = res.json() as ProductShipmentDTO[];
+    // Only the first shipment was created WITH this deliverableId — the
+    // second (SCENARIO J's "replacement") deliberately has none.
+    expect(list.map((s) => s.id)).toEqual([firstShipmentId]);
+  });
+
+  it("Activity — GET /activity?shipmentId= surfaces this shipment's own ActivityLog history (created + status transitions), scoped away from another shipment's", async () => {
+    const feed = (await app.inject({ method: 'GET', url: `/api/v1/activity?shipmentId=${firstShipmentId}`, headers: auth })).json() as {
+      data: { id: string; message: string }[];
+    };
+    expect(feed.data.length).toBeGreaterThanOrEqual(3); // created + SHIPPED + DELIVERED
+    expect(feed.data.some((a) => /created a logistics request/.test(a.message))).toBe(true);
+    expect(feed.data.some((a) => /marked a shipment delivered/.test(a.message))).toBe(true);
+
+    // A different shipment's activity must never leak into this one's feed —
+    // ActivityLog has no shipmentId column, so this proves the meta-path
+    // filter is actually scoping, not matching every GENERIC row.
+    const others = (await app.inject({ method: 'GET', url: `/api/v1/campaign-influencers/${ciId}/shipments`, headers: auth })).json() as ProductShipmentDTO[];
+    const secondShipmentId = others.find((s) => s.id !== firstShipmentId)!.id;
+    const secondFeed = (await app.inject({ method: 'GET', url: `/api/v1/activity?shipmentId=${secondShipmentId}`, headers: auth })).json() as {
+      data: { id: string }[];
+    };
+    expect(secondFeed.data.length).toBeGreaterThan(0);
+    expect(secondFeed.data.every((a) => feed.data.every((x) => x.id !== a.id))).toBe(true);
+  });
+
   it('cascades away with the campaign-influencer (no orphan shipments)', async () => {
     await app.inject({ method: 'DELETE', url: `/api/v1/campaign-influencers/${ciId}`, headers: auth });
     const { PrismaClient } = await import('@influenceos/database');

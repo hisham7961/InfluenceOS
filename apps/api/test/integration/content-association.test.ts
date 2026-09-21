@@ -191,6 +191,30 @@ describe('Content association — create/update through the real API', () => {
     expect(cleared.influencer?.id).toBe(influencerId);
   });
 
+  it("Activity — GET /activity?publishedContentId= surfaces this content's own ActivityLog history (published + association changes), scoped away from another content's", async () => {
+    const created = (
+      await app.inject({ method: 'POST', url: '/api/v1/content', headers: auth, payload: { url: freshUrl(), deliverableId } })
+    ).json() as PublishedContentDTO;
+    // Reassigning associations (SCENARIO G's move) also logs a GENERIC activity row.
+    await app.inject({ method: 'PATCH', url: `/api/v1/content/${created.id}`, headers: auth, payload: { campaignId: null } });
+
+    const other = (await app.inject({ method: 'POST', url: '/api/v1/content', headers: auth, payload: { url: freshUrl() } })).json() as PublishedContentDTO;
+
+    const feed = (
+      await app.inject({ method: 'GET', url: `/api/v1/activity?publishedContentId=${created.id}`, headers: auth })
+    ).json() as { data: { id: string; type: string; message: string }[] };
+    expect(feed.data.length).toBeGreaterThanOrEqual(2); // CONTENT_PUBLISHED + the association-change GENERIC row
+    expect(feed.data.some((a) => a.type === 'CONTENT_PUBLISHED')).toBe(true);
+    expect(feed.data.some((a) => /updated this content's associations/.test(a.message))).toBe(true);
+
+    // A different content item's own creation event must never leak in.
+    const otherFeed = (
+      await app.inject({ method: 'GET', url: `/api/v1/activity?publishedContentId=${other.id}`, headers: auth })
+    ).json() as { data: { id: string }[] };
+    expect(otherFeed.data.length).toBeGreaterThan(0);
+    expect(otherFeed.data.every((a) => feed.data.every((x) => x.id !== a.id))).toBe(true);
+  });
+
   it('Quick Add / global feed surfaces unassigned content distinctly (no fabricated creator)', async () => {
     const created = (await app.inject({ method: 'POST', url: '/api/v1/content', headers: auth, payload: { url: freshUrl() } })).json() as PublishedContentDTO;
     const feed = (

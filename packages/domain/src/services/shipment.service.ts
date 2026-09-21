@@ -27,6 +27,11 @@ type ShipmentSummaryFilter = z.infer<typeof requests.shipmentSummarySchema>;
  *  regardless of open issues — mirrors the canonical Needs Attention service's
  *  logistics reasoning (failed/returned shipments are actionable on their own). */
 const ATTENTION_STATUSES: ShipmentStatus[] = ['FAILED', 'RETURNED'];
+/** A shipment that hasn't yet reached a terminal state — mirrors the "active
+ *  shipment" definition data-quality.service.ts's report() uses for its
+ *  missing-address/phone/destination-country findings, so the two never
+ *  drift apart. */
+const ACTIVE_SHIPMENT_STATUSES: ShipmentStatus[] = ['PENDING', 'SHIPPED', 'IN_TRANSIT'];
 
 const issueInclude = {
   createdBy: { select: { name: true } },
@@ -306,6 +311,23 @@ export function makeShipmentService(ctx: DomainContext) {
     }
     if (filter.hasOpenIssue) where.issues = { some: { status: 'OPEN' } };
     if (filter.needsAttention) where.OR = [{ issues: { some: { status: 'OPEN' } } }, { status: { in: ATTENTION_STATUSES } }];
+
+    // Data Quality Center deep-links — an AND array (rather than reusing the
+    // top-level OR above, which `needsAttention` may already have set) so
+    // these compose safely with every other filter, including needsAttention
+    // at the same time. Each condition mirrors exactly what
+    // data-quality.service.ts's report() counts for the matching finding.
+    const missingConditions: Prisma.ProductShipmentWhereInput[] = [];
+    if (filter.missingAddress) {
+      missingConditions.push({ status: { in: ACTIVE_SHIPMENT_STATUSES }, OR: [{ addressLine1: null }, { addressLine1: '' }] });
+    }
+    if (filter.missingPhone) {
+      missingConditions.push({ status: { in: ACTIVE_SHIPMENT_STATUSES }, OR: [{ phone: null }, { phone: '' }] });
+    }
+    if (filter.missingDestinationCountry) {
+      missingConditions.push({ status: { in: ACTIVE_SHIPMENT_STATUSES }, destinationCountryCode: null });
+    }
+    if (missingConditions.length) where.AND = missingConditions;
     return where;
   }
 
@@ -390,7 +412,7 @@ export function makeShipmentService(ctx: DomainContext) {
   }
 
   async function create(campaignInfluencerId: string, input: ShipmentCreate): Promise<ProductShipmentDTO> {
-    const actor = requireActor(ctx);
+    const actor = await requireCapability(ctx, 'LOGISTICS_MANAGE');
     const ci = await ciContext(campaignInfluencerId);
 
     // A deliverableId, if given, must belong to THIS campaign-influencer — the
@@ -484,7 +506,7 @@ export function makeShipmentService(ctx: DomainContext) {
 
   /** Update fulfilment details (address, courier, tracking, notes) — never the campaignInfluencerId/deliverableId/items. */
   async function update(shipmentId: string, input: ShipmentUpdate): Promise<ProductShipmentDTO> {
-    const actor = requireActor(ctx);
+    const actor = await requireCapability(ctx, 'LOGISTICS_MANAGE');
     const existing = await prisma.productShipment.findUnique({
       where: { id: shipmentId },
       include: { campaignInfluencer: { select: { campaignId: true, influencerId: true, campaign: { select: { brandId: true } } } } },
@@ -531,7 +553,7 @@ export function makeShipmentService(ctx: DomainContext) {
   }
 
   async function updateStatus(shipmentId: string, input: ShipmentStatusInput): Promise<ProductShipmentDTO> {
-    const actor = requireActor(ctx);
+    const actor = await requireCapability(ctx, 'LOGISTICS_MANAGE');
     const existing = await prisma.productShipment.findUnique({
       where: { id: shipmentId },
       include: { campaignInfluencer: { select: { campaignId: true, influencerId: true, campaign: { select: { brandId: true } } } } },

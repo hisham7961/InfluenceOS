@@ -73,6 +73,11 @@ function FindingRow({ finding }: { finding: DataQualityFindingDTO }) {
       <div className="flex min-w-0 items-center gap-2.5">
         <Badge tone={SEVERITY_TONE[finding.severity]}>{SEVERITY_LABEL[finding.severity]}</Badge>
         <span className="truncate text-foreground">{finding.title}</span>
+        {finding.fixLabel ? (
+          <Badge tone="accent" className="shrink-0">
+            {finding.fixLabel}
+          </Badge>
+        ) : null}
       </div>
       <span className={finding.count > 0 ? 'font-semibold tabular-nums text-foreground' : 'tabular-nums text-muted-foreground'}>
         {finding.count}

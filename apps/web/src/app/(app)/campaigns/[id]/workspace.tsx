@@ -26,6 +26,7 @@ import {
   Target,
   Trash2,
   TrendingUp,
+  Truck,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -40,9 +41,12 @@ import type {
   DeliverableType,
   ExpenseDTO,
   ExpenseType,
+  InfluencerSummaryDTO,
+  LogisticsRequestDTO,
   ParticipationStatus,
   PaymentStatus,
   Platform,
+  ProductShipmentDTO,
   PublishedContentDTO,
   ScriptDTO,
 } from '@influenceos/contracts';
@@ -64,6 +68,7 @@ import {
   PAYMENT_STATUS_LABELS,
   PLATFORM_META,
   PLATFORMS,
+  SHIPMENT_STATUS_LABELS,
 } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { useConversationUnread } from '@/lib/use-conversation-unread';
@@ -102,6 +107,8 @@ import {
 } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { AttachmentsPanel } from '@/components/common/attachments-panel';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ShipmentDetailSheet } from '@/app/(app)/logistics/shipment-detail-sheet';
 import { AddInfluencerDialog } from './add-influencer-dialog';
 
 /** Sentinel for "no influencer attributed" in the expense form's Select (Radix forbids an empty-string value). */
@@ -207,7 +214,7 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
       </TabsContent>
 
       <TabsContent value="influencers">
-        <InfluencersTab campaignId={campaign.id} influencers={influencers} />
+        <InfluencersTab campaign={campaign} influencers={influencers} />
       </TabsContent>
 
       <TabsContent value="operations">
@@ -215,7 +222,7 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
       </TabsContent>
 
       <TabsContent value="deliverables">
-        <DeliverablesTab influencers={influencers} />
+        <DeliverablesTab campaign={campaign} influencers={influencers} />
       </TabsContent>
 
       <TabsContent value="submissions">
@@ -463,7 +470,7 @@ function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
 // Influencers
 // ---------------------------------------------------------------------------
 
-function InfluencersTab({ campaignId, influencers }: { campaignId: string; influencers: CampaignInfluencerDTO[] }) {
+function InfluencersTab({ campaign, influencers }: { campaign: CampaignDetailDTO; influencers: CampaignInfluencerDTO[] }) {
   const [addDeliverableFor, setAddDeliverableFor] = React.useState<CampaignInfluencerDTO | null>(null);
 
   return (
@@ -472,7 +479,7 @@ function InfluencersTab({ campaignId, influencers }: { campaignId: string; influ
         <p className="text-sm text-muted-foreground">
           {influencers.length} influencer{influencers.length === 1 ? '' : 's'} on this campaign
         </p>
-        <AddInfluencerDialog campaignId={campaignId} existingInfluencerIds={influencers.map((ci) => ci.influencer.id)} />
+        <AddInfluencerDialog campaignId={campaign.id} existingInfluencerIds={influencers.map((ci) => ci.influencer.id)} />
       </div>
 
       {influencers.length === 0 ? (
@@ -484,7 +491,7 @@ function InfluencersTab({ campaignId, influencers }: { campaignId: string; influ
       ) : (
         <div className="space-y-4">
           {influencers.map((ci) => (
-            <InfluencerRow key={ci.id} ci={ci} onAddDeliverable={() => setAddDeliverableFor(ci)} />
+            <InfluencerRow key={ci.id} ci={ci} campaign={campaign} onAddDeliverable={() => setAddDeliverableFor(ci)} />
           ))}
         </div>
       )}
@@ -500,7 +507,15 @@ function InfluencersTab({ campaignId, influencers }: { campaignId: string; influ
   );
 }
 
-function InfluencerRow({ ci, onAddDeliverable }: { ci: CampaignInfluencerDTO; onAddDeliverable: () => void }) {
+function InfluencerRow({
+  ci,
+  campaign,
+  onAddDeliverable,
+}: {
+  ci: CampaignInfluencerDTO;
+  campaign: CampaignDetailDTO;
+  onAddDeliverable: () => void;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const dp = ci.deliverableProgress;
@@ -601,7 +616,7 @@ function InfluencerRow({ ci, onAddDeliverable }: { ci: CampaignInfluencerDTO; on
         ) : (
           <div className="space-y-2">
             {ci.deliverables.map((d) => (
-              <DeliverableRow key={d.id} deliverable={d} />
+              <DeliverableRow key={d.id} deliverable={d} campaign={campaign} influencer={ci.influencer} />
             ))}
           </div>
         )}
@@ -762,10 +777,16 @@ const TERMINAL_DELIVERABLE_STATUSES: DeliverableStatus[] = ['PUBLISHED', 'VERIFI
 
 function DeliverableRow({
   deliverable,
+  campaign,
+  influencer,
   influencerName,
   influencerAvatar,
 }: {
   deliverable: DeliverableDTO;
+  /** Needed to open this deliverable's shipment(s) in the shared ShipmentDetailSheet
+   *  (that sheet reads a LogisticsRequestDTO, which carries campaign/brand/creator context). */
+  campaign: CampaignDetailDTO;
+  influencer?: InfluencerSummaryDTO;
   influencerName?: string;
   influencerAvatar?: string | null;
 }) {
@@ -846,6 +867,7 @@ function DeliverableRow({
       <Button type="button" variant="ghost" size="sm" onClick={() => setCommentsOpen(true)}>
         <MessageSquare className="h-3.5 w-3.5" /> Comments
       </Button>
+      <DeliverableShipmentsAction deliverable={deliverable} campaign={campaign} influencer={influencer} />
 
       <div className="ms-auto flex items-center gap-2">
         <DeliverableStatusBadge status={deliverable.status} />
@@ -937,6 +959,86 @@ function DeliverableRow({
 }
 
 /**
+ * Opens this deliverable's shipment(s) in the SAME ShipmentDetailSheet the
+ * `/logistics` workspace and the campaign's own Shipments tab use — never a
+ * second shipment detail view. A Deliverable can have several shipments
+ * (ProductShipment.deliverableId is a one-to-many FK: replacements, retries),
+ * so more than one opens a small picker instead of guessing which to show.
+ * ShipmentDetailSheet reads a LogisticsRequestDTO (shipment + creator/brand/
+ * campaign context) rather than the bare ProductShipmentDTO
+ * `GET /deliverables/:id/shipments` returns — that context is assembled here
+ * from what this row already has in scope, with no extra round trip.
+ */
+function DeliverableShipmentsAction({
+  deliverable,
+  campaign,
+  influencer,
+}: {
+  deliverable: DeliverableDTO;
+  campaign: CampaignDetailDTO;
+  influencer?: InfluencerSummaryDTO;
+}) {
+  const queryClient = useQueryClient();
+  const [selected, setSelected] = React.useState<LogisticsRequestDTO | null>(null);
+  // Shipments are only ever created for deliverables that need a product —
+  // skip the request entirely for the common case (a pure content deliverable).
+  const shipmentsQuery = useQuery({
+    queryKey: ['deliverable-shipments', deliverable.id],
+    queryFn: () => api.deliverables.shipments(deliverable.id),
+    enabled: deliverable.requiresProduct,
+  });
+  const shipments = shipmentsQuery.data ?? [];
+  if (!deliverable.requiresProduct || shipments.length === 0) return null;
+
+  function toDetail(s: ProductShipmentDTO): LogisticsRequestDTO {
+    return {
+      ...s,
+      influencer: influencer ? { id: influencer.id, displayName: influencer.displayName, avatarUrl: influencer.avatarUrl, countryCode: null } : null,
+      brand: { id: campaign.brandId, name: campaign.brand.name },
+      campaign: { id: campaign.id, name: campaign.name },
+      deliverableType: deliverable.type,
+    };
+  }
+
+  function close(open: boolean) {
+    if (open) return;
+    setSelected(null);
+    queryClient.invalidateQueries({ queryKey: ['deliverable-shipments', deliverable.id] });
+  }
+
+  if (shipments.length === 1) {
+    return (
+      <>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setSelected(toDetail(shipments[0]!))}>
+          <Truck className="h-3.5 w-3.5" /> Shipment
+        </Button>
+        <ShipmentDetailSheet shipment={selected} onOpenChange={close} />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="ghost" size="sm">
+            <Truck className="h-3.5 w-3.5" /> Shipments ({shipments.length})
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          {shipments.map((s) => (
+            <DropdownMenuItem key={s.id} onSelect={() => setSelected(toDetail(s))}>
+              {SHIPMENT_STATUS_LABELS[s.status]} · {[s.city, s.country].filter(Boolean).join(', ') || 'No destination on file'}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ShipmentDetailSheet shipment={selected} onOpenChange={close} />
+    </>
+  );
+}
+
+/**
  * UGC drafts go through DeliverableSubmission review, never PublishedContent —
  * no public URL is required to complete this workflow (submission.service.ts
  * review()'s APPROVE path never creates a PublishedContent row).
@@ -1003,7 +1105,7 @@ function SubmitDraftDialog({
   );
 }
 
-function DeliverablesTab({ influencers }: { influencers: CampaignInfluencerDTO[] }) {
+function DeliverablesTab({ campaign, influencers }: { campaign: CampaignDetailDTO; influencers: CampaignInfluencerDTO[] }) {
   const rows = React.useMemo(() => {
     const flat = influencers.flatMap((ci) => ci.deliverables.map((d) => ({ ci, d })));
     return flat.sort((a, b) => {
@@ -1026,7 +1128,14 @@ function DeliverablesTab({ influencers }: { influencers: CampaignInfluencerDTO[]
   return (
     <div className="space-y-2">
       {rows.map(({ ci, d }) => (
-        <DeliverableRow key={d.id} deliverable={d} influencerName={ci.influencer.displayName} influencerAvatar={ci.influencer.avatarUrl} />
+        <DeliverableRow
+          key={d.id}
+          deliverable={d}
+          campaign={campaign}
+          influencer={ci.influencer}
+          influencerName={ci.influencer.displayName}
+          influencerAvatar={ci.influencer.avatarUrl}
+        />
       ))}
     </div>
   );

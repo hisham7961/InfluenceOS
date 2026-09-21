@@ -308,6 +308,8 @@ export function createClient(config: ClientConfig) {
       submissions: (id: string) => http.get<DeliverableSubmissionDTO[]>(`${V}/deliverables/${id}/submissions`),
       submit: (id: string, body: In<typeof requests.submissionCreateSchema>) =>
         http.post<DeliverableSubmissionDTO>(`${V}/deliverables/${id}/submissions`, body),
+      // Shipments fulfilling this deliverable (never just 0-or-1 — see shipment.service.ts's listForDeliverable).
+      shipments: (id: string) => http.get<ProductShipmentDTO[]>(`${V}/deliverables/${id}/shipments`),
     },
 
     submissions: {

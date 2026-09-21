@@ -42,6 +42,13 @@ export default async function InfluencersPage({
     relationshipStatus: sp.relationshipStatus || undefined,
     minFollowers: sp.minFollowers ? Number(sp.minFollowers) : undefined,
     maxFollowers: sp.maxFollowers ? Number(sp.maxFollowers) : undefined,
+    // Data Quality Center deep-links (e.g. /influencers?missingCountry=true)
+    // — not UI filter chips, just real server-side filters a finding row
+    // links straight into.
+    missingCountry: sp.missingCountry === 'true' ? true : undefined,
+    missingOwner: sp.missingOwner === 'true' ? true : undefined,
+    missingPhone: sp.missingPhone === 'true' ? true : undefined,
+    missingSocial: sp.missingSocial === 'true' ? true : undefined,
     page,
     pageSize: 24,
   });

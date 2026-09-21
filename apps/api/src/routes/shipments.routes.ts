@@ -27,6 +27,15 @@ export async function shipmentRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).shipments.listAll(req.query),
   );
 
+  // Shipments fulfilling one specific deliverable — a Deliverable can have
+  // several (one per replacement/retry, not just 0-or-1). Powers the Campaign
+  // workspace's Deliverable row → Shipment detail affordance.
+  r.get(
+    '/deliverables/:id/shipments',
+    { preHandler: [requireAuth], schema: { tags: ['Logistics'], summary: 'List shipments fulfilling one specific deliverable', params: idParam } },
+    async (req) => servicesFor(req).shipments.listForDeliverable(req.params.id),
+  );
+
   r.get(
     '/shipments/summary',
     {

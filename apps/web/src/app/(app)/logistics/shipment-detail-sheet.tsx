@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Check, ExternalLink, MapPin, MessageSquare, Package, Pencil, Truck, UserPlus, X } from 'lucide-react';
+import { Activity as ActivityIcon, Check, ExternalLink, MapPin, MessageSquare, Package, Pencil, Truck, UserPlus, X } from 'lucide-react';
 import type { LogisticsIssueDTO, LogisticsRequestDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import {
@@ -29,6 +29,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Separator } from '@/components/ui/separator';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CommentThread } from '@/components/collaboration/comment-thread';
+import { ActivityFeed } from '@/components/common/activity-feed';
 import { useApp } from '@/components/shell/app-context';
 import { relativeTime } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -128,6 +129,14 @@ export function ShipmentDetailSheet({
                   <Link href={`/influencers/${shipment.influencer.id}`}>Open Creator</Link>
                 </Button>
               )}
+              {/* The specific Deliverable this shipment fulfils, not just its
+                  campaign — a shipment may be tied to one (deliverableId), or be
+                  a general/replacement gift with none. */}
+              {shipment.deliverableId && shipment.campaign && (
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/campaigns/${shipment.campaign.id}?tab=deliverables`}>Open Deliverable</Link>
+                </Button>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button type="button" variant="outline" size="sm" className="gap-1.5">
@@ -172,6 +181,27 @@ export function ShipmentDetailSheet({
             <Separator />
 
             <IssueSection shipment={shipment} onChanged={invalidateAll} />
+
+            <Separator />
+
+            {/* Factual system history (ActivityLog) — the SAME ActivityFeed the
+                Campaign workspace's Activity tab shows, scoped to this shipment
+                (created, assigned, status transitions, address clarification
+                requested/resolved). Rendered as a shaded panel — the same visual
+                language as the creator/status summary above — to read as system
+                fact, distinct from the plain-header Comments discussion, the
+                LogisticsIssue banner above, and the Fulfilment/tracking details. */}
+            <div className="space-y-2 rounded-xl border border-border bg-surface-muted/40 p-3">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+                <ActivityIcon className="h-4 w-4 text-accent" /> Activity
+              </p>
+              <ActivityFeed
+                filter={{ shipmentId: shipment.id, limit: 20 }}
+                queryKey={['shipment-activity', shipment.id]}
+                emptyTitle="No activity yet"
+                emptyDescription="Status changes, assignment and address clarifications on this shipment will show up here."
+              />
+            </div>
 
             <Separator />
 

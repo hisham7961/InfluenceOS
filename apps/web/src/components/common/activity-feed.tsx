@@ -24,7 +24,16 @@ export function ActivityFeed({
   emptyTitle = 'No activity yet',
   emptyDescription = 'Actions taken here will show up in this timeline.',
 }: {
-  filter: { campaignId?: string; influencerId?: string; brandId?: string; limit?: number };
+  filter: {
+    campaignId?: string;
+    influencerId?: string;
+    brandId?: string;
+    /** Content detail/viewer's Activity section. */
+    publishedContentId?: string;
+    /** Logistics shipment detail's Activity section. */
+    shipmentId?: string;
+    limit?: number;
+  };
   queryKey: readonly unknown[];
   emptyTitle?: string;
   emptyDescription?: string;
