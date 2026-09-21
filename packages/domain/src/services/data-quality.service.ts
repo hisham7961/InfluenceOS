@@ -1,14 +1,22 @@
 import {
+  requests,
   type DataQualityFindingDTO,
   type DataQualityReportDTO,
   type DataQualitySeverity,
   type DuplicateCandidateDTO,
   type DuplicateMatchConfidence,
 } from '@influenceos/contracts';
+import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { requireActor } from '../lib/authz';
 import { scopedBrandIds } from '../lib/scope';
+
+// Matches the established z.infer<typeof requests.xSchema> pattern the rest
+// of the domain package uses for its request-input types (duplicateCheckSchema
+// is not individually re-exported from the contracts barrel, only via the
+// `requests` namespace).
+type DuplicateCheckInput = z.infer<typeof requests.duplicateCheckSchema>;
 
 // A deal only owes real money when dealType implies payment — FREE and
 // GIFTED_PRODUCT collaborations legitimately have no agreedCost, so a null
@@ -88,6 +96,28 @@ function normalizePhone(s: string): string {
 
 function normalizeText(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** Shared by duplicates() and checkDuplicate() so a hard-identifier match is
+ *  always 'exact' and a name-only match is 'strongPossible'/'possible' by the
+ *  same word-count split, no matter which entry point computed the reasons. */
+function confidenceFor(reasons: Reason[]): DuplicateMatchConfidence {
+  const hasHardMatch = reasons.some((r) => HARD_IDENTIFIER_FIELDS.has(r.field));
+  if (hasHardMatch) return 'exact';
+  const nameReason = reasons.find((r) => r.field === 'name');
+  const wordCount = nameReason ? nameReason.value.trim().split(/\s+/).length : 0;
+  return wordCount >= 2 ? 'strongPossible' : 'possible';
+}
+
+interface CandidateAvatarInput {
+  avatarOverrideUrl: string | null;
+  resolvedAvatarUrl: string | null;
+  socialAccounts: { avatarUrl: string | null; isPrimary: boolean }[];
+}
+
+function avatarFor(inf: CandidateAvatarInput): string | null {
+  const primaryAccount = inf.socialAccounts.find((a) => a.isPrimary) ?? inf.socialAccounts[0] ?? null;
+  return inf.avatarOverrideUrl ?? inf.resolvedAvatarUrl ?? primaryAccount?.avatarUrl ?? null;
 }
 
 interface KeyEntry {
@@ -354,18 +384,8 @@ export function makeDataQualityService(ctx: DomainContext) {
     const candidates: DuplicateCandidateDTO[] = [];
     for (const [id, reasons] of perInfluencerReasons) {
       const inf = byId.get(id)!;
-      const hasHardMatch = reasons.some((r) => HARD_IDENTIFIER_FIELDS.has(r.field));
-      let confidence: DuplicateMatchConfidence;
-      if (hasHardMatch) {
-        confidence = 'exact';
-      } else {
-        const nameReason = reasons.find((r) => r.field === 'name');
-        const wordCount = nameReason ? nameReason.value.trim().split(/\s+/).length : 0;
-        confidence = wordCount >= 2 ? 'strongPossible' : 'possible';
-      }
-      const primaryAccount = inf.socialAccounts.find((a) => a.isPrimary) ?? inf.socialAccounts[0] ?? null;
-      const avatarUrl = inf.avatarOverrideUrl ?? inf.resolvedAvatarUrl ?? primaryAccount?.avatarUrl ?? null;
-      candidates.push({ influencerId: id, displayName: inf.displayName, avatarUrl, confidence, reasons });
+      const confidence = confidenceFor(reasons);
+      candidates.push({ influencerId: id, displayName: inf.displayName, avatarUrl: avatarFor(inf), confidence, reasons });
     }
 
     // Sort so members of the same cluster land next to each other — the
@@ -377,7 +397,104 @@ export function makeDataQualityService(ctx: DomainContext) {
     return candidates;
   }
 
-  return { report, duplicates };
+  /**
+   * Live, single-candidate duplicate check (PART 45-47) — run before an
+   * influencer is actually created (Add Influencer / import), never as a
+   * post-hoc report. Deliberately NOT brand-scoped: the point is to catch
+   * the same person already in the system under ANY brand, so a candidate
+   * who already exists elsewhere still surfaces here.
+   *
+   * Reuses duplicates()'s exact normalizeText/normalizePhone/
+   * HARD_IDENTIFIER_FIELDS/PLATFORM_REASON_FIELD/confidenceFor/avatarFor —
+   * the matching RULES are identical, only how candidates are fetched
+   * differs: narrow indexed WHERE clauses instead of the full-table scan
+   * duplicates() needs to cluster everyone against everyone.
+   */
+  async function checkDuplicate(input: DuplicateCheckInput): Promise<DuplicateCandidateDTO[]> {
+    requireActor(ctx);
+
+    const displayName = input.displayName?.trim() || undefined;
+    const username = input.username?.trim() || undefined;
+    const email = input.email?.trim() || undefined;
+    const mobile = input.mobile?.trim() || undefined;
+    const whatsapp = input.whatsapp?.trim() || undefined;
+
+    // What to key this one candidate on — same fields duplicates() clusters
+    // on, just computed against a single incoming record instead of every
+    // pairing in the table.
+    const candidateKeys: { field: ReasonField; normalized: string }[] = [];
+    if (email) candidateKeys.push({ field: 'email', normalized: normalizeText(email) });
+    if (mobile) candidateKeys.push({ field: 'mobile', normalized: normalizePhone(mobile) });
+    if (whatsapp) candidateKeys.push({ field: 'whatsapp', normalized: normalizePhone(whatsapp) });
+    if (displayName) candidateKeys.push({ field: 'name', normalized: normalizeText(displayName) });
+    if (username && input.platform) {
+      const field = PLATFORM_REASON_FIELD[input.platform];
+      if (field) candidateKeys.push({ field, normalized: normalizeText(username) });
+    }
+    if (candidateKeys.length === 0) return [];
+
+    // Narrow, indexed WHERE clauses (equality on email/mobile/whatsapp, a
+    // platform+username match, or a display-name substring search — the
+    // same `contains`/`mode: 'insensitive'` pattern influencer.service.ts's
+    // and search.service.ts's name lookups already use) instead of
+    // duplicates()'s unbounded findMany — this runs on every keystroke-ish
+    // form check, not once per report.
+    const or: Prisma.InfluencerWhereInput[] = [];
+    if (email) or.push({ email: { equals: email, mode: 'insensitive' } });
+    if (mobile) or.push({ mobile });
+    if (whatsapp) or.push({ whatsapp });
+    if (username && input.platform) {
+      or.push({ socialAccounts: { some: { platform: input.platform, username: { equals: username, mode: 'insensitive' } } } });
+    }
+    if (displayName) or.push({ displayName: { contains: displayName, mode: 'insensitive' } });
+
+    const where: Prisma.InfluencerWhereInput = {
+      OR: or,
+      ...(input.excludeInfluencerId ? { id: { not: input.excludeInfluencerId } } : {}),
+    };
+
+    const influencers = await prisma.influencer.findMany({
+      where,
+      take: 25,
+      select: {
+        id: true,
+        displayName: true,
+        avatarOverrideUrl: true,
+        resolvedAvatarUrl: true,
+        email: true,
+        mobile: true,
+        whatsapp: true,
+        socialAccounts: { select: { platform: true, username: true, avatarUrl: true, isPrimary: true } },
+      },
+    });
+
+    const candidates: DuplicateCandidateDTO[] = [];
+    for (const inf of influencers) {
+      const reasons: Reason[] = [];
+      for (const key of candidateKeys) {
+        if (key.field === 'email') {
+          if (inf.email && normalizeText(inf.email) === key.normalized) reasons.push({ field: 'email', value: inf.email.trim() });
+        } else if (key.field === 'mobile') {
+          if (inf.mobile && normalizePhone(inf.mobile) === key.normalized) reasons.push({ field: 'mobile', value: inf.mobile.trim() });
+        } else if (key.field === 'whatsapp') {
+          if (inf.whatsapp && normalizePhone(inf.whatsapp) === key.normalized) reasons.push({ field: 'whatsapp', value: inf.whatsapp.trim() });
+        } else if (key.field === 'name') {
+          if (normalizeText(inf.displayName) === key.normalized) reasons.push({ field: 'name', value: inf.displayName.trim() });
+        } else {
+          const acc = inf.socialAccounts.find((a) => PLATFORM_REASON_FIELD[a.platform] === key.field && normalizeText(a.username) === key.normalized);
+          if (acc) reasons.push({ field: key.field, value: acc.username.trim() });
+        }
+      }
+      if (reasons.length === 0) continue; // WHERE can widen the net (e.g. displayName `contains`) beyond what actually normalizes equal
+      candidates.push({ influencerId: inf.id, displayName: inf.displayName, avatarUrl: avatarFor(inf), confidence: confidenceFor(reasons), reasons });
+    }
+
+    const CONFIDENCE_RANK: Record<DuplicateMatchConfidence, number> = { exact: 0, strongPossible: 1, possible: 2 };
+    candidates.sort((a, b) => CONFIDENCE_RANK[a.confidence] - CONFIDENCE_RANK[b.confidence] || a.displayName.localeCompare(b.displayName));
+    return candidates;
+  }
+
+  return { report, duplicates, checkDuplicate };
 }
 
 export type DataQualityService = ReturnType<typeof makeDataQualityService>;

@@ -177,6 +177,25 @@ describe('Logistics — shipment tracking (evolved W3-5)', () => {
     expect(list.map((s) => s.id)).toEqual([firstShipmentId]);
   });
 
+  it('GET /deliverables/:id/shipments respects brand scope — direct-ID access, not just hidden from a list (a real gap found by the Final Completion Pass performance review: listForDeliverable had no scope check at all)', async () => {
+    const { PrismaClient } = await import('@influenceos/database');
+    const { hash } = await import('@node-rs/argon2');
+    const prisma = new PrismaClient();
+    const email = `scoped_${Date.now()}@example.test`;
+    const password = 'Str0ng-Passw0rd!';
+    const user = await prisma.user.create({ data: { email, name: 'Other Brand Staff', role: 'STAFF', passwordHash: await hash(password) } });
+    const otherBrand = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Ship Other Brand ${Date.now()}` } }));
+    await app.inject({ method: 'PUT', url: `/api/v1/users/${user.id}/brand-access`, headers: auth, payload: { brandIds: [otherBrand] } });
+    const loginRes = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password } });
+    const scopedAuth = { authorization: `Bearer ${(loginRes.json() as { tokens: { accessToken: string } }).tokens.accessToken}` };
+
+    const res = await app.inject({ method: 'GET', url: `/api/v1/deliverables/${deliverableId}/shipments`, headers: scopedAuth });
+    expect(res.statusCode).toBe(404);
+
+    await prisma.user.delete({ where: { id: user.id } });
+    await prisma.$disconnect();
+  });
+
   it("Activity — GET /activity?shipmentId= surfaces this shipment's own ActivityLog history (created + status transitions), scoped away from another shipment's", async () => {
     const feed = (await app.inject({ method: 'GET', url: `/api/v1/activity?shipmentId=${firstShipmentId}`, headers: auth })).json() as {
       data: { id: string; message: string }[];

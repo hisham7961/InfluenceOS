@@ -2,13 +2,25 @@ import {
   type CreatorReliabilityDTO,
   type CreatorSnapshotDTO,
   type CreatorTimelineItemDTO,
+  type DeliverableSubmissionDTO,
 } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
+import { USAGE_RIGHT_TYPE_LABELS } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor } from '../lib/authz';
+import { iso } from '../lib/helpers';
 import { toActivityDTO } from '../lib/mappers';
 import { resolveScopeCurrency, subtractMoney, sumMoney, toDecimal } from '../lib/money';
+
+/** submissions()'s return shape — the real DeliverableSubmissionDTO fields
+ *  (mirrors submission.service.ts's toDTO exactly) plus just enough campaign
+ *  context to link a UGC tab row back to where it was submitted; nothing here
+ *  is a new stored entity. */
+export interface CreatorSubmissionDTO extends DeliverableSubmissionDTO {
+  campaignId: string;
+  campaignName: string;
+}
 
 const ACTIVE_DELIVERABLE_STATUSES = ['PLANNED', 'SENT_TO_INFLUENCER', 'AWAITING_PUBLICATION', 'IN_REVIEW', 'CHANGES_REQUESTED', 'APPROVED'] as const;
 const ACTIVE_SHIPMENT_STATUSES = ['PENDING', 'SHIPPED', 'IN_TRANSIT'] as const;
@@ -182,9 +194,54 @@ export function makeCreator360Service(ctx: DomainContext) {
     };
   }
 
-  /** Cursor is the ISO timestamp of the oldest item already shown — merges three
+  /** Every DeliverableSubmission across every campaign this creator has been
+   *  in (gap #11) — submission.service.ts's listForDeliverable/listForCampaign
+   *  are scoped to one deliverable/campaign; this is the creator-wide read a
+   *  dedicated UGC tab needs. Mirrors submission.service.ts's own include/toDTO
+   *  shape exactly (that file doesn't export them), plus the campaign id/name
+   *  needed to link a row back to its campaign — never a new stored entity. */
+  async function submissions(influencerId: string): Promise<CreatorSubmissionDTO[]> {
+    requireActor(ctx);
+    await assertVisible(influencerId);
+
+    const rows = await prisma.deliverableSubmission.findMany({
+      where: { deliverable: { campaignInfluencer: { influencerId } } },
+      include: {
+        submittedBy: { select: { name: true } },
+        reviewedBy: { select: { name: true } },
+        comments: { orderBy: { createdAt: 'asc' }, include: { author: { select: { name: true } } } },
+        deliverable: {
+          select: {
+            campaignInfluencer: { select: { campaignId: true, campaign: { select: { name: true } } } },
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+
+    return rows.map((s) => ({
+      id: s.id,
+      deliverableId: s.deliverableId,
+      version: s.version,
+      status: s.status,
+      notes: s.notes,
+      assetUrl: s.assetUrl,
+      submittedByName: s.submittedBy?.name ?? null,
+      reviewedByName: s.reviewedBy?.name ?? null,
+      reviewedAt: iso(s.reviewedAt),
+      reviewNote: s.reviewNote,
+      createdAt: s.createdAt.toISOString(),
+      updatedAt: s.updatedAt.toISOString(),
+      comments: s.comments.map((c) => ({ id: c.id, authorName: c.author?.name ?? null, body: c.body, createdAt: c.createdAt.toISOString() })),
+      campaignId: s.deliverable.campaignInfluencer.campaignId,
+      campaignName: s.deliverable.campaignInfluencer.campaign.name,
+    }));
+  }
+
+  /** Cursor is the ISO timestamp of the oldest item already shown — merges five
    *  real sources (never a duplicate history table): ActivityLog, top-level
-   *  personal Notes, and DeliverableSubmission status changes. Notification
+   *  personal Notes, DeliverableSubmission status changes, CampaignInfluencer
+   *  contact events (gap #12), and UsageRight grants (gap #12). Notification
    *  rows are deliberately NOT included — they're a per-user alert derived
    *  from the same underlying ActivityLog event (see logActivity call sites),
    *  so mixing them in would show most events twice. */
@@ -197,7 +254,7 @@ export function makeCreator360Service(ctx: DomainContext) {
     const limit = query.limit ?? 30;
     const before = query.cursor ? new Date(query.cursor) : null;
 
-    const [activities, notes, submissions] = await Promise.all([
+    const [activities, notes, submissionRows, contacted, usageRights] = await Promise.all([
       prisma.activityLog.findMany({
         where: { influencerId, ...(before ? { createdAt: { lt: before } } : {}) },
         include: { actor: { select: { name: true } } },
@@ -214,6 +271,29 @@ export function makeCreator360Service(ctx: DomainContext) {
         where: { deliverable: { campaignInfluencer: { influencerId } }, ...(before ? { updatedAt: { lt: before } } : {}) },
         include: { deliverable: { select: { id: true, campaignInfluencerId: true, campaignInfluencer: { select: { campaignId: true } } } } },
         orderBy: { updatedAt: 'desc' },
+        take: limit,
+      }),
+      // "Contacted" events (gap #12) — CampaignInfluencer.dateContacted is a
+      // real timestamp already read by snapshot() above; never synthesized
+      // for a row where it's null (an invited-but-not-yet-contacted creator
+      // gets no event, not a fabricated one).
+      prisma.campaignInfluencer.findMany({
+        where: { influencerId, dateContacted: before ? { not: null, lt: before } : { not: null } },
+        include: { campaign: { select: { id: true, name: true } } },
+        orderBy: { dateContacted: 'desc' },
+        take: limit,
+      }),
+      // Usage-rights lifecycle events (gap #12) — one event per UsageRight row,
+      // anchored on its real `createdAt` (when the right was granted). No
+      // separate expiry/revocation event is synthesized: the model has no
+      // real per-transition timestamp for those (revoke()/the expiry worker
+      // only ever bump `status` + `updatedAt`, and `updatedAt` is shared by
+      // every field on the row, not a dedicated "status changed at" column),
+      // so a single grant event carrying the row's CURRENT status is the
+      // honest representation — never a guessed history.
+      prisma.usageRight.findMany({
+        where: { influencerId, ...(before ? { createdAt: { lt: before } } : {}) },
+        orderBy: { createdAt: 'desc' },
         take: limit,
       }),
     ]);
@@ -253,7 +333,7 @@ export function makeCreator360Service(ctx: DomainContext) {
       CHANGES_REQUESTED: 'was asked for changes on a submission',
       REJECTED: 'had a submission rejected',
     };
-    for (const s of submissions) {
+    for (const s of submissionRows) {
       items.push({
         id: `submission:${s.id}`,
         bucket: 'ugc',
@@ -263,17 +343,50 @@ export function makeCreator360Service(ctx: DomainContext) {
       });
     }
 
+    for (const ci of contacted) {
+      // dateContacted is guaranteed set by the where-clause above (never
+      // null) — the `!` just satisfies the nullable Prisma field type.
+      items.push({
+        id: `contacted:${ci.id}`,
+        bucket: 'contacted',
+        message: `Contacted for ${ci.campaign.name}`,
+        link: `/campaigns/${ci.campaign.id}`,
+        at: ci.dateContacted!.toISOString(),
+      });
+    }
+
+    for (const ur of usageRights) {
+      const typeLabel = USAGE_RIGHT_TYPE_LABELS[ur.usageType] ?? ur.usageType;
+      const detailBits = [ur.territory, ur.scope].filter((v): v is string => !!v);
+      const detail = detailBits.length ? ` (${detailBits.join(', ')})` : '';
+      // Status is the row's CURRENT state, not a fabricated transition event —
+      // see the query comment above for why only one event per row exists.
+      const statusNote = ur.status !== 'ACTIVE' ? ` — now ${ur.status.toLowerCase()}` : '';
+      items.push({
+        id: `usageRight:${ur.id}`,
+        bucket: 'usageRights',
+        message: `Usage right granted: ${typeLabel} use${detail}${statusNote}`,
+        link: ur.campaignId ? `/campaigns/${ur.campaignId}` : `/brands/${ur.brandId}`,
+        at: ur.createdAt.toISOString(),
+      });
+    }
+
     items.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
     const page = items.slice(0, limit);
     // Any source that returned a FULL page of `limit` rows might still have
     // more beyond what we fetched — a conservative hasMore, never a false negative.
-    const hasMore = activities.length === limit || notes.length === limit || submissions.length === limit;
+    const hasMore =
+      activities.length === limit ||
+      notes.length === limit ||
+      submissionRows.length === limit ||
+      contacted.length === limit ||
+      usageRights.length === limit;
     const nextCursor = hasMore && page.length ? page[page.length - 1]!.at : null;
 
     return { data: page, nextCursor, hasMore };
   }
 
-  return { snapshot, reliability, timeline };
+  return { snapshot, reliability, submissions, timeline };
 }
 
 export type Creator360Service = ReturnType<typeof makeCreator360Service>;

@@ -46,6 +46,20 @@ export async function candidateRoutes(app: FastifyInstance): Promise<void> {
   );
 
   r.post(
+    '/campaigns/:id/candidates/import/preview',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'Dry-run preview of a CSV candidate import — never writes; flags likely duplicates (W3-4 gap #7)',
+        params: idParam,
+        body: requests.candidateCsvImportSchema,
+      },
+    },
+    async (req) => servicesFor(req).bulk.previewImportCandidatesCsv(req.params.id, req.body),
+  );
+
+  r.post(
     '/campaigns/:id/candidates/import',
     {
       preHandler: [requireAuth],

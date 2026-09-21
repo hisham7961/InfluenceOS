@@ -202,6 +202,11 @@ export function createClient(config: ClientConfig) {
       reliability: (id: string) => http.get<CreatorReliabilityDTO>(`${V}/influencers/${id}/reliability`),
       timeline: (id: string, params?: QueryParams) =>
         http.get<CursorPage<CreatorTimelineItemDTO>>(`${V}/influencers/${id}/timeline`, { query: params }),
+      // Every submission across this creator's campaigns (Creator 360 UGC tab,
+      // gap #11) — same DeliverableSubmissionDTO shape as elsewhere, plus the
+      // campaign id/name needed to link a row back to where it was submitted.
+      submissions: (id: string) =>
+        http.get<Array<DeliverableSubmissionDTO & { campaignId: string; campaignName: string }>>(`${V}/influencers/${id}/submissions`),
       // Bulk directory-wide actions (Operations Intelligence pass) — preview
       // is always a dry run; execute is admin-only.
       bulkPreview: (body: In<typeof requests.bulkInfluencerRequestSchema>) =>
@@ -259,8 +264,17 @@ export function createClient(config: ClientConfig) {
       candidates: (id: string, params?: QueryParams) =>
         http.get<CampaignCandidateDTO[]>(`${V}/campaigns/${id}/candidates`, { query: params }),
       // Bulk-import a CSV of creators as sourcing candidates (W3-4 web surface).
+      // preview is a dry run that never writes and flags likely duplicates (gap #7).
+      previewImportCandidates: (id: string, body: In<typeof requests.candidateCsvImportSchema>) =>
+        http.post<BulkPreviewDTO>(`${V}/campaigns/${id}/candidates/import/preview`, body),
       importCandidates: (id: string, body: In<typeof requests.candidateCsvImportSchema>) =>
         http.post<BulkResultDTO>(`${V}/campaigns/${id}/candidates/import`, body),
+      // Bulk-add many influencers to a campaign roster at once (W3-4 web
+      // surface, gap #6) — preview is a dry run that never writes.
+      previewRosterAdd: (id: string, body: In<typeof requests.bulkRosterAddSchema>) =>
+        http.post<BulkPreviewDTO>(`${V}/campaigns/${id}/influencers/bulk/preview`, body),
+      addRosterInfluencers: (id: string, body: In<typeof requests.bulkRosterAddSchema>) =>
+        http.post<BulkResultDTO>(`${V}/campaigns/${id}/influencers/bulk`, body),
       // Product shipments across a campaign roster (W3-5 web surface).
       shipments: (id: string) => http.get<ProductShipmentDTO[]>(`${V}/campaigns/${id}/shipments`),
       // Submission review queue across a campaign (W3-1 web surface).
@@ -410,6 +424,8 @@ export function createClient(config: ClientConfig) {
     dataQuality: {
       report: (brandId?: string) => http.get<DataQualityReportDTO>(`${V}/data-quality/report`, { query: { brandId } }),
       duplicates: (brandId?: string) => http.get<DuplicateCandidateDTO[]>(`${V}/data-quality/duplicates`, { query: { brandId } }),
+      checkDuplicate: (body: In<typeof requests.duplicateCheckSchema>) =>
+        http.post<DuplicateCandidateDTO[]>(`${V}/data-quality/duplicates/check`, body),
     },
 
     integrityGuard: {

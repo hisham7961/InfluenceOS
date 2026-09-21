@@ -502,6 +502,11 @@ export interface BulkPreviewDTO {
   selected: number;
   willUpdate: number;
   willSkip: number;
+  /** Of `willUpdate`, how many would CREATE a brand-new record (vs. update/attach
+   *  an existing one) — e.g. a CSV-import row with no existing-influencer match.
+   *  Optional: only the CSV-import preview populates it (W3-4 gap #7); other bulk
+   *  previews (roster add, influencer-directory actions) never create new records. */
+  willCreate?: number;
   rows: BulkRowResultDTO[];
 }
 
@@ -1490,8 +1495,11 @@ export interface CreatorReliabilityDTO {
 /** One entry in the Creator Master Timeline (PART 29) — reuses ActivityLog, Note and Notification rows; never a duplicate history table. */
 export interface CreatorTimelineItemDTO {
   id: string;
-  /** Coarse bucket for the Creator Timeline's filter chips (PART 30). */
-  bucket: 'campaign' | 'content' | 'ugc' | 'logistics' | 'payment' | 'collaboration' | 'activity';
+  /** Coarse bucket for the Creator Timeline's filter chips (PART 30).
+   *  'contacted' (CampaignInfluencer.dateContacted) and 'usageRights'
+   *  (UsageRight.createdAt) were added to close gap #12 — see
+   *  creator360.service.ts's timeline() for how each is derived. */
+  bucket: 'campaign' | 'content' | 'ugc' | 'logistics' | 'payment' | 'collaboration' | 'activity' | 'contacted' | 'usageRights';
   message: string;
   link: string | null;
   at: string;

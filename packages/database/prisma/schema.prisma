@@ -645,6 +645,15 @@ model Influencer {
   @@index([isActive])
   // Cursor pagination order (createdAt desc, id desc) — W7-2/PERF-04.
   @@index([createdAt, id])
+  // Final Completion Pass (FC-11): data-quality.service.ts's checkDuplicate()
+  // does an exact-equality OR-branch lookup on each of these for every
+  // "Add Influencer" duplicate check — previously unindexed, forcing a full
+  // table scan per keystroke-ish call. email is looked up case-insensitively
+  // (Prisma compiles `equals`+`mode:'insensitive'` to ILIKE, not `=`), so it
+  // gets the trigram GIN index below instead of a plain btree — see this
+  // migration's raw-SQL section (mirrors the W7-2 trigram precedent).
+  @@index([mobile])
+  @@index([whatsapp])
 }
 
 model SocialAccount {
@@ -1598,6 +1607,17 @@ model ActivityLog {
   @@index([campaignId])
   @@index([influencerId])
   @@index([type])
+  // Final Completion Pass (FC-11): activity.service.ts's buildWhere() gained
+  // a `publishedContentId` equality filter (a real column, unlike
+  // `shipmentId` below) — mirrors the existing brandId/campaignId/
+  // influencerId indexes on this same model exactly.
+  @@index([publishedContentId])
+  // NOTE: the sibling `meta.shipmentId` JSONB-path filter is deliberately
+  // NOT indexed here — Prisma's schema DSL cannot express the functional
+  // (expression) btree index it needs. See this migration's raw-SQL section
+  // for the index and the measured justification (EXPLAIN ANALYZE showed a
+  // full-table scan even for a 3-row result once this table passed ~16.7k
+  // rows).
 }
 
 /// Central provider integration state for the Admin Integrations screen and

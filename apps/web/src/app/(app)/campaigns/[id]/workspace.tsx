@@ -110,6 +110,7 @@ import { AttachmentsPanel } from '@/components/common/attachments-panel';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ShipmentDetailSheet } from '@/app/(app)/logistics/shipment-detail-sheet';
 import { AddInfluencerDialog } from './add-influencer-dialog';
+import { BulkAddInfluencersDialog } from './bulk-add-influencers-dialog';
 
 /** Sentinel for "no influencer attributed" in the expense form's Select (Radix forbids an empty-string value). */
 const NONE = 'none';
@@ -479,7 +480,10 @@ function InfluencersTab({ campaign, influencers }: { campaign: CampaignDetailDTO
         <p className="text-sm text-muted-foreground">
           {influencers.length} influencer{influencers.length === 1 ? '' : 's'} on this campaign
         </p>
-        <AddInfluencerDialog campaignId={campaign.id} existingInfluencerIds={influencers.map((ci) => ci.influencer.id)} />
+        <div className="flex items-center gap-2">
+          <BulkAddInfluencersDialog campaignId={campaign.id} existingInfluencerIds={influencers.map((ci) => ci.influencer.id)} />
+          <AddInfluencerDialog campaignId={campaign.id} existingInfluencerIds={influencers.map((ci) => ci.influencer.id)} />
+        </div>
       </div>
 
       {influencers.length === 0 ? (

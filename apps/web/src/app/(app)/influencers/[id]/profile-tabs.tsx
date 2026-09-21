@@ -27,6 +27,8 @@ import { cn } from '@/lib/cn';
 import { NotesPanel } from './notes-panel';
 import { SocialAccountsPanel } from './social-accounts-panel';
 import { CreatorTimeline } from './creator-timeline';
+import { CreatorSubmissionsTab } from './creator-submissions-tab';
+import { CreatorShipmentsTab } from './creator-shipments-tab';
 
 /** "Add Content" preselecting this influencer — Critical Business Question 3. */
 function AddContentButton({ influencerId, influencerName }: { influencerId: string; influencerName: string }) {
@@ -90,6 +92,8 @@ export function ProfileTabs({
         <TabsTrigger value="history">Campaign History</TabsTrigger>
         <TabsTrigger value="timeline">Timeline</TabsTrigger>
         <TabsTrigger value="content">Content</TabsTrigger>
+        <TabsTrigger value="ugc">UGC</TabsTrigger>
+        <TabsTrigger value="shipments">Shipment History</TabsTrigger>
         <TabsTrigger value="costs">Costs</TabsTrigger>
         <TabsTrigger value="notes">Notes</TabsTrigger>
         <TabsTrigger value="brands">Brands</TabsTrigger>
@@ -235,6 +239,23 @@ export function ProfileTabs({
           a duplicate history table. */}
       <TabsContent value="timeline">
         <CreatorTimeline influencerId={influencer.id} />
+      </TabsContent>
+
+      {/* UGC / Submissions (Final Completion Pass, gap #11) — every draft
+          submitted across every campaign this creator has been on, reusing
+          the same DeliverableSubmission rows/status badge as the campaign
+          Submissions tab. Lazily fetched: only queries once this tab opens. */}
+      <TabsContent value="ugc">
+        <CreatorSubmissionsTab influencerId={influencer.id} />
+      </TabsContent>
+
+      {/* Shipment History (Final Completion Pass, gap #11) — every logistics
+          request across every campaign this creator has been on, reusing the
+          same cross-campaign shipments.list() the /logistics workspace reads
+          (already scoped by brand/country, already filterable by influencerId).
+          Lazily fetched: only queries once this tab opens. */}
+      <TabsContent value="shipments">
+        <CreatorShipmentsTab influencerId={influencer.id} />
       </TabsContent>
 
       {/* Content */}

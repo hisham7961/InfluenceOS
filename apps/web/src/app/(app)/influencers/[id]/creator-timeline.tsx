@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Clock, History, MessageSquare, Package, PlaySquare, Sparkles, Wallet } from 'lucide-react';
+import { Clock, FileCheck, History, MessageSquare, Package, PhoneCall, PlaySquare, Sparkles, Wallet } from 'lucide-react';
 import type { CreatorTimelineItemDTO } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,10 @@ const BUCKET_META: Record<Bucket, { label: string; icon: React.ComponentType<{ c
   payment: { label: 'Payment', icon: Wallet },
   collaboration: { label: 'Notes', icon: MessageSquare },
   activity: { label: 'Activity', icon: Clock },
+  // gap #12 — Contacted (CampaignInfluencer.dateContacted) and Usage Rights
+  // (UsageRight.createdAt), distinct from the general 'activity' bucket.
+  contacted: { label: 'Contacted', icon: PhoneCall },
+  usageRights: { label: 'Usage Rights', icon: FileCheck },
 };
 
 /**

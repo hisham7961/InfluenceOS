@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { z } from '@influenceos/contracts';
+import { requests, z } from '@influenceos/contracts';
 import { requireAuth, servicesFor } from '../http';
 
 const brandQuery = z.object({ brandId: z.string().optional() });
@@ -18,5 +18,18 @@ export async function dataQualityRoutes(app: FastifyInstance): Promise<void> {
     '/data-quality/duplicates',
     { preHandler: [requireAuth], schema: { tags: ['Data Quality'], summary: 'Possible duplicate creator candidates (optionally brand-scoped)', querystring: brandQuery } },
     async (req) => servicesFor(req).dataQuality.duplicates(req.query.brandId),
+  );
+
+  r.post(
+    '/data-quality/duplicates/check',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Data Quality'],
+        summary: 'Live duplicate check for a single candidate (Add Influencer / import), across all brands',
+        body: requests.duplicateCheckSchema,
+      },
+    },
+    async (req) => servicesFor(req).dataQuality.checkDuplicate(req.body),
   );
 }

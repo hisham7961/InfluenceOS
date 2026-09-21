@@ -2,10 +2,12 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { AlertTriangle, Check, Search, Sparkles } from 'lucide-react';
+import { AlertTriangle, Check, ExternalLink, Fingerprint, Search, Sparkles } from 'lucide-react';
 import { ApiError } from '@influenceos/api-client';
-import type { ResolveProfileResultDTO } from '@influenceos/contracts';
+import type { DuplicateCandidateDTO, DuplicateMatchConfidence, ResolveProfileResultDTO, Tone } from '@influenceos/contracts';
 import {
   COUNTRIES,
   PLATFORMS,
@@ -40,6 +42,46 @@ const PRIORITY_TONE: Record<Priority, 'neutral' | 'info' | 'danger'> = {
   HIGH: 'danger',
 };
 
+// Mirrors the confidence badge tone/label the Data Quality Center's
+// duplicate-candidate rows already use (data-quality-workspace.tsx) — same
+// visual language for the same DuplicateCandidateDTO.confidence values,
+// so "exact" reads as more serious than a name-only "possible" match
+// wherever a duplicate candidate is shown in the app.
+const CONFIDENCE_TONE: Record<DuplicateMatchConfidence, Tone> = {
+  exact: 'danger',
+  strongPossible: 'warning',
+  possible: 'neutral',
+};
+
+const CONFIDENCE_LABEL: Record<DuplicateMatchConfidence, string> = {
+  exact: 'Exact match found',
+  strongPossible: 'Possible match',
+  possible: 'Possible match',
+};
+
+const REASON_LABEL: Record<DuplicateCandidateDTO['reasons'][number]['field'], string> = {
+  instagramUsername: 'Instagram',
+  tiktokUsername: 'TikTok',
+  youtubeUsername: 'YouTube',
+  snapchatUsername: 'Snapchat',
+  xUsername: 'X',
+  email: 'Email',
+  mobile: 'Mobile',
+  whatsapp: 'WhatsApp',
+  name: 'Name',
+};
+
+/** Minimum identifying info worth sending to /data-quality/duplicates/check
+ *  — never fires the check on an empty or near-empty form. */
+interface DuplicateCheckPayload {
+  displayName?: string;
+  platform?: Platform;
+  username?: string;
+  email?: string;
+  mobile?: string;
+  whatsapp?: string;
+}
+
 function splitList(raw: string): string[] {
   return raw
     .split(',')
@@ -49,6 +91,64 @@ function splitList(raw: string): string[] {
 
 function errorMessage(e: unknown): string {
   return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
+}
+
+/**
+ * Non-blocking duplicate warning (PART 45-47 — Duplicate Detection wired
+ * into the Add Influencer flow). Never auto-fills or merges anything from a
+ * match into the form; only offers "Open existing profile" (navigate away)
+ * or dismissing to "Proceed anyway" and keep creating a separate record.
+ */
+function DuplicateWarningCard({ matches, onDismiss }: { matches: DuplicateCandidateDTO[]; onDismiss: () => void }) {
+  const hasExact = matches.some((m) => m.confidence === 'exact');
+  return (
+    <Card className={cn('border', hasExact ? 'border-danger/30 bg-danger/5' : 'border-warning/30 bg-warning/5')}>
+      <CardContent className="flex flex-col gap-3 pt-5">
+        <div className="flex items-start gap-2.5">
+          <Fingerprint className={cn('mt-0.5 h-4 w-4 shrink-0', hasExact ? 'text-danger' : 'text-warning')} />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-foreground">
+              {hasExact ? 'This creator may already exist' : 'Possible existing creator found'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {matches.length === 1
+                ? 'One creator already on file shares identifying details with what you’ve entered.'
+                : `${matches.length} creators already on file share identifying details with what you’ve entered.`}{' '}
+              This is advisory only — nothing will be filled in or merged for you.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-lg border border-border/60 bg-surface">
+          {matches.map((m) => (
+            <div key={m.influencerId} className="flex items-center gap-3 px-3 py-2.5">
+              <Avatar name={m.displayName} src={m.avatarUrl} size="sm" />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate text-sm font-medium text-foreground">{m.displayName}</p>
+                  <Badge tone={CONFIDENCE_TONE[m.confidence]}>{CONFIDENCE_LABEL[m.confidence]}</Badge>
+                </div>
+                <p className="truncate text-xs text-muted-foreground">
+                  {m.reasons.map((r) => `Same ${REASON_LABEL[r.field]}: ${r.value}`).join(' · ')}
+                </p>
+              </div>
+              <Button asChild variant="outline" size="sm" className="shrink-0">
+                <Link href={`/influencers/${m.influencerId}`} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-3.5 w-3.5" /> Open existing profile
+                </Link>
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end">
+          <Button type="button" variant="ghost" size="sm" onClick={onDismiss}>
+            Proceed anyway — this is a new creator
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export function AddInfluencerForm() {
@@ -78,6 +178,57 @@ export function AddInfluencerForm() {
   const [internalNotes, setInternalNotes] = React.useState('');
   const [pricingNotes, setPricingNotes] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
+
+  // Live pre-creation duplicate check — debounced ~500ms off whatever
+  // identifying fields are filled in so far, across Step 1's resolved
+  // profile and Step 2's contact fields. Advisory only: it never auto-fills,
+  // merges or blocks submission, it just lets the user notice before they
+  // create a second record for someone already in the system.
+  const displayNameTrimmed = displayName.trim();
+  const emailTrimmed = email.trim();
+  const mobileTrimmed = mobile.trim();
+  const whatsappTrimmed = whatsapp.trim();
+  const resolvedPlatform = resolved?.platform;
+  const resolvedUsername = resolved?.username;
+
+  const hasEnoughToCheck =
+    displayNameTrimmed.length >= 2 ||
+    Boolean(resolvedUsername && resolvedPlatform) ||
+    emailTrimmed.length > 0 ||
+    mobileTrimmed.length > 0 ||
+    whatsappTrimmed.length > 0;
+
+  const [debouncedCheck, setDebouncedCheck] = React.useState<DuplicateCheckPayload | null>(null);
+  const [duplicatesDismissed, setDuplicatesDismissed] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!hasEnoughToCheck) {
+      setDebouncedCheck(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      setDuplicatesDismissed(false);
+      setDebouncedCheck({
+        displayName: displayNameTrimmed || undefined,
+        platform: resolvedUsername ? resolvedPlatform : undefined,
+        username: resolvedUsername || undefined,
+        email: emailTrimmed || undefined,
+        mobile: mobileTrimmed || undefined,
+        whatsapp: whatsappTrimmed || undefined,
+      });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [hasEnoughToCheck, displayNameTrimmed, resolvedPlatform, resolvedUsername, emailTrimmed, mobileTrimmed, whatsappTrimmed]);
+
+  const duplicatesQuery = useQuery({
+    queryKey: ['add-influencer-duplicate-check', debouncedCheck] as const,
+    queryFn: () => api.dataQuality.checkDuplicate(debouncedCheck!),
+    enabled: debouncedCheck !== null,
+    staleTime: 30_000,
+  });
+
+  const duplicateMatches = debouncedCheck ? (duplicatesQuery.data ?? []) : [];
+  const showDuplicateWarning = duplicateMatches.length > 0 && !duplicatesDismissed;
 
   async function handleResolve() {
     const trimmed = input.trim();
@@ -281,6 +432,10 @@ export function AddInfluencerForm() {
             )}
           </CardContent>
         </Card>
+
+        {showDuplicateWarning ? (
+          <DuplicateWarningCard matches={duplicateMatches} onDismiss={() => setDuplicatesDismissed(true)} />
+        ) : null}
 
         <Card>
           <CardHeader className="gap-1.5 border-b border-border pb-5">

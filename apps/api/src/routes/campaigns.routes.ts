@@ -110,6 +110,20 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
   );
 
   r.post(
+    '/campaigns/:id/influencers/bulk/preview',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'Dry-run preview of a bulk roster add — never writes (W3-4 gap #6)',
+        params: idParam,
+        body: requests.bulkRosterAddSchema,
+      },
+    },
+    async (req) => servicesFor(req).bulk.previewAddInfluencers(req.params.id, req.body),
+  );
+
+  r.post(
     '/campaigns/:id/influencers/bulk',
     {
       preHandler: [requireAuth],

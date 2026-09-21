@@ -217,6 +217,14 @@ export async function influencerRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).creator360.timeline(req.params.id, req.query),
   );
 
+  // Every DeliverableSubmission (UGC draft/review) across every campaign this
+  // creator has been in — the dedicated Creator 360 UGC tab (gap #11).
+  r.get(
+    '/influencers/:id/submissions',
+    { preHandler: [requireAuth], schema: { tags: ['Influencers'], summary: 'Every submission across this creator\'s campaigns', params: idParam } },
+    async (req) => servicesFor(req).creator360.submissions(req.params.id),
+  );
+
   r.get(
     '/influencers/:id/brands',
     { preHandler: [requireAuth], schema: { tags: ['Influencers'], summary: 'Brand relationships for an influencer', params: idParam } },

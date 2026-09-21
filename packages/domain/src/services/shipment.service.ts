@@ -233,6 +233,13 @@ export function makeShipmentService(ctx: DomainContext) {
 
   /** Shipments fulfilling one specific deliverable. */
   async function listForDeliverable(deliverableId: string): Promise<ProductShipmentDTO[]> {
+    const deliverable = await prisma.deliverable.findUnique({ where: { id: deliverableId }, select: { campaignInfluencerId: true } });
+    if (!deliverable) throw AppError.notFound('Deliverable');
+    // Direct-ID brand/country authorization (mirrors every sibling function
+    // on this service, e.g. listForCampaignInfluencer) — this backs a real
+    // route (GET /deliverables/:id/shipments), so a scoped actor must not be
+    // able to reach an out-of-scope deliverable's shipments by guessing an id.
+    await ciContext(deliverable.campaignInfluencerId);
     const rows = await prisma.productShipment.findMany({
       where: { deliverableId },
       include: itemsInclude,
