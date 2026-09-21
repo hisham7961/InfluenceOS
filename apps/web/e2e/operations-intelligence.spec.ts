@@ -261,32 +261,53 @@ test('Needs Attention deep-links from Mission Control to a real record', async (
 
 test('Data Quality Center shows Findings, Duplicate Creators, and Workflow Integrity cards', async ({ page }) => {
   test.setTimeout(240_000);
+  // Temporary diagnostic instrumentation: this test has timed out on the
+  // first card twice in CI (both the initial attempt and the reload retry,
+  // in two separate runs) despite a local investigation finding no O(n^2)
+  // query and trivial data volume. Logging request/response timing to
+  // stdout (captured in the CI job log, unlike a Playwright HTML report —
+  // this repo's CI reporter is 'github', which produces no artifact) lets
+  // the next failure show whether the server responded slowly or the
+  // response never reached this page at all, instead of guessing again.
+  const t0 = Date.now();
+  const since = () => `+${((Date.now() - t0) / 1000).toFixed(1)}s`;
+  page.on('request', (req) => {
+    if (/data-quality|integrity|brands|duplicates/i.test(req.url())) {
+      console.log(`[DQ-DIAG ${since()}] REQ  ${req.method()} ${req.url()}`);
+    }
+  });
+  page.on('response', (res) => {
+    if (/data-quality|integrity|brands|duplicates/i.test(res.url())) {
+      console.log(`[DQ-DIAG ${since()}] RES  ${res.status()} ${res.url()}`);
+    }
+  });
   await signIn(page, ADMIN.email, ADMIN.password);
+  console.log(`[DQ-DIAG ${since()}] signed in, navigating to /data-quality`);
   await page.goto('/data-quality');
+  console.log(`[DQ-DIAG ${since()}] navigation resolved`);
   await expect(page.getByRole('heading', { name: 'Data Quality' })).toBeVisible();
+  console.log(`[DQ-DIAG ${since()}] heading visible`);
   // All three card titles render unconditionally from the page's own
-  // server-fetched initialData (see data-quality-workspace.tsx) — a network
-  // trace confirmed every request (SSR page load + background fetches)
-  // completes in ~2-3s, and a screenshot taken the moment a wait timed out
-  // showed the page already fully and correctly rendered. Data volume is
-  // trivial (seed + this file's own fixtures — tens of rows) and neither
-  // query does O(n^2) work, so this is never a slow query or missing data;
-  // it's transient contention on a shared, resource-constrained host —
-  // locally, the Chromium tab's own JS thread occasionally going
-  // unscheduled under `next dev`'s footprint; in CI, the "Full stack E2E"
-  // job's Postgres+Redis+API+worker+web+browser all time-slicing one
-  // shared 2-core runner (a real CI run hit a 74s Postgres checkpoint
-  // write stall mid-suite). A fresh navigation gives another chance to
-  // land outside the contention window, so retry once via reload on each
-  // card rather than only widening the timeout further.
+  // server-fetched initialData (see data-quality-workspace.tsx). Data volume
+  // is trivial (seed + this file's own fixtures — tens of rows) and neither
+  // query does O(n^2) work, so a timeout here is not expected to be a slow
+  // query or missing data — but this has now failed identically on two
+  // separate CI runs (both attempts, same first card each time), so treat
+  // that as still under investigation rather than assume it's the same
+  // resource-contention artifact diagnosed locally. A fresh navigation
+  // gives another chance to land outside any transient contention window,
+  // so retry once via reload on each card while the DQ-DIAG logging above
+  // captures what's actually happening on the next failure.
   async function expectCardVisible(title: string) {
     const locator = page.getByText(title, { exact: true });
     try {
       await expect(locator).toBeVisible({ timeout: 60_000 });
     } catch {
+      console.log(`[DQ-DIAG ${since()}] "${title}" not visible after 60s, reloading`);
       await page.reload();
       await expect(locator).toBeVisible({ timeout: 60_000 });
     }
+    console.log(`[DQ-DIAG ${since()}] "${title}" visible`);
   }
   await expectCardVisible('Data Quality Findings');
   await expectCardVisible('Possible Duplicate Creators');

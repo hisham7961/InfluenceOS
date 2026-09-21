@@ -384,6 +384,13 @@ jobs:
         run: pnpm --filter @influenceos/web exec playwright install --with-deps chromium
 
       - name: Start API
+        env:
+          # Surfaces per-request timing (route/status/responseTimeMs) in
+          # /tmp/api.log for the "Dump API log" step below — the default
+          # level in a non-production NODE_ENV is 'warn', which would
+          # otherwise suppress the very lines needed to diagnose an E2E
+          # timeout as a real slow query vs. a request never arriving.
+          LOG_LEVEL: info
         run: |
           pnpm --filter @influenceos/api exec tsx src/index.ts > /tmp/api.log 2>&1 &
           for i in $(seq 1 60); do curl -sf http://localhost:4000/health && break; sleep 1; done
@@ -411,6 +418,10 @@ jobs:
 
       - name: Run Playwright E2E (smoke + full browser DoD)
         run: pnpm --filter @influenceos/web exec playwright test
+
+      - name: Dump API log (diagnostic — always, not just on failure)
+        if: ${{ always() }}
+        run: tail -n 400 /tmp/api.log
 
       - name: Upload Playwright report
         if: ${{ failure() }}
