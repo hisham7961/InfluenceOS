@@ -5,15 +5,20 @@ import {
   requests,
   type AuthResultDTO,
   type AuthTokensDTO,
+  type CapabilityPreviewLineDTO,
   type DeviceSessionDTO,
   type TeamMemberRefDTO,
+  type UserAdminDetailDTO,
   type UserDTO,
 } from '@influenceos/contracts';
+import { CAPABILITIES } from '@influenceos/contracts';
+import { CAPABILITY_LABELS } from '@influenceos/shared';
 import type { z } from '@influenceos/contracts';
 import type { ClientType, User } from '@influenceos/database';
 import type { Actor, DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor, requireAdmin } from '../lib/authz';
+import { resolveCapabilitiesFor } from '../lib/capabilities';
 import { open, seal } from '../lib/crypto';
 
 const ACCESS_TTL_SEC = 60 * 15; // 15 minutes
@@ -49,13 +54,17 @@ export interface RequestMeta {
 }
 
 function toUserDTO(
-  u: Pick<User, 'id' | 'email' | 'name' | 'role' | 'avatarUrl' | 'locale' | 'theme' | 'contentLayout' | 'isActive' | 'lastLoginAt'>,
+  u: Pick<
+    User,
+    'id' | 'email' | 'name' | 'role' | 'roleProfile' | 'avatarUrl' | 'locale' | 'theme' | 'contentLayout' | 'isActive' | 'lastLoginAt'
+  >,
 ): UserDTO {
   return {
     id: u.id,
     email: u.email,
     name: u.name,
     role: u.role,
+    roleProfile: u.roleProfile,
     avatarUrl: u.avatarUrl,
     locale: u.locale,
     theme: u.theme,
@@ -448,19 +457,45 @@ export function makeAuthService(ctx: DomainContext) {
     if (id === admin.id) {
       if (input.role && input.role !== 'ADMIN') throw AppError.badRequest('You cannot change your own role.');
       if (input.isActive === false) throw AppError.badRequest('You cannot deactivate your own account.');
+      if (input.roleProfile !== undefined && input.roleProfile !== 'ADMIN') {
+        throw AppError.badRequest('You cannot change your own role profile.');
+      }
+    }
+    // ADMIN/VIEWER role profiles must pair with the matching legacy role —
+    // the other four are all shadings of STAFF (Advanced Roles pass design:
+    // legacy role stays the coarse read/write gate, roleProfile adds nuance).
+    if (input.roleProfile === 'ADMIN' && (input.role ?? target.role) !== 'ADMIN') {
+      throw AppError.badRequest('The Admin role profile requires the Admin role.');
+    }
+    if (input.roleProfile === 'VIEWER' && (input.role ?? target.role) !== 'VIEWER') {
+      throw AppError.badRequest('The Viewer role profile requires the Viewer role.');
+    }
+    if (
+      input.roleProfile &&
+      input.roleProfile !== 'ADMIN' &&
+      input.roleProfile !== 'VIEWER' &&
+      (input.role ?? target.role) !== 'STAFF'
+    ) {
+      throw AppError.badRequest('That role profile requires the Staff role.');
     }
     const deactivating = input.isActive === false && target.isActive;
     const roleChanging = input.role !== undefined && input.role !== target.role;
+    const profileChanging = input.roleProfile !== undefined && input.roleProfile !== target.roleProfile;
 
     const user = await prisma.user.update({
       where: { id },
       data: {
         name: input.name ?? undefined,
         role: input.role ?? undefined,
+        roleProfile: input.roleProfile === undefined ? undefined : input.roleProfile,
         isActive: input.isActive ?? undefined,
       },
     });
-    if (deactivating || roleChanging) await revokeAllSessions(id, deactivating ? 'deactivated' : 'role_changed');
+    // A role/profile change must take effect immediately, not linger for the
+    // token's 15-minute lifetime (same SEC-03 posture as a deactivation).
+    if (deactivating || roleChanging || profileChanging) {
+      await revokeAllSessions(id, deactivating ? 'deactivated' : 'role_changed');
+    }
     return toUserDTO(user);
   }
 
@@ -513,6 +548,82 @@ export function makeAuthService(ctx: DomainContext) {
     return unique;
   }
 
+  /** Admin: list the country codes a user is scoped to — empty means unscoped (Advanced Roles pass). Mirrors getUserBrandAccess exactly. */
+  async function getUserCountryAccess(id: string): Promise<string[]> {
+    requireAdmin(ctx);
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    if (!target) throw AppError.notFound('User');
+    const rows = await prisma.userCountryAccess.findMany({ where: { userId: id }, select: { countryCode: true } });
+    return rows.map((r) => r.countryCode);
+  }
+
+  /** Admin: replace a user's country scope (Advanced Roles pass). Codes are
+   *  already validated against the canonical list at the Zod layer. Mirrors
+   *  setUserBrandAccess exactly. */
+  async function setUserCountryAccess(id: string, countryCodes: string[]): Promise<string[]> {
+    requireAdmin(ctx);
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    if (!target) throw AppError.notFound('User');
+    const unique = [...new Set(countryCodes)];
+    await prisma.$transaction([
+      prisma.userCountryAccess.deleteMany({ where: { userId: id } }),
+      ...(unique.length > 0
+        ? [prisma.userCountryAccess.createMany({ data: unique.map((countryCode) => ({ userId: id, countryCode })) })]
+        : []),
+    ]);
+    return unique;
+  }
+
+  /** Admin: replace a user's explicit capability overrides on top of their Role Profile default (Advanced Roles pass). */
+  async function setUserCapabilityOverrides(
+    id: string,
+    overrides: { capability: (typeof CAPABILITIES)[number]; granted: boolean }[],
+  ): Promise<void> {
+    requireAdmin(ctx);
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    if (!target) throw AppError.notFound('User');
+    await prisma.$transaction([
+      prisma.userCapability.deleteMany({ where: { userId: id } }),
+      ...(overrides.length > 0
+        ? [prisma.userCapability.createMany({ data: overrides.map((o) => ({ userId: id, capability: o.capability, granted: o.granted })) })]
+        : []),
+    ]);
+  }
+
+  /**
+   * The Admin Users edit screen's single read: Role Profile, explicit
+   * capability overrides, brand scope, country scope, and — critically — the
+   * SAME resolveCapabilitiesFor() logic the live authorization path uses, so
+   * "This user can/cannot" is provably accurate rather than a second,
+   * drifting approximation (Advanced Roles pass, "Permission Preview").
+   */
+  async function getUserPermissions(id: string): Promise<UserAdminDetailDTO> {
+    requireAdmin(ctx);
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) throw AppError.notFound('User');
+    const [brandRows, countryRows, overrideRows] = await Promise.all([
+      prisma.userBrandAccess.findMany({ where: { userId: id }, select: { brandId: true } }),
+      prisma.userCountryAccess.findMany({ where: { userId: id }, select: { countryCode: true } }),
+      prisma.userCapability.findMany({ where: { userId: id }, select: { capability: true, granted: true } }),
+    ]);
+    const overrideMap = new Map(overrideRows.map((o) => [o.capability, o.granted]));
+    const effective = await resolveCapabilitiesFor(ctx, user);
+    const permissionPreview: CapabilityPreviewLineDTO[] = CAPABILITIES.map((capability) => ({
+      capability,
+      label: CAPABILITY_LABELS[capability],
+      granted: effective.has(capability),
+      isOverride: overrideMap.has(capability),
+    }));
+    return {
+      ...toUserDTO(user),
+      brandIds: brandRows.map((r) => r.brandId),
+      countryCodes: countryRows.map((r) => r.countryCode),
+      capabilityOverrides: overrideRows,
+      effectiveCapabilities: CAPABILITIES.filter((c) => effective.has(c)),
+      permissionPreview,
+    };
+  }
+
   /**
    * Change the authenticated user's own password. Requires the current
    * password. **Session policy:** on success ALL of the user's sessions are
@@ -558,6 +669,10 @@ export function makeAuthService(ctx: DomainContext) {
     removeUser,
     getUserBrandAccess,
     setUserBrandAccess,
+    getUserCountryAccess,
+    setUserCountryAccess,
+    setUserCapabilityOverrides,
+    getUserPermissions,
     hashPassword,
   };
 }

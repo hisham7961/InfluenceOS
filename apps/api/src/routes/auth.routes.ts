@@ -184,4 +184,56 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     },
     async (req) => servicesFor(req).auth.setUserBrandAccess(req.params.id, req.body.brandIds),
   );
+
+  // --- Per-user country scope (Advanced Roles pass) — mirrors brand scope ---
+  r.get(
+    '/users/:id/country-access',
+    { preHandler: [requireAdmin], schema: { tags: ['Settings'], summary: "List a user's country scope (admin)", params: userIdParam } },
+    async (req) => servicesFor(req).auth.getUserCountryAccess(req.params.id),
+  );
+
+  r.put(
+    '/users/:id/country-access',
+    {
+      preHandler: [requireAdmin],
+      schema: {
+        tags: ['Settings'],
+        summary: "Replace a user's country scope — empty clears it (admin)",
+        params: userIdParam,
+        body: requests.countryAccessSetSchema,
+      },
+    },
+    async (req) => servicesFor(req).auth.setUserCountryAccess(req.params.id, req.body.countryCodes),
+  );
+
+  // --- Per-user capability overrides + resolved permission preview (Advanced Roles pass) ---
+  r.get(
+    '/users/:id/permissions',
+    {
+      preHandler: [requireAdmin],
+      schema: {
+        tags: ['Settings'],
+        summary: "A user's Role Profile, scope, capability overrides and resolved 'this user can/cannot' preview (admin)",
+        params: userIdParam,
+      },
+    },
+    async (req) => servicesFor(req).auth.getUserPermissions(req.params.id),
+  );
+
+  r.put(
+    '/users/:id/capabilities',
+    {
+      preHandler: [requireAdmin],
+      schema: {
+        tags: ['Settings'],
+        summary: "Replace a user's explicit capability overrides on top of their Role Profile default (admin)",
+        params: userIdParam,
+        body: requests.capabilityOverridesSetSchema,
+      },
+    },
+    async (req, reply) => {
+      await servicesFor(req).auth.setUserCapabilityOverrides(req.params.id, req.body.overrides);
+      reply.status(204).send();
+    },
+  );
 }

@@ -1,5 +1,7 @@
 import {
   requests,
+  type AddressHealth,
+  type LogisticsIssueDTO,
   type LogisticsRequestDTO,
   type ProductShipmentDTO,
   type ShipmentItemDTO,
@@ -9,22 +11,63 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireActor } from '../lib/authz';
+import { requireActor, requireCapability } from '../lib/authz';
 import { createNotification, iso, logActivity } from '../lib/helpers';
-import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
+import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
 type ShipmentCreate = z.infer<typeof requests.shipmentCreateSchema>;
 type ShipmentUpdate = z.infer<typeof requests.shipmentUpdateSchema>;
 type ShipmentStatusInput = z.infer<typeof requests.shipmentStatusSchema>;
 type ShipmentFilter = z.infer<typeof requests.shipmentFilterSchema>;
 
+const issueInclude = {
+  createdBy: { select: { name: true } },
+  assignedTo: { select: { name: true } },
+  resolvedBy: { select: { name: true } },
+} satisfies Prisma.LogisticsIssueInclude;
+
 const itemsInclude = {
   items: { include: { product: { select: { name: true } } } },
+  createdBy: { select: { name: true } },
+  assignedTo: { select: { name: true } },
+  issues: { include: issueInclude, orderBy: { createdAt: 'desc' } },
 } satisfies Prisma.ProductShipmentInclude;
 
 type Row = Prisma.ProductShipmentGetPayload<{ include: typeof itemsInclude }>;
+type IssueRow = Prisma.LogisticsIssueGetPayload<{ include: typeof issueInclude }>;
+
+function issueToDTO(i: IssueRow): LogisticsIssueDTO {
+  return {
+    id: i.id,
+    shipmentId: i.shipmentId,
+    type: i.type,
+    status: i.status,
+    description: i.description,
+    createdById: i.createdById,
+    createdByName: i.createdBy?.name ?? null,
+    assignedToUserId: i.assignedToUserId,
+    assignedToName: i.assignedTo?.name ?? null,
+    resolvedById: i.resolvedById,
+    resolvedByName: i.resolvedBy?.name ?? null,
+    createdAt: i.createdAt.toISOString(),
+    resolvedAt: i.resolvedAt ? i.resolvedAt.toISOString() : null,
+  };
+}
+
+/** Derived, never stored — see the AddressHealth field's doc comment on
+ *  ProductShipmentDTO. An OPEN issue always wins regardless of how complete
+ *  the fields look (the issue IS the human judgment that something's wrong);
+ *  a past RESOLVED issue on an otherwise-complete address is worth
+ *  surfacing as "Resolved" rather than silently reverting to "Complete". */
+function deriveAddressHealth(s: Row, openIssue: IssueRow | undefined): AddressHealth {
+  if (openIssue) return 'CLARIFICATION_REQUESTED';
+  const complete = !!(s.recipientName && s.phone && s.addressLine1 && s.city && s.destinationCountryCode);
+  if (!complete) return 'INCOMPLETE';
+  return s.issues.some((i) => i.status === 'RESOLVED') ? 'RESOLVED' : 'COMPLETE';
+}
 
 function toDTO(s: Row): ProductShipmentDTO {
+  const openIssue = s.issues.find((i) => i.status === 'OPEN');
   return {
     id: s.id,
     campaignInfluencerId: s.campaignInfluencerId,
@@ -35,12 +78,17 @@ function toDTO(s: Row): ProductShipmentDTO {
     addressLine2: s.addressLine2,
     city: s.city,
     country: s.country,
+    destinationCountryCode: s.destinationCountryCode,
     postalCode: s.postalCode,
     deliveryInstructions: s.deliveryInstructions,
     courier: s.courier,
     trackingNumber: s.trackingNumber,
     trackingUrl: s.trackingUrl,
     status: s.status,
+    assignedToUserId: s.assignedToUserId,
+    assignedToName: s.assignedTo?.name ?? null,
+    createdById: s.createdById,
+    createdByName: s.createdBy?.name ?? null,
     shippedAt: iso(s.shippedAt),
     deliveredAt: iso(s.deliveredAt),
     notes: s.notes,
@@ -53,6 +101,8 @@ function toDTO(s: Row): ProductShipmentDTO {
         quantity: i.quantity,
       }),
     ),
+    addressHealth: deriveAddressHealth(s, openIssue),
+    openIssue: openIssue ? issueToDTO(openIssue) : null,
     createdAt: s.createdAt.toISOString(),
     updatedAt: s.updatedAt.toISOString(),
   };
@@ -109,15 +159,24 @@ export function makeShipmentService(ctx: DomainContext) {
   async function ciContext(campaignInfluencerId: string) {
     const ci = await prisma.campaignInfluencer.findUnique({
       where: { id: campaignInfluencerId },
-      select: { id: true, campaignId: true, influencerId: true, campaign: { select: { brandId: true } } },
+      select: {
+        id: true,
+        campaignId: true,
+        influencerId: true,
+        campaign: { select: { brandId: true } },
+        influencer: { select: { countryCode: true } },
+      },
     });
     if (!ci) throw AppError.notFound('Campaign influencer');
     // A scoped operator cannot reach shipments outside their brand access —
     // same not-found posture as brand.service.ts (WORKFLOW_GAP_MATRIX.md,
     // "Permissions/privacy"). Every shipment operation funnels through this
-    // helper (list, create) so the check protects all of them.
+    // helper (list, create) so the check protects all of them. Country scope
+    // (Advanced Roles pass) composes with brand scope — both must pass.
     const scope = await scopedBrandIds(ctx);
     if (isBrandOutOfScope(scope, ci.campaign.brandId)) throw AppError.notFound('Campaign influencer');
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, ci.influencer.countryCode)) throw AppError.notFound('Campaign influencer');
     return ci;
   }
 
@@ -129,6 +188,11 @@ export function makeShipmentService(ctx: DomainContext) {
     if (!row) throw AppError.notFound('Shipment');
     const scope = await scopedBrandIds(ctx);
     if (isBrandOutOfScope(scope, row.campaignInfluencer.campaign.brandId)) throw AppError.notFound('Shipment');
+    // Country-scoped users (e.g. a KW-only Logistics operator) can never
+    // reach an out-of-scope shipment by guessing its id (SEC — direct-ID
+    // authorization), not merely have it hidden in the UI.
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, row.destinationCountryCode)) throw AppError.notFound('Shipment');
     return redact(toDTO(row));
   }
 
@@ -172,6 +236,8 @@ export function makeShipmentService(ctx: DomainContext) {
     // A scoped operator's cross-campaign workspace only ever shows their
     // brands — an explicit brandId filter outside that scope matches nothing
     // rather than silently widening or leaking other brands' shipments.
+    // Country scope (Advanced Roles pass) composes with brand scope, checked
+    // against the SHIPMENT'S OWN destination — never the campaign's brand.
     const scope = await scopedBrandIds(ctx);
     const brandIdFilter: string | { in: string[] } | undefined = filter.brandId
       ? scope && !scope.includes(filter.brandId)
@@ -181,14 +247,38 @@ export function makeShipmentService(ctx: DomainContext) {
         ? { in: scope }
         : undefined;
 
+    const countryScope = await scopedCountryCodes(ctx);
+    const destinationCountryFilter: string | { in: string[] } | undefined = filter.destinationCountryCode
+      ? countryScope && !countryScope.includes(filter.destinationCountryCode)
+        ? { in: [] }
+        : filter.destinationCountryCode
+      : countryScope
+        ? { in: countryScope }
+        : undefined;
+
     const where: Prisma.ProductShipmentWhereInput = {};
     if (filter.status) where.status = filter.status;
-    if (filter.campaignId || brandIdFilter) {
-      where.campaignInfluencer = {
-        ...(filter.campaignId ? { campaignId: filter.campaignId } : {}),
-        ...(brandIdFilter ? { campaign: { brandId: brandIdFilter } } : {}),
+    const campaignInfluencerWhere: Prisma.CampaignInfluencerWhereInput = {
+      ...(filter.campaignId ? { campaignId: filter.campaignId } : {}),
+      ...(filter.influencerId ? { influencerId: filter.influencerId } : {}),
+      ...(brandIdFilter ? { campaign: { brandId: brandIdFilter } } : {}),
+      ...(filter.influencerCountryCode ? { influencer: { countryCode: filter.influencerCountryCode } } : {}),
+    };
+    if (Object.keys(campaignInfluencerWhere).length > 0) where.campaignInfluencer = campaignInfluencerWhere;
+    if (destinationCountryFilter) where.destinationCountryCode = destinationCountryFilter;
+    if (filter.assigneeId === 'unassigned') where.assignedToUserId = null;
+    else if (filter.assigneeId === 'me') where.assignedToUserId = ctx.actor?.id ?? '__none__';
+    else if (filter.assigneeId) where.assignedToUserId = filter.assigneeId;
+    if (filter.requesterId) where.createdById = filter.requesterId;
+    if (filter.courier) where.courier = { contains: filter.courier, mode: 'insensitive' };
+    if (filter.productName) where.items = { some: { product: { name: { contains: filter.productName, mode: 'insensitive' } } } };
+    if (filter.dateFrom || filter.dateTo) {
+      where.createdAt = {
+        ...(filter.dateFrom ? { gte: filter.dateFrom } : {}),
+        ...(filter.dateTo ? { lte: filter.dateTo } : {}),
       };
     }
+    if (filter.hasOpenIssue) where.issues = { some: { status: 'OPEN' } };
 
     const rows = await prisma.productShipment.findMany({
       where,
@@ -198,7 +288,9 @@ export function makeShipmentService(ctx: DomainContext) {
           select: {
             campaignId: true,
             campaign: { select: { id: true, name: true, brandId: true, brand: { select: { id: true, name: true } } } },
-            influencer: { select: { id: true, displayName: true, avatarOverrideUrl: true, resolvedAvatarUrl: true } },
+            influencer: {
+              select: { id: true, displayName: true, avatarOverrideUrl: true, resolvedAvatarUrl: true, countryCode: true },
+            },
           },
         },
         deliverable: { select: { type: true } },
@@ -218,6 +310,7 @@ export function makeShipmentService(ctx: DomainContext) {
               id: s.campaignInfluencer.influencer.id,
               displayName: s.campaignInfluencer.influencer.displayName,
               avatarUrl: s.campaignInfluencer.influencer.avatarOverrideUrl ?? s.campaignInfluencer.influencer.resolvedAvatarUrl ?? null,
+              countryCode: s.campaignInfluencer.influencer.countryCode,
             }
           : null,
         brand: s.campaignInfluencer.campaign.brand,
@@ -266,6 +359,10 @@ export function makeShipmentService(ctx: DomainContext) {
           addressLine2: input.addressLine2 ?? null,
           city: input.city ?? null,
           country: input.country ?? null,
+          // A point-in-time snapshot: defaults to the creator's current
+          // countryCode if the caller didn't specify one, but a later change
+          // to the influencer's own countryCode never rewrites this record.
+          destinationCountryCode: input.destinationCountryCode !== undefined ? input.destinationCountryCode : ci.influencer.countryCode,
           postalCode: input.postalCode ?? null,
           deliveryInstructions: input.deliveryInstructions ?? null,
           courier: input.courier ?? null,
@@ -327,6 +424,8 @@ export function makeShipmentService(ctx: DomainContext) {
     if (!existing) throw AppError.notFound('Shipment');
     const scope = await scopedBrandIds(ctx);
     if (isBrandOutOfScope(scope, existing.campaignInfluencer.campaign.brandId)) throw AppError.notFound('Shipment');
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, existing.destinationCountryCode)) throw AppError.notFound('Shipment');
 
     const now = new Date();
     const stamps = autoTimestamps(
@@ -346,6 +445,7 @@ export function makeShipmentService(ctx: DomainContext) {
         addressLine2: input.addressLine2 === undefined ? undefined : input.addressLine2,
         city: input.city === undefined ? undefined : input.city,
         country: input.country === undefined ? undefined : input.country,
+        destinationCountryCode: input.destinationCountryCode === undefined ? undefined : input.destinationCountryCode,
         postalCode: input.postalCode === undefined ? undefined : input.postalCode,
         deliveryInstructions: input.deliveryInstructions === undefined ? undefined : input.deliveryInstructions,
         courier: input.courier === undefined ? undefined : input.courier,
@@ -371,6 +471,8 @@ export function makeShipmentService(ctx: DomainContext) {
     if (!existing) throw AppError.notFound('Shipment');
     const scope = await scopedBrandIds(ctx);
     if (isBrandOutOfScope(scope, existing.campaignInfluencer.campaign.brandId)) throw AppError.notFound('Shipment');
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, existing.destinationCountryCode)) throw AppError.notFound('Shipment');
     const now = new Date();
     const stamps = autoTimestamps(input.status, { shippedAt: existing.shippedAt, deliveredAt: existing.deliveredAt }, {}, now);
 
@@ -380,6 +482,43 @@ export function makeShipmentService(ctx: DomainContext) {
       include: itemsInclude,
     });
     await notifyStatus(existing.campaignInfluencer, row, actor.name);
+    return redact(toDTO(row));
+  }
+
+  /** Assign (or unassign with userId: null) the logistics operator responsible
+   *  for fulfilling this shipment — distinct from createdById (the requester),
+   *  the campaign owner, and the creator's relationship owner. */
+  async function assign(shipmentId: string, userId: string | null): Promise<ProductShipmentDTO> {
+    const actor = await requireCapability(ctx, 'LOGISTICS_ASSIGN');
+    const existing = await prisma.productShipment.findUnique({
+      where: { id: shipmentId },
+      include: { campaignInfluencer: { select: { campaignId: true, influencerId: true, campaign: { select: { brandId: true } } } } },
+    });
+    if (!existing) throw AppError.notFound('Shipment');
+    const scope = await scopedBrandIds(ctx);
+    if (isBrandOutOfScope(scope, existing.campaignInfluencer.campaign.brandId)) throw AppError.notFound('Shipment');
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, existing.destinationCountryCode)) throw AppError.notFound('Shipment');
+
+    if (userId) {
+      const assignee = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, isActive: true } });
+      if (!assignee || !assignee.isActive) throw AppError.badRequest('That user does not exist or is inactive.');
+    }
+
+    const row = await prisma.productShipment.update({
+      where: { id: shipmentId },
+      data: { assignedToUserId: userId },
+      include: itemsInclude,
+    });
+    const { campaignId, influencerId, campaign } = existing.campaignInfluencer;
+    await logActivity(ctx, {
+      type: 'GENERIC',
+      message: userId ? `${actor.name} assigned a shipment.` : `${actor.name} unassigned a shipment.`,
+      brandId: campaign.brandId,
+      campaignId,
+      influencerId,
+      meta: { shipmentId, event: 'assigned', assignedToUserId: userId },
+    });
     return redact(toDTO(row));
   }
 
@@ -419,7 +558,7 @@ export function makeShipmentService(ctx: DomainContext) {
     }
   }
 
-  return { get: loadDTO, listForCampaignInfluencer, listForDeliverable, listForCampaign, listAll, create, update, updateStatus };
+  return { get: loadDTO, listForCampaignInfluencer, listForDeliverable, listForCampaign, listAll, create, update, updateStatus, assign };
 }
 
 export type ShipmentService = ReturnType<typeof makeShipmentService>;

@@ -75,29 +75,41 @@ const LEGACY_STAFF_CAPABILITIES: readonly Capability[] = ALL_CAPABILITIES.filter
   (c) => c !== 'USERS_MANAGE' && c !== 'ROLES_MANAGE' && c !== 'SYSTEM_SETTINGS_MANAGE' && c !== 'INTEGRATIONS_MANAGE',
 );
 
-function baseCapabilities(actor: Actor): readonly Capability[] {
-  if (actor.role === 'ADMIN') return ALL_CAPABILITIES;
-  if (actor.roleProfile) return ROLE_PROFILE_CAPABILITIES[actor.roleProfile];
-  if (actor.role === 'VIEWER') return ROLE_PROFILE_CAPABILITIES.VIEWER;
+type RoleLike = { role: Actor['role']; roleProfile: RoleProfile | null };
+
+function baseCapabilities(user: RoleLike): readonly Capability[] {
+  if (user.role === 'ADMIN') return ALL_CAPABILITIES;
+  if (user.roleProfile) return ROLE_PROFILE_CAPABILITIES[user.roleProfile];
+  if (user.role === 'VIEWER') return ROLE_PROFILE_CAPABILITIES.VIEWER;
   return LEGACY_STAFF_CAPABILITIES;
 }
 
 /**
- * Resolve the actor's full, real capability set: Role Profile (or legacy
- * role) default, plus any explicit UserCapability grants, minus any explicit
- * revokes. This is the ONE place capability logic lives — callers ask
- * `hasCapability`/`requireCapability`, never compare `actor.role` directly.
+ * Resolve any user's (not just the current actor's) full, real capability
+ * set: Role Profile (or legacy role) default, plus explicit UserCapability
+ * grants, minus explicit revokes. Used both by the live authorization path
+ * (via resolveCapabilities, below) and by the Admin Users permission-preview
+ * endpoint, so the preview an admin sees is provably the same logic that
+ * actually gates access — never a second, drifting approximation.
  */
-export async function resolveCapabilities(ctx: DomainContext): Promise<Set<Capability>> {
-  const actor = ctx.actor;
-  if (!actor) return new Set();
-  const base = new Set(baseCapabilities(actor));
-  const overrides = await ctx.prisma.userCapability.findMany({ where: { userId: actor.id } });
+export async function resolveCapabilitiesFor(ctx: DomainContext, user: { id: string } & RoleLike): Promise<Set<Capability>> {
+  const base = new Set(baseCapabilities(user));
+  const overrides = await ctx.prisma.userCapability.findMany({ where: { userId: user.id } });
   for (const o of overrides) {
     if (o.granted) base.add(o.capability);
     else base.delete(o.capability);
   }
   return base;
+}
+
+/**
+ * Resolve the current actor's full capability set. This is the ONE place
+ * capability logic lives for live authorization — callers ask
+ * `hasCapability`/`requireCapability`, never compare `actor.role` directly.
+ */
+export async function resolveCapabilities(ctx: DomainContext): Promise<Set<Capability>> {
+  if (!ctx.actor) return new Set();
+  return resolveCapabilitiesFor(ctx, ctx.actor);
 }
 
 export async function hasCapability(ctx: DomainContext, capability: Capability): Promise<boolean> {
@@ -106,3 +118,5 @@ export async function hasCapability(ctx: DomainContext, capability: Capability):
   const capabilities = await resolveCapabilities(ctx);
   return capabilities.has(capability);
 }
+
+export { ROLE_PROFILE_CAPABILITIES, ALL_CAPABILITIES };

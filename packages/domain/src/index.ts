@@ -28,6 +28,7 @@ import { makeInfluencerService } from './services/influencer.service';
 import { makeInspirationService } from './services/inspiration.service';
 import { makeIntegrationService } from './services/integration.service';
 import { makeIntegrityGuardService } from './services/integrity-guard.service';
+import { makeLogisticsIssueService } from './services/logistics-issue.service';
 import { makeNoteService } from './services/note.service';
 import { makeNotificationService } from './services/notification.service';
 import { makePlatformService } from './services/platform.service';
@@ -62,6 +63,7 @@ export function createServices(ctx: DomainContext) {
     bulk: makeBulkService(ctx),
     bulkInfluencers: makeBulkInfluencerService(ctx),
     shipments: makeShipmentService(ctx),
+    logisticsIssues: makeLogisticsIssueService(ctx),
     deliverables: makeDeliverableService(ctx),
     submissions: makeSubmissionService(ctx),
     usageRights: makeUsageRightService(ctx),

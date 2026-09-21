@@ -20,6 +20,10 @@ import {
   USER_ROLES,
   INSPIRATION_CATEGORIES,
   INSPIRATION_STATUSES,
+  ROLE_PROFILES,
+  CAPABILITIES,
+  LOGISTICS_ISSUE_TYPES,
+  COUNTRY_CODES,
 } from '@influenceos/shared';
 
 /**
@@ -36,6 +40,8 @@ const money = z.coerce.number().nonnegative().max(1_000_000_000).optional().null
 const isoDate = z.coerce.date().optional().nullable();
 const stringArray = z.array(z.string().trim().min(1).max(120)).max(50).optional().default([]);
 const hexColor = z.string().regex(/^#([0-9a-fA-F]{6})$/);
+/** Canonical ISO 3166-1 alpha-2 country code — never free-text spelling. */
+const countryCode = z.enum(COUNTRY_CODES);
 
 // --- Safe display URLs (SEC-01: stored-XSS defence) ------------------------
 // User-supplied URL fields (profile links, image/cover URLs, published-post
@@ -130,8 +136,11 @@ export const userAdminUpdateSchema = z
     name: shortString.optional(),
     role: z.enum(USER_ROLES).optional(),
     isActive: z.boolean().optional(),
+    /** Advanced Roles pass — null explicitly clears back to legacy
+     *  role-only behavior; omitted leaves the current value unchanged. */
+    roleProfile: z.enum(ROLE_PROFILES).optional().nullable(),
   })
-  .refine((v) => v.name !== undefined || v.role !== undefined || v.isActive !== undefined, {
+  .refine((v) => v.name !== undefined || v.role !== undefined || v.isActive !== undefined || v.roleProfile !== undefined, {
     message: 'Provide at least one field to update.',
   });
 /** An admin sets a new password for another user (no current-password check). */
@@ -145,6 +154,27 @@ export type AdminResetPasswordInput = z.infer<typeof adminResetPasswordSchema>;
  */
 export const brandAccessSetSchema = z.object({ brandIds: z.array(cuid).max(500).default([]) });
 export type BrandAccessSetInput = z.infer<typeof brandAccessSetSchema>;
+
+/**
+ * Replace a user's country scope (Advanced Roles pass) — mirrors
+ * brandAccessSetSchema exactly. An empty list clears the scope (unscoped:
+ * sees every country).
+ */
+export const countryAccessSetSchema = z.object({ countryCodes: z.array(countryCode).max(300).default([]) });
+export type CountryAccessSetInput = z.infer<typeof countryAccessSetSchema>;
+
+/**
+ * Replace a user's explicit capability overrides on top of their Role
+ * Profile default (Advanced Roles pass). Each entry either grants a
+ * capability the profile doesn't include by default, or revokes one it
+ * would. An empty list clears all overrides (pure profile defaults).
+ */
+export const capabilityOverridesSetSchema = z.object({
+  overrides: z
+    .array(z.object({ capability: z.enum(CAPABILITIES), granted: z.boolean() }))
+    .max(CAPABILITIES.length),
+});
+export type CapabilityOverridesSetInput = z.infer<typeof capabilityOverridesSetSchema>;
 
 /** UI preferences persisted on the user account (so they follow the user across
  *  devices and to future mobile clients). Both optional — a request updates only
@@ -496,6 +526,9 @@ export const shipmentCreateSchema = z.object({
   addressLine2: z.string().trim().max(300).optional().nullable(),
   city: z.string().trim().max(120).optional().nullable(),
   country: z.string().trim().max(120).optional().nullable(),
+  /** Canonical destination country — independent of the influencer's own
+   *  countryCode; a historical snapshot, never derived live. */
+  destinationCountryCode: countryCode.optional().nullable(),
   postalCode: z.string().trim().max(40).optional().nullable(),
   deliveryInstructions: z.string().trim().max(500).optional().nullable(),
   courier: z.string().trim().max(120).optional().nullable(),
@@ -513,18 +546,51 @@ export const shipmentUpdateSchema = shipmentCreateSchema.omit({ deliverableId: t
 export const shipmentStatusSchema = z.object({
   status: z.enum(SHIPMENT_STATUSES),
 });
-/** Cross-campaign logistics workspace filters (the `/logistics` page). */
+/** Assign (or unassign, with userId: null) the logistics operator responsible for this shipment. */
+export const shipmentAssignSchema = z.object({
+  userId: cuid.nullable(),
+});
+/** Cross-campaign logistics workspace filters (the `/logistics` page) —
+ *  every dimension is enforced server-side, never a client-side post-filter. */
 export const shipmentFilterSchema = z.object({
   status: z.enum(SHIPMENT_STATUSES).optional(),
   brandId: cuid.optional(),
   campaignId: cuid.optional(),
+  influencerId: cuid.optional(),
+  /** Shipment destination country — distinct from influencerCountryCode. */
+  destinationCountryCode: countryCode.optional(),
+  /** The creator's own profile country — distinct from destinationCountryCode. */
+  influencerCountryCode: countryCode.optional(),
+  /** A specific assignee's user id, or the literal 'unassigned'. */
+  assigneeId: z.string().min(1).optional(),
+  requesterId: cuid.optional(),
+  courier: z.string().trim().max(120).optional(),
+  productName: z.string().trim().max(200).optional(),
+  dateFrom: z.coerce.date().optional(),
+  dateTo: z.coerce.date().optional(),
+  hasOpenIssue: z.coerce.boolean().optional(),
   cursor: z.string().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 export type ShipmentCreateInput = z.infer<typeof shipmentCreateSchema>;
 export type ShipmentUpdateInput = z.infer<typeof shipmentUpdateSchema>;
 export type ShipmentStatusInput = z.infer<typeof shipmentStatusSchema>;
+export type ShipmentAssignInput = z.infer<typeof shipmentAssignSchema>;
 export type ShipmentFilterInput = z.infer<typeof shipmentFilterSchema>;
+
+// --- Logistics issues (Advanced Roles & Logistics Operations pass) ---------
+/** Report a blocker on a shipment (e.g. an unclear/incomplete address) —
+ *  deliberately NOT a ShipmentStatus value; the shipment keeps its real
+ *  status while this OPEN issue is the thing that needs resolving. */
+export const logisticsIssueCreateSchema = z.object({
+  type: z.enum(LOGISTICS_ISSUE_TYPES),
+  description: z.string().trim().min(1).max(1000),
+  /** Explicit responsible employee; if omitted the server picks the
+   *  campaign owner, then the influencer's relationship owner, then the
+   *  shipment's original requester — never broadcast to everyone. */
+  assignedToUserId: cuid.optional().nullable(),
+});
+export type LogisticsIssueCreateInput = z.infer<typeof logisticsIssueCreateSchema>;
 
 // --- Script reference + version -------------------------------------------
 export const scriptVersionSchema = z.object({

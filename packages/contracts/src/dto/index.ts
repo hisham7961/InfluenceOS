@@ -24,6 +24,11 @@ import type {
   UsageRightStatus,
   UsageRightType,
   UserRole,
+  RoleProfile,
+  Capability,
+  LogisticsIssueType,
+  LogisticsIssueStatus,
+  AddressHealth,
 } from '../enums';
 
 /**
@@ -47,6 +52,8 @@ export interface UserDTO {
   email: string;
   name: string;
   role: UserRole;
+  /** Advanced Roles pass — optional finer-grained profile; null = legacy. */
+  roleProfile: RoleProfile | null;
   avatarUrl: string | null;
   locale: string;
   theme: string;
@@ -54,6 +61,29 @@ export interface UserDTO {
   contentLayout: string | null;
   isActive: boolean;
   lastLoginAt: string | null;
+}
+
+/** A single line of the human-readable "this user can / cannot" permission
+ *  preview (Advanced Roles pass) — shown to an admin before saving, so a
+ *  permission mistake is caught before it happens, never a raw JSON dump. */
+export interface CapabilityPreviewLineDTO {
+  capability: Capability;
+  label: string;
+  granted: boolean;
+  /** True when this capability comes from an explicit override rather than the Role Profile default. */
+  isOverride: boolean;
+}
+
+/** Full admin-facing view of one user's access (Advanced Roles pass) — Role
+ *  Profile, explicit capability overrides, brand scope, country scope, and
+ *  the resolved effective permission preview, all in one response so the
+ *  Admin Users edit UI needs no N+1 fetching. */
+export interface UserAdminDetailDTO extends UserDTO {
+  brandIds: string[];
+  countryCodes: string[];
+  capabilityOverrides: { capability: Capability; granted: boolean }[];
+  effectiveCapabilities: Capability[];
+  permissionPreview: CapabilityPreviewLineDTO[];
 }
 
 export interface AuthTokensDTO {
@@ -481,6 +511,22 @@ export interface ShipmentItemDTO {
  * `campaignInfluencerId` is NOT a 1:1 key any more. `deliverableId` is the
  * optional link back to the specific deliverable this fulfils.
  */
+export interface LogisticsIssueDTO {
+  id: string;
+  shipmentId: string;
+  type: LogisticsIssueType;
+  status: LogisticsIssueStatus;
+  description: string;
+  createdById: string | null;
+  createdByName: string | null;
+  assignedToUserId: string | null;
+  assignedToName: string | null;
+  resolvedById: string | null;
+  resolvedByName: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
 export interface ProductShipmentDTO {
   id: string;
   campaignInfluencerId: string;
@@ -491,16 +537,27 @@ export interface ProductShipmentDTO {
   addressLine2: string | null;
   city: string | null;
   country: string | null;
+  /** Canonical destination country — a historical snapshot, independent of the influencer's own countryCode. */
+  destinationCountryCode: string | null;
   postalCode: string | null;
   deliveryInstructions: string | null;
   courier: string | null;
   trackingNumber: string | null;
   trackingUrl: string | null;
   status: ShipmentStatus;
+  /** The logistics operator responsible for fulfilling this request. */
+  assignedToUserId: string | null;
+  assignedToName: string | null;
+  createdById: string | null;
+  createdByName: string | null;
   shippedAt: string | null;
   deliveredAt: string | null;
   notes: string | null;
   items: ShipmentItemDTO[];
+  /** Derived, never stored — see the AddressHealth doc comment. */
+  addressHealth: AddressHealth;
+  /** The current OPEN issue blocking this shipment, if any — never folded into `status`. */
+  openIssue: LogisticsIssueDTO | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -509,7 +566,7 @@ export interface ProductShipmentDTO {
  *  enough context (creator/brand/campaign) to be useful without a second
  *  lookup; still the same underlying ProductShipment row, never a copy. */
 export interface LogisticsRequestDTO extends ProductShipmentDTO {
-  influencer: { id: string; displayName: string; avatarUrl: string | null } | null;
+  influencer: { id: string; displayName: string; avatarUrl: string | null; countryCode: string | null } | null;
   brand: { id: string; name: string } | null;
   campaign: { id: string; name: string } | null;
   deliverableType: DeliverableType | null;
