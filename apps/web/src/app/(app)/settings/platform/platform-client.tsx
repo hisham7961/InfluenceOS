@@ -363,7 +363,7 @@ function ModulesTab({ modules }: { modules: ApiModuleDTO[] }) {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
           <thead>
-            <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <tr className="border-b border-border bg-surface-muted/60 text-start text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <th className="px-5 py-3">{t('platform.modulesTab.module')}</th>
               <th className="px-5 py-3 text-center">{t('platform.modulesTab.apiReady')}</th>
               <th className="px-5 py-3 text-center">{t('platform.modulesTab.webIntegrated')}</th>
@@ -455,7 +455,7 @@ function MobileReadinessTab({ features }: { features: FeatureDTO[] }) {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm">
                 <thead>
-                  <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <tr className="border-b border-border bg-surface-muted/60 text-start text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     <th className="px-5 py-3">{t('platform.mobileTab.feature')}</th>
                     <th className="px-5 py-3 text-center">{t('platform.mobileTab.api')}</th>
                     <th className="px-5 py-3 text-center">{t('platform.mobileTab.web')}</th>
@@ -520,12 +520,12 @@ function ExplorerTab({ endpoints }: { endpoints: ApiEndpointDTO[] }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="relative w-full max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={t('platform.explorer.searchPlaceholder')}
-            className="pl-9"
+            className="ps-9"
           />
         </div>
         <Link

@@ -175,13 +175,13 @@ export function BulkAddInfluencersDialog({
             ) : null}
 
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t('addInfluencerDialog.searchPlaceholder')}
-                className="pl-9"
+                className="ps-9"
               />
             </div>
 
@@ -209,7 +209,7 @@ export function BulkAddInfluencersDialog({
                       type="button"
                       onClick={() => toggle(inf)}
                       aria-pressed={isSelected}
-                      className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${
+                      className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-start transition-colors ${
                         isSelected ? 'border-brand/40 bg-brand-soft/40' : 'border-transparent hover:border-border hover:bg-surface-muted'
                       }`}
                     >

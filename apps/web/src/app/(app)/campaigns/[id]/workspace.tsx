@@ -1377,7 +1377,7 @@ function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: Scri
                 <button
                   type="button"
                   onClick={() => toggle(script.id)}
-                  className="flex flex-1 items-center justify-between gap-3 p-5 text-left transition-colors hover:bg-surface-muted"
+                  className="flex flex-1 items-center justify-between gap-3 p-5 text-start transition-colors hover:bg-surface-muted"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
@@ -2364,7 +2364,7 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr className="border-b border-border text-start text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-5 py-3 font-medium">{t('workspace.performance.contentHeader')}</th>
                 <th className="px-5 py-3 font-medium">{t('fields.platform')}</th>
                 <th className="px-5 py-3 font-medium">{t('workspace.performance.viewsHeader')}</th>

@@ -74,7 +74,7 @@ function Fallback({
           className="absolute inset-0 h-full w-full object-cover opacity-70"
         />
       ) : null}
-      <div className="absolute left-3 top-3 flex items-center gap-2">
+      <div className="absolute start-3 top-3 flex items-center gap-2">
         <span className="flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 text-xs backdrop-blur">
           <PlatformIcon platform={content.platform} className="h-3.5 w-3.5" />
         </span>

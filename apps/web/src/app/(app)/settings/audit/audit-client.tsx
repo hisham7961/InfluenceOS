@@ -94,13 +94,13 @@ export function AuditLogClient({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-card lg:flex-row lg:flex-wrap lg:items-center">
         <div className="relative flex-1 lg:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder={t('audit.searchPlaceholder')}
             aria-label={t('audit.searchAria')}
-            className="pl-9"
+            className="ps-9"
           />
         </div>
 
@@ -162,7 +162,7 @@ export function AuditLogClient({
               key={entry.id}
               type="button"
               onClick={() => setSelected(entry)}
-              className="flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-surface-muted/60"
+              className="flex w-full items-start gap-3 p-4 text-start transition-colors hover:bg-surface-muted/60"
             >
               <Avatar name={entry.actorName ?? t('audit.systemActor')} size="sm" className="mt-0.5 shrink-0" />
               <div className="min-w-0 flex-1">
@@ -203,7 +203,7 @@ function AuditDetailDrawer({ entry, onClose }: { entry: AuditEntryDTO | null; on
       <SheetContent side="right" className="w-full sm:max-w-md">
         {entry ? (
           <div className="space-y-5">
-            <SheetHeader className="space-y-1 text-left">
+            <SheetHeader className="space-y-1 text-start">
               <SheetTitle className="text-base">{entry.message}</SheetTitle>
               <SheetDescription className="font-mono text-xs">
                 <LtrText>{entry.type}</LtrText>

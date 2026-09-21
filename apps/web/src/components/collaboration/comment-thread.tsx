@@ -165,7 +165,7 @@ export function Composer({
                 key={m.id}
                 type="button"
                 onClick={() => pickMention(m)}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-muted"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm hover:bg-surface-muted"
               >
                 <Avatar name={m.name} size="xs" />
                 <BidiText>{m.name}</BidiText>

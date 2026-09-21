@@ -70,10 +70,10 @@ function MasonryCard({ content, onOpen }: { content: PublishedContentDTO; onOpen
             <PlatformIcon platform={content.platform} className="h-12 w-12 text-white/30" />
           </div>
         )}
-        <div className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/40 backdrop-blur">
+        <div className="absolute start-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/40 backdrop-blur">
           <PlatformIcon platform={content.platform} className="h-3.5 w-3.5 text-white" />
         </div>
-        <div className="absolute right-3 top-3">
+        <div className="absolute end-3 top-3">
           <ContentStatusBadge status={content.availabilityStatus} />
         </div>
         {content.embeddable ? (

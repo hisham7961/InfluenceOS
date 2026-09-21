@@ -364,7 +364,7 @@ function WeekEventCard({ event, onSelect }: { event: CalendarEventDTO; onSelect:
     <button
       type="button"
       onClick={() => onSelect(event)}
-      className={cn('flex items-start gap-1.5 rounded-lg border border-border p-1.5 text-left transition-colors hover:bg-surface-muted', meta.tint)}
+      className={cn('flex items-start gap-1.5 rounded-lg border border-border p-1.5 text-start transition-colors hover:bg-surface-muted', meta.tint)}
     >
       <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <span className="min-w-0">
@@ -394,7 +394,7 @@ function EventPill({
       onClick={() => onSelect(event)}
       title={t('calendar.eventTooltip', { title: event.title, kind: t(`calendar.kinds.${event.kind}`) })}
       className={cn(
-        'group flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[11px] font-medium leading-none text-foreground transition-colors hover:bg-surface-muted',
+        'group flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-start text-[11px] font-medium leading-none text-foreground transition-colors hover:bg-surface-muted',
         className,
       )}
     >
@@ -429,7 +429,7 @@ function DayOverflow({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="rounded-md px-1.5 py-0.5 text-left text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+          className="rounded-md px-1.5 py-0.5 text-start text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
         >
           {t('calendar.moreCount', { count: moreCount })}
         </button>
@@ -505,7 +505,7 @@ function AgendaRow({ event, onSelect }: { event: CalendarEventDTO; onSelect: (ev
     <button
       type="button"
       onClick={() => onSelect(event)}
-      className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3 text-left transition-colors hover:border-brand/40 hover:bg-surface-muted hover:shadow-soft"
+      className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3 text-start transition-colors hover:border-brand/40 hover:bg-surface-muted hover:shadow-soft"
     >
       <span
         className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', !event.brandColor && meta.tint)}
@@ -549,7 +549,7 @@ function EventDrawer({ event, onClose }: { event: CalendarEventDTO | null; onClo
       <SheetContent side="right" className="w-full sm:max-w-md">
         {event && meta ? (
           <div className="space-y-5">
-            <SheetHeader className="space-y-3 text-left">
+            <SheetHeader className="space-y-3 text-start">
               <div className="flex items-center gap-3">
                 <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', meta.tint)}>
                   {Icon ? <Icon className="h-5 w-5" /> : null}

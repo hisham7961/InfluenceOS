@@ -211,7 +211,7 @@ function AddCampaign({ close }: { close: () => void }) {
         </Select>
       </Field>
       <Field label={t('campaignName')}>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Summer Glow Launch" required />
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('campaignNamePlaceholder')} required />
       </Field>
       <Button type="submit" disabled={loading}>{loading ? t('creating') : t('createCampaign')}</Button>
     </form>
@@ -253,7 +253,7 @@ function AddCost({ close }: { close: () => void }) {
           </SelectContent>
         </Select>
       </Field>
-      <Field label={t('costLabel')}><Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Photoshoot" /></Field>
+      <Field label={t('costLabel')}><Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t('costLabelPlaceholder')} /></Field>
       <Field label={t('amountKwd')}><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} required /></Field>
       <Button type="submit" disabled={loading}>{loading ? t('saving') : t('addCostTitle')}</Button>
     </form>

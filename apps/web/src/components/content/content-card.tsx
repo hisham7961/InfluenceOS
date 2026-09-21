@@ -54,7 +54,7 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-        <div className="absolute left-3 top-3 flex items-center gap-1.5">
+        <div className="absolute start-3 top-3 flex items-center gap-1.5">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 backdrop-blur">
             <PlatformIcon platform={content.platform} className="h-3.5 w-3.5 text-white" />
           </span>
@@ -71,7 +71,7 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
             </span>
           ) : null}
         </div>
-        <div className="absolute right-3 top-3">
+        <div className="absolute end-3 top-3">
           {isAlert ? <ContentStatusBadge status={content.availabilityStatus} /> : null}
         </div>
         {content.embeddable && (

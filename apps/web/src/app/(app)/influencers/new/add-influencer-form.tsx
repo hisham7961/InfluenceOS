@@ -364,12 +364,12 @@ export function AddInfluencerForm() {
           <CardContent className="flex flex-col gap-4 pt-5">
             <div className="flex flex-col gap-3 sm:flex-row">
               <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={t('form.findCreator.inputPlaceholder')}
-                  className="pl-9"
+                  className="ps-9"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();

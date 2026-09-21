@@ -187,7 +187,7 @@ function DirectoryTable({
     <div className="overflow-x-auto rounded-2xl border border-border bg-card">
       <table className="w-full min-w-[760px] text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <tr className="border-b border-border text-start text-xs uppercase tracking-wide text-muted-foreground">
             <th className="w-10 px-4 py-3">
               <input
                 type="checkbox"
@@ -283,7 +283,7 @@ function PreviewDrawer({ influencerId, onClose }: { influencerId: string | null;
           </div>
         ) : (
           <div className="space-y-5">
-            <SheetHeader className="space-y-3 text-left">
+            <SheetHeader className="space-y-3 text-start">
               <div className="flex items-center gap-3">
                 <Avatar name={data.displayName} src={data.avatarUrl} size="lg" rounded="lg" />
                 <div className="min-w-0">

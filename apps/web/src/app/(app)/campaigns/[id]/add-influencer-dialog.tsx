@@ -115,13 +115,13 @@ export function AddInfluencerDialog({
         {!selected ? (
           <div className="space-y-3">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t('addInfluencerDialog.searchPlaceholder')}
-                className="pl-9"
+                className="ps-9"
               />
             </div>
 
@@ -146,7 +146,7 @@ export function AddInfluencerDialog({
                     key={inf.id}
                     type="button"
                     onClick={() => setSelected(inf)}
-                    className="flex w-full items-center gap-3 rounded-xl border border-transparent p-2.5 text-left transition-colors hover:border-border hover:bg-surface-muted"
+                    className="flex w-full items-center gap-3 rounded-xl border border-transparent p-2.5 text-start transition-colors hover:border-border hover:bg-surface-muted"
                   >
                     <Avatar name={inf.displayName} src={inf.avatarUrl} size="sm" />
                     <div className="min-w-0 flex-1">
