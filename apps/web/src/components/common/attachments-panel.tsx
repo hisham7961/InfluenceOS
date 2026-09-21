@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { FileText, Film, ImageIcon, Paperclip, Trash2, Upload, X } from 'lucide-react';
 import type { AttachmentDTO, AttachmentTarget } from '@influenceos/contracts';
@@ -14,9 +15,12 @@ import { ProgressBar } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
 import { relativeTime } from '@/lib/format';
+import { BidiText } from '@/components/common/bidi-text';
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Something went wrong.';
+/** `fallback` is the caller's already-resolved `common.somethingWentWrong` — kept
+ * as a plain helper (not a hook) since it's called from mutation callbacks, not render. */
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : e instanceof Error ? e.message : fallback;
 }
 
 function formatBytes(bytes: number): string {
@@ -51,13 +55,14 @@ interface UploadState {
  */
 export function AttachmentsPanel({
   target,
-  title = 'Files',
+  title,
   compact = false,
 }: {
   target: AttachmentTarget;
   title?: string;
   compact?: boolean;
 }) {
+  const t = useTranslations('common');
   const queryClient = useQueryClient();
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [uploads, setUploads] = React.useState<UploadState[]>([]);
@@ -72,10 +77,10 @@ export function AttachmentsPanel({
   const removeMutation = useMutation({
     mutationFn: (id: string) => api.files.remove(id),
     onSuccess: () => {
-      toast.success('File removed');
+      toast.success(t('fileRemoved'));
       queryClient.invalidateQueries({ queryKey });
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, t('somethingWentWrong'))),
   });
 
   async function handleFiles(files: FileList | File[]) {
@@ -89,9 +94,9 @@ export function AttachmentsPanel({
         );
         setUploads((prev) => prev.filter((u) => u.id !== uid));
         queryClient.invalidateQueries({ queryKey });
-        toast.success(`Uploaded ${file.name}`);
+        toast.success(t('fileUploaded', { name: file.name }));
       } catch (e) {
-        const message = errorMessage(e);
+        const message = errorMessage(e, t('somethingWentWrong'));
         setUploads((prev) => prev.map((u) => (u.id === uid ? { ...u, error: message } : u)));
         toast.error(message);
       }
@@ -105,9 +110,9 @@ export function AttachmentsPanel({
     <div className="space-y-4">
       {!compact ? (
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title ?? t('files')}</h3>
           <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
-            <Upload className="h-3.5 w-3.5" /> Upload
+            <Upload className="h-3.5 w-3.5" /> {t('upload')}
           </Button>
         </div>
       ) : null}
@@ -141,8 +146,8 @@ export function AttachmentsPanel({
         )}
       >
         <Upload className="h-6 w-6 text-muted-foreground" />
-        <p className="text-sm font-medium">Drop files here or click to upload</p>
-        <p className="text-xs text-muted-foreground">Images, PDF, video and documents</p>
+        <p className="text-sm font-medium">{t('dropFilesHere')}</p>
+        <p className="text-xs text-muted-foreground">{t('acceptedFileTypes')}</p>
       </div>
 
       {uploads.length > 0 ? (
@@ -152,7 +157,7 @@ export function AttachmentsPanel({
               <div className="mb-1.5 flex items-center justify-between gap-3">
                 <span className="truncate text-sm font-medium">{u.name}</span>
                 <span className="shrink-0 text-xs text-muted-foreground">
-                  {u.error ? 'Failed' : `${Math.round(u.fraction * 100)}%`}
+                  {u.error ? t('failed') : `${Math.round(u.fraction * 100)}%`}
                 </span>
               </div>
               {u.error ? (
@@ -172,7 +177,7 @@ export function AttachmentsPanel({
           ))}
         </div>
       ) : attachments.length === 0 && uploads.length === 0 ? (
-        <EmptyState icon={Paperclip} title="No files yet" description="Upload briefs, contracts, references and assets." className="border-0" />
+        <EmptyState icon={Paperclip} title={t('noFilesYet')} description={t('noFilesDescription')} className="border-0" />
       ) : (
         <div className="grid gap-2 sm:grid-cols-2">
           {attachments.map((a) => (
@@ -193,6 +198,7 @@ function AttachmentRow({
   onRemove: () => void;
   removing: boolean;
 }) {
+  const t = useTranslations('common');
   const href = toBrowserUrl(attachment.downloadUrl);
   return (
     <div className="group flex items-center gap-3 rounded-xl border border-border bg-card p-3">
@@ -211,18 +217,25 @@ function AttachmentRow({
       </a>
       <div className="min-w-0 flex-1">
         <a href={href} target="_blank" rel="noreferrer" className="block truncate text-sm font-medium hover:underline">
-          {attachment.fileName}
+          <BidiText>{attachment.fileName}</BidiText>
         </a>
         <p className="truncate text-xs text-muted-foreground">
           {formatBytes(attachment.sizeBytes)}
-          {attachment.uploadedByName ? ` · ${attachment.uploadedByName}` : ''} · {relativeTime(attachment.createdAt)}
+          {attachment.uploadedByName ? (
+            <>
+              {' · '}
+              <BidiText as="span">{attachment.uploadedByName}</BidiText>
+            </>
+          ) : null}
+          {' · '}
+          {relativeTime(attachment.createdAt)}
         </p>
       </div>
       <button
         type="button"
         onClick={onRemove}
         disabled={removing}
-        aria-label={`Delete ${attachment.fileName}`}
+        aria-label={t('deleteFile', { name: attachment.fileName })}
         className="shrink-0 rounded-lg p-2 text-muted-foreground opacity-0 transition-opacity hover:bg-danger/10 hover:text-danger focus:opacity-100 group-hover:opacity-100 disabled:opacity-50"
       >
         <Trash2 className="h-4 w-4" />

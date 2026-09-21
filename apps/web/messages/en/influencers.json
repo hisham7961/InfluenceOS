@@ -1,0 +1,402 @@
+{
+  "directory": {
+    "pageTitle": "Influencers",
+    "pageDescription": "Your global creator network.",
+    "addInfluencer": "Add influencer",
+    "exportCsv": "Export CSV",
+    "empty": {
+      "filteredTitle": "No influencers match your filters",
+      "filteredDescription": "Try a different search term or clear your filters to see everyone.",
+      "emptyTitle": "Build your creator network",
+      "emptyDescription": "Add your first creator to start tracking relationships, campaigns and content."
+    },
+    "pagination": {
+      "summary": "Page {page} of {totalPages} · {count} {count, plural, one {influencer} other {influencers}}"
+    },
+    "filters": {
+      "searchPlaceholder": "Search by name or @username…",
+      "searchAriaLabel": "Search influencers",
+      "platformPlaceholder": "Platform",
+      "allPlatforms": "All platforms",
+      "relationshipPlaceholder": "Relationship",
+      "allRelationships": "All relationships",
+      "countryPlaceholder": "Country",
+      "cityPlaceholder": "City",
+      "cityAriaLabel": "Filter by city",
+      "reset": "Reset"
+    },
+    "countryStrip": {
+      "ariaLabel": "Filter by country",
+      "allCreators": "All creators"
+    },
+    "savedViews": {
+      "trigger": "Views",
+      "label": "Saved views",
+      "empty": "No saved views yet.",
+      "saveCurrent": "Save current filters",
+      "namePrompt": "Name this view",
+      "viewSaved": "View saved",
+      "viewDeleted": "View deleted",
+      "deleteAriaLabel": "Delete {name}"
+    },
+    "results": {
+      "viewToggleAriaLabel": "Directory view",
+      "viewCards": "Cards",
+      "viewList": "List",
+      "viewTable": "Table",
+      "table": {
+        "selectAllAriaLabel": "Select all",
+        "selectRowAriaLabel": "Select {name}",
+        "influencer": "Influencer",
+        "platform": "Platform",
+        "country": "Country",
+        "status": "Status",
+        "audience": "Audience",
+        "followers": "Followers",
+        "campaigns": "Campaigns"
+      },
+      "previewAriaLabel": "Preview {name}",
+      "totalFollowersBadge": "{count} total",
+      "preview": {
+        "totalFollowers": "Total followers",
+        "activeCampaigns": "Active campaigns",
+        "campaignsAllTime": "Campaigns (all-time)",
+        "accounts": "Accounts",
+        "platforms": "Platforms",
+        "viewFullProfile": "View full 360 profile"
+      }
+    },
+    "bulkActions": {
+      "selectedBadge": "{count} selected",
+      "actionAssignOwner": "Assign owner",
+      "actionAddTag": "Add tag",
+      "actionSetRelationshipStatus": "Set relationship status",
+      "chooseOwnerPlaceholder": "Choose owner…",
+      "tagNamePlaceholder": "Tag name…",
+      "tagNameAriaLabel": "Tag name",
+      "previewButton": "Preview",
+      "clearSelectionAriaLabel": "Clear selection",
+      "confirmTitle": "Confirm bulk action",
+      "confirmDescription": "{willUpdate} of {selected} will be updated. {willSkip} will be skipped.",
+      "willUpdateBadge": "Will update",
+      "skipBadge": "Skip",
+      "applyButton": "Apply to {count}",
+      "updatedToast": "Updated {count} {count, plural, one {creator} other {creators}}.",
+      "updatedWithFailuresToast": "Updated {count} {count, plural, one {creator} other {creators}}. {failed} failed."
+    }
+  },
+  "form": {
+    "addPageTitle": "Add Influencer",
+    "addPageDescription": "Resolve a public profile automatically, or enter their details by hand to grow your creator network.",
+    "backToDirectory": "Back to directory",
+    "findCreator": {
+      "cardTitle": "Find the creator",
+      "cardDescription": "Paste a profile URL or @handle — we'll try to pull their platform, avatar and follower count automatically.",
+      "inputPlaceholder": "https://instagram.com/creator or @creator",
+      "platformPlaceholder": "Platform",
+      "autoDetect": "Auto-detect",
+      "resolve": "Resolve",
+      "resolving": "Resolving…",
+      "verified": "Verified",
+      "followersSuffix": "{count} followers",
+      "couldNotResolve": "Couldn't resolve that profile. You can still fill in the details manually below.",
+      "skipHint": "Optional — you can skip this and add every detail by hand instead.",
+      "pasteFirstToast": "Paste a profile URL or @handle first.",
+      "manualDataUnavailableToast": "Official data is unavailable for this profile — add it manually below.",
+      "foundToast": "Found @{username} on {platform}."
+    },
+    "duplicateWarning": {
+      "titleExact": "This creator may already exist",
+      "titlePossible": "Possible existing creator found",
+      "matchesFound": "{count, plural, one {One creator already on file shares identifying details with what you've entered.} other {# creators already on file share identifying details with what you've entered.}}",
+      "advisoryNote": "This is advisory only — nothing will be filled in or merged for you.",
+      "sameField": "Same {field}: {value}",
+      "openExistingProfile": "Open existing profile",
+      "proceedAnyway": "Proceed anyway — this is a new creator",
+      "confidenceExact": "Exact match found",
+      "confidencePossible": "Possible match",
+      "fieldName": "Name",
+      "fieldEmail": "Email",
+      "fieldMobile": "Mobile",
+      "fieldWhatsapp": "WhatsApp"
+    },
+    "details": {
+      "cardTitle": "Creator details",
+      "cardDescription": "Everything your team needs to reach out and track this relationship."
+    },
+    "fields": {
+      "displayName": "Display name",
+      "displayNameHint": "Shown across InfluenceOS",
+      "displayNamePlaceholder": "e.g. Sara Al-Fahad",
+      "fullName": "Full name",
+      "fullNamePlaceholder": "Legal name",
+      "category": "Category",
+      "categoryPlaceholder": "Beauty, Fitness, Food…",
+      "priority": "Priority",
+      "country": "Country",
+      "countryRequiredHint": "Required — it drives country-based filtering and scoping.",
+      "countryProfileHint": "The creator's own profile country — distinct from where a specific shipment ships to.",
+      "countryPlaceholder": "Select a country",
+      "noCountrySet": "No country set",
+      "city": "City",
+      "cityPlaceholder": "Kuwait City",
+      "relationshipStatus": "Relationship status",
+      "languages": "Languages",
+      "languagesHint": "Comma-separated",
+      "languagesPlaceholder": "Arabic, English",
+      "email": "Email",
+      "emailPlaceholder": "creator@email.com",
+      "mobile": "Mobile",
+      "mobilePlaceholder": "+965 ...",
+      "whatsapp": "WhatsApp",
+      "whatsappPlaceholder": "+965 ...",
+      "tags": "Tags",
+      "tagsHint": "Comma-separated",
+      "tagsPlaceholder": "ramadan, macro, ugc",
+      "pricingNotes": "Pricing notes",
+      "pricingNotesPlaceholder": "Standard rates, negotiables, past deals…",
+      "internalNotes": "Internal notes",
+      "internalNotesPlaceholder": "Anything your team should know before reaching out",
+      "bio": "Bio",
+      "bioPlaceholder": "Short bio…",
+      "primaryUsername": "Primary username",
+      "primaryUsernameHint": "Without the @",
+      "primaryUsernamePlaceholder": "creator",
+      "active": "Active",
+      "activeHint": "Inactive creators are hidden from active rosters."
+    },
+    "validation": {
+      "displayNameRequired": "Display name is required.",
+      "countryRequired": "Country is required — it drives country-based filtering and scoping."
+    },
+    "submit": {
+      "adding": "Adding…"
+    },
+    "successToast": "{name} was added to your network.",
+    "linkFailedToast": "Influencer created, but linking the social account failed: {error}",
+    "preview": {
+      "title": "Preview",
+      "fallbackName": "New creator",
+      "priorityBadge": "{priority} priority",
+      "followersCount": "{count} followers",
+      "fillFormHint": "Fill in the form and this card will fill in as you go."
+    },
+    "edit": {
+      "title": "Edit influencer",
+      "dialogDescription": "Update this creator's profile and contact details.",
+      "saveChanges": "Save changes",
+      "updatedToast": "{name} updated."
+    }
+  },
+  "detail": {
+    "backToInfluencers": "Back to Influencers",
+    "managedBy": "Managed by {name}",
+    "noContactInfo": "No contact info on file",
+    "whatsappButton": "WhatsApp",
+    "emailButton": "Email",
+    "callButton": "Call",
+    "stats": {
+      "totalFollowers": "Total Followers",
+      "campaigns": "Campaigns",
+      "activeNow": "{count} active now",
+      "averageRate": "Average Rate",
+      "deliverablesPublished": "Deliverables Published",
+      "ofTotal": "of {count} total"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "socialProfiles": "Social Profiles",
+      "campaignHistory": "Campaign History",
+      "timeline": "Timeline",
+      "content": "Content",
+      "ugc": "UGC",
+      "shipmentHistory": "Shipment History",
+      "costs": "Costs",
+      "notes": "Notes",
+      "brands": "Brands"
+    },
+    "overview": {
+      "aboutTitle": "About",
+      "noBio": "No bio on file yet.",
+      "notesTitle": "Pricing & Internal Notes",
+      "pricingNotesLabel": "Pricing notes",
+      "internalNotesLabel": "Internal notes",
+      "audienceHealthTitle": "Audience Health",
+      "dataPointsAnalyzed": "{count, plural, one {# data point analyzed} other {# data points analyzed}}",
+      "noSignalsYet": "No audience signals yet."
+    },
+    "campaignHistory": {
+      "timelineCardTitle": "Timeline",
+      "firstCollaboration": "First collaboration",
+      "lastCollaboration": "Last collaboration",
+      "brandsWorkedWithTitle": "Brands Worked With",
+      "noBrandHistory": "No brand history yet."
+    },
+    "content": {
+      "addContent": "Add content",
+      "dialogTitle": "Add published content",
+      "dialogDescription": "For {name}. Paste a public URL — no campaign required for independent content.",
+      "emptyTitle": "No content yet",
+      "emptyDescription": "Published content from {name} will appear here. Content doesn't need a campaign."
+    },
+    "costs": {
+      "totalPaid": "Total Paid",
+      "averageRate": "Average Rate",
+      "deliverablesPublished": "Deliverables Published",
+      "pricingNotesTitle": "Pricing Notes"
+    },
+    "brands": {
+      "emptyTitle": "No brand relationships yet",
+      "emptyDescription": "Relationships with brands will appear here once this influencer joins a brand roster.",
+      "collaborations": "Collaborations",
+      "defaultRate": "Default rate",
+      "lastCampaign": "Last campaign {time}"
+    },
+    "notes": {
+      "addNote": "Add a note",
+      "composerPlaceholder": "Log a call, a rate negotiation, a red flag… use @ to mention someone",
+      "emptyTitle": "No notes yet",
+      "emptyDescription": "Internal notes about this influencer will show up here.",
+      "pinNote": "Pin note",
+      "unpinNote": "Unpin note",
+      "deleteNote": "Delete note",
+      "noteAdded": "Note added",
+      "noteRemoved": "Note removed"
+    },
+    "snapshot": {
+      "logisticsBannerSingle": "Logistics needs address clarification — {issueType}",
+      "logisticsBannerMultiple": "Logistics needs address clarification on {count} shipments",
+      "viewInLogistics": "View in Logistics",
+      "title": "Relationship Snapshot",
+      "owner": "Owner",
+      "brandsWorkedWith": "Brands worked with",
+      "collaborationsTotal": "{count} collaborations total",
+      "lastCollaboration": "Last collaboration",
+      "never": "Never",
+      "lastContact": "Last contact",
+      "noRecord": "No record",
+      "rateRange": "Rate range",
+      "noPaidDealsYet": "No paid deals yet",
+      "outstandingPayment": "Outstanding payment",
+      "awaitingPayment": "Awaiting payment",
+      "activeDeliverables": "Active deliverables",
+      "activeShipments": "Active shipments",
+      "currentShipment": "Current shipment",
+      "deliveryReliability": "Delivery reliability",
+      "noCompletedDeliverables": "No completed deliverables with a due date yet",
+      "limitedHistoryBadge": "{onTime}/{sampleSize} on time — limited history, not enough to judge yet",
+      "onTimeBadge": "{rate}% on time ({onTime}/{sampleSize})",
+      "lateAveraging": "{late} late, averaging {days, plural, one {# day} other {# days}} delayed"
+    },
+    "connections": {
+      "title": "Creator connections",
+      "description": "Ask the creator to authorize reading their own post metrics (Instagram / TikTok). Requires a reviewed platform app — until then this stays disabled.",
+      "connected": "Connected",
+      "disconnect": "Disconnect",
+      "connect": "Connect",
+      "disconnectedToast": "Disconnected."
+    },
+    "timeline": {
+      "all": "All",
+      "buckets": {
+        "campaign": "Campaign",
+        "content": "Content",
+        "ugc": "UGC",
+        "logistics": "Logistics",
+        "payment": "Payment",
+        "notes": "Notes",
+        "activity": "Activity",
+        "contacted": "Contacted",
+        "usageRights": "Usage Rights"
+      },
+      "emptyTitle": "Nothing here yet",
+      "emptyDescription": "Campaign joins, deliverables, shipments, content, payments, submissions and notes will show up here as they happen.",
+      "loadEarlier": "Load earlier"
+    },
+    "shipments": {
+      "table": {
+        "brandCampaign": "Brand / Campaign",
+        "products": "Products",
+        "destination": "Destination",
+        "courierTracking": "Courier / Tracking",
+        "shippedDelivered": "Shipped / Delivered",
+        "status": "Status"
+      },
+      "errorTitle": "Couldn't load shipment history",
+      "errorDescription": "Something went wrong fetching logistics requests. Try again shortly.",
+      "emptyTitle": "No shipments yet",
+      "emptyDescription": "Logistics requests created for this creator on any campaign will appear here with courier, tracking and delivery status.",
+      "openInLogistics": "Open in Logistics workspace"
+    },
+    "submissions": {
+      "table": {
+        "campaign": "Campaign",
+        "version": "Ver.",
+        "submitted": "Submitted",
+        "reviewer": "Reviewer",
+        "reviewNotes": "Review notes",
+        "status": "Status"
+      },
+      "errorTitle": "Couldn't load submissions",
+      "errorDescription": "Something went wrong fetching this creator's UGC submissions. Try again shortly.",
+      "emptyTitle": "No submissions yet",
+      "emptyDescription": "Draft/UGC submissions from any campaign this creator is on will appear here with their review status.",
+      "openAssetAriaLabel": "Open asset"
+    },
+    "socialAccounts": {
+      "subtitle": "Platforms this creator is active on.",
+      "addAccount": "Add social account",
+      "emptyTitle": "No social accounts linked",
+      "emptyDescription": "Add a social profile to start tracking growth and content.",
+      "followerGrowthTitle": "Follower Growth",
+      "primaryBadge": "Primary",
+      "followersLabel": "followers",
+      "sevenDaySuffix": "7d",
+      "openProfile": "Open profile",
+      "syncNow": "Sync now",
+      "editAccount": "Edit account",
+      "removeAccount": "Remove account",
+      "removeConfirmTitle": "Remove social account?",
+      "removeConfirmDescription": "This removes @{username} on {platform}. This can't be undone.",
+      "accountUpdatedToast": "Social account updated.",
+      "accountAddedToast": "Social account added.",
+      "accountRemovedToast": "Social account removed.",
+      "syncedToast": "Account synced",
+      "syncedNothingNewToast": "Sync ran, nothing new",
+      "dialog": {
+        "editTitle": "Edit social account",
+        "addTitle": "Add social account",
+        "editDescription": "Update this platform profile.",
+        "addDescription": "Link a platform profile to track its growth and content.",
+        "platform": "Platform",
+        "username": "Username",
+        "usernameHint": "Without the @",
+        "usernamePlaceholder": "creator",
+        "displayName": "Display name",
+        "displayNamePlaceholder": "Shown on the card",
+        "profileUrl": "Profile URL",
+        "profileUrlHint": "Optional",
+        "profileUrlPlaceholder": "https://…",
+        "followers": "Followers",
+        "following": "Following",
+        "posts": "Posts",
+        "verified": "Verified",
+        "primaryAccount": "Primary account",
+        "addAccountButton": "Add account"
+      }
+    },
+    "followerChart": {
+      "noAccountsTitle": "No social accounts linked",
+      "noAccountsDescription": "Growth charts appear once a social profile is connected.",
+      "noHistoryTitle": "No growth history yet",
+      "noHistoryDescription": "Follower snapshots build up over time as this profile is synced.",
+      "range30d": "30D",
+      "range90d": "90D",
+      "rangeAll": "All",
+      "tooltipFollowers": "Followers"
+    }
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again."
+  }
+}

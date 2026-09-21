@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { ExternalLink, ScrollText, Search, X } from 'lucide-react';
 import type { AuditEntryDTO, CursorPage } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
@@ -14,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EmptyState } from '@/components/ui/empty-state';
 import { Avatar } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { dateTime, relativeTime } from '@/lib/format';
 
 const ALL = 'all';
@@ -48,13 +50,15 @@ export function AuditLogClient({
   initial: CursorPage<AuditEntryDTO>;
   actors: { id: string; name: string }[];
 }) {
+  const t = useTranslations('settings');
+  const tCommon = useTranslations('common');
   const [filters, setFilters] = React.useState<Filters>(EMPTY);
   const [searchInput, setSearchInput] = React.useState('');
   const [selected, setSelected] = React.useState<AuditEntryDTO | null>(null);
 
   React.useEffect(() => {
-    const t = setTimeout(() => setFilters((f) => (f.q === searchInput.trim() ? f : { ...f, q: searchInput.trim() })), 350);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setFilters((f) => (f.q === searchInput.trim() ? f : { ...f, q: searchInput.trim() })), 350);
+    return () => clearTimeout(timer);
   }, [searchInput]);
 
   const isDefault = JSON.stringify(filters) === JSON.stringify(EMPTY);
@@ -94,51 +98,53 @@ export function AuditLogClient({
           <Input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search actions…"
-            aria-label="Search audit log"
+            placeholder={t('audit.searchPlaceholder')}
+            aria-label={t('audit.searchAria')}
             className="pl-9"
           />
         </div>
 
         <Select value={filters.actorId || ALL} onValueChange={(v) => setFilters((f) => ({ ...f, actorId: v === ALL ? '' : v }))}>
-          <SelectTrigger className="h-10 w-full sm:w-44"><SelectValue placeholder="Actor" /></SelectTrigger>
+          <SelectTrigger className="h-10 w-full sm:w-44"><SelectValue placeholder={t('audit.actorFilter')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All actors</SelectItem>
+            <SelectItem value={ALL}>{t('audit.allActors')}</SelectItem>
             {actors.map((a) => (
-              <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+              <SelectItem key={a.id} value={a.id}>
+                <BidiText>{a.name}</BidiText>
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         <Select value={filters.type || ALL} onValueChange={(v) => setFilters((f) => ({ ...f, type: v === ALL ? '' : v }))}>
-          <SelectTrigger className="h-10 w-full sm:w-52"><SelectValue placeholder="Action" /></SelectTrigger>
+          <SelectTrigger className="h-10 w-full sm:w-52"><SelectValue placeholder={t('audit.actionFilter')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All actions</SelectItem>
-            {ACTION_TYPES.map((t) => (
-              <SelectItem key={t} value={t}>{t.replace(/_/g, ' ').toLowerCase()}</SelectItem>
+            <SelectItem value={ALL}>{t('audit.allActions')}</SelectItem>
+            {ACTION_TYPES.map((type) => (
+              <SelectItem key={type} value={type}>{t(`audit.actionType.${type}`)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         <Select value={filters.entityType || ALL} onValueChange={(v) => setFilters((f) => ({ ...f, entityType: v === ALL ? '' : v }))}>
-          <SelectTrigger className="h-10 w-full sm:w-40"><SelectValue placeholder="Entity" /></SelectTrigger>
+          <SelectTrigger className="h-10 w-full sm:w-40"><SelectValue placeholder={t('audit.entityFilter')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All entities</SelectItem>
-            {ENTITY_TYPES.map((t) => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
+            <SelectItem value={ALL}>{t('audit.allEntities')}</SelectItem>
+            {ENTITY_TYPES.map((type) => (
+              <SelectItem key={type} value={type}>{t(`audit.entityType.${type}`)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         <div className="flex items-center gap-2">
-          <Input type="date" aria-label="From date" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} className="h-10 w-full sm:w-40" />
+          <Input type="date" aria-label={t('audit.fromDateAria')} value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} className="h-10 w-full sm:w-40" />
           <span className="text-xs text-muted-foreground">→</span>
-          <Input type="date" aria-label="To date" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} className="h-10 w-full sm:w-40" />
+          <Input type="date" aria-label={t('audit.toDateAria')} value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} className="h-10 w-full sm:w-40" />
         </div>
 
         {hasActiveFilters ? (
           <Button type="button" variant="ghost" size="sm" onClick={reset} className="text-muted-foreground">
-            <X className="h-3.5 w-3.5" /> Reset
+            <X className="h-3.5 w-3.5" /> {t('audit.reset')}
           </Button>
         ) : null}
       </div>
@@ -146,8 +152,8 @@ export function AuditLogClient({
       {items.length === 0 ? (
         <EmptyState
           icon={ScrollText}
-          title={hasActiveFilters ? 'No matching activity' : 'No activity yet'}
-          description={hasActiveFilters ? 'Try widening your filters.' : 'Actions taken across the workspace will be recorded here.'}
+          title={hasActiveFilters ? t('audit.empty.noMatchesTitle') : t('audit.empty.noneYetTitle')}
+          description={hasActiveFilters ? t('audit.empty.noMatchesDescription') : t('audit.empty.noneYetDescription')}
         />
       ) : (
         <Card className="divide-y divide-border p-0">
@@ -158,16 +164,20 @@ export function AuditLogClient({
               onClick={() => setSelected(entry)}
               className="flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-surface-muted/60"
             >
-              <Avatar name={entry.actorName ?? 'System'} size="sm" className="mt-0.5 shrink-0" />
+              <Avatar name={entry.actorName ?? t('audit.systemActor')} size="sm" className="mt-0.5 shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm leading-snug">{entry.message}</p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground/80">{entry.actorName ?? 'System'}</span>
+                  <span className="font-medium text-foreground/80">
+                    <BidiText>{entry.actorName ?? t('audit.systemActor')}</BidiText>
+                  </span>
                   <span title={dateTime(entry.createdAt)}>{relativeTime(entry.createdAt)}</span>
                   {entry.entityType ? <span>· {entry.entityType}</span> : null}
                 </p>
               </div>
-              <Badge tone="neutral" className="shrink-0 font-mono text-[10px]">{entry.type}</Badge>
+              <Badge tone="neutral" className="shrink-0 font-mono text-[10px]">
+                <LtrText>{entry.type}</LtrText>
+              </Badge>
             </button>
           ))}
         </Card>
@@ -176,7 +186,7 @@ export function AuditLogClient({
       {query.hasNextPage ? (
         <div className="flex justify-center">
           <Button variant="outline" onClick={() => query.fetchNextPage()} disabled={query.isFetchingNextPage}>
-            {query.isFetchingNextPage ? 'Loading…' : 'Load more'}
+            {query.isFetchingNextPage ? tCommon('loading') : t('audit.loadMore')}
           </Button>
         </div>
       ) : null}
@@ -187,6 +197,7 @@ export function AuditLogClient({
 }
 
 function AuditDetailDrawer({ entry, onClose }: { entry: AuditEntryDTO | null; onClose: () => void }) {
+  const t = useTranslations('settings');
   return (
     <Sheet open={Boolean(entry)} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right" className="w-full sm:max-w-md">
@@ -194,20 +205,31 @@ function AuditDetailDrawer({ entry, onClose }: { entry: AuditEntryDTO | null; on
           <div className="space-y-5">
             <SheetHeader className="space-y-1 text-left">
               <SheetTitle className="text-base">{entry.message}</SheetTitle>
-              <SheetDescription className="font-mono text-xs">{entry.type}</SheetDescription>
+              <SheetDescription className="font-mono text-xs">
+                <LtrText>{entry.type}</LtrText>
+              </SheetDescription>
             </SheetHeader>
 
             <div className="space-y-2.5">
-              <Row label="When" value={dateTime(entry.createdAt)} />
-              <Row label="Actor" value={entry.actorName ?? 'System'} />
-              {entry.entityType ? <Row label="Entity" value={`${entry.entityType}${entry.entityId ? ` · ${entry.entityId}` : ''}`} /> : null}
-              {entry.brandName ? <Row label="Brand" value={entry.brandName} /> : null}
-              {entry.campaignName ? <Row label="Campaign" value={entry.campaignName} /> : null}
+              <Row label={t('audit.detail.when')} value={dateTime(entry.createdAt)} />
+              <Row label={t('audit.detail.actor')} value={<BidiText>{entry.actorName ?? t('audit.systemActor')}</BidiText>} />
+              {entry.entityType ? (
+                <Row
+                  label={t('audit.detail.entity')}
+                  value={`${entry.entityType}${entry.entityId ? ` · ${entry.entityId}` : ''}`}
+                />
+              ) : null}
+              {entry.brandName ? <Row label={t('audit.detail.brand')} value={<BidiText>{entry.brandName}</BidiText>} /> : null}
+              {entry.campaignName ? (
+                <Row label={t('audit.detail.campaign')} value={<BidiText>{entry.campaignName}</BidiText>} />
+              ) : null}
             </div>
 
             {entry.meta && Object.keys(entry.meta).length > 0 ? (
               <div>
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Details</p>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t('audit.detail.details')}
+                </p>
                 <pre className="max-h-64 overflow-auto rounded-xl border border-border bg-surface-muted/50 p-3 text-xs">
                   {JSON.stringify(entry.meta, null, 2)}
                 </pre>
@@ -216,7 +238,9 @@ function AuditDetailDrawer({ entry, onClose }: { entry: AuditEntryDTO | null; on
 
             {entry.link ? (
               <Button asChild variant="outline" className="w-full">
-                <Link href={entry.link}><ExternalLink className="h-4 w-4" /> Open related record</Link>
+                <Link href={entry.link}>
+                  <ExternalLink className="h-4 w-4" /> {t('audit.detail.openRelated')}
+                </Link>
               </Button>
             ) : null}
           </div>
@@ -226,7 +250,7 @@ function AuditDetailDrawer({ entry, onClose }: { entry: AuditEntryDTO | null; on
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-2 last:border-0">
       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>

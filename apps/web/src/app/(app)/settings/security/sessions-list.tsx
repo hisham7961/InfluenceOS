@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
   LogOut,
@@ -35,10 +36,6 @@ const SESSIONS_KEY = ['auth', 'sessions'] as const;
 
 type Confirm = { kind: 'one'; session: DeviceSessionDTO } | { kind: 'all' } | null;
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
-}
-
 function clientIcon(session: DeviceSessionDTO): LucideIcon {
   const s = `${session.client} ${session.deviceName ?? ''}`.toLowerCase();
   return /ios|android|iphone|ipad|mobile|phone|tablet/.test(s) ? Smartphone : Monitor;
@@ -55,6 +52,12 @@ function sessionLabel(session: DeviceSessionDTO): string {
  * "revoke all other sessions" simply loops `revokeSession` over the rest.
  */
 export function SessionsList() {
+  const t = useTranslations('settings');
+  const tCommon = useTranslations('common');
+  const errorMessage = React.useCallback(
+    (e: unknown) => (e instanceof ApiError ? e.message : t('security.sessions.errorGeneric')),
+    [t],
+  );
   const queryClient = useQueryClient();
   const [confirm, setConfirm] = React.useState<Confirm>(null);
 
@@ -76,7 +79,7 @@ export function SessionsList() {
   const revokeOne = useMutation({
     mutationFn: (id: string) => api.auth.revokeSession(id),
     onSuccess: () => {
-      toast.success('Session revoked.');
+      toast.success(t('security.sessions.toastRevoked'));
       setConfirm(null);
       queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
     },
@@ -91,7 +94,7 @@ export function SessionsList() {
       }
     },
     onSuccess: () => {
-      toast.success('Signed out of all other sessions.');
+      toast.success(t('security.sessions.toastRevokedAll'));
       setConfirm(null);
       queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
     },
@@ -110,12 +113,12 @@ export function SessionsList() {
     return (
       <EmptyState
         icon={ShieldAlert}
-        title="Couldn't load sessions"
+        title={t('security.sessions.loadErrorTitle')}
         description={errorMessage(query.error)}
         action={
           <Button variant="outline" onClick={() => query.refetch()}>
             <RefreshCcw className="h-4 w-4" />
-            Try again
+            {t('security.sessions.tryAgain')}
           </Button>
         }
       />
@@ -127,11 +130,9 @@ export function SessionsList() {
       <CardHeader className="flex-row flex-wrap items-start justify-between gap-3 space-y-0">
         <div className="space-y-1">
           <CardTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4" /> Active sessions
+            <ShieldCheck className="h-4 w-4" /> {t('security.sessions.title')}
           </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Devices currently signed in to your account. Revoke any you don&apos;t recognise.
-          </p>
+          <p className="text-sm text-muted-foreground">{t('security.sessions.description')}</p>
         </div>
         <Button
           variant="outline"
@@ -140,13 +141,13 @@ export function SessionsList() {
           onClick={() => setConfirm({ kind: 'all' })}
         >
           <LogOut className="h-3.5 w-3.5" />
-          Revoke all other sessions
+          {t('security.sessions.revokeAll')}
         </Button>
       </CardHeader>
 
       <CardContent className="pt-0">
         {sessions.length === 0 ? (
-          <p className="py-4 text-sm text-muted-foreground">No active sessions found.</p>
+          <p className="py-4 text-sm text-muted-foreground">{t('security.sessions.noSessions')}</p>
         ) : (
           <div className="divide-y divide-border">
             {sessions.map((session) => {
@@ -162,7 +163,7 @@ export function SessionsList() {
                       {session.current ? (
                         <Badge tone="success" className="gap-1">
                           <ShieldCheck className="h-3 w-3" />
-                          This device
+                          {t('security.sessions.thisDevice')}
                         </Badge>
                       ) : null}
                     </div>
@@ -171,8 +172,10 @@ export function SessionsList() {
                       {session.appVersion ? ` · v${session.appVersion}` : ''}
                     </p>
                     <p className="text-xs text-muted-foreground" title={dateTime(session.lastActiveAt)}>
-                      Last active {relativeTime(session.lastActiveAt)} · Signed in{' '}
-                      {shortDate(session.createdAt)}
+                      {t('security.sessions.lastActiveLine', {
+                        relative: relativeTime(session.lastActiveAt),
+                        date: shortDate(session.createdAt),
+                      })}
                     </p>
                   </div>
                   {session.current ? null : (
@@ -183,7 +186,7 @@ export function SessionsList() {
                       disabled={pending}
                       onClick={() => setConfirm({ kind: 'one', session })}
                     >
-                      Revoke session
+                      {t('security.sessions.revokeOne')}
                     </Button>
                   )}
                 </div>
@@ -198,24 +201,22 @@ export function SessionsList() {
           {confirm?.kind === 'all' ? (
             <>
               <DialogHeader>
-                <DialogTitle>Revoke all other sessions?</DialogTitle>
+                <DialogTitle>{t('security.sessions.confirmAllTitle')}</DialogTitle>
                 <DialogDescription>
-                  This signs out {others.length} other{' '}
-                  {others.length === 1 ? 'device' : 'devices'}. Your current session stays active,
-                  and this can&apos;t be undone.
+                  {t('security.sessions.confirmAllDescription', { count: others.length })}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setConfirm(null)} disabled={pending}>
-                  Cancel
+                  {tCommon('cancel')}
                 </Button>
                 <Button variant="danger" onClick={() => revokeAll.mutate()} disabled={pending}>
                   {revokeAll.isPending ? (
                     <>
-                      <Spinner className="h-3.5 w-3.5 text-current" /> Revoking…
+                      <Spinner className="h-3.5 w-3.5 text-current" /> {t('security.sessions.revoking')}
                     </>
                   ) : (
-                    'Revoke all'
+                    t('security.sessions.revokeAllAction')
                   )}
                 </Button>
               </DialogFooter>
@@ -223,15 +224,14 @@ export function SessionsList() {
           ) : confirm?.kind === 'one' ? (
             <>
               <DialogHeader>
-                <DialogTitle>Revoke this session?</DialogTitle>
+                <DialogTitle>{t('security.sessions.confirmOneTitle')}</DialogTitle>
                 <DialogDescription>
-                  {sessionLabel(confirm.session)} will be signed out immediately. This can&apos;t be
-                  undone.
+                  {t('security.sessions.confirmOneDescription', { device: sessionLabel(confirm.session) })}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setConfirm(null)} disabled={pending}>
-                  Cancel
+                  {tCommon('cancel')}
                 </Button>
                 <Button
                   variant="danger"
@@ -240,10 +240,10 @@ export function SessionsList() {
                 >
                   {revokeOne.isPending ? (
                     <>
-                      <Spinner className="h-3.5 w-3.5 text-current" /> Revoking…
+                      <Spinner className="h-3.5 w-3.5 text-current" /> {t('security.sessions.revoking')}
                     </>
                   ) : (
-                    'Revoke'
+                    t('security.sessions.revokeAction')
                   )}
                 </Button>
               </DialogFooter>

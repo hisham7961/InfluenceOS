@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { ArrowLeft, Mail, MapPin, MessageCircle, Phone, Tag } from 'lucide-react';
 import type { InfluencerDetailDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
@@ -10,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { StatCard } from '@/components/ui/stat-card';
 import { Avatar } from '@/components/ui/avatar';
 import { AudienceHealthBadge, RelationshipStatusBadge } from '@/components/ui/status-badges';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { formatCompact, formatCurrency } from '@/lib/format';
 import { ProfileTabs } from './profile-tabs';
 import { CreatorConnections } from './creator-connections';
@@ -26,6 +28,8 @@ function waHref(raw: string): string {
 
 export default async function InfluencerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const t = await getTranslations('influencers');
+  const tc = await getTranslations('common');
   const api = getServerApi();
 
   let influencer: InfluencerDetailDTO;
@@ -54,7 +58,7 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
         href="/influencers"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft className="h-3.5 w-3.5" /> Back to Influencers
+        <ArrowLeft className="h-3.5 w-3.5" /> {t('detail.backToInfluencers')}
       </Link>
 
       {/* Hero header */}
@@ -64,13 +68,17 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
 
           <div className="min-w-0 flex-1 space-y-3">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-2xl font-bold tracking-tight">{influencer.displayName}</h1>
+              <h1 className="text-2xl font-bold tracking-tight">
+                <BidiText>{influencer.displayName}</BidiText>
+              </h1>
               <RelationshipStatusBadge status={influencer.relationshipStatus} />
               <AudienceHealthBadge status={influencer.audienceHealth} />
             </div>
 
             {influencer.primaryUsername ? (
-              <p className="text-sm text-muted-foreground">@{influencer.primaryUsername}</p>
+              <p className="text-sm text-muted-foreground">
+                <LtrText>@{influencer.primaryUsername}</LtrText>
+              </p>
             ) : null}
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
@@ -87,7 +95,9 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
                   {influencer.category}
                 </span>
               ) : null}
-              {contact.managerName ? <span>Managed by {contact.managerName}</span> : null}
+              {contact.managerName ? (
+                <span>{t('detail.managedBy', { name: contact.managerName })}</span>
+              ) : null}
             </div>
 
             {influencer.tags.length > 0 ? (
@@ -106,25 +116,25 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
             {contact.whatsapp ? (
               <Button asChild variant="secondary" size="sm">
                 <a href={waHref(contact.whatsapp)} target="_blank" rel="noreferrer">
-                  <MessageCircle /> WhatsApp
+                  <MessageCircle /> {t('detail.whatsappButton')}
                 </a>
               </Button>
             ) : null}
             {contact.email ? (
               <Button asChild variant="secondary" size="sm">
                 <a href={`mailto:${contact.email}`}>
-                  <Mail /> Email
+                  <Mail /> {t('detail.emailButton')}
                 </a>
               </Button>
             ) : null}
             {contact.mobile ? (
               <Button asChild variant="secondary" size="sm">
                 <a href={`tel:${contact.mobile}`}>
-                  <Phone /> Call
+                  <Phone /> {t('detail.callButton')}
                 </a>
               </Button>
             ) : null}
-            {!hasContact ? <p className="text-xs text-muted-foreground">No contact info on file</p> : null}
+            {!hasContact ? <p className="text-xs text-muted-foreground">{t('detail.noContactInfo')}</p> : null}
           </div>
         </CardContent>
       </Card>
@@ -132,26 +142,32 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
       {/* Stat row — iconName (not icon) for the RSC boundary. */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
-          label="Total Followers"
+          label={t('detail.stats.totalFollowers')}
           value={influencer.totalFollowers}
           iconName="users"
           tone="info"
-          formatted={influencer.totalFollowers != null ? formatCompact(influencer.totalFollowers) : 'N/A'}
+          formatted={influencer.totalFollowers != null ? formatCompact(influencer.totalFollowers) : tc('na')}
         />
-        <StatCard label="Campaigns" value={history.campaignCount} iconName="megaphone" tone="accent" hint={`${influencer.activeCampaigns} active now`} />
         <StatCard
-          label="Average Rate"
+          label={t('detail.stats.campaigns')}
+          value={history.campaignCount}
+          iconName="megaphone"
+          tone="accent"
+          hint={t('detail.stats.activeNow', { count: influencer.activeCampaigns })}
+        />
+        <StatCard
+          label={t('detail.stats.averageRate')}
           value={history.averageRate}
           iconName="wallet"
           tone="warning"
-          formatted={history.averageRate != null ? formatCurrency(history.averageRate) : 'N/A'}
+          formatted={history.averageRate != null ? formatCurrency(history.averageRate) : tc('na')}
         />
         <StatCard
-          label="Deliverables Published"
+          label={t('detail.stats.deliverablesPublished')}
           value={history.deliverablesPublished}
           iconName="deliverables"
           tone="success"
-          hint={`of ${history.deliverablesTotal} total`}
+          hint={t('detail.stats.ofTotal', { count: history.deliverablesTotal })}
         />
       </div>
 

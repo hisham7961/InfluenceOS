@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { AlertTriangle, Globe2 } from 'lucide-react';
 import { countryName } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
@@ -23,6 +24,8 @@ export function LogisticsCountryStrip({
   selected: string;
   onSelect: (countryCode: string) => void;
 }) {
+  const t = useTranslations('logistics');
+  const tc = useTranslations('common');
   const query = useQuery({
     queryKey: ['logistics-summary', filters],
     queryFn: () => api.shipments.summary(filters),
@@ -44,10 +47,10 @@ export function LogisticsCountryStrip({
   if (rows.length === 0) return null;
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Filter by destination country">
+    <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label={t('countryStrip.filterAriaLabel')}>
       <Chip
         icon={<Globe2 className="h-3.5 w-3.5" />}
-        label="All countries"
+        label={tc('allCountries')}
         total={totalAll}
         attention={attentionAll}
         active={selected === ''}
@@ -56,7 +59,7 @@ export function LogisticsCountryStrip({
       {rows.map((r) => (
         <Chip
           key={r.countryCode ?? '__none__'}
-          label={r.countryName ?? countryName(r.countryCode) ?? 'Unknown'}
+          label={r.countryName ?? countryName(r.countryCode) ?? tc('unknown')}
           code={r.countryCode}
           total={r.total}
           attention={r.needsAttention}

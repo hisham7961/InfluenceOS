@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Bookmark, BookmarkCheck, Check, Undo2 } from 'lucide-react';
 import type { PublishedContentDTO } from '@influenceos/contracts';
 import { useContentReview } from '@/components/content/use-content-review';
@@ -20,6 +21,7 @@ import { Button } from '@/components/ui/button';
  */
 export function ContentReviewBar({ content }: { content: PublishedContentDTO }) {
   const router = useRouter();
+  const t = useTranslations('content');
   const { state, markSeen, setReviewed, setReviewLater } = useContentReview(content);
 
   React.useEffect(() => {
@@ -44,11 +46,11 @@ export function ContentReviewBar({ content }: { content: PublishedContentDTO }) 
     <div className="flex flex-wrap items-center gap-2">
       <Button type="button" variant={isReviewed ? 'secondary' : 'outline'} size="sm" onClick={toggleReviewed}>
         {isReviewed ? <Undo2 className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
-        {isReviewed ? 'Mark Unreviewed' : 'Mark Reviewed'}
+        {isReviewed ? t('reviewMode.markUnreviewed') : t('reviewMode.markReviewed')}
       </Button>
       <Button type="button" variant={isSavedForLater ? 'secondary' : 'outline'} size="sm" onClick={toggleReviewLater}>
         {isSavedForLater ? <BookmarkCheck className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
-        {isSavedForLater ? 'Saved for later' : 'Review Later'}
+        {isSavedForLater ? t('reviewMode.savedForLater') : t('reviewMode.reviewLater')}
       </Button>
     </div>
   );

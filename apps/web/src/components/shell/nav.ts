@@ -18,49 +18,51 @@ import {
 
 export interface NavItem {
   href: string;
-  label: string;
+  /** Key into the `nav` message namespace — resolved with `useTranslations('nav')` by the consuming component. */
+  labelKey: string;
   icon: LucideIcon;
   exact?: boolean;
 }
 
 export interface NavSection {
-  /** Section heading; omitted for the top (dashboard) group. */
-  label?: string;
+  /** Key into the `nav` message namespace for the section heading; omitted for the top (dashboard) group. */
+  labelKey?: string;
   items: NavItem[];
 }
 
 // Grouped navigation (W5-5 / UX-11) — related destinations sit together so the
-// sidebar reads as an information architecture, not a flat list.
+// sidebar reads as an information architecture, not a flat list. Labels are
+// translation keys, not literal text — see docs/localization/README.md.
 export const NAV_SECTIONS: NavSection[] = [
   {
-    items: [{ href: '/', label: 'Mission Control', icon: LayoutDashboard, exact: true }],
+    items: [{ href: '/', labelKey: 'missionControl', icon: LayoutDashboard, exact: true }],
   },
   {
-    label: 'Workspace',
+    labelKey: 'workspace',
     items: [
-      { href: '/brands', label: 'Brands', icon: Store },
-      { href: '/influencers', label: 'Influencers', icon: Users },
-      { href: '/campaigns', label: 'Campaigns', icon: Megaphone },
-      { href: '/content', label: 'Live Content', icon: PlaySquare },
-      { href: '/calendar', label: 'Calendar', icon: CalendarDays },
-      { href: '/logistics', label: 'Logistics', icon: Package },
-      { href: '/inspiration', label: 'Inspiration', icon: Lightbulb },
-      { href: '/team', label: 'Team', icon: MessagesSquare },
+      { href: '/brands', labelKey: 'brands', icon: Store },
+      { href: '/influencers', labelKey: 'influencers', icon: Users },
+      { href: '/campaigns', labelKey: 'campaigns', icon: Megaphone },
+      { href: '/content', labelKey: 'liveContent', icon: PlaySquare },
+      { href: '/calendar', labelKey: 'calendar', icon: CalendarDays },
+      { href: '/logistics', labelKey: 'logistics', icon: Package },
+      { href: '/inspiration', labelKey: 'inspiration', icon: Lightbulb },
+      { href: '/team', labelKey: 'team', icon: MessagesSquare },
     ],
   },
   {
-    label: 'Insights',
+    labelKey: 'insights',
     items: [
-      { href: '/exec', label: 'Executive', icon: Gauge },
-      { href: '/reports', label: 'Reports', icon: Sparkles },
-      { href: '/data-quality', label: 'Data Quality', icon: ShieldAlert },
+      { href: '/exec', labelKey: 'executive', icon: Gauge },
+      { href: '/reports', labelKey: 'reports', icon: Sparkles },
+      { href: '/data-quality', labelKey: 'dataQuality', icon: ShieldAlert },
     ],
   },
   {
-    label: 'Account',
+    labelKey: 'account',
     items: [
-      { href: '/notifications', label: 'Notifications', icon: Bell },
-      { href: '/settings', label: 'Settings', icon: Settings },
+      { href: '/notifications', labelKey: 'notifications', icon: Bell },
+      { href: '/settings', labelKey: 'settings', icon: Settings },
     ],
   },
 ];

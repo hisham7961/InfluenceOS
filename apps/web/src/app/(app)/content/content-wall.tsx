@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import {
   Eye,
@@ -23,7 +24,6 @@ import type { BrandSummaryDTO, CampaignSummaryDTO, CursorPage, InfluencerSummary
 import {
   CONTENT_ASSOCIATION_STATUS_LABELS,
   CONTENT_STATUSES,
-  CONTENT_STATUS_LABELS,
   PLATFORMS,
   PLATFORM_META,
   type ContentAssociationStatus,
@@ -33,6 +33,7 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api-browser';
 import { cn } from '@/lib/cn';
 import { formatCompact, relativeTime } from '@/lib/format';
+import { enumLabel } from '@/lib/enum-labels';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,6 +44,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { PlatformBadge } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { DataSourceBadge } from '@/components/ui/provenance';
+import { BidiText } from '@/components/common/bidi-text';
 import { ContentGrid } from '@/components/content/content-grid';
 import { ContentMasonry } from '@/components/content/content-masonry';
 import { ContentTimeline } from '@/components/content/content-timeline';
@@ -120,6 +122,9 @@ export function ContentWall({
   influencers: InfluencerSummaryDTO[];
   initialLayout?: string | null;
 }) {
+  const t = useTranslations('content');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const [filters, setFilters] = React.useState<WallFilters>(EMPTY_FILTERS);
   const [searchInput, setSearchInput] = React.useState('');
   const [layout, setLayoutState] = React.useState<Layout>(
@@ -235,8 +240,9 @@ export function ContentWall({
 
   React.useEffect(() => {
     if (query.error) {
-      toast.error(query.error instanceof ApiError ? query.error.message : 'Could not load the content wall.');
+      toast.error(query.error instanceof ApiError ? query.error.message : t('feed.loadError'));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.error]);
 
   function resetFilters() {
@@ -317,7 +323,7 @@ export function ContentWall({
       {pendingNewCount > 0 ? (
         <div className="flex items-center justify-center">
           <Button variant="secondary" size="sm" onClick={showNewContent} className="gap-1.5">
-            <Sparkles className="h-3.5 w-3.5" /> {pendingNewCount} new {pendingNewCount === 1 ? 'item' : 'items'} — Show new content
+            <Sparkles className="h-3.5 w-3.5" /> {t('feed.newBanner', { count: pendingNewCount })}
           </Button>
         </div>
       ) : null}
@@ -327,16 +333,12 @@ export function ContentWall({
       ) : displayItems.length === 0 ? (
         <EmptyState
           icon={PlaySquare}
-          title={hasActiveFilters ? 'No content matches your filters' : 'Nothing live yet'}
-          description={
-            hasActiveFilters
-              ? 'Try a different search term or clear your filters to see the full wall.'
-              : 'Published influencer content will surface here the moment it goes live.'
-          }
+          title={hasActiveFilters ? t('feed.emptyFilteredTitle') : t('feed.emptyTitle')}
+          description={hasActiveFilters ? t('feed.emptyFilteredDescription') : t('feed.emptyDescription')}
           action={
             hasActiveFilters ? (
               <Button variant="outline" onClick={resetFilters}>
-                Clear filters
+                {tCommon('clearFilters')}
               </Button>
             ) : undefined
           }
@@ -362,7 +364,7 @@ export function ContentWall({
       {displayItems.length > 0 && query.hasNextPage && layout !== 'brand' ? (
         <div className="flex justify-center pt-2">
           <Button variant="outline" onClick={() => query.fetchNextPage()} disabled={query.isFetchingNextPage}>
-            {query.isFetchingNextPage ? 'Loading…' : 'Load more'}
+            {query.isFetchingNextPage ? tCommon('loading') : t('feed.loadMore')}
           </Button>
         </div>
       ) : null}
@@ -371,18 +373,21 @@ export function ContentWall({
 }
 
 function DailySummaryStrip({ summary }: { summary: NonNullable<ReturnType<typeof useQuery<import('@influenceos/contracts').ContentSummaryDTO>>['data']> }) {
+  const t = useTranslations('content');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const { today } = summary;
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm shadow-card">
       <span className="flex items-center gap-1.5 font-semibold text-foreground">
-        <CalendarDays className="h-4 w-4 text-brand" /> Today
+        <CalendarDays className="h-4 w-4 text-brand" /> {tCommon('today')}
       </span>
-      <SummaryStat label="content" value={today.total} />
-      <SummaryStat label="new" value={today.new} />
-      <SummaryStat label="seen" value={today.seen} />
-      <SummaryStat label="reviewed" value={today.reviewed} />
-      {today.alerts > 0 ? <SummaryStat label="alerts" value={today.alerts} tone="danger" /> : null}
-      <SummaryStat label={today.brandsActive === 1 ? 'brand active' : 'brands active'} value={today.brandsActive} />
+      <SummaryStat label={t('feed.summary.content')} value={today.total} />
+      <SummaryStat label={enumLabel(tEnums, 'contentReviewStatus', 'NEW')} value={today.new} />
+      <SummaryStat label={enumLabel(tEnums, 'contentReviewStatus', 'SEEN')} value={today.seen} />
+      <SummaryStat label={enumLabel(tEnums, 'contentReviewStatus', 'REVIEWED')} value={today.reviewed} />
+      {today.alerts > 0 ? <SummaryStat label={t('feed.summary.alerts')} value={today.alerts} tone="danger" /> : null}
+      <SummaryStat label={t('feed.summary.brandsActive')} value={today.brandsActive} />
     </div>
   );
 }
@@ -402,11 +407,16 @@ function BrandOverview({
   brands: import('@influenceos/contracts').BrandContentSummaryDTO[];
   onOpenBrand: (brandId: string) => void;
 }) {
+  const t = useTranslations('content');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const active = brands.filter((b) => b.today > 0 || b.new > 0).sort((a, b) => b.today - a.today || b.new - a.new);
   const quiet = brands.filter((b) => !(b.today > 0 || b.new > 0));
 
   if (brands.length === 0) {
-    return <EmptyState icon={Building2} title="No brands in view" description="Brand-level content stats will appear here." />;
+    return (
+      <EmptyState icon={Building2} title={t('feed.brandOverview.emptyTitle')} description={t('feed.brandOverview.emptyDescription')} />
+    );
   }
 
   return (
@@ -428,20 +438,23 @@ function BrandOverview({
                 {brand.brandName.slice(0, 2).toUpperCase()}
               </div>
             )}
-            <span className="truncate font-semibold text-foreground">{brand.brandName}</span>
+            <span className="truncate font-semibold text-foreground">
+              <BidiText>{brand.brandName}</BidiText>
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span>
-              <span className="font-semibold text-foreground">{brand.today}</span> today
+              <span className="font-semibold text-foreground">{brand.today}</span> {tCommon('today')}
             </span>
             {brand.new > 0 ? (
               <span>
-                <span className="font-semibold text-brand">{brand.new}</span> new
+                <span className="font-semibold text-brand">{brand.new}</span>{' '}
+                {enumLabel(tEnums, 'contentReviewStatus', 'NEW')}
               </span>
             ) : null}
             {brand.alerts > 0 ? (
               <span className="text-danger">
-                <span className="font-semibold">{brand.alerts}</span> alert{brand.alerts === 1 ? '' : 's'}
+                <span className="font-semibold">{brand.alerts}</span> {t('feed.summary.alerts')}
               </span>
             ) : null}
           </div>
@@ -478,6 +491,9 @@ function FilterBar({
   onLayoutChange: (layout: Layout) => void;
   resultCount: number;
 }) {
+  const t = useTranslations('content');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-card lg:flex-row lg:items-center">
       <div className="relative flex-1 lg:max-w-xs">
@@ -485,8 +501,8 @@ function FilterBar({
         <Input
           value={searchInput}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search caption or creator…"
-          aria-label="Search content"
+          placeholder={t('feed.filterBar.searchPlaceholder')}
+          aria-label={t('feed.filterBar.searchAriaLabel')}
           className="pl-9"
         />
       </div>
@@ -494,10 +510,10 @@ function FilterBar({
       <div className="flex flex-1 flex-wrap items-center gap-3">
         <Select value={filters.brandId || ALL} onValueChange={(value) => onFilterChange({ brandId: value === ALL ? '' : value })}>
           <SelectTrigger className="h-10 w-full sm:w-40">
-            <SelectValue placeholder="Brand" />
+            <SelectValue placeholder={t('feed.filterBar.brand')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All brands</SelectItem>
+            <SelectItem value={ALL}>{tCommon('allBrands')}</SelectItem>
             {brands.map((brand) => (
               <SelectItem key={brand.id} value={brand.id}>
                 {brand.name}
@@ -508,10 +524,10 @@ function FilterBar({
 
         <Select value={filters.platform || ALL} onValueChange={(value) => onFilterChange({ platform: value === ALL ? '' : value })}>
           <SelectTrigger className="h-10 w-full sm:w-40">
-            <SelectValue placeholder="Platform" />
+            <SelectValue placeholder={t('feed.filterBar.platform')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All platforms</SelectItem>
+            <SelectItem value={ALL}>{t('feed.filterBar.allPlatforms')}</SelectItem>
             {PLATFORMS.map((platform) => (
               <SelectItem key={platform} value={platform}>
                 {PLATFORM_META[platform].label}
@@ -522,13 +538,13 @@ function FilterBar({
 
         <Select value={filters.status || ALL} onValueChange={(value) => onFilterChange({ status: value === ALL ? '' : value })}>
           <SelectTrigger className="h-10 w-full sm:w-40">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder={tCommon('status')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All statuses</SelectItem>
+            <SelectItem value={ALL}>{t('feed.filterBar.allStatuses')}</SelectItem>
             {CONTENT_STATUSES.map((status) => (
               <SelectItem key={status} value={status}>
-                {CONTENT_STATUS_LABELS[status]}
+                {enumLabel(tEnums, 'contentStatus', status)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -539,10 +555,10 @@ function FilterBar({
           onValueChange={(value) => onFilterChange({ campaignId: value === ALL ? '' : value })}
         >
           <SelectTrigger className="h-10 w-full sm:w-40">
-            <SelectValue placeholder="Campaign" />
+            <SelectValue placeholder={t('feed.filterBar.campaign')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All campaigns</SelectItem>
+            <SelectItem value={ALL}>{t('feed.filterBar.allCampaigns')}</SelectItem>
             {campaigns.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.brand.name} · {c.name}
@@ -556,13 +572,13 @@ function FilterBar({
           onValueChange={(value) => onFilterChange({ influencerId: value === ALL ? '' : value })}
         >
           <SelectTrigger className="h-10 w-full sm:w-40">
-            <SelectValue placeholder="Influencer" />
+            <SelectValue placeholder={t('feed.filterBar.influencer')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All influencers</SelectItem>
+            <SelectItem value={ALL}>{t('feed.filterBar.allInfluencers')}</SelectItem>
             {influencers.map((inf) => (
               <SelectItem key={inf.id} value={inf.id}>
-                {inf.displayName}
+                <BidiText>{inf.displayName}</BidiText>
               </SelectItem>
             ))}
           </SelectContent>
@@ -575,13 +591,13 @@ function FilterBar({
           }
         >
           <SelectTrigger className="h-10 w-full sm:w-44">
-            <SelectValue placeholder="Assignment" />
+            <SelectValue placeholder={t('feed.filterBar.assignment')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All content</SelectItem>
+            <SelectItem value={ALL}>{t('feed.filterBar.allContent')}</SelectItem>
             {(Object.keys(CONTENT_ASSOCIATION_STATUS_LABELS) as ContentAssociationStatus[]).map((s) => (
               <SelectItem key={s} value={s}>
-                {CONTENT_ASSOCIATION_STATUS_LABELS[s]}
+                {enumLabel(tEnums, 'contentAssociationStatus', s)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -589,31 +605,31 @@ function FilterBar({
 
         {hasActiveFilters ? (
           <Button type="button" variant="ghost" size="sm" onClick={onReset} className="text-muted-foreground">
-            <X className="h-3.5 w-3.5" /> Reset
+            <X className="h-3.5 w-3.5" /> {t('feed.filterBar.reset')}
           </Button>
         ) : null}
 
         <span className="text-xs text-muted-foreground lg:ms-auto">
-          {resultCount} loaded
+          {t('feed.filterBar.resultsLoaded', { count: resultCount })}
         </span>
       </div>
 
       <Tabs value={layout} onValueChange={(value) => onLayoutChange(value as Layout)}>
         <TabsList className="flex-wrap">
-          <TabsTrigger value="timeline" aria-label="Timeline layout">
-            <CalendarDays className="h-4 w-4" /> Timeline
+          <TabsTrigger value="timeline" aria-label={t('feed.layouts.timelineAria')}>
+            <CalendarDays className="h-4 w-4" /> {t('feed.layouts.timeline')}
           </TabsTrigger>
-          <TabsTrigger value="brand" aria-label="By Brand layout">
-            <Building2 className="h-4 w-4" /> By Brand
+          <TabsTrigger value="brand" aria-label={t('feed.layouts.byBrandAria')}>
+            <Building2 className="h-4 w-4" /> {t('feed.layouts.byBrand')}
           </TabsTrigger>
-          <TabsTrigger value="grid" aria-label="Grid layout">
-            <LayoutGrid className="h-4 w-4" /> Grid
+          <TabsTrigger value="grid" aria-label={t('feed.layouts.gridAria')}>
+            <LayoutGrid className="h-4 w-4" /> {t('feed.layouts.grid')}
           </TabsTrigger>
-          <TabsTrigger value="masonry" aria-label="Masonry layout">
-            <LayoutPanelTop className="h-4 w-4" /> Masonry
+          <TabsTrigger value="masonry" aria-label={t('feed.layouts.masonryAria')}>
+            <LayoutPanelTop className="h-4 w-4" /> {t('feed.layouts.masonry')}
           </TabsTrigger>
-          <TabsTrigger value="feed" aria-label="Feed layout">
-            <Rows3 className="h-4 w-4" /> Feed
+          <TabsTrigger value="feed" aria-label={t('feed.layouts.feedAria')}>
+            <Rows3 className="h-4 w-4" /> {t('feed.layouts.feed')}
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -673,19 +689,23 @@ function FeedLayout({ items }: { items: PublishedContentDTO[] }) {
 }
 
 function FeedCard({ content }: { content: PublishedContentDTO }) {
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const m = content.metrics;
 
   return (
     <article className="overflow-hidden rounded-3xl border border-border bg-card shadow-card transition-shadow hover:shadow-pop">
       <div className="flex items-center gap-3 p-4">
-        <Avatar name={content.influencer?.displayName ?? 'Unknown'} src={content.influencer?.avatarUrl} size="md" />
+        <Avatar name={content.influencer?.displayName ?? tCommon('unknown')} src={content.influencer?.avatarUrl} size="md" />
         <div className="min-w-0 flex-1">
           {content.influencer ? (
             <Link href={`/influencers/${content.influencer.id}`} className="truncate font-semibold hover:underline">
-              {content.influencer.displayName}
+              <BidiText>{content.influencer.displayName}</BidiText>
             </Link>
           ) : (
-            <p className="truncate font-semibold text-muted-foreground">Unassigned</p>
+            <p className="truncate font-semibold text-muted-foreground">
+              {enumLabel(tEnums, 'contentAssociationStatus', 'UNASSIGNED')}
+            </p>
           )}
           <p className="truncate text-xs text-muted-foreground">
             {content.brand?.name ?? '—'}
@@ -719,7 +739,7 @@ function FeedCard({ content }: { content: PublishedContentDTO }) {
             rel="noopener noreferrer"
             className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            Open original <ExternalLink className="h-3.5 w-3.5" />
+            {tCommon('openOriginal')} <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </div>
       </div>
@@ -734,10 +754,11 @@ function FeedMetric({
   icon: React.ComponentType<{ className?: string }>;
   value: number | null | undefined;
 }) {
+  const tCommon = useTranslations('common');
   return (
     <span className={cn('flex items-center gap-1.5', value == null && 'opacity-50')}>
       <Icon className="h-4 w-4" />
-      {value == null ? 'N/A' : formatCompact(value)}
+      {value == null ? tCommon('na') : formatCompact(value)}
     </span>
   );
 }

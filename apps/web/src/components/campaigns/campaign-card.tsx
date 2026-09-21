@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { CalendarClock, Users } from 'lucide-react';
 import type { CampaignSummaryDTO } from '@influenceos/contracts';
 import { CampaignStatusBadge } from '@/components/ui/status-badges';
 import { ProgressBar } from '@/components/ui/progress';
 import { formatCurrency } from '@/lib/format';
+import { BidiText } from '@/components/common/bidi-text';
 
 export function CampaignCover({
   name,
@@ -35,7 +37,8 @@ export function CampaignCover({
   );
 }
 
-export function CampaignCard({ campaign }: { campaign: CampaignSummaryDTO }) {
+export async function CampaignCard({ campaign }: { campaign: CampaignSummaryDTO }) {
+  const t = await getTranslations('campaigns');
   const p = campaign.progress;
   return (
     <Link
@@ -51,17 +54,21 @@ export function CampaignCard({ campaign }: { campaign: CampaignSummaryDTO }) {
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-xs font-medium text-muted-foreground">{campaign.brand.name}</p>
-            <p className="truncate font-semibold">{campaign.name}</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              <BidiText>{campaign.brand.name}</BidiText>
+            </p>
+            <p className="truncate font-semibold">
+              <BidiText>{campaign.name}</BidiText>
+            </p>
           </div>
           <CampaignStatusBadge status={campaign.status} />
         </div>
 
         <div className="space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Deliverables</span>
+            <span>{t('card.deliverablesLabel')}</span>
             <span className="font-medium text-foreground">
-              {p.deliverablesPublished}/{p.deliverablesTotal} published
+              {t('card.deliverablesProgress', { published: p.deliverablesPublished, total: p.deliverablesTotal })}
             </span>
           </div>
           <ProgressBar value={p.deliverableCompletion} tone="brand" />
@@ -74,7 +81,7 @@ export function CampaignCard({ campaign }: { campaign: CampaignSummaryDTO }) {
           <span>{formatCurrency(p.spend, campaign.currency)}{p.plannedBudget ? ` / ${formatCurrency(p.plannedBudget, campaign.currency)}` : ''}</span>
           {p.daysRemaining != null && p.daysRemaining >= 0 ? (
             <span className="flex items-center gap-1">
-              <CalendarClock className="h-3.5 w-3.5" /> {p.daysRemaining}d
+              <CalendarClock className="h-3.5 w-3.5" /> {t('card.daysRemaining', { days: p.daysRemaining })}
             </span>
           ) : null}
         </div>

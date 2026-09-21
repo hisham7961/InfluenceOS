@@ -1,0 +1,50 @@
+{
+  "pageTitle": "Inspiration",
+  "pageDescription": "Trends, competitor moves, and reference material worth remembering.",
+  "none": "None",
+  "filters": {
+    "allCategories": "All categories",
+    "pinnedOnly": "Pinned"
+  },
+  "actions": {
+    "saveTrend": "Save trend"
+  },
+  "empty": {
+    "title": "Nothing saved yet",
+    "description": "Drop a link to a competitor ad, a trending format, or a technique worth remembering."
+  },
+  "addDialog": {
+    "title": "Save a trend or reference",
+    "linkLabel": "Link",
+    "linkPlaceholder": "https://…",
+    "titleLabel": "Title (optional)",
+    "titlePlaceholder": "What is it?",
+    "noteLabel": "Why it's interesting (optional)",
+    "categoryLabel": "Category",
+    "brandLabel": "Relevant brand (optional)",
+    "campaignLabel": "Relevant campaign (optional)",
+    "campaignHint": "Lets you later link this to a script in that campaign",
+    "tagsLabel": "Tags (comma-separated, optional)",
+    "tagsPlaceholder": "hook, skincare, before-after",
+    "savedToast": "Saved to Inspiration"
+  },
+  "detail": {
+    "untitled": "Untitled",
+    "savedBy": "Saved by <name>{value}</name>",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "discussion": "Discussion",
+    "noCommentsYet": "No comments yet",
+    "commentsEmptyDescription": "What could we borrow from this?",
+    "commentsComposerPlaceholder": "Add a thought… use @ to mention someone",
+    "removedToast": "Removed"
+  },
+  "script": {
+    "link": "Link a script",
+    "unlink": "Unlink",
+    "linkedFallback": "Linked script",
+    "noScriptsYet": "No scripts on this campaign yet.",
+    "linkedToast": "Script linked",
+    "unlinkedToast": "Script unlinked"
+  }
+}

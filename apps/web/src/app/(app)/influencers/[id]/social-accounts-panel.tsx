@@ -4,6 +4,7 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
   BadgeCheck,
@@ -43,6 +44,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { LtrText } from '@/components/common/bidi-text';
 import { formatCompact } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -54,8 +56,8 @@ const FollowerChart = dynamic(() => import('./follower-chart').then((m) => m.Fol
   loading: () => <Skeleton className="h-64 w-full rounded-2xl" />,
 });
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
 }
 
 function numeric(v: string): number | undefined {
@@ -78,6 +80,8 @@ function SocialAccountDialog({
   trigger: React.ReactNode;
   onSaved: () => void;
 }) {
+  const t = useTranslations('influencers');
+  const tc = useTranslations('common');
   const isEdit = Boolean(account);
   const [open, setOpen] = React.useState(false);
   const [platform, setPlatform] = React.useState<Platform>(account?.platform ?? 'INSTAGRAM');
@@ -122,11 +126,11 @@ function SocialAccountDialog({
         : api.influencers.addSocialAccount(influencerId, body);
     },
     onSuccess: () => {
-      toast.success(isEdit ? 'Social account updated.' : 'Social account added.');
+      toast.success(isEdit ? t('detail.socialAccounts.accountUpdatedToast') : t('detail.socialAccounts.accountAddedToast'));
       onSaved();
       setOpen(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, t('errors.generic'))),
   });
 
   return (
@@ -134,16 +138,18 @@ function SocialAccountDialog({
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Edit social account' : 'Add social account'}</DialogTitle>
+          <DialogTitle>
+            {isEdit ? t('detail.socialAccounts.dialog.editTitle') : t('detail.socialAccounts.dialog.addTitle')}
+          </DialogTitle>
           <DialogDescription>
             {isEdit
-              ? 'Update this platform profile.'
-              : 'Link a platform profile to track its growth and content.'}
+              ? t('detail.socialAccounts.dialog.editDescription')
+              : t('detail.socialAccounts.dialog.addDescription')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-          <Field label="Platform">
+          <Field label={t('detail.socialAccounts.dialog.platform')}>
             <Select value={platform} onValueChange={(v) => setPlatform(v as Platform)}>
               <SelectTrigger>
                 <SelectValue />
@@ -157,48 +163,48 @@ function SocialAccountDialog({
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Username" hint="Without the @">
-            <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="creator" />
+          <Field label={t('detail.socialAccounts.dialog.username')} hint={t('detail.socialAccounts.dialog.usernameHint')}>
+            <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={t('detail.socialAccounts.dialog.usernamePlaceholder')} />
           </Field>
 
-          <Field label="Display name" className="sm:col-span-2">
-            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Shown on the card" />
+          <Field label={t('detail.socialAccounts.dialog.displayName')} className="sm:col-span-2">
+            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={t('detail.socialAccounts.dialog.displayNamePlaceholder')} />
           </Field>
 
-          <Field label="Profile URL" hint="Optional" className="sm:col-span-2">
-            <Input value={profileUrl} onChange={(e) => setProfileUrl(e.target.value)} placeholder="https://…" />
+          <Field label={t('detail.socialAccounts.dialog.profileUrl')} hint={t('detail.socialAccounts.dialog.profileUrlHint')} className="sm:col-span-2">
+            <Input value={profileUrl} onChange={(e) => setProfileUrl(e.target.value)} placeholder={t('detail.socialAccounts.dialog.profileUrlPlaceholder')} />
           </Field>
 
-          <Field label="Followers">
+          <Field label={t('detail.socialAccounts.dialog.followers')}>
             <Input type="number" min={0} value={followers} onChange={(e) => setFollowers(e.target.value)} placeholder="0" />
           </Field>
-          <Field label="Following">
+          <Field label={t('detail.socialAccounts.dialog.following')}>
             <Input type="number" min={0} value={following} onChange={(e) => setFollowing(e.target.value)} placeholder="0" />
           </Field>
 
-          <Field label="Posts">
+          <Field label={t('detail.socialAccounts.dialog.posts')}>
             <Input type="number" min={0} value={postCount} onChange={(e) => setPostCount(e.target.value)} placeholder="0" />
           </Field>
 
           <div className="flex flex-col justify-center gap-3 sm:pt-1">
             <div className="flex items-center justify-between gap-2">
-              <Label>Verified</Label>
-              <Switch aria-label="Verified" checked={isVerified} onCheckedChange={setIsVerified} />
+              <Label>{t('detail.socialAccounts.dialog.verified')}</Label>
+              <Switch aria-label={t('detail.socialAccounts.dialog.verified')} checked={isVerified} onCheckedChange={setIsVerified} />
             </div>
             <div className="flex items-center justify-between gap-2">
-              <Label>Primary account</Label>
-              <Switch aria-label="Primary account" checked={isPrimary} onCheckedChange={setIsPrimary} />
+              <Label>{t('detail.socialAccounts.dialog.primaryAccount')}</Label>
+              <Switch aria-label={t('detail.socialAccounts.dialog.primaryAccount')} checked={isPrimary} onCheckedChange={setIsPrimary} />
             </div>
           </div>
         </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={save.isPending}>
-            Cancel
+            {tc('cancel')}
           </Button>
           <Button disabled={!username.trim() || save.isPending} onClick={() => save.mutate()}>
             {save.isPending ? <Spinner className="text-current" /> : <Check className="h-4 w-4" />}
-            {save.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Add account'}
+            {save.isPending ? tc('saving') : isEdit ? t('form.edit.saveChanges') : t('detail.socialAccounts.dialog.addAccountButton')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -215,24 +221,28 @@ function SocialAccountCard({
   account: SocialAccountDTO;
   onChanged: () => void;
 }) {
+  const t = useTranslations('influencers');
+  const tc = useTranslations('common');
   const sync = useMutation({
     mutationFn: () => api.socialAccounts.sync(account.id),
     onSuccess: (res) => {
-      toast.success(res.message || (res.synced ? 'Account synced' : 'Sync ran, nothing new'));
+      toast.success(
+        res.message || (res.synced ? t('detail.socialAccounts.syncedToast') : t('detail.socialAccounts.syncedNothingNewToast')),
+      );
       onChanged();
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, t('errors.generic'))),
   });
 
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const remove = useMutation({
     mutationFn: () => api.socialAccounts.remove(account.id),
     onSuccess: () => {
-      toast.success('Social account removed.');
+      toast.success(t('detail.socialAccounts.accountRemovedToast'));
       setConfirmOpen(false);
       onChanged();
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, t('errors.generic'))),
   });
 
   const delta = account.followerDelta7d;
@@ -246,13 +256,15 @@ function SocialAccountCard({
           <Avatar name={account.displayName ?? account.username} src={account.avatarUrl} size="sm" />
           <div className="min-w-0">
             <div className="flex items-center gap-1">
-              <p className="truncate text-sm font-semibold">@{account.username}</p>
+              <p className="truncate text-sm font-semibold">
+                <LtrText>@{account.username}</LtrText>
+              </p>
               {account.isVerified ? <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-info" /> : null}
             </div>
             <PlatformBadge platform={account.platform} size="sm" />
           </div>
         </div>
-        {account.isPrimary ? <Badge tone="accent">Primary</Badge> : null}
+        {account.isPrimary ? <Badge tone="accent">{t('detail.socialAccounts.primaryBadge')}</Badge> : null}
       </div>
 
       <div className="flex items-end justify-between">
@@ -260,13 +272,13 @@ function SocialAccountCard({
           <p className="text-2xl font-semibold tracking-tight">
             {account.followers != null ? formatCompact(account.followers) : '—'}
           </p>
-          <p className="text-xs text-muted-foreground">followers</p>
+          <p className="text-xs text-muted-foreground">{t('detail.socialAccounts.followersLabel')}</p>
         </div>
         {delta != null ? (
           <span className={cn('inline-flex items-center gap-0.5 text-xs font-medium', deltaTone)}>
             <DeltaIcon className="h-3.5 w-3.5" />
             {delta > 0 ? '+' : ''}
-            {formatCompact(delta)} · 7d
+            {formatCompact(delta)} · {t('detail.socialAccounts.sevenDaySuffix')}
           </span>
         ) : null}
       </div>
@@ -277,13 +289,13 @@ function SocialAccountCard({
         </ProvenanceTooltip>
         <div className="flex items-center gap-1">
           {account.profileUrl ? (
-            <Button asChild variant="ghost" size="icon-sm" title="Open profile">
+            <Button asChild variant="ghost" size="icon-sm" title={t('detail.socialAccounts.openProfile')}>
               <a href={account.profileUrl} target="_blank" rel="noreferrer">
                 <ExternalLink className="h-4 w-4" />
               </a>
             </Button>
           ) : null}
-          <Button variant="ghost" size="icon-sm" title="Sync now" disabled={sync.isPending} onClick={() => sync.mutate()}>
+          <Button variant="ghost" size="icon-sm" title={t('detail.socialAccounts.syncNow')} disabled={sync.isPending} onClick={() => sync.mutate()}>
             <RefreshCw className={cn('h-4 w-4', sync.isPending && 'animate-spin')} />
           </Button>
           <SocialAccountDialog
@@ -291,7 +303,7 @@ function SocialAccountCard({
             account={account}
             onSaved={onChanged}
             trigger={
-              <Button variant="ghost" size="icon-sm" title="Edit account">
+              <Button variant="ghost" size="icon-sm" title={t('detail.socialAccounts.editAccount')}>
                 <Pencil className="h-4 w-4" />
               </Button>
             }
@@ -299,7 +311,7 @@ function SocialAccountCard({
           <Button
             variant="ghost"
             size="icon-sm"
-            title="Remove account"
+            title={t('detail.socialAccounts.removeAccount')}
             disabled={remove.isPending}
             onClick={() => setConfirmOpen(true)}
           >
@@ -311,9 +323,12 @@ function SocialAccountCard({
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="Remove social account?"
-        description={`This removes @${account.username} on ${PLATFORM_META[account.platform].label}. This can't be undone.`}
-        confirmLabel="Remove"
+        title={t('detail.socialAccounts.removeConfirmTitle')}
+        description={t('detail.socialAccounts.removeConfirmDescription', {
+          username: account.username,
+          platform: PLATFORM_META[account.platform].label,
+        })}
+        confirmLabel={tc('remove')}
         loading={remove.isPending}
         onConfirm={() => remove.mutate()}
       />
@@ -330,6 +345,7 @@ export function SocialAccountsPanel({
   initialAccounts: SocialAccountDTO[];
 }) {
   const router = useRouter();
+  const t = useTranslations('influencers');
   const queryClient = useQueryClient();
 
   const accountsQuery = useQuery({
@@ -351,7 +367,7 @@ export function SocialAccountsPanel({
       onSaved={refresh}
       trigger={
         <Button size="sm">
-          <Plus className="h-4 w-4" /> Add social account
+          <Plus className="h-4 w-4" /> {t('detail.socialAccounts.addAccount')}
         </Button>
       }
     />
@@ -360,21 +376,21 @@ export function SocialAccountsPanel({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">Platforms this creator is active on.</p>
+        <p className="text-sm text-muted-foreground">{t('detail.socialAccounts.subtitle')}</p>
         {addButton}
       </div>
 
       {accounts.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="No social accounts linked"
-          description="Add a social profile to start tracking growth and content."
+          title={t('detail.socialAccounts.emptyTitle')}
+          description={t('detail.socialAccounts.emptyDescription')}
         />
       ) : (
         <>
           <Card>
             <CardHeader>
-              <CardTitle>Follower Growth</CardTitle>
+              <CardTitle>{t('detail.socialAccounts.followerGrowthTitle')}</CardTitle>
             </CardHeader>
             <CardContent>
               <FollowerChart influencerId={influencerId} accounts={accounts} />

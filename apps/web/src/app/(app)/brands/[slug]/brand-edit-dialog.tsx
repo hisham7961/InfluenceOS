@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Check, Pencil } from 'lucide-react';
@@ -22,8 +23,8 @@ import { Field, Input, Label, Textarea } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Spinner } from '@/components/ui/spinner';
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
 }
 
 /** Editable brand identity — a swatch + hex input, with a toggle for the optional colors. */
@@ -31,21 +32,24 @@ function ColorField({
   label,
   value,
   onChange,
-  optional = false,
+  toggleLabel,
+  notSetLabel,
 }: {
   label: string;
   value: string | null;
   onChange: (next: string | null) => void;
-  optional?: boolean;
+  /** Aria-label for the enable/disable switch — omit for the always-on primary color, which has no switch. */
+  toggleLabel?: string;
+  notSetLabel: string;
 }) {
   const enabled = value !== null;
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
         <Label>{label}</Label>
-        {optional ? (
+        {toggleLabel ? (
           <Switch
-            aria-label={`Use ${label.toLowerCase()}`}
+            aria-label={toggleLabel}
             checked={enabled}
             onCheckedChange={(on) => onChange(on ? '#6366F1' : null)}
           />
@@ -68,7 +72,7 @@ function ColorField({
           />
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground">Not set</p>
+        <p className="text-xs text-muted-foreground">{notSetLabel}</p>
       )}
     </div>
   );
@@ -78,6 +82,8 @@ function ColorField({
 export function BrandEditDialog({ brand }: { brand: BrandDetailDTO }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const t = useTranslations('brands');
+  const tc = useTranslations('common');
 
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState(brand.name);
@@ -115,12 +121,12 @@ export function BrandEditDialog({ brand }: { brand: BrandDetailDTO }) {
         isActive,
       }),
     onSuccess: (updated) => {
-      toast.success(`${updated.name} updated.`);
+      toast.success(t('edit.updated', { name: updated.name }));
       queryClient.invalidateQueries();
       router.refresh();
       setOpen(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tc('somethingWentWrong'))),
   });
 
   return (
@@ -131,60 +137,77 @@ export function BrandEditDialog({ brand }: { brand: BrandDetailDTO }) {
           variant="secondary"
           className="shrink-0 border-white/30 bg-white/15 text-white backdrop-blur hover:bg-white/25"
         >
-          <Pencil className="h-4 w-4" /> Edit brand
+          <Pencil className="h-4 w-4" /> {t('edit.title')}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit brand</DialogTitle>
-          <DialogDescription>Update the brand&apos;s details and identity colors.</DialogDescription>
+          <DialogTitle>{t('edit.title')}</DialogTitle>
+          <DialogDescription>{t('edit.dialogDescription')}</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4">
-          <Field label="Name">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Brand name" />
+          <Field label={t('edit.name')}>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('edit.namePlaceholder')} />
           </Field>
 
-          <Field label="Description">
+          <Field label={t('edit.description')}>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What does this brand do?"
+              placeholder={t('edit.descriptionPlaceholder')}
               rows={3}
             />
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <ColorField label="Primary color" value={primaryColor} onChange={(v) => setPrimaryColor(v ?? primaryColor)} />
-            <ColorField label="Secondary color" value={secondaryColor} onChange={setSecondaryColor} optional />
-            <ColorField label="Accent color" value={accentColor} onChange={setAccentColor} optional />
+            <ColorField
+              label={t('edit.primaryColor')}
+              value={primaryColor}
+              onChange={(v) => setPrimaryColor(v ?? primaryColor)}
+              notSetLabel={t('edit.colorNotSet')}
+            />
+            <ColorField
+              label={t('edit.secondaryColor')}
+              value={secondaryColor}
+              onChange={setSecondaryColor}
+              toggleLabel={t('edit.useSecondaryColor')}
+              notSetLabel={t('edit.colorNotSet')}
+            />
+            <ColorField
+              label={t('edit.accentColor')}
+              value={accentColor}
+              onChange={setAccentColor}
+              toggleLabel={t('edit.useAccentColor')}
+              notSetLabel={t('edit.colorNotSet')}
+            />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Logo URL" hint="Optional">
-              <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://…" />
+            <Field label={t('edit.logoUrl')} hint={t('edit.optional')}>
+              <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder={t('edit.urlPlaceholder')} />
             </Field>
-            <Field label="Cover URL" hint="Optional">
-              <Input value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} placeholder="https://…" />
+            <Field label={t('edit.coverUrl')} hint={t('edit.optional')}>
+              <Input value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} placeholder={t('edit.urlPlaceholder')} />
             </Field>
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-border bg-surface-muted/50 px-3 py-2.5">
             <div>
-              <Label>Active</Label>
-              <p className="text-xs text-muted-foreground">Inactive brands are hidden from active rosters.</p>
+              <Label>{t('status.active')}</Label>
+              <p className="text-xs text-muted-foreground">{t('edit.activeHint')}</p>
             </div>
-            <Switch aria-label="Active" checked={isActive} onCheckedChange={setIsActive} />
+            <Switch aria-label={t('status.active')} checked={isActive} onCheckedChange={setIsActive} />
           </div>
         </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={update.isPending}>
-            Cancel
+            {tc('cancel')}
           </Button>
           <Button disabled={!name.trim() || update.isPending} onClick={() => update.mutate()}>
             {update.isPending ? <Spinner className="text-current" /> : <Check className="h-4 w-4" />}
-            {update.isPending ? 'Saving…' : 'Save changes'}
+            {update.isPending ? tc('saving') : t('edit.saveChanges')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -18,16 +18,20 @@ import {
   UserCircle,
   Users,
 } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
   const api = getServerApi();
+  const t = await getTranslations('settings');
+  const tCommon = await getTranslations('common');
   const user = await api.auth.me();
   const isAdmin = user.role === 'ADMIN';
   const isDark = user.theme?.toLowerCase() === 'dark';
@@ -35,39 +39,38 @@ export default async function SettingsPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Settings"
-        description="Manage your profile, connected platforms, and workspace configuration."
-      />
+      <PageHeader title={t('hub.title')} description={t('hub.description')} />
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {/* General — profile identity, spans two columns */}
         <NavCard
           href="/settings/general"
           icon={UserCircle}
-          title="General"
-          description="Your profile, contact details, and account preferences."
+          title={t('hub.cards.general.title')}
+          description={t('hub.cards.general.description')}
           className="md:col-span-2"
         >
           <div className="mt-4 flex flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <Avatar name={user.name} src={user.avatarUrl} size="lg" />
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{user.name}</p>
+                <p className="truncate text-sm font-semibold">
+                  <BidiText>{user.name}</BidiText>
+                </p>
                 <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
                   <Mail className="h-3.5 w-3.5 shrink-0" />
-                  {user.email}
+                  <LtrText>{user.email}</LtrText>
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <Badge tone={isAdmin ? 'accent' : 'info'} className="gap-1">
                 <ShieldCheck className="h-3 w-3" />
-                {isAdmin ? 'Administrator' : 'Staff'}
+                {isAdmin ? tCommon('administrator') : tCommon('staff')}
               </Badge>
               <Badge tone="neutral" className="gap-1">
                 {isDark ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
-                {isDark ? 'Dark theme' : 'Light theme'}
+                {isDark ? t('hub.darkTheme') : t('hub.lightTheme')}
               </Badge>
               <Badge tone="neutral" className="gap-1">
                 <Languages className="h-3 w-3" />
@@ -80,38 +83,38 @@ export default async function SettingsPage() {
         <NavCard
           href="/settings/security"
           icon={KeyRound}
-          title="Security"
-          description="Change your password. Changing it signs you out of all sessions."
+          title={t('hub.cards.security.title')}
+          description={t('hub.cards.security.description')}
         />
 
         <NavCard
           href="/settings/setup"
           icon={ListChecks}
-          title="Setup Guide"
-          description="Everything that can be configured — infrastructure, storage, and every social integration — with its live status."
+          title={t('hub.cards.setup.title')}
+          description={t('hub.cards.setup.description')}
         />
 
         <NavCard
           href="/settings/integrations"
           icon={Plug}
-          title="Integrations"
-          description="Connect and manage social platforms, webhooks, and third-party tools."
+          title={t('hub.cards.integrations.title')}
+          description={t('hub.cards.integrations.description')}
         />
 
         <NavCard
           href="/settings/platform"
           icon={ServerCog}
-          title="Platform & API"
-          description="API endpoints, modules, app versions, and system status."
+          title={t('hub.cards.platform.title')}
+          description={t('hub.cards.platform.description')}
         />
 
         {isAdmin ? (
           <NavCard
             href="/settings/users"
             icon={Users}
-            title="Users"
-            description="Invite teammates and manage roles and access across the workspace."
-            badge="Admin"
+            title={t('hub.cards.users.title')}
+            description={t('hub.cards.users.description')}
+            badge={t('hub.adminBadge')}
           />
         ) : null}
 
@@ -119,9 +122,9 @@ export default async function SettingsPage() {
           <NavCard
             href="/settings/storage"
             icon={Database}
-            title="Storage"
-            description="Object storage driver, upload limits, and file usage. Private by default."
-            badge="Admin"
+            title={t('hub.cards.storage.title')}
+            description={t('hub.cards.storage.description')}
+            badge={t('hub.adminBadge')}
           />
         ) : null}
 
@@ -129,17 +132,17 @@ export default async function SettingsPage() {
           <NavCard
             href="/settings/audit"
             icon={ScrollText}
-            title="Audit Log"
-            description="A chronological record of actions taken across the workspace."
-            badge="Admin"
+            title={t('hub.cards.audit.title')}
+            description={t('hub.cards.audit.description')}
+            badge={t('hub.adminBadge')}
           />
         ) : null}
 
         <NavCard
           href="/settings/platform#flags"
           icon={Flag}
-          title="Feature Flags"
-          description="Roll out experimental capabilities and control feature availability."
+          title={t('hub.cards.featureFlags.title')}
+          description={t('hub.cards.featureFlags.description')}
         />
 
         {/* Appearance & language — explains top bar controls, not a link */}
@@ -149,12 +152,8 @@ export default async function SettingsPage() {
               <Palette className="h-5 w-5" />
             </span>
             <div className="min-w-0 space-y-1">
-              <p className="text-base font-semibold leading-tight tracking-tight">Appearance & language</p>
-              <p className="text-sm text-muted-foreground">
-                Switch between light and dark theme, or toggle English / العربية (RTL), using the
-                controls in the top bar — changes apply instantly and are saved to your account, so
-                they follow you to any device you sign in on.
-              </p>
+              <p className="text-base font-semibold leading-tight tracking-tight">{t('hub.appearance.title')}</p>
+              <p className="text-sm text-muted-foreground">{t('hub.appearance.description')}</p>
             </div>
           </CardHeader>
         </Card>

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { IntegrationDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
+import { getTranslations } from 'next-intl/server';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -30,106 +31,51 @@ export const dynamic = 'force-dynamic';
  * key. No secrets are shown here; keys are entered on Settings → Integrations.
  */
 
-type EnvKey = { name: string; required?: boolean; note?: string };
+type SettingsT = Awaited<ReturnType<typeof getTranslations<'settings'>>>;
+
+type EnvKey = { name: string; required?: boolean; noteKey?: string };
 type ProviderGuide = {
   platform: 'YOUTUBE' | 'X' | 'INSTAGRAM' | 'TIKTOK' | 'SNAPCHAT';
-  headline: string;
-  unlocks: string;
   keys: EnvKey[];
-  steps: string[];
-  limitation?: string;
 };
 
 // Ordered by ease/impact — YouTube first (turnkey, full content metrics).
 const PROVIDERS: ProviderGuide[] = [
   {
     platform: 'YOUTUBE',
-    headline: 'Turnkey — recommended first',
-    unlocks: 'Auto-fetch channel stats and video metrics (views / likes / comments), on add and on every scheduled refresh.',
     keys: [{ name: 'YOUTUBE_API_KEY', required: true }],
-    steps: [
-      'Google Cloud Console → create or select a project.',
-      'Enable “YouTube Data API v3”.',
-      'APIs & Services → Credentials → create an API key, restricted to the YouTube Data API.',
-      'Paste it below as YOUTUBE_API_KEY (or set the env var and restart).',
-    ],
   },
   {
     platform: 'X',
-    headline: 'Key only — plan-dependent',
-    unlocks: 'Auto-fetch profile public metrics and tweet metrics, subject to your API access tier.',
     keys: [{ name: 'X_API_BEARER_TOKEN', required: true }],
-    steps: [
-      'X Developer Portal → your project/app → generate a Bearer Token (App-only auth).',
-      'Paste it below as X_API_BEARER_TOKEN.',
-    ],
-    limitation: 'The free tier is very limited; a 403 from X surfaces as “requires app authorization”.',
   },
   {
     platform: 'INSTAGRAM',
-    headline: 'Profile lookup — Business/Creator accounts only',
-    unlocks: 'Auto-fetch profile (name, avatar, bio, followers) for Professional target accounts via Business Discovery.',
     keys: [
       { name: 'INSTAGRAM_ACCESS_TOKEN', required: true },
-      { name: 'INSTAGRAM_BUSINESS_ACCOUNT_ID', required: true, note: 'the “self” account the lookup runs through' },
+      { name: 'INSTAGRAM_BUSINESS_ACCOUNT_ID', required: true, noteKey: 'instagramBusinessAccountId' },
     ],
-    steps: [
-      'Connect an Instagram Business/Creator account to a Facebook Page you own.',
-      'Meta for Developers → create an app → add “Instagram Graph API”.',
-      'Generate a long-lived access token (instagram_basic, pages_read_engagement, Business Discovery).',
-      'Find your connected IG Business account id. BOTH values are required — with only one, it stays inactive.',
-    ],
-    limitation: 'Does NOT give likes/comments/views of an arbitrary creator’s posts — that needs Creator connections (below).',
   },
   {
     platform: 'TIKTOK',
-    headline: 'Embed + availability only',
-    unlocks: 'Public video embed and an availability check work with no keys. Statistics require Creator connections (below).',
     keys: [
-      { name: 'TIKTOK_CLIENT_KEY', note: 'for the creator-OAuth foundation' },
-      { name: 'TIKTOK_CLIENT_SECRET', note: 'for the creator-OAuth foundation' },
-    ],
-    steps: [
-      'No key needed for embeds/availability.',
-      'For creator video stats, set up Creator connections (see the section below).',
+      { name: 'TIKTOK_CLIENT_KEY', noteKey: 'tiktokOauthFoundation' },
+      { name: 'TIKTOK_CLIENT_SECRET', noteKey: 'tiktokOauthFoundation' },
     ],
   },
   {
     platform: 'SNAPCHAT',
-    headline: 'Manual',
-    unlocks: 'No public profile/content API. Snapchat is URL/manual-based; availability is a best-effort link check only.',
     keys: [],
-    steps: ['Nothing to configure — data is entered manually.'],
   },
 ];
 
 const CORE = [
+  { id: 'database' as const, icon: Database, keys: ['DATABASE_URL', 'DIRECT_DATABASE_URL'] },
+  { id: 'redis' as const, icon: Server, keys: ['REDIS_URL'] },
+  { id: 'authSecret' as const, icon: KeyRound, keys: ['AUTH_SECRET'] },
   {
-    icon: Database,
-    title: 'PostgreSQL database',
-    required: true,
-    body: 'Primary data store. Set DATABASE_URL (and DIRECT_DATABASE_URL for migrations). Apply schema with “pnpm db:deploy”.',
-    keys: ['DATABASE_URL', 'DIRECT_DATABASE_URL'],
-  },
-  {
-    icon: Server,
-    title: 'Redis',
-    required: true,
-    body: 'Backs the monitoring worker’s job queues (BullMQ) and the shared rate-limit store. Set REDIS_URL.',
-    keys: ['REDIS_URL'],
-  },
-  {
-    icon: KeyRound,
-    title: 'Auth secret',
-    required: true,
-    body: 'Signs sessions and derives the key that encrypts stored provider secrets. Production requires ≥32 chars and a non-default value.',
-    keys: ['AUTH_SECRET'],
-  },
-  {
+    id: 'firstAdmin' as const,
     icon: UserCog,
-    title: 'First administrator',
-    required: true,
-    body: 'Created once via “pnpm db:bootstrap”. Defaults to info@influence-op.com; in production you must supply BOOTSTRAP_ADMIN_PASSWORD from a secret store.',
     keys: ['BOOTSTRAP_ADMIN_EMAIL', 'BOOTSTRAP_ADMIN_PASSWORD', 'BOOTSTRAP_ADMIN_NAME'],
   },
 ];
@@ -144,15 +90,21 @@ function KeyChip({ name, note }: { name: string; note?: string }) {
 }
 
 /** Live status for one provider derived from the integrations capabilities. */
-function providerStatus(dto: IntegrationDTO | undefined): { label: string; tone: 'success' | 'neutral' | 'warning'; live: boolean } {
-  if (!dto) return { label: 'Manual', tone: 'neutral', live: false };
-  if (dto.capabilities.apiConfigured) return { label: 'Auto-fetch active', tone: 'success', live: true };
-  if (dto.capabilities.requiresCreatorAuthorization) return { label: 'Needs creator OAuth', tone: 'warning', live: false };
-  return { label: 'Manual (not configured)', tone: 'neutral', live: false };
+function providerStatus(
+  t: SettingsT,
+  dto: IntegrationDTO | undefined,
+): { label: string; tone: 'success' | 'neutral' | 'warning'; live: boolean } {
+  if (!dto) return { label: t('setup.providerStatus.manual'), tone: 'neutral', live: false };
+  if (dto.capabilities.apiConfigured) return { label: t('setup.providerStatus.autoFetchActive'), tone: 'success', live: true };
+  if (dto.capabilities.requiresCreatorAuthorization) {
+    return { label: t('setup.providerStatus.needsCreatorOAuth'), tone: 'warning', live: false };
+  }
+  return { label: t('setup.providerStatus.manualNotConfigured'), tone: 'neutral', live: false };
 }
 
 export default async function SetupGuidePage() {
   const api = getServerApi();
+  const t = await getTranslations('settings');
   const [me, integrations] = await Promise.all([
     api.auth.me(),
     api.integrations.list().catch((e) => {
@@ -166,21 +118,20 @@ export default async function SetupGuidePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Setup Guide"
-        description="Everything that can be configured — the required infrastructure, file storage, and every social integration — with its live status. No keys are shown here."
-      />
+      <PageHeader title={t('setup.title')} description={t('setup.description')} />
 
       {/* Nothing-required callout */}
       <Card className="border-brand/30 bg-brand-soft/40">
         <CardContent className="flex items-start gap-3 p-5">
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden />
           <div className="space-y-1 text-sm">
-            <p className="font-semibold">Core features work with no external setup.</p>
+            <p className="font-semibold">{t('setup.coreCallout.title')}</p>
             <p className="text-muted-foreground">
-              The directory, campaigns, content, reports and the <strong>influencer CSV/JSON export</strong> all run
-              out of the box. Everything below is <em>optional</em> — each key upgrades one social platform from manual
-              entry to automatic fetching. You’re currently auto-fetching {activeCount} of {PROVIDERS.length} platforms.
+              {t.rich('setup.coreCallout.body', {
+                emphasis: (chunks) => <strong>{chunks}</strong>,
+                active: activeCount,
+                total: PROVIDERS.length,
+              })}
             </p>
           </div>
         </CardContent>
@@ -188,22 +139,22 @@ export default async function SetupGuidePage() {
 
       {/* 1 — Core infrastructure */}
       <section className="space-y-3">
-        <SectionTitle icon={ShieldCheck} n={1} title="Core requirements" hint="Required to run at all — already satisfied if you can see this page." />
+        <SectionTitle icon={ShieldCheck} n={1} title={t('setup.section.core.title')} hint={t('setup.section.core.hint')} />
         <div className="grid gap-4 md:grid-cols-2">
           {CORE.map((c) => (
-            <Card key={c.title}>
+            <Card key={c.id}>
               <CardContent className="flex items-start gap-3 p-5">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
                   <c.icon className="h-5 w-5" />
                 </span>
                 <div className="min-w-0 space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold">{c.title}</p>
+                    <p className="text-sm font-semibold">{t(`setup.core.${c.id}.title`)}</p>
                     <Badge tone="success" className="gap-1">
-                      <CheckCircle2 className="h-3 w-3" /> Running
+                      <CheckCircle2 className="h-3 w-3" /> {t('setup.running')}
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">{c.body}</p>
+                  <p className="text-sm text-muted-foreground">{t(`setup.core.${c.id}.body`)}</p>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
                     {c.keys.map((k) => (
                       <KeyChip key={k} name={k} />
@@ -218,18 +169,22 @@ export default async function SetupGuidePage() {
 
       {/* 2 — File storage */}
       <section className="space-y-3">
-        <SectionTitle icon={HardDrive} n={2} title="File storage" hint="For attachments and images." />
+        <SectionTitle icon={HardDrive} n={2} title={t('setup.section.storage.title')} hint={t('setup.section.storage.hint')} />
         <Card>
           <CardContent className="space-y-2 p-5 text-sm">
             <p>
-              Two drivers, chosen with <KeyChip name="STORAGE_DRIVER" />: <strong>local</strong> (default, disk, no keys)
-              or <strong>s3</strong> for S3/MinIO. Selecting s3 requires{' '}
-              <KeyChip name="S3_INTERNAL_ENDPOINT" />, <KeyChip name="S3_BUCKET" />, <KeyChip name="S3_ACCESS_KEY_ID" /> and{' '}
-              <KeyChip name="S3_SECRET_ACCESS_KEY" /> (the server refuses to start otherwise).
+              {t.rich('setup.storageBody', {
+                strong: (chunks) => <strong>{chunks}</strong>,
+                driver: () => <KeyChip name="STORAGE_DRIVER" />,
+                endpoint: () => <KeyChip name="S3_INTERNAL_ENDPOINT" />,
+                bucket: () => <KeyChip name="S3_BUCKET" />,
+                accessKey: () => <KeyChip name="S3_ACCESS_KEY_ID" />,
+                secretKey: () => <KeyChip name="S3_SECRET_ACCESS_KEY" />,
+              })}
             </p>
             {isAdmin ? (
               <Link href="/settings/storage" className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline">
-                Open Storage settings <ArrowRight className="h-3.5 w-3.5" />
+                {t('setup.openStorageSettings')} <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             ) : null}
           </CardContent>
@@ -241,19 +196,22 @@ export default async function SetupGuidePage() {
         <SectionTitle
           icon={ListChecks}
           n={3}
-          title="Social integrations"
-          hint="All optional. Each upgrades one platform from manual to auto-fetch."
+          title={t('setup.section.social.title')}
+          hint={t('setup.section.social.hint')}
         />
         <div className="grid gap-4">
           {PROVIDERS.map((p) => {
-            const status = providerStatus(byPlatform.get(p.platform));
+            const status = providerStatus(t, byPlatform.get(p.platform));
+            const steps = t.raw(`setup.providers.${p.platform}.steps`) as string[];
+            const limitationKey = `setup.providers.${p.platform}.limitation`;
+            const limitation = t.has(limitationKey) ? t(limitationKey) : null;
             return (
               <Card key={p.platform}>
                 <CardHeader className="flex flex-row flex-wrap items-center gap-3 space-y-0">
                   <PlatformBadge platform={p.platform} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold">{p.headline}</p>
-                    <p className="text-xs text-muted-foreground">{p.unlocks}</p>
+                    <p className="text-sm font-semibold">{t(`setup.providers.${p.platform}.headline`)}</p>
+                    <p className="text-xs text-muted-foreground">{t(`setup.providers.${p.platform}.unlocks`)}</p>
                   </div>
                   <Badge tone={status.tone} className="gap-1 self-start">
                     {status.live ? <CheckCircle2 className="h-3 w-3" /> : <CircleDashed className="h-3 w-3" />}
@@ -264,20 +222,24 @@ export default async function SetupGuidePage() {
                   {p.keys.length ? (
                     <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                       {p.keys.map((k) => (
-                        <KeyChip key={k.name} name={k.name} note={k.note} />
+                        <KeyChip
+                          key={k.name}
+                          name={k.name}
+                          note={k.noteKey ? t(`setup.keyNotes.${k.noteKey}`) : undefined}
+                        />
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground">No keys required.</p>
+                    <p className="text-xs text-muted-foreground">{t('setup.noKeysRequired')}</p>
                   )}
                   <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-                    {p.steps.map((s, i) => (
+                    {steps.map((s, i) => (
                       <li key={i}>{s}</li>
                     ))}
                   </ol>
-                  {p.limitation ? (
+                  {limitation ? (
                     <p className="rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-muted-foreground">
-                      {p.limitation}
+                      {limitation}
                     </p>
                   ) : null}
                 </CardContent>
@@ -288,11 +250,10 @@ export default async function SetupGuidePage() {
         <Card className="border-dashed">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5 text-sm">
             <p className="text-muted-foreground">
-              Enter any provider key <strong>encrypted at rest</strong> from the Integrations screen (admin) — no restart
-              needed — or set the environment variable and restart.
+              {t.rich('setup.footerNote', { strong: (chunks) => <strong>{chunks}</strong> })}
             </p>
             <Link href="/settings/integrations" className="inline-flex shrink-0 items-center gap-1 font-medium text-brand hover:underline">
-              Open Integrations <ArrowRight className="h-3.5 w-3.5" />
+              {t('setup.openIntegrations')} <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </CardContent>
         </Card>
@@ -300,24 +261,25 @@ export default async function SetupGuidePage() {
 
       {/* 4 — Creator connections */}
       <section className="space-y-3">
-        <SectionTitle icon={Link2} n={4} title="Creator connections (Instagram / TikTok post metrics)" hint="Read a creator’s OWN post/video metrics." />
+        <SectionTitle
+          icon={Link2}
+          n={4}
+          title={t('setup.section.creatorConnections.title')}
+          hint={t('setup.section.creatorConnections.hint')}
+        />
         <Card>
           <CardContent className="space-y-3 p-5 text-sm">
-            <p className="text-muted-foreground">
-              The only lawful way to read a specific creator’s post/video metrics is for that creator to authorize the
-              app, and for the app to pass the platform’s review (Meta / TikTok). The flow is wired end to end but stays
-              inert — it says “not configured” rather than pretending — until you complete review and set the app keys.
-            </p>
+            <p className="text-muted-foreground">{t('setup.creatorConnections.intro')}</p>
             <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-              <li>Create the Meta / TikTok app and complete app review for the insight scopes.</li>
+              <li>{t('setup.creatorConnections.step1')}</li>
               <li>
-                Register the redirect URI:{' '}
+                {t('setup.creatorConnections.step2Prefix')}{' '}
                 <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
                   {'<OAUTH_CALLBACK_BASE_URL>/api/v1/integrations/<platform>/oauth/callback'}
                 </code>
               </li>
               <li className="space-x-2">
-                <span>Set the app credentials:</span>
+                <span>{t('setup.creatorConnections.step3Prefix')}</span>
                 <KeyChip name="INSTAGRAM_APP_ID" />
                 <KeyChip name="INSTAGRAM_APP_SECRET" />
                 <KeyChip name="TIKTOK_CLIENT_KEY" />
@@ -325,24 +287,17 @@ export default async function SetupGuidePage() {
                 <KeyChip name="OAUTH_CALLBACK_BASE_URL" />
               </li>
             </ol>
-            <p className="text-xs text-muted-foreground">
-              Then a creator connects from their profile page (Creator connections card). This is a platform constraint
-              (app review), not a code gap.
-            </p>
+            <p className="text-xs text-muted-foreground">{t('setup.creatorConnections.outro')}</p>
           </CardContent>
         </Card>
       </section>
 
       {/* 5 — Verify */}
       <section className="space-y-3">
-        <SectionTitle icon={CheckCircle2} n={5} title="Verify it works" hint="Confirm a platform is live end to end." />
+        <SectionTitle icon={CheckCircle2} n={5} title={t('setup.section.verify.title')} hint={t('setup.section.verify.hint')} />
         <Card>
           <CardContent className="space-y-2 p-5 text-sm text-muted-foreground">
-            <p>
-              After adding a key, the platform card above flips to <strong>Auto-fetch active</strong>. To prove the fetch
-              path, add an influencer from a real profile URL — a result marked <strong>Official API</strong> (not
-              Manual) with real numbers confirms it. The Integrations screen also has a per-platform “test connection”.
-            </p>
+            <p>{t.rich('setup.verify.body', { strong: (chunks) => <strong>{chunks}</strong> })}</p>
           </CardContent>
         </Card>
       </section>

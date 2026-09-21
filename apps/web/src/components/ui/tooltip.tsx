@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
+import { useTranslations } from 'next-intl';
 import { Info } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
@@ -36,6 +37,7 @@ export interface InfoTooltipProps {
 
 /** Convenience wrapper: anchors a tooltip to `children`, or a default info icon when none is given. */
 export function InfoTooltip({ text, children }: InfoTooltipProps) {
+  const t = useTranslations('ui');
   return (
     <TooltipProvider>
       <Tooltip>
@@ -43,7 +45,7 @@ export function InfoTooltip({ text, children }: InfoTooltipProps) {
           {children ?? (
             <span className="inline-flex cursor-default items-center">
               <Info className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="sr-only">More information</span>
+              <span className="sr-only">{t('tooltip.moreInformation')}</span>
             </span>
           )}
         </TooltipTrigger>

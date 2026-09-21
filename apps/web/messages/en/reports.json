@@ -1,0 +1,128 @@
+{
+  "title": "Reports",
+  "description": "Export-ready performance and spend reports across every brand, campaign and creator.",
+  "tabs": {
+    "campaign": "Campaigns",
+    "influencer": "Influencers",
+    "brand": "Brands",
+    "content": "Content",
+    "spend": "Spend"
+  },
+  "print": "Print",
+  "exportCsv": "Export CSV",
+  "printTitle": "{report} report",
+  "printSubtitle": "{brand} · {range} · {generated}",
+  "printGeneratedAt": "Generated {time}",
+  "selectedBrandFallback": "Selected brand",
+  "fromLabel": "From",
+  "toLabel": "To",
+  "fromDateAria": "From date",
+  "toDateAria": "To date",
+  "reset": "Reset",
+  "updating": "Updating…",
+  "rangeAllTime": "All time",
+  "rangeStart": "Start",
+  "rangeNow": "Now",
+  "table": {
+    "emptyTitle": "No data for this report",
+    "emptyDescription": "Try widening the date range or clearing the brand filter — data will appear here as soon as it's available.",
+    "rowCount": "{count, plural, one {# row} other {# rows}} · {currency}",
+    "total": "Total"
+  },
+  "exec": {
+    "title": "Executive dashboard",
+    "description": "Spend vs budget, what happened today, what changed since yesterday, and where each brand and creator stands — updated live.",
+    "spendVsBudget": {
+      "plannedBudget": "Planned budget",
+      "totalSpend": "Total spend",
+      "remaining": "Remaining",
+      "budgetUsed": "Budget used",
+      "unpaidSpend": "Unpaid spend",
+      "campaignsOverBudget": "{count, plural, one {# campaign over budget.} other {# campaigns over budget.}}"
+    },
+    "today": {
+      "title": "Today",
+      "contentPublished": "Content published",
+      "deliverablesDue": "Deliverables due",
+      "campaignsStarting": "Campaigns starting",
+      "campaignsEnding": "Campaigns ending"
+    },
+    "sinceYesterday": {
+      "title": "Since yesterday",
+      "contentPublished": "Content published",
+      "deliverablesCompleted": "Deliverables completed",
+      "campaignsCreated": "Campaigns created",
+      "campaignsCompleted": "Campaigns completed",
+      "rosterAdditions": "Roster additions",
+      "contentRemoved": "Content removed",
+      "shipmentsDelivered": "Shipments delivered",
+      "shipmentsFailed": "Shipments failed",
+      "ugcAwaitingReview": "UGC awaiting review"
+    },
+    "brands": {
+      "title": "Brands",
+      "emptyTitle": "No brands in scope",
+      "emptyDescription": "Brand health appears here once you have brands with campaigns.",
+      "overBudget": "Over budget",
+      "columns": {
+        "brand": "Brand",
+        "active": "Active",
+        "spend": "Spend",
+        "budget": "Budget",
+        "used": "Used",
+        "overdue": "Overdue",
+        "alerts": "Alerts",
+        "issues": "Issues"
+      }
+    },
+    "leaderboard": {
+      "title": "Top creators",
+      "emptyTitle": "No ranked creators yet",
+      "emptyDescription": "Creators appear here once they've committed to campaigns and delivered work.",
+      "columns": {
+        "creator": "Creator",
+        "campaigns": "Campaigns",
+        "published": "Published",
+        "completion": "Completion",
+        "tier": "Tier",
+        "score": "Score"
+      },
+      "tier": {
+        "GOLD": "Gold",
+        "SILVER": "Silver",
+        "BRONZE": "Bronze",
+        "NEW": "New"
+      }
+    },
+    "generatedAt": "Generated {time}."
+  },
+  "calendar": {
+    "title": "Calendar",
+    "description": "Campaign milestones, deliverables and publish dates in one place.",
+    "eventCount": "{count, plural, one {# event} other {# events}}",
+    "views": {
+      "month": "Month",
+      "week": "Week",
+      "agenda": "Agenda"
+    },
+    "kinds": {
+      "CAMPAIGN_START": "Campaign start",
+      "CAMPAIGN_END": "Campaign end",
+      "DELIVERABLE_DUE": "Deliverable due",
+      "EXPECTED_PUBLISH": "Expected publish",
+      "PUBLISHED": "Published"
+    },
+    "eventTooltip": "{title} · {kind}",
+    "moreCount": "+{count} more",
+    "emptyTitle": "Nothing scheduled",
+    "emptyDescription": "Campaign milestones, deliverables and publish dates will appear here as they're scheduled.",
+    "detail": {
+      "date": "Date",
+      "brand": "Brand",
+      "influencer": "Influencer",
+      "platform": "Platform",
+      "open": "Open"
+    },
+    "loadError": "Could not load the calendar."
+  }
+}

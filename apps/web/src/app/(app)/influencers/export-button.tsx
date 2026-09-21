@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Download } from 'lucide-react';
 import { api } from '@/lib/api-browser';
 import { Button } from '@/components/ui/button';
@@ -13,11 +14,12 @@ type ExportFilters = Record<string, string | undefined>;
  * viewing. The server sets the attachment filename via Content-Disposition.
  */
 export function ExportInfluencersButton({ filters }: { filters: ExportFilters }) {
+  const t = useTranslations('influencers');
   const href = api.influencers.exportUrl(filters);
   return (
     <Button asChild variant="outline">
       <a href={href} download>
-        <Download className="h-4 w-4" /> Export CSV
+        <Download className="h-4 w-4" /> {t('directory.exportCsv')}
       </a>
     </Button>
   );

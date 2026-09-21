@@ -1,0 +1,66 @@
+{
+  "status": {
+    "active": "نشط",
+    "inactive": "غير نشط"
+  },
+  "list": {
+    "title": "العلامات التجارية",
+    "description": "كل مساحات عمل العلامات التجارية التي تديرها، في مكان واحد.",
+    "addBrandHint": "إضافة علامة تجارية — تُدار من إعدادات المنصة",
+    "emptyTitle": "لا توجد علامات تجارية بعد",
+    "emptyDescription": "ستظهر مساحات عمل العلامات التجارية هنا بمجرد إعدادها."
+  },
+  "detail": {
+    "backToBrands": "رجوع إلى العلامات التجارية",
+    "stats": {
+      "activeCampaigns": "الحملات النشطة",
+      "totalCampaignsHint": "الإجمالي: {count}",
+      "influencers": "المؤثرون",
+      "contentPublished": "المحتوى المنشور",
+      "totalSpend": "إجمالي الإنفاق"
+    },
+    "content": "المحتوى",
+    "viewInLiveContent": "عرض في المحتوى المنشور",
+    "noContentTitle": "لا يوجد محتوى بعد",
+    "noContentDescription": "سيظهر هنا المحتوى المنشور الخاص بـ{name}."
+  },
+  "edit": {
+    "title": "تعديل العلامة التجارية",
+    "dialogDescription": "تحديث بيانات العلامة التجارية وألوان الهوية الخاصة بها.",
+    "name": "الاسم",
+    "namePlaceholder": "اسم العلامة التجارية",
+    "description": "الوصف",
+    "descriptionPlaceholder": "ما الذي تقدمه هذه العلامة التجارية؟",
+    "primaryColor": "اللون الأساسي",
+    "secondaryColor": "اللون الثانوي",
+    "accentColor": "لون التمييز",
+    "useSecondaryColor": "استخدام اللون الثانوي",
+    "useAccentColor": "استخدام لون التمييز",
+    "colorNotSet": "غير محدد",
+    "logoUrl": "رابط الشعار",
+    "coverUrl": "رابط صورة الغلاف",
+    "optional": "اختياري",
+    "urlPlaceholder": "https://…",
+    "activeHint": "العلامات التجارية غير النشطة تكون مخفية عن القوائم النشطة.",
+    "saveChanges": "حفظ التغييرات",
+    "updated": "تم تحديث {name}."
+  },
+  "notes": {
+    "title": "الملاحظات",
+    "emptyTitle": "لا توجد ملاحظات بعد",
+    "emptyDescription": "ملاحظات داخلية حول هذه العلامة التجارية — مرئية لفريقك فقط."
+  },
+  "usageRights": {
+    "title": "حقوق الاستخدام",
+    "expiringSoon": "ينتهي قريبًا: {count}",
+    "typeColumn": "النوع",
+    "scopeTerritoryColumn": "النطاق / الإقليم",
+    "creatorColumn": "صانع المحتوى",
+    "expiresColumn": "تاريخ الانتهاء",
+    "exclusive": "حصري",
+    "noExpiry": "بدون تاريخ انتهاء",
+    "daysRemaining": "(الأيام المتبقية: {count})",
+    "emptyTitle": "لا توجد حقوق استخدام مسجلة",
+    "emptyDescription": "ستظهر هنا تراخيص محتوى هذه العلامة التجارية مع نطاق تغطيتها وتاريخ انتهائها."
+  }
+}

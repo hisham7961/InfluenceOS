@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { Building2, Coins, Languages, Megaphone, PackageCheck, Plus } from 'lucide-react';
 import type {
   BrandInfluencerDTO,
@@ -22,6 +23,7 @@ import { AudienceHealthBadge, RelationshipStatusBadge } from '@/components/ui/st
 import { StatCard } from '@/components/ui/stat-card';
 import { ContentGrid } from '@/components/content/content-grid';
 import { AddContentFlow } from '@/components/content/add-content-flow';
+import { BidiText } from '@/components/common/bidi-text';
 import { formatCurrency, relativeTime, shortDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { NotesPanel } from './notes-panel';
@@ -33,21 +35,20 @@ import { CreatorShipmentsTab } from './creator-shipments-tab';
 /** "Add Content" preselecting this influencer — Critical Business Question 3. */
 function AddContentButton({ influencerId, influencerName }: { influencerId: string; influencerName: string }) {
   const router = useRouter();
+  const t = useTranslations('influencers');
   const qc = useQueryClient();
   const [open, setOpen] = React.useState(false);
 
   return (
     <>
       <Button type="button" size="sm" onClick={() => setOpen(true)}>
-        <Plus className="h-4 w-4" /> Add content
+        <Plus className="h-4 w-4" /> {t('detail.content.addContent')}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add published content</DialogTitle>
-            <DialogDescription>
-              For {influencerName}. Paste a public URL — no campaign required for independent content.
-            </DialogDescription>
+            <DialogTitle>{t('detail.content.dialogTitle')}</DialogTitle>
+            <DialogDescription>{t('detail.content.dialogDescription', { name: influencerName })}</DialogDescription>
           </DialogHeader>
           <AddContentFlow
             lockInfluencerId={influencerId}
@@ -82,21 +83,22 @@ export function ProfileTabs({
   notes: NoteDTO[];
   brandRelationships: BrandInfluencerDTO[];
 }) {
+  const t = useTranslations('influencers');
   const h = influencer.history;
 
   return (
     <Tabs defaultValue="overview">
       <TabsList className="flex-wrap">
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="social">Social Profiles</TabsTrigger>
-        <TabsTrigger value="history">Campaign History</TabsTrigger>
-        <TabsTrigger value="timeline">Timeline</TabsTrigger>
-        <TabsTrigger value="content">Content</TabsTrigger>
-        <TabsTrigger value="ugc">UGC</TabsTrigger>
-        <TabsTrigger value="shipments">Shipment History</TabsTrigger>
-        <TabsTrigger value="costs">Costs</TabsTrigger>
-        <TabsTrigger value="notes">Notes</TabsTrigger>
-        <TabsTrigger value="brands">Brands</TabsTrigger>
+        <TabsTrigger value="overview">{t('detail.tabs.overview')}</TabsTrigger>
+        <TabsTrigger value="social">{t('detail.tabs.socialProfiles')}</TabsTrigger>
+        <TabsTrigger value="history">{t('detail.tabs.campaignHistory')}</TabsTrigger>
+        <TabsTrigger value="timeline">{t('detail.tabs.timeline')}</TabsTrigger>
+        <TabsTrigger value="content">{t('detail.tabs.content')}</TabsTrigger>
+        <TabsTrigger value="ugc">{t('detail.tabs.ugc')}</TabsTrigger>
+        <TabsTrigger value="shipments">{t('detail.tabs.shipmentHistory')}</TabsTrigger>
+        <TabsTrigger value="costs">{t('detail.tabs.costs')}</TabsTrigger>
+        <TabsTrigger value="notes">{t('detail.tabs.notes')}</TabsTrigger>
+        <TabsTrigger value="brands">{t('detail.tabs.brands')}</TabsTrigger>
       </TabsList>
 
       {/* Overview */}
@@ -104,13 +106,13 @@ export function ProfileTabs({
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>About</CardTitle>
+              <CardTitle>{t('detail.overview.aboutTitle')}</CardTitle>
             </CardHeader>
             <CardContent>
               {influencer.bio ? (
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{influencer.bio}</p>
               ) : (
-                <p className="text-sm text-muted-foreground">No bio on file yet.</p>
+                <p className="text-sm text-muted-foreground">{t('detail.overview.noBio')}</p>
               )}
               {influencer.languages.length > 0 ? (
                 <div className="mt-4 flex flex-wrap items-center gap-1.5">
@@ -128,18 +130,18 @@ export function ProfileTabs({
           {influencer.pricingNotes || influencer.internalNotes ? (
             <Card>
               <CardHeader>
-                <CardTitle>Pricing &amp; Internal Notes</CardTitle>
+                <CardTitle>{t('detail.overview.notesTitle')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-sm">
                 {influencer.pricingNotes ? (
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Pricing notes</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('detail.overview.pricingNotesLabel')}</p>
                     <p className="mt-1 whitespace-pre-wrap text-foreground">{influencer.pricingNotes}</p>
                   </div>
                 ) : null}
                 {influencer.internalNotes ? (
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Internal notes</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('detail.overview.internalNotesLabel')}</p>
                     <p className="mt-1 whitespace-pre-wrap text-foreground">{influencer.internalNotes}</p>
                   </div>
                 ) : null}
@@ -151,16 +153,16 @@ export function ProfileTabs({
         <Card className="h-fit">
           <CardHeader>
             <div className="flex items-center justify-between gap-2">
-              <CardTitle>Audience Health</CardTitle>
+              <CardTitle>{t('detail.overview.audienceHealthTitle')}</CardTitle>
               <AudienceHealthBadge status={influencer.audience.label} />
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              {influencer.audience.dataPoints} data point{influencer.audience.dataPoints === 1 ? '' : 's'} analyzed
+              {t('detail.overview.dataPointsAnalyzed', { count: influencer.audience.dataPoints })}
             </p>
             {influencer.audience.signals.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No audience signals yet.</p>
+              <p className="text-sm text-muted-foreground">{t('detail.overview.noSignalsYet')}</p>
             ) : (
               <ul className="space-y-3">
                 {influencer.audience.signals.map((s) => (
@@ -183,27 +185,33 @@ export function ProfileTabs({
       {/* Campaign History */}
       <TabsContent value="history" className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
-          <StatCard label="Campaigns" value={h.campaignCount} icon={Megaphone} tone="info" hint={`${influencer.activeCampaigns} active now`} />
           <StatCard
-            label="Deliverables Published"
+            label={t('detail.stats.campaigns')}
+            value={h.campaignCount}
+            icon={Megaphone}
+            tone="info"
+            hint={t('detail.stats.activeNow', { count: influencer.activeCampaigns })}
+          />
+          <StatCard
+            label={t('detail.stats.deliverablesPublished')}
             value={h.deliverablesPublished}
             icon={PackageCheck}
             tone="success"
-            hint={`of ${h.deliverablesTotal} total`}
+            hint={t('detail.stats.ofTotal', { count: h.deliverablesTotal })}
           />
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Timeline</CardTitle>
+            <CardTitle>{t('detail.campaignHistory.timelineCardTitle')}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-8">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">First collaboration</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('detail.campaignHistory.firstCollaboration')}</p>
               <p className="mt-1 text-sm font-medium text-foreground">{shortDate(h.firstCollaborationAt)}</p>
             </div>
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Last collaboration</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('detail.campaignHistory.lastCollaboration')}</p>
               <p className="mt-1 text-sm font-medium text-foreground">{shortDate(h.lastCollaborationAt)}</p>
             </div>
           </CardContent>
@@ -211,11 +219,11 @@ export function ProfileTabs({
 
         <Card>
           <CardHeader>
-            <CardTitle>Brands Worked With</CardTitle>
+            <CardTitle>{t('detail.campaignHistory.brandsWorkedWithTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
             {h.brandsWorkedWith.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No brand history yet.</p>
+              <p className="text-sm text-muted-foreground">{t('detail.campaignHistory.noBrandHistory')}</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {h.brandsWorkedWith.map((b) => (
@@ -265,28 +273,28 @@ export function ProfileTabs({
         </div>
         <ContentGrid
           items={content}
-          emptyTitle="No content yet"
-          emptyDescription={`Published content from ${influencer.displayName} will appear here. Content doesn't need a campaign.`}
+          emptyTitle={t('detail.content.emptyTitle')}
+          emptyDescription={t('detail.content.emptyDescription', { name: influencer.displayName })}
         />
       </TabsContent>
 
       {/* Costs */}
       <TabsContent value="costs" className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <StatCard label="Total Paid" value={h.totalPaid} icon={Coins} tone="warning" format={(n) => formatCurrency(n)} />
-          <StatCard label="Average Rate" value={h.averageRate} icon={Coins} tone="accent" format={(n) => formatCurrency(n)} />
+          <StatCard label={t('detail.costs.totalPaid')} value={h.totalPaid} icon={Coins} tone="warning" format={(n) => formatCurrency(n)} />
+          <StatCard label={t('detail.costs.averageRate')} value={h.averageRate} icon={Coins} tone="accent" format={(n) => formatCurrency(n)} />
           <StatCard
-            label="Deliverables Published"
+            label={t('detail.costs.deliverablesPublished')}
             value={h.deliverablesPublished}
             icon={PackageCheck}
             tone="success"
-            hint={`of ${h.deliverablesTotal} total`}
+            hint={t('detail.stats.ofTotal', { count: h.deliverablesTotal })}
           />
         </div>
         {influencer.pricingNotes ? (
           <Card>
             <CardHeader>
-              <CardTitle>Pricing Notes</CardTitle>
+              <CardTitle>{t('detail.costs.pricingNotesTitle')}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="whitespace-pre-wrap text-sm text-foreground">{influencer.pricingNotes}</p>
@@ -305,8 +313,8 @@ export function ProfileTabs({
         {brandRelationships.length === 0 ? (
           <EmptyState
             icon={Building2}
-            title="No brand relationships yet"
-            description="Relationships with brands will appear here once this influencer joins a brand roster."
+            title={t('detail.brands.emptyTitle')}
+            description={t('detail.brands.emptyDescription')}
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -315,24 +323,28 @@ export function ProfileTabs({
                 <div className="flex items-center gap-3">
                   <Avatar name={rel.brand.name} src={rel.brand.logoUrl ?? rel.brand.iconUrl} size="md" rounded="lg" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{rel.brand.name}</p>
+                    <p className="truncate font-semibold">
+                      <BidiText>{rel.brand.name}</BidiText>
+                    </p>
                     <RelationshipStatusBadge status={rel.relationshipStatus} className="mt-1" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                   <div>
-                    <p className="uppercase tracking-wide">Collaborations</p>
+                    <p className="uppercase tracking-wide">{t('detail.brands.collaborations')}</p>
                     <p className="mt-0.5 text-sm font-medium text-foreground">{rel.totalCollaborations}</p>
                   </div>
                   <div>
-                    <p className="uppercase tracking-wide">Default rate</p>
+                    <p className="uppercase tracking-wide">{t('detail.brands.defaultRate')}</p>
                     <p className="mt-0.5 text-sm font-medium text-foreground">
                       {rel.defaultRate != null ? formatCurrency(rel.defaultRate, rel.currency ?? undefined) : '—'}
                     </p>
                   </div>
                 </div>
                 {rel.lastCampaignAt ? (
-                  <p className="text-xs text-muted-foreground">Last campaign {relativeTime(rel.lastCampaignAt)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t('detail.brands.lastCampaign', { time: relativeTime(rel.lastCampaignAt) })}
+                  </p>
                 ) : null}
               </Card>
             ))}

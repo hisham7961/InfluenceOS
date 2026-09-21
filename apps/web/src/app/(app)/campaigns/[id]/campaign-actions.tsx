@@ -2,18 +2,15 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ChevronDown, Pencil } from 'lucide-react';
 import type { CampaignDetailDTO, CampaignObjective, CampaignStatus } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
-import {
-  CAMPAIGN_OBJECTIVES,
-  CAMPAIGN_OBJECTIVE_LABELS,
-  CAMPAIGN_STATUSES,
-  CAMPAIGN_STATUS_LABELS,
-} from '@influenceos/shared';
+import { CAMPAIGN_OBJECTIVES, CAMPAIGN_STATUSES } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
+import { enumLabel } from '@/lib/enum-labels';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -36,8 +33,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 /** Sentinel for "no objective" in the Select (Radix forbids an empty-string value). */
 const NONE = 'none';
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Something went wrong.';
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : e instanceof Error ? e.message : fallback;
 }
 
 function toDateInput(s: string | null | undefined): string {
@@ -53,6 +50,9 @@ function toDateInput(s: string | null | undefined): string {
  * status changer (addendum item 6) and a full "Edit campaign" dialog.
  */
 export function CampaignActions({ campaign }: { campaign: CampaignDetailDTO }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = React.useState(false);
@@ -60,11 +60,11 @@ export function CampaignActions({ campaign }: { campaign: CampaignDetailDTO }) {
   const changeStatus = useMutation({
     mutationFn: (status: CampaignStatus) => api.campaigns.update(campaign.id, { status }),
     onSuccess: () => {
-      toast.success('Campaign status updated');
+      toast.success(t('actions.statusUpdatedToast'));
       queryClient.invalidateQueries();
       router.refresh();
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (
@@ -72,26 +72,26 @@ export function CampaignActions({ campaign }: { campaign: CampaignDetailDTO }) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button type="button" variant="outline" size="sm" disabled={changeStatus.isPending}>
-            Change status <ChevronDown className="h-3.5 w-3.5" />
+            {t('actions.changeStatus')} <ChevronDown className="h-3.5 w-3.5" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Set status</DropdownMenuLabel>
+          <DropdownMenuLabel>{t('actions.setStatus')}</DropdownMenuLabel>
           {CAMPAIGN_STATUSES.map((s) => (
             <DropdownMenuItem
               key={s}
               disabled={s === campaign.status}
               onSelect={() => changeStatus.mutate(s)}
             >
-              {CAMPAIGN_STATUS_LABELS[s]}
-              {s === campaign.status ? ' (current)' : ''}
+              {enumLabel(tEnums, 'campaignStatus', s)}
+              {s === campaign.status ? ` ${t('actions.currentSuffix')}` : ''}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
 
       <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-        <Pencil className="h-3.5 w-3.5" /> Edit campaign
+        <Pencil className="h-3.5 w-3.5" /> {t('actions.editCampaign')}
       </Button>
 
       <EditCampaignDialog campaign={campaign} open={editOpen} onOpenChange={setEditOpen} />
@@ -108,6 +108,9 @@ function EditCampaignDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -143,10 +146,10 @@ function EditCampaignDialog({
   const save = useMutation({
     mutationFn: () => {
       const trimmedName = name.trim();
-      if (!trimmedName) throw new Error('Enter a campaign name.');
+      if (!trimmedName) throw new Error(t('actions.enterNameError'));
       const budget = plannedBudget.trim();
       if (budget !== '' && !Number.isFinite(Number(budget))) {
-        throw new Error('Enter a valid budget.');
+        throw new Error(t('actions.invalidBudgetError'));
       }
       return api.campaigns.update(campaign.id, {
         name: trimmedName,
@@ -162,27 +165,27 @@ function EditCampaignDialog({
       });
     },
     onSuccess: () => {
-      toast.success('Campaign updated');
+      toast.success(t('actions.updatedToast'));
       queryClient.invalidateQueries();
       router.refresh();
       onOpenChange(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit campaign</DialogTitle>
-          <DialogDescription>Update the campaign details, dates, budget and lifecycle status.</DialogDescription>
+          <DialogTitle>{t('actions.editCampaign')}</DialogTitle>
+          <DialogDescription>{t('actions.editDialogDescription')}</DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Name" className="col-span-2">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Campaign name" />
+          <Field label={t('actions.nameLabel')} className="col-span-2">
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('newForm.campaignNameLabel')} />
           </Field>
-          <Field label="Status">
+          <Field label={t('fields.status')}>
             <Select value={status} onValueChange={(v) => setStatus(v as CampaignStatus)}>
               <SelectTrigger>
                 <SelectValue />
@@ -190,34 +193,34 @@ function EditCampaignDialog({
               <SelectContent>
                 {CAMPAIGN_STATUSES.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {CAMPAIGN_STATUS_LABELS[s]}
+                    {enumLabel(tEnums, 'campaignStatus', s)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Objective" hint="Optional">
+          <Field label={t('fields.objective')} hint={t('fields.optionalHint')}>
             <Select value={objective} onValueChange={setObjective}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE}>None</SelectItem>
+                <SelectItem value={NONE}>{t('actions.noneOption')}</SelectItem>
                 {CAMPAIGN_OBJECTIVES.map((o) => (
                   <SelectItem key={o} value={o}>
-                    {CAMPAIGN_OBJECTIVE_LABELS[o]}
+                    {enumLabel(tEnums, 'campaignObjective', o)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Start date" hint="Optional">
+          <Field label={t('fields.startDate')} hint={t('fields.optionalHint')}>
             <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           </Field>
-          <Field label="End date" hint="Optional">
+          <Field label={t('fields.endDate')} hint={t('fields.optionalHint')}>
             <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </Field>
-          <Field label="Planned budget" hint="Optional">
+          <Field label={t('fields.plannedBudget')} hint={t('fields.optionalHint')}>
             <Input
               type="number"
               min={0}
@@ -227,26 +230,30 @@ function EditCampaignDialog({
               placeholder="0.00"
             />
           </Field>
-          <Field label="Currency">
-            <Input value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder="KWD" />
+          <Field label={t('fields.currency')}>
+            <Input value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder={t('newForm.currencyPlaceholder')} />
           </Field>
-          <Field label="Target market" hint="Optional" className="col-span-2">
-            <Input value={targetMarket} onChange={(e) => setTargetMarket(e.target.value)} placeholder="e.g. Kuwait, GCC" />
+          <Field label={t('fields.targetMarket')} hint={t('fields.optionalHint')} className="col-span-2">
+            <Input
+              value={targetMarket}
+              onChange={(e) => setTargetMarket(e.target.value)}
+              placeholder={t('actions.targetMarketPlaceholder')}
+            />
           </Field>
-          <Field label="Description" hint="Optional" className="col-span-2">
+          <Field label={t('fields.description')} hint={t('fields.optionalHint')} className="col-span-2">
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
           </Field>
-          <Field label="Creative brief" hint="Optional" className="col-span-2">
+          <Field label={t('newForm.creativeBriefLabel')} hint={t('fields.optionalHint')} className="col-span-2">
             <Textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={3} />
           </Field>
         </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tCommon('cancel')}
           </Button>
           <Button disabled={save.isPending} onClick={() => save.mutate()}>
-            {save.isPending ? 'Saving…' : 'Save changes'}
+            {save.isPending ? tCommon('saving') : t('workspace.saveChanges')}
           </Button>
         </DialogFooter>
       </DialogContent>

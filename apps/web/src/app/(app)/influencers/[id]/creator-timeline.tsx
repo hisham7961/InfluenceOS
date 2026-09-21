@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { Clock, FileCheck, History, MessageSquare, Package, PhoneCall, PlaySquare, Sparkles, Wallet } from 'lucide-react';
 import type { CreatorTimelineItemDTO } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
@@ -15,18 +16,19 @@ import { cn } from '@/lib/cn';
 type Bucket = CreatorTimelineItemDTO['bucket'];
 const BUCKET_ALL = 'ALL';
 
-const BUCKET_META: Record<Bucket, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
-  campaign: { label: 'Campaign', icon: History },
-  content: { label: 'Content', icon: PlaySquare },
-  ugc: { label: 'UGC', icon: Sparkles },
-  logistics: { label: 'Logistics', icon: Package },
-  payment: { label: 'Payment', icon: Wallet },
-  collaboration: { label: 'Notes', icon: MessageSquare },
-  activity: { label: 'Activity', icon: Clock },
+const BUCKET_ICON: Record<Bucket, React.ComponentType<{ className?: string }>> = {
+  campaign: History,
+  content: PlaySquare,
+  ugc: Sparkles,
+  logistics: Package,
+  payment: Wallet,
+  // gap #12's "Notes" bucket label reuses the `collaboration` DTO bucket key.
+  collaboration: MessageSquare,
+  activity: Clock,
   // gap #12 — Contacted (CampaignInfluencer.dateContacted) and Usage Rights
   // (UsageRight.createdAt), distinct from the general 'activity' bucket.
-  contacted: { label: 'Contacted', icon: PhoneCall },
-  usageRights: { label: 'Usage Rights', icon: FileCheck },
+  contacted: PhoneCall,
+  usageRights: FileCheck,
 };
 
 /**
@@ -37,9 +39,23 @@ const BUCKET_META: Record<Bucket, { label: string; icon: React.ComponentType<{ c
  * see that service for why Notification rows are deliberately excluded.
  */
 export function CreatorTimeline({ influencerId }: { influencerId: string }) {
+  const t = useTranslations('influencers');
+  const tc = useTranslations('common');
   const [bucket, setBucket] = React.useState<Bucket | typeof BUCKET_ALL>(BUCKET_ALL);
   const [cursor, setCursor] = React.useState<string | undefined>(undefined);
   const [items, setItems] = React.useState<CreatorTimelineItemDTO[]>([]);
+
+  const BUCKET_LABEL: Record<Bucket, string> = {
+    campaign: t('detail.timeline.buckets.campaign'),
+    content: t('detail.timeline.buckets.content'),
+    ugc: t('detail.timeline.buckets.ugc'),
+    logistics: t('detail.timeline.buckets.logistics'),
+    payment: t('detail.timeline.buckets.payment'),
+    collaboration: t('detail.timeline.buckets.notes'),
+    activity: t('detail.timeline.buckets.activity'),
+    contacted: t('detail.timeline.buckets.contacted'),
+    usageRights: t('detail.timeline.buckets.usageRights'),
+  };
 
   const query = useQuery({
     queryKey: ['creator-timeline', influencerId, cursor],
@@ -58,14 +74,13 @@ export function CreatorTimeline({ influencerId }: { influencerId: string }) {
     <div className="space-y-4">
       <div className="flex flex-wrap gap-1.5">
         <Button variant={bucket === BUCKET_ALL ? 'secondary' : 'ghost'} size="sm" onClick={() => setBucket(BUCKET_ALL)}>
-          All
+          {t('detail.timeline.all')}
         </Button>
-        {(Object.keys(BUCKET_META) as Bucket[]).map((b) => {
-          const meta = BUCKET_META[b];
-          const Icon = meta.icon;
+        {(Object.keys(BUCKET_ICON) as Bucket[]).map((b) => {
+          const Icon = BUCKET_ICON[b];
           return (
             <Button key={b} variant={bucket === b ? 'secondary' : 'ghost'} size="sm" onClick={() => setBucket(b)}>
-              <Icon className="h-3.5 w-3.5" /> {meta.label}
+              <Icon className="h-3.5 w-3.5" /> {BUCKET_LABEL[b]}
             </Button>
           );
         })}
@@ -80,14 +95,13 @@ export function CreatorTimeline({ influencerId }: { influencerId: string }) {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={History}
-          title="Nothing here yet"
-          description="Campaign joins, deliverables, shipments, content, payments, submissions and notes will show up here as they happen."
+          title={t('detail.timeline.emptyTitle')}
+          description={t('detail.timeline.emptyDescription')}
         />
       ) : (
         <ul className="space-y-1">
           {filtered.map((item) => {
-            const meta = BUCKET_META[item.bucket];
-            const Icon = meta.icon;
+            const Icon = BUCKET_ICON[item.bucket];
             const Row = (
               <div className="flex items-start gap-3 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-surface-muted">
                 <div className={cn('mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-muted text-muted-foreground')}>
@@ -96,7 +110,7 @@ export function CreatorTimeline({ influencerId }: { influencerId: string }) {
                 <div className="min-w-0 flex-1">
                   <p className="text-foreground">{item.message}</p>
                   <p className="text-xs text-muted-foreground">
-                    {meta.label} · {relativeTime(item.at)}
+                    {BUCKET_LABEL[item.bucket]} · {relativeTime(item.at)}
                   </p>
                 </div>
               </div>
@@ -109,7 +123,7 @@ export function CreatorTimeline({ influencerId }: { influencerId: string }) {
       {query.data?.hasMore && query.data.nextCursor && (
         <div className="flex justify-center pt-2">
           <Button variant="outline" size="sm" disabled={query.isFetching} onClick={() => setCursor(query.data!.nextCursor!)}>
-            {query.isFetching ? 'Loading…' : 'Load earlier'}
+            {query.isFetching ? tc('loading') : t('detail.timeline.loadEarlier')}
           </Button>
         </div>
       )}

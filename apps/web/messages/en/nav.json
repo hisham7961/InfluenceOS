@@ -11,5 +11,11 @@
   "calendar": "Calendar",
   "reports": "Reports",
   "notifications": "Notifications",
-  "settings": "Settings"
+  "settings": "Settings",
+  "workspace": "Workspace",
+  "insights": "Insights",
+  "account": "Account",
+  "executive": "Executive",
+  "allBrandsGlobal": "All brands (Global)",
+  "navigateHeading": "Navigate"
 }

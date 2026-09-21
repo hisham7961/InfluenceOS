@@ -1,11 +1,14 @@
 'use client';
+import { useTranslations } from 'next-intl';
 import { Check, Heart, MessageCircle, Play, Eye } from 'lucide-react';
 import type { PublishedContentDTO } from '@influenceos/contracts';
 import { contentReviewStatus } from '@influenceos/shared';
 import { formatCompact } from '@/lib/format';
+import { enumLabel } from '@/lib/enum-labels';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { Avatar } from '@/components/ui/avatar';
+import { BidiText } from '@/components/common/bidi-text';
 import { relativeTime } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
@@ -18,6 +21,8 @@ export const ALERT_STATUSES = new Set(['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BRO
  * summary — never a separate per-card computation.
  */
 export function ContentCard({ content, onOpen }: { content: PublishedContentDTO; onOpen: () => void }) {
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const m = content.metrics;
   const reviewStatus = contentReviewStatus(content.viewerState);
   const isAlert = ALERT_STATUSES.has(content.availabilityStatus);
@@ -55,10 +60,13 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
           </span>
           {reviewStatus === 'NEW' ? (
             <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-foreground shadow-sm">
-              New
+              {enumLabel(tEnums, 'contentReviewStatus', 'NEW')}
             </span>
           ) : reviewStatus === 'REVIEWED' ? (
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/40 text-success backdrop-blur" aria-label="Reviewed">
+            <span
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-black/40 text-success backdrop-blur"
+              aria-label={enumLabel(tEnums, 'contentReviewStatus', 'REVIEWED')}
+            >
               <Check className="h-3.5 w-3.5" />
             </span>
           ) : null}
@@ -77,17 +85,23 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
 
       <div className="flex flex-col gap-2 p-3">
         <div className="flex items-center gap-2">
-          <Avatar name={content.influencer?.displayName ?? 'Unknown'} src={content.influencer?.avatarUrl} size="xs" />
+          <Avatar name={content.influencer?.displayName ?? tCommon('unknown')} src={content.influencer?.avatarUrl} size="xs" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{content.influencer?.displayName ?? 'Unassigned'}</p>
+            <p className="truncate text-sm font-medium">
+              {content.influencer ? (
+                <BidiText>{content.influencer.displayName}</BidiText>
+              ) : (
+                enumLabel(tEnums, 'contentAssociationStatus', 'UNASSIGNED')
+              )}
+            </p>
             <p className="truncate text-xs text-muted-foreground">{content.campaign?.name ?? content.brand?.name ?? '—'}</p>
           </div>
         </div>
         {content.caption ? <p className="line-clamp-1 text-xs text-muted-foreground">{content.caption}</p> : null}
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <Metric icon={Eye} value={m?.views} />
-          <Metric icon={Heart} value={m?.likes} />
-          <Metric icon={MessageCircle} value={m?.comments} />
+          <Metric icon={Eye} value={m?.views} na={tCommon('na')} />
+          <Metric icon={Heart} value={m?.likes} na={tCommon('na')} />
+          <Metric icon={MessageCircle} value={m?.comments} na={tCommon('na')} />
           <span className="ms-auto">{relativeTime(content.publishedAt ?? content.detectedAt)}</span>
         </div>
       </div>
@@ -95,11 +109,19 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
   );
 }
 
-function Metric({ icon: Icon, value }: { icon: React.ComponentType<{ className?: string }>; value: number | null | undefined }) {
+function Metric({
+  icon: Icon,
+  value,
+  na,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  value: number | null | undefined;
+  na: string;
+}) {
   return (
     <span className={cn('flex items-center gap-1', value == null && 'opacity-50')}>
       <Icon className="h-3.5 w-3.5" />
-      {value == null ? 'N/A' : formatCompact(value)}
+      {value == null ? na : formatCompact(value)}
     </span>
   );
 }

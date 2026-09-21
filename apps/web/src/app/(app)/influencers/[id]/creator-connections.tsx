@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Link2, Link2Off, ShieldCheck } from 'lucide-react';
 import { ApiError } from '@influenceos/api-client';
@@ -10,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PlatformBadge } from '@/components/ui/platform-badge';
 
-const errorMessage = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
+const errorMessage = (e: unknown, fallback: string) => (e instanceof ApiError ? e.message : fallback);
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK'] as const;
 
 /**
@@ -20,6 +21,7 @@ const PLATFORMS = ['INSTAGRAM', 'TIKTOK'] as const;
  * message from the server rather than pretending.
  */
 export function CreatorConnections({ influencerId }: { influencerId: string }) {
+  const t = useTranslations('influencers');
   const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ['creator-connections', influencerId],
@@ -32,15 +34,15 @@ export function CreatorConnections({ influencerId }: { influencerId: string }) {
     onSuccess: (res) => {
       if (typeof window !== 'undefined' && res.url) window.location.href = res.url;
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, t('errors.generic'))),
   });
   const disconnect = useMutation({
     mutationFn: (platform: string) => api.influencers.disconnectCreator(influencerId, platform.toLowerCase()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['creator-connections', influencerId] });
-      toast.success('Disconnected.');
+      toast.success(t('detail.connections.disconnectedToast'));
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, t('errors.generic'))),
   });
 
   return (
@@ -48,11 +50,8 @@ export function CreatorConnections({ influencerId }: { influencerId: string }) {
       <CardHeader className="flex flex-row items-center gap-2">
         <ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden />
         <div>
-          <h3 className="text-sm font-semibold">Creator connections</h3>
-          <p className="text-xs text-muted-foreground">
-            Ask the creator to authorize reading their own post metrics (Instagram / TikTok). Requires a reviewed
-            platform app — until then this stays disabled.
-          </p>
+          <h3 className="text-sm font-semibold">{t('detail.connections.title')}</h3>
+          <p className="text-xs text-muted-foreground">{t('detail.connections.description')}</p>
         </div>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-2">
@@ -63,14 +62,14 @@ export function CreatorConnections({ influencerId }: { influencerId: string }) {
               <PlatformBadge platform={platform} size="sm" />
               {isConnected ? (
                 <>
-                  <Badge tone="success">Connected</Badge>
+                  <Badge tone="success">{t('detail.connections.connected')}</Badge>
                   <Button size="sm" variant="ghost" onClick={() => disconnect.mutate(platform)} disabled={disconnect.isPending}>
-                    <Link2Off className="h-3.5 w-3.5" /> Disconnect
+                    <Link2Off className="h-3.5 w-3.5" /> {t('detail.connections.disconnect')}
                   </Button>
                 </>
               ) : (
                 <Button size="sm" variant="secondary" onClick={() => start.mutate(platform)} disabled={start.isPending}>
-                  <Link2 className="h-3.5 w-3.5" /> Connect
+                  <Link2 className="h-3.5 w-3.5" /> {t('detail.connections.connect')}
                 </Button>
               )}
             </div>

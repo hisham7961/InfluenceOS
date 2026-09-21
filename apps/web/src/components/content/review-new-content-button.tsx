@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import { PartyPopper, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
@@ -24,6 +25,8 @@ export function ReviewNewContentButton({
   count?: number;
   label?: string;
 }) {
+  const t = useTranslations('content');
+  const tCommon = useTranslations('common');
   const [open, setOpen] = React.useState(false);
   const [index, setIndex] = React.useState(0);
   const newContent = useQuery({
@@ -36,7 +39,7 @@ export function ReviewNewContentButton({
     const result = await newContent.refetch();
     const items = result.data?.data ?? [];
     if (items.length === 0) {
-      toast.message("You're caught up — no new content to review.", { icon: <PartyPopper className="h-4 w-4" /> });
+      toast.message(t('reviewMode.caughtUp'), { icon: <PartyPopper className="h-4 w-4" /> });
       return;
     }
     setIndex(0);
@@ -44,14 +47,15 @@ export function ReviewNewContentButton({
   }
 
   const items = newContent.data?.data ?? [];
-  const buttonLabel = label ?? (count != null ? `Review ${count} New Content` : 'Review New Content');
+  const buttonLabel =
+    label ?? (count != null ? t('reviewMode.reviewCountNewContent', { count }) : t('reviewMode.reviewNewContent'));
 
   if (count === 0) return null;
 
   return (
     <>
       <Button type="button" size="sm" onClick={start} disabled={newContent.isFetching}>
-        <Sparkles className="h-3.5 w-3.5" /> {newContent.isFetching ? 'Loading…' : buttonLabel}
+        <Sparkles className="h-3.5 w-3.5" /> {newContent.isFetching ? tCommon('loading') : buttonLabel}
       </Button>
       {items.length > 0 ? (
         <ContentViewer items={items} index={index} onIndexChange={setIndex} open={open} onOpenChange={setOpen} reviewMode />

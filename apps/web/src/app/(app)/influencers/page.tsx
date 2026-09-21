@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { ChevronLeft, ChevronRight, Plus, Users } from 'lucide-react';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
@@ -31,6 +32,8 @@ export default async function InfluencersPage({
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
 
+  const t = await getTranslations('influencers');
+  const tc = await getTranslations('common');
   const api = getServerApi();
   const { data: influencers, pagination } = await api.influencers.list({
     q: sp.q || undefined,
@@ -60,8 +63,8 @@ export default async function InfluencersPage({
   return (
     <div>
       <PageHeader
-        title="Influencers"
-        description="Your global creator network."
+        title={t('directory.pageTitle')}
+        description={t('directory.pageDescription')}
         actions={
           <div className="flex items-center gap-2">
             <ExportInfluencersButton
@@ -77,7 +80,7 @@ export default async function InfluencersPage({
             />
             <Button asChild>
               <Link href="/influencers/new">
-                <Plus className="h-4 w-4" /> Add influencer
+                <Plus className="h-4 w-4" /> {t('directory.addInfluencer')}
               </Link>
             </Button>
           </div>
@@ -89,21 +92,19 @@ export default async function InfluencersPage({
       {influencers.length === 0 ? (
         <EmptyState
           icon={Users}
-          title={hasFilters ? 'No influencers match your filters' : 'Build your creator network'}
+          title={hasFilters ? t('directory.empty.filteredTitle') : t('directory.empty.emptyTitle')}
           description={
-            hasFilters
-              ? 'Try a different search term or clear your filters to see everyone.'
-              : 'Add your first creator to start tracking relationships, campaigns and content.'
+            hasFilters ? t('directory.empty.filteredDescription') : t('directory.empty.emptyDescription')
           }
           action={
             hasFilters ? (
               <Button variant="outline" asChild>
-                <Link href="/influencers">Clear filters</Link>
+                <Link href="/influencers">{tc('clearFilters')}</Link>
               </Button>
             ) : (
               <Button asChild>
                 <Link href="/influencers/new">
-                  <Plus className="h-4 w-4" /> Add influencer
+                  <Plus className="h-4 w-4" /> {t('directory.addInfluencer')}
                 </Link>
               </Button>
             )
@@ -116,29 +117,32 @@ export default async function InfluencersPage({
           {pagination.totalPages > 1 ? (
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">
               <p className="text-sm text-muted-foreground">
-                Page {pagination.page} of {pagination.totalPages} · {pagination.total} influencer
-                {pagination.total === 1 ? '' : 's'}
+                {t('directory.pagination.summary', {
+                  page: pagination.page,
+                  totalPages: pagination.totalPages,
+                  count: pagination.total,
+                })}
               </p>
               <div className="flex items-center gap-2">
                 {page <= 1 ? (
                   <Button variant="outline" size="sm" disabled>
-                    <ChevronLeft className="h-4 w-4" /> Previous
+                    <ChevronLeft className="h-4 w-4" /> {tc('previous')}
                   </Button>
                 ) : (
                   <Button variant="outline" size="sm" asChild>
                     <Link href={buildHref(sp, { page: String(page - 1) })}>
-                      <ChevronLeft className="h-4 w-4" /> Previous
+                      <ChevronLeft className="h-4 w-4" /> {tc('previous')}
                     </Link>
                   </Button>
                 )}
                 {page >= pagination.totalPages ? (
                   <Button variant="outline" size="sm" disabled>
-                    Next <ChevronRight className="h-4 w-4" />
+                    {tc('next')} <ChevronRight className="h-4 w-4" />
                   </Button>
                 ) : (
                   <Button variant="outline" size="sm" asChild>
                     <Link href={buildHref(sp, { page: String(page + 1) })}>
-                      Next <ChevronRight className="h-4 w-4" />
+                      {tc('next')} <ChevronRight className="h-4 w-4" />
                     </Link>
                   </Button>
                 )}

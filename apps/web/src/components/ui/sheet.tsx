@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import * as SheetPrimitive from '@radix-ui/react-dialog';
+import { useTranslations } from 'next-intl';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
@@ -38,27 +39,30 @@ export interface SheetContentProps extends React.ComponentPropsWithoutRef<typeof
 }
 
 export const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = 'right', className, children, ...props }, ref) => (
-    <SheetPortal>
-      <SheetOverlay />
-      <SheetPrimitive.Content
-        ref={ref}
-        className={cn(
-          'fixed z-50 flex flex-col gap-4 border-border bg-card p-6 shadow-pop outline-none overflow-y-auto',
-          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-200 data-[state=open]:duration-300',
-          sheetSideClasses[side],
-          className,
-        )}
-        {...props}
-      >
-        {children}
-        <SheetPrimitive.Close className="absolute end-4 top-4 rounded-lg p-1 text-muted-foreground opacity-70 transition-opacity hover:bg-surface-muted hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-          <X className="size-4" />
-          <span className="sr-only">Close</span>
-        </SheetPrimitive.Close>
-      </SheetPrimitive.Content>
-    </SheetPortal>
-  ),
+  ({ side = 'right', className, children, ...props }, ref) => {
+    const t = useTranslations('ui');
+    return (
+      <SheetPortal>
+        <SheetOverlay />
+        <SheetPrimitive.Content
+          ref={ref}
+          className={cn(
+            'fixed z-50 flex flex-col gap-4 border-border bg-card p-6 shadow-pop outline-none overflow-y-auto',
+            'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-200 data-[state=open]:duration-300',
+            sheetSideClasses[side],
+            className,
+          )}
+          {...props}
+        >
+          {children}
+          <SheetPrimitive.Close className="absolute end-4 top-4 rounded-lg p-1 text-muted-foreground opacity-70 transition-opacity hover:bg-surface-muted hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+            <X className="size-4" />
+            <span className="sr-only">{t('close')}</span>
+          </SheetPrimitive.Close>
+        </SheetPrimitive.Content>
+      </SheetPortal>
+    );
+  },
 );
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 

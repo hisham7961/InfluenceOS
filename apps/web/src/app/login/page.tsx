@@ -1,10 +1,15 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { getTranslations } from 'next-intl/server';
 import { LoginForm } from './login-form';
 
-export const metadata: Metadata = { title: 'Sign in' };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('auth');
+  return { title: t('signIn') };
+}
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const t = await getTranslations('auth');
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
       <div className="pointer-events-none absolute inset-0 -z-10">
@@ -18,7 +23,7 @@ export default function LoginPage() {
             io
           </div>
           <h1 className="text-2xl font-bold tracking-tight">InfluenceOS</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Your influencer marketing command center</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('signInTagline')}</p>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-6 shadow-card">

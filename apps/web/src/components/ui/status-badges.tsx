@@ -1,17 +1,13 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
 import {
-  CONTENT_STATUS_LABELS,
   CONTENT_STATUS_TONE,
-  DELIVERABLE_STATUS_LABELS,
   DELIVERABLE_STATUS_TONE,
-  CAMPAIGN_STATUS_LABELS,
   CAMPAIGN_STATUS_TONE,
-  PAYMENT_STATUS_LABELS,
   PAYMENT_STATUS_TONE,
-  RELATIONSHIP_STATUS_LABELS,
   RELATIONSHIP_STATUS_TONE,
-  AUDIENCE_HEALTH_LABELS_MAP,
   AUDIENCE_HEALTH_TONE,
-  DEAL_TYPE_LABELS,
 } from '@influenceos/shared';
 import type {
   ContentStatus,
@@ -24,6 +20,7 @@ import type {
   Tone,
 } from '@influenceos/contracts';
 import { cn } from '@/lib/cn';
+import { enumLabel } from '@/lib/enum-labels';
 import { Badge, type BadgeProps } from './badge';
 
 const dotToneStyles: Record<Tone, string> = {
@@ -43,11 +40,12 @@ export interface ContentStatusBadgeProps extends StatusBadgeProps {
 
 /** A content-status badge with a small tone-colored dot ahead of the label, so status is never conveyed by color alone. */
 export function ContentStatusBadge({ status, className, ...props }: ContentStatusBadgeProps) {
+  const t = useTranslations('enums');
   const tone = CONTENT_STATUS_TONE[status];
   return (
     <Badge tone={tone} className={cn('gap-1.5', className)} {...props}>
       <span aria-hidden="true" className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dotToneStyles[tone])} />
-      {CONTENT_STATUS_LABELS[status]}
+      {enumLabel(t, 'contentStatus', status)}
     </Badge>
   );
 }
@@ -58,9 +56,10 @@ export interface DeliverableStatusBadgeProps extends StatusBadgeProps {
 
 /** A badge for a deliverable's lifecycle status. */
 export function DeliverableStatusBadge({ status, ...props }: DeliverableStatusBadgeProps) {
+  const t = useTranslations('enums');
   return (
     <Badge tone={DELIVERABLE_STATUS_TONE[status]} {...props}>
-      {DELIVERABLE_STATUS_LABELS[status]}
+      {enumLabel(t, 'deliverableStatus', status)}
     </Badge>
   );
 }
@@ -71,9 +70,10 @@ export interface CampaignStatusBadgeProps extends StatusBadgeProps {
 
 /** A badge for a campaign's status. */
 export function CampaignStatusBadge({ status, ...props }: CampaignStatusBadgeProps) {
+  const t = useTranslations('enums');
   return (
     <Badge tone={CAMPAIGN_STATUS_TONE[status]} {...props}>
-      {CAMPAIGN_STATUS_LABELS[status]}
+      {enumLabel(t, 'campaignStatus', status)}
     </Badge>
   );
 }
@@ -84,9 +84,10 @@ export interface PaymentStatusBadgeProps extends StatusBadgeProps {
 
 /** A badge for a payment's status. */
 export function PaymentStatusBadge({ status, ...props }: PaymentStatusBadgeProps) {
+  const t = useTranslations('enums');
   return (
     <Badge tone={PAYMENT_STATUS_TONE[status]} {...props}>
-      {PAYMENT_STATUS_LABELS[status]}
+      {enumLabel(t, 'paymentStatus', status)}
     </Badge>
   );
 }
@@ -97,9 +98,10 @@ export interface RelationshipStatusBadgeProps extends StatusBadgeProps {
 
 /** A badge for an influencer relationship's status. */
 export function RelationshipStatusBadge({ status, ...props }: RelationshipStatusBadgeProps) {
+  const t = useTranslations('enums');
   return (
     <Badge tone={RELATIONSHIP_STATUS_TONE[status]} {...props}>
-      {RELATIONSHIP_STATUS_LABELS[status]}
+      {enumLabel(t, 'relationshipStatus', status)}
     </Badge>
   );
 }
@@ -110,9 +112,10 @@ export interface AudienceHealthBadgeProps extends StatusBadgeProps {
 
 /** A badge for an audience's health/data-quality label. */
 export function AudienceHealthBadge({ status, ...props }: AudienceHealthBadgeProps) {
+  const t = useTranslations('enums');
   return (
     <Badge tone={AUDIENCE_HEALTH_TONE[status]} {...props}>
-      {AUDIENCE_HEALTH_LABELS_MAP[status]}
+      {enumLabel(t, 'audienceHealth', status)}
     </Badge>
   );
 }
@@ -130,9 +133,10 @@ export interface DealTypeBadgeProps extends StatusBadgeProps {
 
 /** A badge for a deal's compensation type. */
 export function DealTypeBadge({ status, ...props }: DealTypeBadgeProps) {
+  const t = useTranslations('enums');
   return (
     <Badge tone={DEAL_TYPE_TONE[status]} {...props}>
-      {DEAL_TYPE_LABELS[status]}
+      {enumLabel(t, 'dealType', status)}
     </Badge>
   );
 }

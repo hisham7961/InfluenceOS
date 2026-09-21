@@ -2,12 +2,15 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { X } from 'lucide-react';
-import { CAMPAIGN_STATUSES, CAMPAIGN_STATUS_LABELS } from '@influenceos/shared';
+import { CAMPAIGN_STATUSES } from '@influenceos/shared';
 import type { BrandSummaryDTO } from '@influenceos/contracts';
 import { SearchInput } from '@/components/ui/search-input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { enumLabel } from '@/lib/enum-labels';
+import { BidiText } from '@/components/common/bidi-text';
 
 /** Sentinel value for Radix Select's "no filter" option (Select forbids an empty-string item value). */
 const ALL = 'all';
@@ -22,6 +25,9 @@ export interface CampaignFiltersProps {
 /** Search + brand + status filter bar for the campaigns list. Drives the URL, the server page re-reads it. */
 export function CampaignFilters({ brands, brandId, status, q }: CampaignFiltersProps) {
   const router = useRouter();
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const [search, setSearch] = React.useState(q ?? '');
 
   // Keep the local input in sync when filters change via a Select or Reset (which don't touch this state directly).
@@ -57,21 +63,21 @@ export function CampaignFilters({ brands, brandId, status, q }: CampaignFiltersP
         <SearchInput
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search campaigns…"
-          aria-label="Search campaigns"
+          placeholder={t('list.searchPlaceholder')}
+          aria-label={t('list.searchAriaLabel')}
         />
       </form>
 
       <div className="flex flex-1 flex-wrap items-center gap-3">
         <Select value={brandId || ALL} onValueChange={(value) => navigate({ brandId: value === ALL ? '' : value })}>
           <SelectTrigger className="h-10 w-full sm:w-48">
-            <SelectValue placeholder="Brand" />
+            <SelectValue placeholder={t('fields.brand')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All brands</SelectItem>
+            <SelectItem value={ALL}>{tCommon('allBrands')}</SelectItem>
             {brands.map((brand) => (
               <SelectItem key={brand.id} value={brand.id}>
-                {brand.name}
+                <BidiText>{brand.name}</BidiText>
               </SelectItem>
             ))}
           </SelectContent>
@@ -79,13 +85,13 @@ export function CampaignFilters({ brands, brandId, status, q }: CampaignFiltersP
 
         <Select value={status || ALL} onValueChange={(value) => navigate({ status: value === ALL ? '' : value })}>
           <SelectTrigger className="h-10 w-full sm:w-44">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder={t('fields.status')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All statuses</SelectItem>
+            <SelectItem value={ALL}>{t('list.allStatuses')}</SelectItem>
             {CAMPAIGN_STATUSES.map((s) => (
               <SelectItem key={s} value={s}>
-                {CAMPAIGN_STATUS_LABELS[s]}
+                {enumLabel(tEnums, 'campaignStatus', s)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -99,7 +105,7 @@ export function CampaignFilters({ brands, brandId, status, q }: CampaignFiltersP
             onClick={() => router.push('/campaigns')}
             className="text-muted-foreground sm:ml-auto"
           >
-            <X className="h-3.5 w-3.5" /> Reset
+            <X className="h-3.5 w-3.5" /> {t('list.resetFilters')}
           </Button>
         ) : null}
       </div>

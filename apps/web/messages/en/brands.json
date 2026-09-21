@@ -1,0 +1,66 @@
+{
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "list": {
+    "title": "Brands",
+    "description": "Every brand workspace you manage, in one place.",
+    "addBrandHint": "Add brand — managed in platform settings",
+    "emptyTitle": "No brands yet",
+    "emptyDescription": "Brand workspaces will appear here once they're set up."
+  },
+  "detail": {
+    "backToBrands": "Back to Brands",
+    "stats": {
+      "activeCampaigns": "Active Campaigns",
+      "totalCampaignsHint": "{count} total",
+      "influencers": "Influencers",
+      "contentPublished": "Content Published",
+      "totalSpend": "Total Spend"
+    },
+    "content": "Content",
+    "viewInLiveContent": "View in Live Content",
+    "noContentTitle": "No content yet",
+    "noContentDescription": "Published content for {name} will appear here."
+  },
+  "edit": {
+    "title": "Edit brand",
+    "dialogDescription": "Update the brand's details and identity colors.",
+    "name": "Name",
+    "namePlaceholder": "Brand name",
+    "description": "Description",
+    "descriptionPlaceholder": "What does this brand do?",
+    "primaryColor": "Primary color",
+    "secondaryColor": "Secondary color",
+    "accentColor": "Accent color",
+    "useSecondaryColor": "Use secondary color",
+    "useAccentColor": "Use accent color",
+    "colorNotSet": "Not set",
+    "logoUrl": "Logo URL",
+    "coverUrl": "Cover URL",
+    "optional": "Optional",
+    "urlPlaceholder": "https://…",
+    "activeHint": "Inactive brands are hidden from active rosters.",
+    "saveChanges": "Save changes",
+    "updated": "{name} updated."
+  },
+  "notes": {
+    "title": "Notes",
+    "emptyTitle": "No notes yet",
+    "emptyDescription": "Internal notes about this brand — visible to your team only."
+  },
+  "usageRights": {
+    "title": "Usage rights",
+    "expiringSoon": "{count} expiring soon",
+    "typeColumn": "Type",
+    "scopeTerritoryColumn": "Scope / territory",
+    "creatorColumn": "Creator",
+    "expiresColumn": "Expires",
+    "exclusive": "Exclusive",
+    "noExpiry": "No expiry",
+    "daysRemaining": "({count}d)",
+    "emptyTitle": "No usage rights recorded",
+    "emptyDescription": "Licences for this brand's content will appear here with their coverage and expiry."
+  }
+}

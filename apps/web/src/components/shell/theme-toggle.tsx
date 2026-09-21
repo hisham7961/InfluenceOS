@@ -1,11 +1,13 @@
 'use client';
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api-browser';
 
 export function ThemeToggle() {
   const [dark, setDark] = React.useState(false);
+  const t = useTranslations('common');
 
   React.useEffect(() => {
     setDark(document.documentElement.classList.contains('dark'));
@@ -23,7 +25,7 @@ export function ThemeToggle() {
   }
 
   return (
-    <Button variant="ghost" size="icon-sm" onClick={toggle} aria-label="Toggle theme">
+    <Button variant="ghost" size="icon-sm" onClick={toggle} aria-label={t('toggleTheme')}>
       {dark ? <Moon className="h-[18px] w-[18px]" /> : <Sun className="h-[18px] w-[18px]" />}
     </Button>
   );

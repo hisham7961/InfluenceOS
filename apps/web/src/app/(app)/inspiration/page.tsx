@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
 import { InspirationWorkspace } from './inspiration-workspace';
@@ -14,10 +15,11 @@ export const dynamic = 'force-dynamic';
 export default async function InspirationPage() {
   const api = getServerApi();
   const brands = await api.brands.list();
+  const t = await getTranslations('inspiration');
 
   return (
     <div>
-      <PageHeader title="Inspiration" description="Trends, competitor moves, and reference material worth remembering." />
+      <PageHeader title={t('pageTitle')} description={t('pageDescription')} />
       <InspirationWorkspace brands={brands} />
     </div>
   );

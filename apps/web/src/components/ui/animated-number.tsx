@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 const ANIMATION_DURATION_MS = 600;
 
@@ -16,6 +17,7 @@ export interface AnimatedNumberProps {
 }
 
 export function AnimatedNumber({ value, format = defaultFormat }: AnimatedNumberProps) {
+  const t = useTranslations('common');
   const [display, setDisplay] = useState(value ?? 0);
   const fromRef = useRef(value ?? 0);
   const frameRef = useRef<number | null>(null);
@@ -71,7 +73,7 @@ export function AnimatedNumber({ value, format = defaultFormat }: AnimatedNumber
   }, [value]);
 
   if (value === null) {
-    return <span>N/A</span>;
+    return <span>{t('na')}</span>;
   }
 
   return <span>{format(display)}</span>;

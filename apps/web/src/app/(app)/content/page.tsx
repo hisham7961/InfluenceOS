@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
 import { ContentWall } from './content-wall';
@@ -6,6 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function ContentPage() {
   const api = getServerApi();
+  const t = await getTranslations('content');
   const [feed, brands, campaigns, influencers, user] = await Promise.all([
     api.content.feed({ limit: 24 }),
     api.brands.list(),
@@ -16,10 +18,7 @@ export default async function ContentPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Live Content"
-        description="Every piece of influencer content, as it goes live across your brands."
-      />
+      <PageHeader title={t('feed.title')} description={t('feed.description')} />
       <ContentWall
         initial={feed}
         brands={brands}

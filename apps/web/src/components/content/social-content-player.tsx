@@ -1,5 +1,6 @@
 'use client';
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { ExternalLink, PlayCircle } from 'lucide-react';
 import { isAllowedIframeOrigin, type EmbedDescriptor } from '@influenceos/shared';
 import type { PublishedContentDTO } from '@influenceos/contracts';
@@ -24,6 +25,7 @@ export function SocialContentPlayer({
   autoPlay?: boolean;
   className?: string;
 }) {
+  const t = useTranslations('content');
   const [playing, setPlaying] = React.useState(autoPlay);
   const embed = content.embed;
   const canEmbed = !!embed && embed.kind === 'iframe' && !!embed.iframeSrc && isAllowedIframeOrigin(embed.iframeSrc);
@@ -37,7 +39,7 @@ export function SocialContentPlayer({
       {canEmbed && playing ? (
         <iframe
           src={embed!.iframeSrc}
-          title={content.caption ?? 'Embedded content'}
+          title={content.caption ?? t('player.embeddedContentTitle')}
           className="absolute inset-0 h-full w-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
@@ -60,6 +62,8 @@ function Fallback({
   canEmbed: boolean;
   onPlay: () => void;
 }) {
+  const t = useTranslations('content');
+  const tCommon = useTranslations('common');
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-neutral-900 to-neutral-800 text-white">
       {content.thumbnailUrl ? (
@@ -81,17 +85,19 @@ function Fallback({
 
       <div className="relative z-10 flex flex-col items-center gap-2 text-center">
         {canEmbed ? (
-          <button onClick={onPlay} className="group flex flex-col items-center gap-2" aria-label="Play">
+          <button onClick={onPlay} className="group flex flex-col items-center gap-2" aria-label={t('player.play')}>
             <PlayCircle className="h-16 w-16 drop-shadow transition-transform group-hover:scale-110" />
-            <span className="text-sm font-medium">Play {content.platform.toLowerCase()} content</span>
+            <span className="text-sm font-medium">
+              {t('player.playPlatformContent', { platform: content.platform.toLowerCase() })}
+            </span>
           </button>
         ) : (
           <div className="flex flex-col items-center gap-2 px-6">
             <PlayCircle className="h-12 w-12 opacity-60" />
-            <p className="text-sm font-medium">Preview not available for this platform</p>
+            <p className="text-sm font-medium">{t('player.previewUnavailable')}</p>
             <Button asChild variant="secondary" size="sm">
               <a href={content.originalUrl} target="_blank" rel="noopener noreferrer">
-                Open original <ExternalLink className="h-3.5 w-3.5" />
+                {tCommon('openOriginal')} <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </Button>
           </div>

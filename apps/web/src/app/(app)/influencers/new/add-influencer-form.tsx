@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { AlertTriangle, Check, ExternalLink, Fingerprint, Search, Sparkles } from 'lucide-react';
 import { ApiError } from '@influenceos/api-client';
@@ -13,14 +14,13 @@ import {
   PLATFORMS,
   PLATFORM_META,
   PRIORITIES,
-  PRIORITY_LABELS,
   RELATIONSHIP_STATUSES,
-  RELATIONSHIP_STATUS_LABELS,
   type Platform,
   type Priority,
   type RelationshipStatus,
 } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
+import { enumLabel } from '@/lib/enum-labels';
 import { formatCompact } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +32,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { DataSourceBadge } from '@/components/ui/provenance';
 import { Spinner } from '@/components/ui/spinner';
+import { LtrText } from '@/components/common/bidi-text';
 
 /** Sentinel for the platform Select's "let us detect it" option (Radix forbids an empty-string item value). */
 const AUTO = 'auto';
@@ -42,33 +43,17 @@ const PRIORITY_TONE: Record<Priority, 'neutral' | 'info' | 'danger'> = {
   HIGH: 'danger',
 };
 
-// Mirrors the confidence badge tone/label the Data Quality Center's
+// Mirrors the confidence badge tone the Data Quality Center's
 // duplicate-candidate rows already use (data-quality-workspace.tsx) — same
 // visual language for the same DuplicateCandidateDTO.confidence values,
 // so "exact" reads as more serious than a name-only "possible" match
-// wherever a duplicate candidate is shown in the app.
+// wherever a duplicate candidate is shown in the app. Both "strongPossible"
+// and "possible" read the same localized label (form.duplicateWarning.confidencePossible)
+// — only the tone differs — matching the source English copy this was extracted from.
 const CONFIDENCE_TONE: Record<DuplicateMatchConfidence, Tone> = {
   exact: 'danger',
   strongPossible: 'warning',
   possible: 'neutral',
-};
-
-const CONFIDENCE_LABEL: Record<DuplicateMatchConfidence, string> = {
-  exact: 'Exact match found',
-  strongPossible: 'Possible match',
-  possible: 'Possible match',
-};
-
-const REASON_LABEL: Record<DuplicateCandidateDTO['reasons'][number]['field'], string> = {
-  instagramUsername: 'Instagram',
-  tiktokUsername: 'TikTok',
-  youtubeUsername: 'YouTube',
-  snapchatUsername: 'Snapchat',
-  xUsername: 'X',
-  email: 'Email',
-  mobile: 'Mobile',
-  whatsapp: 'WhatsApp',
-  name: 'Name',
 };
 
 /** Minimum identifying info worth sending to /data-quality/duplicates/check
@@ -89,8 +74,8 @@ function splitList(raw: string): string[] {
     .filter(Boolean);
 }
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
 }
 
 /**
@@ -100,7 +85,37 @@ function errorMessage(e: unknown): string {
  * or dismissing to "Proceed anyway" and keep creating a separate record.
  */
 function DuplicateWarningCard({ matches, onDismiss }: { matches: DuplicateCandidateDTO[]; onDismiss: () => void }) {
+  const t = useTranslations('influencers');
   const hasExact = matches.some((m) => m.confidence === 'exact');
+
+  const reasonLabel = React.useCallback(
+    (field: DuplicateCandidateDTO['reasons'][number]['field']): string => {
+      switch (field) {
+        case 'instagramUsername':
+          return 'Instagram';
+        case 'tiktokUsername':
+          return 'TikTok';
+        case 'youtubeUsername':
+          return 'YouTube';
+        case 'snapchatUsername':
+          return 'Snapchat';
+        case 'xUsername':
+          return 'X';
+        case 'email':
+          return t('form.duplicateWarning.fieldEmail');
+        case 'mobile':
+          return t('form.duplicateWarning.fieldMobile');
+        case 'whatsapp':
+          return t('form.duplicateWarning.fieldWhatsapp');
+        case 'name':
+          return t('form.duplicateWarning.fieldName');
+        default:
+          return field;
+      }
+    },
+    [t],
+  );
+
   return (
     <Card className={cn('border', hasExact ? 'border-danger/30 bg-danger/5' : 'border-warning/30 bg-warning/5')}>
       <CardContent className="flex flex-col gap-3 pt-5">
@@ -108,13 +123,11 @@ function DuplicateWarningCard({ matches, onDismiss }: { matches: DuplicateCandid
           <Fingerprint className={cn('mt-0.5 h-4 w-4 shrink-0', hasExact ? 'text-danger' : 'text-warning')} />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-foreground">
-              {hasExact ? 'This creator may already exist' : 'Possible existing creator found'}
+              {hasExact ? t('form.duplicateWarning.titleExact') : t('form.duplicateWarning.titlePossible')}
             </p>
             <p className="text-xs text-muted-foreground">
-              {matches.length === 1
-                ? 'One creator already on file shares identifying details with what you’ve entered.'
-                : `${matches.length} creators already on file share identifying details with what you’ve entered.`}{' '}
-              This is advisory only — nothing will be filled in or merged for you.
+              {t('form.duplicateWarning.matchesFound', { count: matches.length })}{' '}
+              {t('form.duplicateWarning.advisoryNote')}
             </p>
           </div>
         </div>
@@ -129,15 +142,21 @@ function DuplicateWarningCard({ matches, onDismiss }: { matches: DuplicateCandid
               <div className="min-w-0 flex-1 basis-40">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="truncate text-sm font-medium text-foreground">{m.displayName}</p>
-                  <Badge tone={CONFIDENCE_TONE[m.confidence]}>{CONFIDENCE_LABEL[m.confidence]}</Badge>
+                  <Badge tone={CONFIDENCE_TONE[m.confidence]}>
+                    {m.confidence === 'exact'
+                      ? t('form.duplicateWarning.confidenceExact')
+                      : t('form.duplicateWarning.confidencePossible')}
+                  </Badge>
                 </div>
                 <p className="truncate text-xs text-muted-foreground">
-                  {m.reasons.map((r) => `Same ${REASON_LABEL[r.field]}: ${r.value}`).join(' · ')}
+                  {m.reasons
+                    .map((r) => t('form.duplicateWarning.sameField', { field: reasonLabel(r.field), value: r.value }))
+                    .join(' · ')}
                 </p>
               </div>
               <Button asChild variant="outline" size="sm" className="shrink-0">
                 <Link href={`/influencers/${m.influencerId}`} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-3.5 w-3.5" /> Open existing profile
+                  <ExternalLink className="h-3.5 w-3.5" /> {t('form.duplicateWarning.openExistingProfile')}
                 </Link>
               </Button>
             </div>
@@ -146,7 +165,7 @@ function DuplicateWarningCard({ matches, onDismiss }: { matches: DuplicateCandid
 
         <div className="flex justify-end">
           <Button type="button" variant="ghost" size="sm" onClick={onDismiss}>
-            Proceed anyway — this is a new creator
+            {t('form.duplicateWarning.proceedAnyway')}
           </Button>
         </div>
       </CardContent>
@@ -156,6 +175,9 @@ function DuplicateWarningCard({ matches, onDismiss }: { matches: DuplicateCandid
 
 export function AddInfluencerForm() {
   const router = useRouter();
+  const t = useTranslations('influencers');
+  const tc = useTranslations('common');
+  const te = useTranslations('enums');
 
   // Step 1 — resolve a pasted URL / handle into a profile preview.
   const [input, setInput] = React.useState('');
@@ -236,7 +258,7 @@ export function AddInfluencerForm() {
   async function handleResolve() {
     const trimmed = input.trim();
     if (!trimmed) {
-      toast.error('Paste a profile URL or @handle first.');
+      toast.error(t('form.findCreator.pasteFirstToast'));
       return;
     }
     setResolving(true);
@@ -249,13 +271,13 @@ export function AddInfluencerForm() {
       setResolved(r);
       setDisplayName((prev) => prev || r.displayName || r.username);
       if (r.manual) {
-        toast.message(r.message ?? 'Official data is unavailable for this profile — add it manually below.');
+        toast.message(r.message ?? t('form.findCreator.manualDataUnavailableToast'));
       } else {
-        toast.success(`Found @${r.username} on ${PLATFORM_META[r.platform].label}.`);
+        toast.success(t('form.findCreator.foundToast', { username: r.username, platform: PLATFORM_META[r.platform].label }));
       }
     } catch (e) {
       setResolved(null);
-      toast.error(errorMessage(e));
+      toast.error(errorMessage(e, t('errors.generic')));
     } finally {
       setResolving(false);
     }
@@ -265,11 +287,11 @@ export function AddInfluencerForm() {
     e.preventDefault();
     const name = displayName.trim();
     if (!name) {
-      toast.error('Display name is required.');
+      toast.error(t('form.validation.displayNameRequired'));
       return;
     }
     if (!countryCode) {
-      toast.error('Country is required — it drives country-based filtering and scoping.');
+      toast.error(t('form.validation.countryRequired'));
       return;
     }
 
@@ -309,16 +331,18 @@ export function AddInfluencerForm() {
             isPrimary: true,
           });
         } catch (linkError) {
-          toast.error(`Influencer created, but linking the social account failed: ${errorMessage(linkError)}`);
+          toast.error(
+            t('form.linkFailedToast', { error: errorMessage(linkError, t('errors.generic')) }),
+          );
           router.push(`/influencers/${influencer.id}`);
           return;
         }
       }
 
-      toast.success(`${influencer.displayName} was added to your network.`);
+      toast.success(t('form.successToast', { name: influencer.displayName }));
       router.push(`/influencers/${influencer.id}`);
     } catch (e) {
-      toast.error(errorMessage(e));
+      toast.error(errorMessage(e, t('errors.generic')));
     } finally {
       setSubmitting(false);
     }
@@ -333,12 +357,9 @@ export function AddInfluencerForm() {
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
                 1
               </span>
-              <CardTitle>Find the creator</CardTitle>
+              <CardTitle>{t('form.findCreator.cardTitle')}</CardTitle>
             </div>
-            <CardDescription>
-              Paste a profile URL or @handle — we&apos;ll try to pull their platform, avatar and follower count
-              automatically.
-            </CardDescription>
+            <CardDescription>{t('form.findCreator.cardDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 pt-5">
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -347,7 +368,7 @@ export function AddInfluencerForm() {
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="https://instagram.com/creator or @creator"
+                  placeholder={t('form.findCreator.inputPlaceholder')}
                   className="pl-9"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -359,10 +380,10 @@ export function AddInfluencerForm() {
               </div>
               <Select value={platform} onValueChange={setPlatform}>
                 <SelectTrigger className="sm:w-40">
-                  <SelectValue placeholder="Platform" />
+                  <SelectValue placeholder={t('form.findCreator.platformPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={AUTO}>Auto-detect</SelectItem>
+                  <SelectItem value={AUTO}>{t('form.findCreator.autoDetect')}</SelectItem>
                   {PLATFORMS.map((p) => (
                     <SelectItem key={p} value={p}>
                       {PLATFORM_META[p].label}
@@ -378,7 +399,7 @@ export function AddInfluencerForm() {
                 className="sm:w-36"
               >
                 {resolving ? <Spinner className="text-current" /> : <Sparkles className="h-4 w-4" />}
-                {resolving ? 'Resolving…' : 'Resolve'}
+                {resolving ? t('form.findCreator.resolving') : t('form.findCreator.resolve')}
               </Button>
             </div>
 
@@ -407,12 +428,14 @@ export function AddInfluencerForm() {
                         className="h-3.5 w-3.5"
                         style={{ color: PLATFORM_META[resolved.platform].color }}
                       />
-                      @{resolved.username}
+                      <LtrText>@{resolved.username}</LtrText>
                     </span>
-                    {resolved.followers != null ? <span>{formatCompact(resolved.followers)} followers</span> : null}
+                    {resolved.followers != null ? (
+                      <span>{t('form.findCreator.followersSuffix', { count: formatCompact(resolved.followers) })}</span>
+                    ) : null}
                     {resolved.isVerified ? (
                       <span className="inline-flex items-center gap-1 text-brand">
-                        <Check className="h-3.5 w-3.5" /> Verified
+                        <Check className="h-3.5 w-3.5" /> {t('form.findCreator.verified')}
                       </span>
                     ) : null}
                   </div>
@@ -426,12 +449,10 @@ export function AddInfluencerForm() {
               </div>
             ) : resolveAttempted && !resolving ? (
               <div className="rounded-xl border border-dashed border-border bg-surface-muted/60 px-4 py-3 text-sm text-muted-foreground">
-                Couldn&apos;t resolve that profile. You can still fill in the details manually below.
+                {t('form.findCreator.couldNotResolve')}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">
-                Optional — you can skip this and add every detail by hand instead.
-              </p>
+              <p className="text-xs text-muted-foreground">{t('form.findCreator.skipHint')}</p>
             )}
           </CardContent>
         </Card>
@@ -446,27 +467,27 @@ export function AddInfluencerForm() {
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
                 2
               </span>
-              <CardTitle>Creator details</CardTitle>
+              <CardTitle>{t('form.details.cardTitle')}</CardTitle>
             </div>
-            <CardDescription>Everything your team needs to reach out and track this relationship.</CardDescription>
+            <CardDescription>{t('form.details.cardDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-x-6 gap-y-4 pt-5 sm:grid-cols-2">
-            <Field label="Display name" hint="Shown across InfluenceOS">
+            <Field label={t('form.fields.displayName')} hint={t('form.fields.displayNameHint')}>
               <Input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="e.g. Sara Al-Fahad"
+                placeholder={t('form.fields.displayNamePlaceholder')}
                 required
               />
             </Field>
-            <Field label="Full name">
-              <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Legal name" />
+            <Field label={t('form.fields.fullName')}>
+              <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t('form.fields.fullNamePlaceholder')} />
             </Field>
 
-            <Field label="Category">
-              <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Beauty, Fitness, Food…" />
+            <Field label={t('form.fields.category')}>
+              <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder={t('form.fields.categoryPlaceholder')} />
             </Field>
-            <Field label="Priority">
+            <Field label={t('form.fields.priority')}>
               <Select value={priority} onValueChange={(v) => setPriority(v as Priority)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -474,14 +495,14 @@ export function AddInfluencerForm() {
                 <SelectContent>
                   {PRIORITIES.map((p) => (
                     <SelectItem key={p} value={p}>
-                      {PRIORITY_LABELS[p]}
+                      {enumLabel(te, 'priority', p)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
 
-            <Field label="Country" hint="Required — drives country-based filtering and scoping.">
+            <Field label={t('form.fields.country')} hint={t('form.fields.countryRequiredHint')}>
               <Select
                 value={countryCode}
                 onValueChange={(v) => {
@@ -490,7 +511,7 @@ export function AddInfluencerForm() {
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a country" />
+                  <SelectValue placeholder={t('form.fields.countryPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent className="max-h-72">
                   {COUNTRIES.map((c) => (
@@ -501,11 +522,11 @@ export function AddInfluencerForm() {
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="City">
-              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Kuwait City" />
+            <Field label={t('form.fields.city')}>
+              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder={t('form.fields.cityPlaceholder')} />
             </Field>
 
-            <Field label="Relationship status">
+            <Field label={t('form.fields.relationshipStatus')}>
               <Select value={relationshipStatus} onValueChange={(v) => setRelationshipStatus(v as RelationshipStatus)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -513,57 +534,57 @@ export function AddInfluencerForm() {
                 <SelectContent>
                   {RELATIONSHIP_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {RELATIONSHIP_STATUS_LABELS[s]}
+                      {enumLabel(te, 'relationshipStatus', s)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Languages" hint="Comma-separated">
-              <Input value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder="Arabic, English" />
+            <Field label={t('form.fields.languages')} hint={t('form.fields.languagesHint')}>
+              <Input value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder={t('form.fields.languagesPlaceholder')} />
             </Field>
 
-            <Field label="Email">
+            <Field label={t('form.fields.email')}>
               <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="creator@email.com"
+                placeholder={t('form.fields.emailPlaceholder')}
               />
             </Field>
-            <Field label="Mobile">
-              <Input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="+965 ..." />
+            <Field label={t('form.fields.mobile')}>
+              <Input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder={t('form.fields.mobilePlaceholder')} />
             </Field>
 
-            <Field label="WhatsApp">
-              <Input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+965 ..." />
+            <Field label={t('form.fields.whatsapp')}>
+              <Input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder={t('form.fields.whatsappPlaceholder')} />
             </Field>
-            <Field label="Tags" hint="Comma-separated">
-              <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="ramadan, macro, ugc" />
+            <Field label={t('form.fields.tags')} hint={t('form.fields.tagsHint')}>
+              <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t('form.fields.tagsPlaceholder')} />
             </Field>
 
-            <Field label="Pricing notes" className="sm:col-span-2">
+            <Field label={t('form.fields.pricingNotes')} className="sm:col-span-2">
               <Textarea
                 value={pricingNotes}
                 onChange={(e) => setPricingNotes(e.target.value)}
-                placeholder="Standard rates, negotiables, past deals…"
+                placeholder={t('form.fields.pricingNotesPlaceholder')}
               />
             </Field>
-            <Field label="Internal notes" className="sm:col-span-2">
+            <Field label={t('form.fields.internalNotes')} className="sm:col-span-2">
               <Textarea
                 value={internalNotes}
                 onChange={(e) => setInternalNotes(e.target.value)}
-                placeholder="Anything your team should know before reaching out"
+                placeholder={t('form.fields.internalNotesPlaceholder')}
               />
             </Field>
           </CardContent>
           <CardFooter className="justify-end gap-3 border-t border-border pt-5">
             <Button type="button" variant="outline" onClick={() => router.push('/influencers')} disabled={submitting}>
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button type="submit" disabled={submitting}>
               {submitting ? <Spinner className="text-current" /> : null}
-              {submitting ? 'Adding…' : 'Add influencer'}
+              {submitting ? t('form.submit.adding') : t('directory.addInfluencer')}
             </Button>
           </CardFooter>
         </Card>
@@ -573,14 +594,18 @@ export function AddInfluencerForm() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Preview
+              {t('form.preview.title')}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-3 pt-0 text-center">
-            <Avatar name={displayName || 'New creator'} src={resolved?.avatarUrl} size="2xl" rounded="lg" />
+            <Avatar name={displayName || t('form.preview.fallbackName')} src={resolved?.avatarUrl} size="2xl" rounded="lg" />
             <div>
-              <p className="text-lg font-semibold">{displayName || 'New creator'}</p>
-              {resolved ? <p className="text-sm text-muted-foreground">@{resolved.username}</p> : null}
+              <p className="text-lg font-semibold">{displayName || t('form.preview.fallbackName')}</p>
+              {resolved ? (
+                <p className="text-sm text-muted-foreground">
+                  <LtrText>@{resolved.username}</LtrText>
+                </p>
+              ) : null}
             </div>
             <div className="flex flex-wrap items-center justify-center gap-1.5">
               {resolved ? (
@@ -589,19 +614,16 @@ export function AddInfluencerForm() {
                   {PLATFORM_META[resolved.platform].label}
                 </Badge>
               ) : null}
-              <Badge tone={PRIORITY_TONE[priority]}>{PRIORITY_LABELS[priority]} priority</Badge>
-              <Badge tone="accent">{RELATIONSHIP_STATUS_LABELS[relationshipStatus]}</Badge>
+              <Badge tone={PRIORITY_TONE[priority]}>{t('form.preview.priorityBadge', { priority: enumLabel(te, 'priority', priority) })}</Badge>
+              <Badge tone="accent">{enumLabel(te, 'relationshipStatus', relationshipStatus)}</Badge>
             </div>
             {resolved?.followers != null ? (
               <div className="w-full rounded-xl bg-surface-muted px-3 py-2 text-sm">
-                <span className="font-semibold">{formatCompact(resolved.followers)}</span>{' '}
-                <span className="text-muted-foreground">followers</span>
+                {t('form.preview.followersCount', { count: formatCompact(resolved.followers) })}
               </div>
             ) : null}
             {!resolved && !displayName ? (
-              <p className="text-xs text-muted-foreground">
-                Fill in the form and this card will fill in as you go.
-              </p>
+              <p className="text-xs text-muted-foreground">{t('form.preview.fillFormHint')}</p>
             ) : null}
           </CardContent>
         </Card>

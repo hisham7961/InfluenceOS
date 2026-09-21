@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/cn';
 import { useConversationUnread } from '@/lib/use-conversation-unread';
 import { NAV_SECTIONS } from './nav';
@@ -15,13 +16,14 @@ function isActive(pathname: string, href: string, exact?: boolean): boolean {
 export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const teamUnread = useConversationUnread(TEAM_CHAT_KEY);
+  const t = useTranslations('nav');
   return (
     <nav className="flex flex-1 flex-col gap-4 px-3">
       {NAV_SECTIONS.map((section, si) => (
-        <div key={section.label ?? `section-${si}`} className="flex flex-col gap-1">
-          {section.label ? (
+        <div key={section.labelKey ?? `section-${si}`} className="flex flex-col gap-1">
+          {section.labelKey ? (
             <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-              {section.label}
+              {t(section.labelKey)}
             </p>
           ) : null}
           {section.items.map((item) => {
@@ -42,7 +44,7 @@ export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                 )}
               >
                 <Icon aria-hidden className={cn('h-[18px] w-[18px]', active ? 'text-brand' : 'text-muted-foreground group-hover:text-foreground')} />
-                <span className="flex-1">{item.label}</span>
+                <span className="flex-1">{t(item.labelKey)}</span>
                 {unread > 0 ? (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
                     {unread > 99 ? '99+' : unread}
@@ -58,6 +60,7 @@ export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function Sidebar() {
+  const t = useTranslations('common');
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-e border-border bg-surface lg:flex">
       <div className="flex h-16 items-center gap-2.5 px-6">
@@ -69,8 +72,14 @@ export function Sidebar() {
       <NavLinks />
       <div className="p-4">
         <div className="rounded-xl border border-border bg-surface-muted p-3 text-xs text-muted-foreground">
-          <p className="font-medium text-foreground">Command center</p>
-          <p className="mt-0.5">Press <kbd className="rounded bg-card px-1 py-0.5 font-mono text-[10px] shadow-soft">⌘K</kbd> to search anywhere.</p>
+          <p className="font-medium text-foreground">{t('commandCenter')}</p>
+          <p className="mt-0.5">
+            {t.rich('commandCenterHint', {
+              kbd: (chunks) => (
+                <kbd className="rounded bg-card px-1 py-0.5 font-mono text-[10px] shadow-soft">{chunks}</kbd>
+              ),
+            })}
+          </p>
         </div>
       </div>
     </aside>

@@ -2,14 +2,17 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowLeft, Check, Loader2, Search, Users, X } from 'lucide-react';
 import type { BulkPreviewDTO, DealType, InfluencerSummaryDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
-import { DEAL_TYPES, DEAL_TYPE_LABELS } from '@influenceos/shared';
+import { DEAL_TYPES } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { formatCompact } from '@/lib/format';
+import { enumLabel } from '@/lib/enum-labels';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -27,8 +30,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
 }
 
 /**
@@ -47,6 +50,9 @@ export function BulkAddInfluencersDialog({
   campaignId: string;
   existingInfluencerIds?: string[];
 }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -97,18 +103,19 @@ export function BulkAddInfluencersDialog({
       setPreview(data);
       setStep('preview');
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, t('errors.generic'))),
   });
 
   const executeMutation = useMutation({
     mutationFn: () => api.campaigns.addRosterInfluencers(campaignId, { rows: buildRows() }),
     onSuccess: (res) => {
-      toast.success(`Added ${res.added} creator${res.added === 1 ? '' : 's'} to the campaign.${res.failed > 0 ? ` ${res.failed} failed.` : ''}`);
+      const failedSuffix = res.failed > 0 ? t('bulkAddInfluencersDialog.failedSuffix', { count: res.failed }) : '';
+      toast.success(t('bulkAddInfluencersDialog.addedToast', { count: res.added, failedSuffix }));
       queryClient.invalidateQueries();
       router.refresh();
       resetAndClose();
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, t('errors.generic'))),
   });
 
   function resetAndClose() {
@@ -128,17 +135,21 @@ export function BulkAddInfluencersDialog({
     <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : resetAndClose())}>
       <DialogTrigger asChild>
         <Button size="sm" variant="secondary">
-          <Users className="h-4 w-4" /> Bulk add
+          <Users className="h-4 w-4" /> {t('bulkAddInfluencersDialog.trigger')}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Bulk-add influencers</DialogTitle>
+          <DialogTitle>{t('bulkAddInfluencersDialog.title')}</DialogTitle>
           <DialogDescription>
             {step === 'select'
-              ? 'Search your network and check off every creator to add, then preview the deal terms before confirming.'
+              ? t('bulkAddInfluencersDialog.selectDescription')
               : preview
-                ? `${preview.willUpdate} of ${preview.selected} will be added. ${preview.willSkip} will be skipped.`
+                ? t('bulkAddInfluencersDialog.previewDescription', {
+                    willUpdate: preview.willUpdate,
+                    selected: preview.selected,
+                    willSkip: preview.willSkip,
+                  })
                 : ''}
           </DialogDescription>
         </DialogHeader>
@@ -149,11 +160,11 @@ export function BulkAddInfluencersDialog({
               <div className="flex flex-wrap gap-1.5">
                 {selectedList.map((inf) => (
                   <Badge key={inf.id} tone="accent" className="gap-1 pe-1">
-                    {inf.displayName}
+                    <BidiText>{inf.displayName}</BidiText>
                     <button
                       type="button"
                       onClick={() => toggle(inf)}
-                      aria-label={`Remove ${inf.displayName}`}
+                      aria-label={t('bulkAddInfluencersDialog.removeAriaLabel', { name: inf.displayName })}
                       className="ms-0.5 rounded-full hover:bg-accent/20"
                     >
                       <X className="h-3 w-3" />
@@ -169,7 +180,7 @@ export function BulkAddInfluencersDialog({
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by name or @username…"
+                placeholder={t('addInfluencerDialog.searchPlaceholder')}
                 className="pl-9"
               />
             </div>
@@ -177,7 +188,7 @@ export function BulkAddInfluencersDialog({
             <div className="max-h-64 space-y-1.5 overflow-y-auto">
               {debouncedQuery.length === 0 ? (
                 <p className="px-1 py-6 text-center text-sm text-muted-foreground">
-                  Start typing to search your influencer network.
+                  {t('addInfluencerDialog.startTyping')}
                 </p>
               ) : search.isLoading ? (
                 <div className="flex justify-center py-6">
@@ -185,8 +196,8 @@ export function BulkAddInfluencersDialog({
                 </div>
               ) : results.length === 0 ? (
                 <EmptyState
-                  title="No matches"
-                  description="Try a different name or username."
+                  title={t('addInfluencerDialog.noMatches')}
+                  description={t('addInfluencerDialog.noMatchesDescription')}
                   className="border-0 bg-transparent py-6"
                 />
               ) : (
@@ -212,9 +223,11 @@ export function BulkAddInfluencersDialog({
                       />
                       <Avatar name={inf.displayName} src={inf.avatarUrl} size="sm" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{inf.displayName}</p>
+                        <p className="truncate text-sm font-medium">
+                          <BidiText>{inf.displayName}</BidiText>
+                        </p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {inf.primaryUsername ? `@${inf.primaryUsername}` : (inf.category ?? '—')}
+                          {inf.primaryUsername ? <LtrText>@{inf.primaryUsername}</LtrText> : (inf.category ?? '—')}
                         </p>
                       </div>
                       {inf.totalFollowers != null ? (
@@ -227,7 +240,7 @@ export function BulkAddInfluencersDialog({
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Deal type" hint="Applied to every creator added">
+              <Field label={t('fields.dealType')} hint={t('bulkAddInfluencersDialog.dealTypeHint')}>
                 <Select value={dealType} onValueChange={(v) => setDealType(v as DealType)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -235,13 +248,13 @@ export function BulkAddInfluencersDialog({
                   <SelectContent>
                     {DEAL_TYPES.map((d) => (
                       <SelectItem key={d} value={d}>
-                        {DEAL_TYPE_LABELS[d]}
+                        {enumLabel(tEnums, 'dealType', d)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Agreed cost" hint="Optional, applied to each">
+              <Field label={t('workspace.influencers.agreedCostLabel')} hint={t('bulkAddInfluencersDialog.agreedCostHint')}>
                 <Input
                   type="number"
                   min={0}
@@ -257,9 +270,11 @@ export function BulkAddInfluencersDialog({
           <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-border p-2 text-sm">
             {preview.rows.map((row, i) => (
               <div key={row.influencerId ?? i} className="flex items-center justify-between gap-2 px-2 py-1">
-                <span className="truncate">{row.label ?? 'Unknown'}</span>
+                <span className="truncate">
+                  <BidiText>{row.label ?? tCommon('unknown')}</BidiText>
+                </span>
                 <Badge tone={row.status === 'added' ? 'success' : 'neutral'}>
-                  {row.status === 'added' ? 'Will add' : (row.message ?? 'Skip')}
+                  {row.status === 'added' ? t('bulkAddInfluencersDialog.willAddLabel') : (row.message ?? t('bulkAddInfluencersDialog.skipLabel'))}
                 </Badge>
               </div>
             ))}
@@ -270,24 +285,26 @@ export function BulkAddInfluencersDialog({
           {step === 'select' ? (
             <>
               <Button type="button" variant="outline" onClick={resetAndClose}>
-                Cancel
+                {tCommon('cancel')}
               </Button>
               <Button disabled={selectedList.length === 0 || previewMutation.isPending} onClick={() => previewMutation.mutate()}>
                 {previewMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                Preview {selectedList.length > 0 ? `(${selectedList.length})` : ''}
+                {selectedList.length > 0
+                  ? t('bulkAddInfluencersDialog.previewButtonWithCount', { count: selectedList.length })
+                  : t('bulkAddInfluencersDialog.previewButton')}
               </Button>
             </>
           ) : (
             <>
               <Button type="button" variant="outline" onClick={() => setStep('select')}>
-                <ArrowLeft className="h-4 w-4" /> Back
+                <ArrowLeft className="h-4 w-4" /> {tCommon('back')}
               </Button>
               <Button
                 disabled={!preview || preview.willUpdate === 0 || executeMutation.isPending}
                 onClick={() => executeMutation.mutate()}
               >
                 {executeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                Add {preview?.willUpdate ?? 0}
+                {t('bulkAddInfluencersDialog.addButton', { count: preview?.willUpdate ?? 0 })}
               </Button>
             </>
           )}

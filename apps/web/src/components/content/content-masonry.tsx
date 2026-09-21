@@ -1,12 +1,15 @@
 'use client';
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { Eye, Heart, MessageCircle, Play } from 'lucide-react';
 import type { PublishedContentDTO } from '@influenceos/contracts';
 import { cn } from '@/lib/cn';
 import { formatCompact, relativeTime } from '@/lib/format';
+import { enumLabel } from '@/lib/enum-labels';
 import { Avatar } from '@/components/ui/avatar';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
+import { BidiText } from '@/components/common/bidi-text';
 import { ContentViewer } from './content-viewer';
 
 /**
@@ -43,6 +46,8 @@ export function ContentMasonry({ items }: { items: PublishedContentDTO[] }) {
 const FALLBACK_ASPECTS = ['aspect-square', 'aspect-[4/5]', 'aspect-[3/4]', 'aspect-video'];
 
 function MasonryCard({ content, onOpen }: { content: PublishedContentDTO; onOpen: () => void }) {
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const m = content.metrics;
   const fallback = FALLBACK_ASPECTS[hashId(content.id) % FALLBACK_ASPECTS.length];
 
@@ -82,17 +87,23 @@ function MasonryCard({ content, onOpen }: { content: PublishedContentDTO; onOpen
 
       <div className="flex flex-col gap-2 p-3">
         <div className="flex items-center gap-2">
-          <Avatar name={content.influencer?.displayName ?? 'Unknown'} src={content.influencer?.avatarUrl} size="xs" />
+          <Avatar name={content.influencer?.displayName ?? tCommon('unknown')} src={content.influencer?.avatarUrl} size="xs" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{content.influencer?.displayName ?? 'Unassigned'}</p>
+            <p className="truncate text-sm font-medium">
+              {content.influencer ? (
+                <BidiText>{content.influencer.displayName}</BidiText>
+              ) : (
+                enumLabel(tEnums, 'contentAssociationStatus', 'UNASSIGNED')
+              )}
+            </p>
             <p className="truncate text-xs text-muted-foreground">{content.campaign?.name ?? content.brand?.name ?? '—'}</p>
           </div>
         </div>
         {content.caption ? <p className="line-clamp-2 text-xs text-muted-foreground">{content.caption}</p> : null}
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <Metric icon={Eye} value={m?.views} />
-          <Metric icon={Heart} value={m?.likes} />
-          <Metric icon={MessageCircle} value={m?.comments} />
+          <Metric icon={Eye} value={m?.views} na={tCommon('na')} />
+          <Metric icon={Heart} value={m?.likes} na={tCommon('na')} />
+          <Metric icon={MessageCircle} value={m?.comments} na={tCommon('na')} />
           <span className="ms-auto">{relativeTime(content.publishedAt ?? content.detectedAt)}</span>
         </div>
       </div>
@@ -100,11 +111,19 @@ function MasonryCard({ content, onOpen }: { content: PublishedContentDTO; onOpen
   );
 }
 
-function Metric({ icon: Icon, value }: { icon: React.ComponentType<{ className?: string }>; value: number | null | undefined }) {
+function Metric({
+  icon: Icon,
+  value,
+  na,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  value: number | null | undefined;
+  na: string;
+}) {
   return (
     <span className={cn('flex items-center gap-1', value == null && 'opacity-50')}>
       <Icon className="h-3.5 w-3.5" />
-      {value == null ? 'N/A' : formatCompact(value)}
+      {value == null ? na : formatCompact(value)}
     </span>
   );
 }

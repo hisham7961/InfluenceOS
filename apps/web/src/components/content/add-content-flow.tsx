@@ -1,15 +1,17 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { CampaignInfluencerDTO, DeliverableDTO, PublishedContentDTO } from '@influenceos/contracts';
-import { DELIVERABLE_TYPE_LABELS } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
+import { enumLabel } from '@/lib/enum-labels';
 import { Field, Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { BidiText } from '@/components/common/bidi-text';
 
 const NO_INFLUENCER = '__none__';
 const NO_CAMPAIGN = '__none__';
@@ -36,8 +38,8 @@ export interface AddContentFlowProps {
   rosterScope?: CampaignInfluencerDTO[];
 }
 
-function errMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong.';
+function errMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
 }
 
 /**
@@ -61,6 +63,9 @@ export function AddContentFlow({
   lockDeliverableLabel,
   rosterScope,
 }: AddContentFlowProps) {
+  const t = useTranslations('content');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const [url, setUrl] = React.useState('');
   const [influencerId, setInfluencerId] = React.useState(lockInfluencerId ?? '');
   const [campaignId, setCampaignId] = React.useState(lockCampaignId ?? '');
@@ -104,10 +109,10 @@ export function AddContentFlow({
         campaignId: deliverableLocked ? undefined : campaignId || undefined,
         deliverableId: deliverableLocked ? lockDeliverableId : deliverableId || undefined,
       });
-      toast.success('Content added to the live wall.');
+      toast.success(t('addFlow.successToast'));
       onSuccess(content);
     } catch (e) {
-      toast.error(errMessage(e));
+      toast.error(errMessage(e, tCommon('somethingWentWrong')));
     } finally {
       setLoading(false);
     }
@@ -115,7 +120,7 @@ export function AddContentFlow({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <Field label="Content URL" hint="Instagram, TikTok, YouTube, X or Snapchat">
+      <Field label={t('addFlow.contentUrlLabel')} hint={t('addFlow.contentUrlHint')}>
         <Input
           placeholder="https://www.youtube.com/watch?v=…"
           value={url}
@@ -127,34 +132,38 @@ export function AddContentFlow({
 
       {deliverableLocked ? (
         <div className="rounded-lg border border-border bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
-          Linked to <span className="font-medium text-foreground">{lockDeliverableLabel ?? 'this deliverable'}</span> —
-          influencer, campaign and brand are derived automatically.
+          {t('addFlow.linkedToDeliverable', {
+            label: lockDeliverableLabel ?? t('addFlow.thisDeliverable'),
+          })}
         </div>
       ) : (
         <>
           {influencerLocked ? (
             <div className="rounded-lg border border-border bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
-              Influencer: <span className="font-medium text-foreground">{lockInfluencerName}</span>
+              {t('addFlow.influencerLabel')}{' '}
+              <BidiText as="span" className="font-medium text-foreground">
+                {lockInfluencerName}
+              </BidiText>
             </div>
           ) : (
-            <Field label="Influencer (optional)" hint="Leave blank if you don't know the influencer yet">
+            <Field label={t('addFlow.influencerFieldLabel')} hint={t('addFlow.influencerFieldHint')}>
               <Select
                 value={influencerId || NO_INFLUENCER}
                 onValueChange={(v) => setInfluencerId(v === NO_INFLUENCER ? '' : v)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="I don't know the influencer yet" />
+                  <SelectValue placeholder={t('addFlow.unknownInfluencer')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_INFLUENCER}>I don&apos;t know the influencer yet</SelectItem>
+                  <SelectItem value={NO_INFLUENCER}>{t('addFlow.unknownInfluencer')}</SelectItem>
                   {(rosterScope ?? []).map((ci) => (
                     <SelectItem key={ci.influencer.id} value={ci.influencer.id}>
-                      {ci.influencer.displayName}
+                      <BidiText>{ci.influencer.displayName}</BidiText>
                     </SelectItem>
                   ))}
                   {(influencerOptions.data?.data ?? []).map((inf) => (
                     <SelectItem key={inf.id} value={inf.id}>
-                      {inf.displayName}
+                      <BidiText>{inf.displayName}</BidiText>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -164,16 +173,16 @@ export function AddContentFlow({
 
           {campaignLocked ? (
             <div className="rounded-lg border border-border bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
-              Campaign: <span className="font-medium text-foreground">{lockCampaignName}</span>
+              {t('addFlow.campaignLabel')} <span className="font-medium text-foreground">{lockCampaignName}</span>
             </div>
           ) : (
-            <Field label="Campaign (optional)">
+            <Field label={t('addFlow.campaignFieldLabel')}>
               <Select value={campaignId || NO_CAMPAIGN} onValueChange={(v) => setCampaignId(v === NO_CAMPAIGN ? '' : v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Link to a campaign" />
+                  <SelectValue placeholder={t('addFlow.linkToCampaign')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_CAMPAIGN}>No campaign — independent content</SelectItem>
+                  <SelectItem value={NO_CAMPAIGN}>{t('associations.noCampaignIndependent')}</SelectItem>
                   {(campaignOptions.data?.data ?? []).map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.brand.name} · {c.name}
@@ -185,19 +194,19 @@ export function AddContentFlow({
           )}
 
           {rosterScope && influencerId ? (
-            <Field label="Deliverable (optional)" hint="Fulfilling a specific deliverable derives everything automatically">
+            <Field label={t('addFlow.deliverableFieldLabel')} hint={t('addFlow.deliverableFieldHint')}>
               <Select
                 value={deliverableId || NO_DELIVERABLE}
                 onValueChange={(v) => setDeliverableId(v === NO_DELIVERABLE ? '' : v)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Not tied to a specific deliverable" />
+                  <SelectValue placeholder={t('addFlow.noDeliverable')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_DELIVERABLE}>Not tied to a specific deliverable</SelectItem>
+                  <SelectItem value={NO_DELIVERABLE}>{t('addFlow.noDeliverable')}</SelectItem>
                   {deliverableOptions.map((d) => (
                     <SelectItem key={d.id} value={d.id}>
-                      {DELIVERABLE_TYPE_LABELS[d.type]} · {d.platform}
+                      {enumLabel(tEnums, 'deliverableType', d.type)} · {d.platform}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -210,11 +219,11 @@ export function AddContentFlow({
       <div className="flex justify-end gap-2">
         {onCancel ? (
           <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
+            {tCommon('cancel')}
           </Button>
         ) : null}
         <Button type="submit" disabled={loading}>
-          {loading ? 'Adding…' : 'Add content'}
+          {loading ? t('addFlow.adding') : t('addFlow.addContent')}
         </Button>
       </div>
     </form>

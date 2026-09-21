@@ -1,0 +1,19 @@
+{
+  "close": "Close",
+  "tooltip": {
+    "moreInformation": "More information"
+  },
+  "spinner": {
+    "loading": "Loading"
+  },
+  "confirmDialog": {
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "working": "Working…"
+  },
+  "provenance": {
+    "source": "Source: {source}",
+    "updated": "Updated {time}",
+    "updatedBy": "Updated {time} by {name}"
+  }
+}

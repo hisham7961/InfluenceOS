@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { isThisWeek, isToday, isYesterday, parseISO } from 'date-fns';
 import {
   AtSign,
@@ -85,19 +86,23 @@ const TONE_ICON_CLASS: Record<Tone, string> = {
   accent: 'bg-accent/10 text-accent',
 };
 
-/** Buckets a notification's timestamp into a section label, newest-first. */
-function bucketFor(createdAt: string): string {
+/** Buckets a notification's timestamp into a section label, newest-first.
+ * Reuses `common.today`/`common.yesterday` rather than duplicating them. */
+function bucketFor(createdAt: string, labels: { today: string; yesterday: string; thisWeek: string; earlier: string }): string {
   const d = parseISO(createdAt);
-  if (isToday(d)) return 'Today';
-  if (isYesterday(d)) return 'Yesterday';
-  if (isThisWeek(d, { weekStartsOn: 1 })) return 'This week';
-  return 'Earlier';
+  if (isToday(d)) return labels.today;
+  if (isYesterday(d)) return labels.yesterday;
+  if (isThisWeek(d, { weekStartsOn: 1 })) return labels.thisWeek;
+  return labels.earlier;
 }
 
-function groupByBucket(items: NotificationDTO[]): { bucket: string; items: NotificationDTO[] }[] {
+function groupByBucket(
+  items: NotificationDTO[],
+  labels: { today: string; yesterday: string; thisWeek: string; earlier: string },
+): { bucket: string; items: NotificationDTO[] }[] {
   const groups: { bucket: string; items: NotificationDTO[] }[] = [];
   for (const item of items) {
-    const bucket = bucketFor(item.createdAt);
+    const bucket = bucketFor(item.createdAt, labels);
     const last = groups[groups.length - 1];
     if (last && last.bucket === bucket) last.items.push(item);
     else groups.push({ bucket, items: [item] });
@@ -111,12 +116,17 @@ function groupByBucket(items: NotificationDTO[]): { bucket: string; items: Notif
  * this owns its own query, the unread filter, and mark-as-read mutations.
  */
 export function NotificationsList() {
+  const t = useTranslations('notifications');
+  const tCommon = useTranslations('common');
   const queryClient = useQueryClient();
   const [filter, setFilter] = React.useState<Filter>('all');
 
-  function onError(e: unknown) {
-    toast.error(e instanceof ApiError ? e.message : 'Something went wrong');
-  }
+  const onError = React.useCallback(
+    (e: unknown) => {
+      toast.error(e instanceof ApiError ? e.message : tCommon('somethingWentWrong'));
+    },
+    [tCommon],
+  );
 
   const unreadQuery = useQuery({
     queryKey: ['notifications', 'unread'],
@@ -140,16 +150,25 @@ export function NotificationsList() {
 
   React.useEffect(() => {
     if (query.error) onError(query.error);
-  }, [query.error]);
+  }, [query.error, onError]);
 
+  const bucketLabels = React.useMemo(
+    () => ({
+      today: tCommon('today'),
+      yesterday: tCommon('yesterday'),
+      thisWeek: t('buckets.thisWeek'),
+      earlier: t('buckets.earlier'),
+    }),
+    [t, tCommon],
+  );
   const items = React.useMemo(() => query.data?.pages.flatMap((page) => page.data) ?? [], [query.data]);
-  const groups = React.useMemo(() => groupByBucket(items), [items]);
+  const groups = React.useMemo(() => groupByBucket(items, bucketLabels), [items, bucketLabels]);
   const isInitialLoading = query.isLoading && items.length === 0;
 
   const markAllRead = useMutation({
     mutationFn: () => api.notifications.markRead({ all: true }),
     onSuccess: (res) => {
-      if (res.updated > 0) toast.success(`Marked ${res.updated} notification${res.updated === 1 ? '' : 's'} as read`);
+      if (res.updated > 0) toast.success(t('markedReadToast', { count: res.updated }));
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
     onError,
@@ -169,8 +188,10 @@ export function NotificationsList() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs value={filter} onValueChange={(value) => setFilter(value as Filter)}>
           <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="unread">Unread{unreadCount > 0 ? ` (${unreadCount > 99 ? '99+' : unreadCount})` : ''}</TabsTrigger>
+            <TabsTrigger value="all">{t('tabs.all')}</TabsTrigger>
+            <TabsTrigger value="unread">
+              {unreadCount > 0 ? t('tabs.unreadWithCount', { count: unreadCount > 99 ? '99+' : unreadCount }) : t('tabs.unread')}
+            </TabsTrigger>
           </TabsList>
         </Tabs>
         <Button
@@ -180,7 +201,7 @@ export function NotificationsList() {
           onClick={() => markAllRead.mutate()}
         >
           <CheckCheck className="h-3.5 w-3.5" />
-          {markAllRead.isPending ? 'Marking…' : 'Mark all as read'}
+          {markAllRead.isPending ? t('markingInProgress') : t('markAllRead')}
         </Button>
       </div>
 
@@ -189,12 +210,8 @@ export function NotificationsList() {
       ) : items.length === 0 ? (
         <EmptyState
           icon={Inbox}
-          title="You're all caught up"
-          description={
-            filter === 'unread'
-              ? 'No unread notifications right now.'
-              : 'Alerts about content, deliverables, campaigns, and account activity will show up here.'
-          }
+          title={t('empty.title')}
+          description={filter === 'unread' ? t('empty.descriptionUnread') : t('empty.descriptionAll')}
         />
       ) : (
         <div className="space-y-6">
@@ -216,7 +233,7 @@ export function NotificationsList() {
       {items.length > 0 && query.hasNextPage ? (
         <div className="flex justify-center pt-2">
           <Button variant="outline" onClick={() => query.fetchNextPage()} disabled={query.isFetchingNextPage}>
-            {query.isFetchingNextPage ? 'Loading…' : 'Load more'}
+            {query.isFetchingNextPage ? tCommon('loading') : t('loadMore')}
           </Button>
         </div>
       ) : null}
@@ -231,6 +248,7 @@ function NotificationRow({
   notification: NotificationDTO;
   onClick: (notification: NotificationDTO) => void;
 }) {
+  const t = useTranslations('notifications');
   const Icon = CATEGORY_ICON[notification.category];
   const tone = CATEGORY_TONE[notification.category];
 
@@ -242,16 +260,20 @@ function NotificationRow({
         !notification.isRead && 'bg-brand-soft/30',
       )}
     >
-      <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', TONE_ICON_CLASS[tone])}>
+      <span
+        className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', TONE_ICON_CLASS[tone])}
+        aria-label={t(`categories.${notification.category}`)}
+      >
         <Icon className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1 space-y-0.5">
         <div className="flex items-center gap-2">
+          {/* notification.title/body are historical, stored notification content rendered as-is — never machine-translated (see docs/localization/README.md). */}
           <p className={cn('truncate text-sm leading-snug', !notification.isRead && 'font-semibold')}>
             {notification.title}
           </p>
           {!notification.isRead ? (
-            <span className="h-2 w-2 shrink-0 rounded-full bg-brand" aria-label="Unread" />
+            <span className="h-2 w-2 shrink-0 rounded-full bg-brand" aria-label={t('unreadIndicator')} />
           ) : null}
         </div>
         {notification.body ? (

@@ -1,30 +1,34 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { Building2, Plus } from 'lucide-react';
 import type { BrandSummaryDTO } from '@influenceos/contracts';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 
 export const dynamic = 'force-dynamic';
 
 export default async function BrandsPage() {
   const api = getServerApi();
+  const t = await getTranslations('brands');
   const [user, brands] = await Promise.all([
     api.auth.me(),
     api.brands.list({ includeInactive: true }),
   ]);
   const isAdmin = user.role === 'ADMIN';
+  const statusLabel = { active: t('status.active'), inactive: t('status.inactive') };
 
   return (
     <div>
       <PageHeader
-        title="Brands"
-        description="Every brand workspace you manage, in one place."
+        title={t('list.title')}
+        description={t('list.description')}
         actions={
           isAdmin ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border bg-surface-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">
-              <Plus className="h-3.5 w-3.5" /> Add brand — managed in platform settings
+              <Plus className="h-3.5 w-3.5" /> {t('list.addBrandHint')}
             </span>
           ) : null
         }
@@ -33,13 +37,13 @@ export default async function BrandsPage() {
       {brands.length === 0 ? (
         <EmptyState
           icon={Building2}
-          title="No brands yet"
-          description="Brand workspaces will appear here once they're set up."
+          title={t('list.emptyTitle')}
+          description={t('list.emptyDescription')}
         />
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {brands.map((brand) => (
-            <BrandCard key={brand.id} brand={brand} />
+            <BrandCard key={brand.id} brand={brand} statusLabel={statusLabel} />
           ))}
         </div>
       )}
@@ -47,7 +51,7 @@ export default async function BrandsPage() {
   );
 }
 
-function BrandCard({ brand }: { brand: BrandSummaryDTO }) {
+function BrandCard({ brand, statusLabel }: { brand: BrandSummaryDTO; statusLabel: { active: string; inactive: string } }) {
   return (
     <Link
       href={`/brands/${brand.slug}`}
@@ -76,10 +80,14 @@ function BrandCard({ brand }: { brand: BrandSummaryDTO }) {
 
       <div className="flex flex-1 items-center justify-between gap-3 p-4">
         <div className="min-w-0">
-          <p className="truncate font-semibold transition-colors group-hover:text-brand">{brand.name}</p>
-          <p className="truncate text-xs text-muted-foreground">/{brand.slug}</p>
+          <BidiText as="p" className="truncate font-semibold transition-colors group-hover:text-brand">
+            {brand.name}
+          </BidiText>
+          <p className="truncate text-xs text-muted-foreground">
+            <LtrText>/{brand.slug}</LtrText>
+          </p>
         </div>
-        <Badge tone={brand.isActive ? 'success' : 'neutral'}>{brand.isActive ? 'Active' : 'Inactive'}</Badge>
+        <Badge tone={brand.isActive ? 'success' : 'neutral'}>{brand.isActive ? statusLabel.active : statusLabel.inactive}</Badge>
       </div>
     </Link>
   );

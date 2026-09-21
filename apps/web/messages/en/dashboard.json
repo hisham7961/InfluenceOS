@@ -14,5 +14,21 @@
   "overdueDeliverables": "Overdue Deliverables",
   "totalSpend": "Total Spend",
   "contentAlerts": "Content Alerts",
-  "caughtUp": "You're all caught up."
+  "caughtUp": "You're all caught up.",
+  "viewWall": "View wall",
+  "nothingChangedSinceVisit": "Nothing meaningful has changed since your last visit.",
+  "newContentItemsLine": "{count, plural, one {new content item} other {new content items}}",
+  "campaignsLaunchedLine": "{count, plural, one {campaign launched} other {campaigns launched}}",
+  "contentAlertsLine": "{count, plural, one {content alert} other {content alerts}}",
+  "overdueDeliverablesLine": "{count, plural, one {overdue deliverable} other {overdue deliverables}}",
+  "shipmentsDeliveredLine": "{count, plural, one {shipment delivered} other {shipments delivered}}",
+  "draftsApprovedLine": "{count, plural, one {draft approved} other {drafts approved}}",
+  "usageRightsExpiringLine": "{count, plural, one {usage right expiring} other {usage rights expiring}}",
+  "reviewNewVideos": "{count, plural, one {Review # New Video} other {Review # New Videos}}",
+  "updatesCount": "{count, plural, one {update} other {updates}}",
+  "allClear": "All clear",
+  "noUrgentItems": "No urgent items right now.",
+  "allCampaigns": "All campaigns",
+  "activeCampaignsWillAppear": "Active campaigns will appear here.",
+  "nothingScheduled": "Nothing scheduled"
 }

@@ -1,0 +1,31 @@
+{
+  "composer": {
+    "attachFile": "إرفاق ملف",
+    "removeFile": "إزالة {fileName}",
+    "send": "إرسال",
+    "mentionSomeone": "الإشارة إلى شخص",
+    "couldNotOpenFile": "تعذّر فتح الملف.",
+    "uploadFailed": "فشل الرفع",
+    "attachmentFailed": "تعذّر إرفاق \"{fileName}\": {error}"
+  },
+  "message": {
+    "reply": "رد",
+    "pin": "تثبيت",
+    "unpin": "إلغاء التثبيت",
+    "editedSuffix": " · تم التعديل",
+    "writeReplyPlaceholder": "اكتب ردًا…"
+  },
+  "thread": {
+    "emptyTitle": "لا توجد رسائل بعد",
+    "emptyDescription": "ابدأ المحادثة أدناه.",
+    "composerPlaceholder": "اكتب رسالة… استخدم @ للإشارة إلى شخص",
+    "loadEarlierMessages": "تحميل الرسائل السابقة",
+    "couldNotSendMessage": "تعذّر إرسال الرسالة."
+  },
+  "teamChat": {
+    "pageTitle": "الفريق",
+    "pageDescription": "التنسيق العام الذي لا يخص علامة تجارية أو حملة بعينها.",
+    "emptyDescription": "قل مرحبًا، أو شارك ما يجب أن يعرفه الفريق بأكمله.",
+    "composerPlaceholder": "راسل الفريق… استخدم @ للإشارة إلى شخص"
+  }
+}

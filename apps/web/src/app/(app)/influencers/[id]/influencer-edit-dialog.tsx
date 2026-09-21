@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Check, Pencil } from 'lucide-react';
 import type { InfluencerDetailDTO } from '@influenceos/contracts';
@@ -10,13 +11,12 @@ import { ApiError } from '@influenceos/api-client';
 import {
   COUNTRIES,
   PRIORITIES,
-  PRIORITY_LABELS,
   RELATIONSHIP_STATUSES,
-  RELATIONSHIP_STATUS_LABELS,
   type Priority,
   type RelationshipStatus,
 } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
+import { enumLabel } from '@/lib/enum-labels';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -39,8 +39,8 @@ function splitList(raw: string): string[] {
     .filter(Boolean);
 }
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
 }
 
 const NO_COUNTRY = '__none__';
@@ -48,6 +48,9 @@ const NO_COUNTRY = '__none__';
 /** "Edit influencer" trigger + dialog for the 360 profile. Patches the core profile + contact fields. */
 export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDetailDTO }) {
   const router = useRouter();
+  const t = useTranslations('influencers');
+  const tc = useTranslations('common');
+  const te = useTranslations('enums');
   const queryClient = useQueryClient();
 
   const [open, setOpen] = React.useState(false);
@@ -116,43 +119,43 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
         isActive,
       }),
     onSuccess: (updated) => {
-      toast.success(`${updated.displayName} updated.`);
+      toast.success(t('form.edit.updatedToast', { name: updated.displayName }));
       queryClient.invalidateQueries();
       router.refresh();
       setOpen(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, t('errors.generic'))),
   });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm">
-          <Pencil className="h-4 w-4" /> Edit influencer
+          <Pencil className="h-4 w-4" /> {t('form.edit.title')}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit influencer</DialogTitle>
-          <DialogDescription>Update this creator&apos;s profile and contact details.</DialogDescription>
+          <DialogTitle>{t('form.edit.title')}</DialogTitle>
+          <DialogDescription>{t('form.edit.dialogDescription')}</DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-          <Field label="Display name">
-            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="e.g. Sara Al-Fahad" />
+          <Field label={t('form.fields.displayName')}>
+            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={t('form.fields.displayNamePlaceholder')} />
           </Field>
-          <Field label="Full name">
-            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Legal name" />
-          </Field>
-
-          <Field label="Primary username" hint="Without the @">
-            <Input value={primaryUsername} onChange={(e) => setPrimaryUsername(e.target.value)} placeholder="creator" />
-          </Field>
-          <Field label="Category">
-            <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Beauty, Fitness, Food…" />
+          <Field label={t('form.fields.fullName')}>
+            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t('form.fields.fullNamePlaceholder')} />
           </Field>
 
-          <Field label="Country" hint="The creator's own profile country — distinct from where a specific shipment ships to.">
+          <Field label={t('form.fields.primaryUsername')} hint={t('form.fields.primaryUsernameHint')}>
+            <Input value={primaryUsername} onChange={(e) => setPrimaryUsername(e.target.value)} placeholder={t('form.fields.primaryUsernamePlaceholder')} />
+          </Field>
+          <Field label={t('form.fields.category')}>
+            <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder={t('form.fields.categoryPlaceholder')} />
+          </Field>
+
+          <Field label={t('form.fields.country')} hint={t('form.fields.countryProfileHint')}>
             <Select
               value={countryCode}
               onValueChange={(v) => {
@@ -164,7 +167,7 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="max-h-72">
-                <SelectItem value={NO_COUNTRY}>No country set</SelectItem>
+                <SelectItem value={NO_COUNTRY}>{t('form.fields.noCountrySet')}</SelectItem>
                 {COUNTRIES.map((c) => (
                   <SelectItem key={c.code} value={c.code}>
                     {c.name}
@@ -173,11 +176,11 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
               </SelectContent>
             </Select>
           </Field>
-          <Field label="City">
-            <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Kuwait City" />
+          <Field label={t('form.fields.city')}>
+            <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder={t('form.fields.cityPlaceholder')} />
           </Field>
 
-          <Field label="Priority">
+          <Field label={t('form.fields.priority')}>
             <Select value={priority} onValueChange={(v) => setPriority(v as Priority)}>
               <SelectTrigger>
                 <SelectValue />
@@ -185,13 +188,13 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
               <SelectContent>
                 {PRIORITIES.map((p) => (
                   <SelectItem key={p} value={p}>
-                    {PRIORITY_LABELS[p]}
+                    {enumLabel(te, 'priority', p)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Relationship status">
+          <Field label={t('form.fields.relationshipStatus')}>
             <Select value={relationshipStatus} onValueChange={(v) => setRelationshipStatus(v as RelationshipStatus)}>
               <SelectTrigger>
                 <SelectValue />
@@ -199,51 +202,51 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
               <SelectContent>
                 {RELATIONSHIP_STATUSES.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {RELATIONSHIP_STATUS_LABELS[s]}
+                    {enumLabel(te, 'relationshipStatus', s)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
 
-          <Field label="Email">
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="creator@email.com" />
+          <Field label={t('form.fields.email')}>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('form.fields.emailPlaceholder')} />
           </Field>
-          <Field label="Mobile">
-            <Input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="+965 …" />
-          </Field>
-
-          <Field label="WhatsApp">
-            <Input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+965 …" />
-          </Field>
-          <Field label="Languages" hint="Comma-separated">
-            <Input value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder="Arabic, English" />
+          <Field label={t('form.fields.mobile')}>
+            <Input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder={t('form.fields.mobilePlaceholder')} />
           </Field>
 
-          <Field label="Tags" hint="Comma-separated" className="sm:col-span-2">
-            <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="ramadan, macro, ugc" />
+          <Field label={t('form.fields.whatsapp')}>
+            <Input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder={t('form.fields.whatsappPlaceholder')} />
+          </Field>
+          <Field label={t('form.fields.languages')} hint={t('form.fields.languagesHint')}>
+            <Input value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder={t('form.fields.languagesPlaceholder')} />
           </Field>
 
-          <Field label="Bio" className="sm:col-span-2">
-            <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Short bio…" rows={3} />
+          <Field label={t('form.fields.tags')} hint={t('form.fields.tagsHint')} className="sm:col-span-2">
+            <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t('form.fields.tagsPlaceholder')} />
+          </Field>
+
+          <Field label={t('form.fields.bio')} className="sm:col-span-2">
+            <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder={t('form.fields.bioPlaceholder')} rows={3} />
           </Field>
 
           <div className="flex items-center justify-between rounded-lg border border-border bg-surface-muted/50 px-3 py-2.5 sm:col-span-2">
             <div>
-              <Label>Active</Label>
-              <p className="text-xs text-muted-foreground">Inactive creators are hidden from active rosters.</p>
+              <Label>{t('form.fields.active')}</Label>
+              <p className="text-xs text-muted-foreground">{t('form.fields.activeHint')}</p>
             </div>
-            <Switch aria-label="Active" checked={isActive} onCheckedChange={setIsActive} />
+            <Switch aria-label={t('form.fields.active')} checked={isActive} onCheckedChange={setIsActive} />
           </div>
         </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={update.isPending}>
-            Cancel
+            {tc('cancel')}
           </Button>
           <Button disabled={!displayName.trim() || update.isPending} onClick={() => update.mutate()}>
             {update.isPending ? <Spinner className="text-current" /> : <Check className="h-4 w-4" />}
-            {update.isPending ? 'Saving…' : 'Save changes'}
+            {update.isPending ? tc('saving') : t('form.edit.saveChanges')}
           </Button>
         </DialogFooter>
       </DialogContent>

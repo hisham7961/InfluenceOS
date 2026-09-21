@@ -1,0 +1,52 @@
+{
+  "list": {
+    "title": "Users",
+    "description": "Manage teammates, roles, and access across your workspace.",
+    "adminsOnly": {
+      "title": "Admins only",
+      "description": "You need administrator access to view and manage workspace users. Ask a workspace admin to grant you access."
+    },
+    "teammateCount": "{count, plural, one {# teammate} other {# teammates}} with access to this workspace.",
+    "empty": {
+      "title": "No users yet",
+      "description": "Invite your first teammate to give them access to InfluenceOS."
+    },
+    "table": {
+      "user": "User",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status"
+    },
+    "editAccess": "Edit access",
+    "active": "Active",
+    "inactive": "Inactive",
+    "roleLabel": {
+      "ADMIN": "Administrator",
+      "STAFF": "Staff",
+      "VIEWER": "Viewer (read-only)"
+    },
+    "addUser": "Add user",
+    "addUserDialog": {
+      "title": "Add a user",
+      "description": "Create an account for a new teammate and set their role.",
+      "fullName": "Full name",
+      "fullNamePlaceholder": "Jane Doe",
+      "email": "Email",
+      "emailPlaceholder": "jane@brand.com",
+      "password": "Password",
+      "passwordHint": "At least 8 characters.",
+      "role": "Role",
+      "submit": "Add user",
+      "submitting": "Adding…"
+    },
+    "toastAdded": "{name} was added to the workspace.",
+    "errorGeneric": "Something went wrong. Please try again."
+  },
+  "editSheet": {
+    "description": "{email} — Role Profile, capabilities, brand & country scope.",
+    "legacyRole": "Legacy role",
+    "accountStatus": "Account status",
+    "saveChanges": "Save changes",
+    "errorGeneric": "Something went wrong. Please try again."
+  }
+}

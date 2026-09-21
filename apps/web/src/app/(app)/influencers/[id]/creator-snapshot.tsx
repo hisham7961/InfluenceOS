@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { AlertTriangle, Building2, CalendarClock, Clock, Coins, MapPin, PackageCheck, ShieldCheck, Truck, UserCog } from 'lucide-react';
 import type { CreatorReliabilityDTO, CreatorSnapshotDTO } from '@influenceos/contracts';
-import { countryName, LOGISTICS_ISSUE_TYPE_LABELS, SHIPMENT_STATUS_LABELS, SHIPMENT_STATUS_TONE } from '@influenceos/shared';
+import { countryName, SHIPMENT_STATUS_TONE } from '@influenceos/shared';
+import { enumLabel } from '@/lib/enum-labels';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, relativeTime } from '@/lib/format';
@@ -32,7 +34,7 @@ function Stat({ icon: Icon, label, value, hint }: { icon: React.ComponentType<{ 
  * payment/shipment records (see creator360.service.ts); a metric with no
  * evidence shows "No data yet", never a guess.
  */
-export function CreatorSnapshot({
+export async function CreatorSnapshot({
   influencerId,
   snapshot,
   reliability,
@@ -41,6 +43,9 @@ export function CreatorSnapshot({
   snapshot: CreatorSnapshotDTO;
   reliability: CreatorReliabilityDTO;
 }) {
+  const t = await getTranslations('influencers');
+  const tc = await getTranslations('common');
+  const te = await getTranslations('enums');
   const onTimeRate = reliability.sampleSize > 0 ? Math.round((reliability.onTime / reliability.sampleSize) * 100) : null;
   const logisticsHref = `/logistics?influencerId=${influencerId}&hasOpenIssue=true`;
 
@@ -54,48 +59,63 @@ export function CreatorSnapshot({
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span className="font-medium">
             {snapshot.openLogisticsIssues.length === 1
-              ? `Logistics needs address clarification — ${LOGISTICS_ISSUE_TYPE_LABELS[snapshot.openLogisticsIssues[0]!.type]}`
-              : `Logistics needs address clarification on ${snapshot.openLogisticsIssues.length} shipments`}
+              ? t('detail.snapshot.logisticsBannerSingle', {
+                  issueType: enumLabel(te, 'logisticsIssueType', snapshot.openLogisticsIssues[0]!.type),
+                })
+              : t('detail.snapshot.logisticsBannerMultiple', { count: snapshot.openLogisticsIssues.length })}
           </span>
-          <span className="ms-auto text-xs underline">View in Logistics</span>
+          <span className="ms-auto text-xs underline">{t('detail.snapshot.viewInLogistics')}</span>
         </Link>
       )}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Relationship Snapshot</CardTitle>
+          <CardTitle>{t('detail.snapshot.title')}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat icon={UserCog} label="Owner" value={snapshot.ownerName ?? 'Unassigned'} />
-          <Stat icon={Building2} label="Brands worked with" value={snapshot.brandsWorkedWith} hint={`${snapshot.totalCollaborations} collaborations total`} />
-          <Stat icon={CalendarClock} label="Last collaboration" value={snapshot.lastCollaborationAt ? relativeTime(snapshot.lastCollaborationAt) : 'Never'} />
-          <Stat icon={Clock} label="Last contact" value={snapshot.lastContactAt ? relativeTime(snapshot.lastContactAt) : 'No record'} />
+          <Stat icon={UserCog} label={t('detail.snapshot.owner')} value={snapshot.ownerName ?? tc('unassigned')} />
+          <Stat
+            icon={Building2}
+            label={t('detail.snapshot.brandsWorkedWith')}
+            value={snapshot.brandsWorkedWith}
+            hint={t('detail.snapshot.collaborationsTotal', { count: snapshot.totalCollaborations })}
+          />
+          <Stat
+            icon={CalendarClock}
+            label={t('detail.snapshot.lastCollaboration')}
+            value={snapshot.lastCollaborationAt ? relativeTime(snapshot.lastCollaborationAt) : t('detail.snapshot.never')}
+          />
+          <Stat
+            icon={Clock}
+            label={t('detail.snapshot.lastContact')}
+            value={snapshot.lastContactAt ? relativeTime(snapshot.lastContactAt) : t('detail.snapshot.noRecord')}
+          />
           <Stat
             icon={Coins}
-            label="Rate range"
+            label={t('detail.snapshot.rateRange')}
             value={
               snapshot.rateRange
                 ? snapshot.rateRange.min === snapshot.rateRange.max
                   ? formatCurrency(snapshot.rateRange.min, snapshot.rateRange.currency)
                   : `${formatCurrency(snapshot.rateRange.min, snapshot.rateRange.currency)} – ${formatCurrency(snapshot.rateRange.max, snapshot.rateRange.currency)}`
-                : 'No paid deals yet'
+                : t('detail.snapshot.noPaidDealsYet')
             }
           />
           <Stat
             icon={Coins}
-            label="Outstanding payment"
+            label={t('detail.snapshot.outstandingPayment')}
             value={formatCurrency(snapshot.outstandingPayment, snapshot.currency)}
-            hint={snapshot.outstandingPayment > 0 ? 'Awaiting payment' : undefined}
+            hint={snapshot.outstandingPayment > 0 ? t('detail.snapshot.awaitingPayment') : undefined}
           />
-          <Stat icon={PackageCheck} label="Active deliverables" value={snapshot.activeDeliverables} />
-          <Stat icon={Truck} label="Active shipments" value={snapshot.activeShipments} />
+          <Stat icon={PackageCheck} label={t('detail.snapshot.activeDeliverables')} value={snapshot.activeDeliverables} />
+          <Stat icon={Truck} label={t('detail.snapshot.activeShipments')} value={snapshot.activeShipments} />
           {snapshot.mostRecentShipment && (
             <Stat
               icon={MapPin}
-              label="Current shipment"
+              label={t('detail.snapshot.currentShipment')}
               value={
                 <Link href={logisticsHref.replace('&hasOpenIssue=true', '')} className="hover:underline">
                   <Badge tone={SHIPMENT_STATUS_TONE[snapshot.mostRecentShipment.status]}>
-                    {SHIPMENT_STATUS_LABELS[snapshot.mostRecentShipment.status]}
+                    {enumLabel(te, 'shipmentStatus', snapshot.mostRecentShipment.status)}
                   </Badge>
                 </Link>
               }
@@ -106,25 +126,25 @@ export function CreatorSnapshot({
         <CardContent className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
           <div className="flex items-center gap-2 text-sm">
             <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium text-foreground">Delivery reliability</span>
+            <span className="font-medium text-foreground">{t('detail.snapshot.deliveryReliability')}</span>
           </div>
           {reliability.sampleSize === 0 ? (
-            <Badge tone="neutral">No completed deliverables with a due date yet</Badge>
+            <Badge tone="neutral">{t('detail.snapshot.noCompletedDeliverables')}</Badge>
           ) : reliability.sampleSize < MIN_RELIABILITY_SAMPLE ? (
             // Too few data points to color-code with confidence (a single
             // deliverable would otherwise render as a misleadingly definite
             // 100%/0% success/danger badge) — show the real count, neutral tone.
             <Badge tone="neutral">
-              {reliability.onTime}/{reliability.sampleSize} on time — limited history, not enough to judge yet
+              {t('detail.snapshot.limitedHistoryBadge', { onTime: reliability.onTime, sampleSize: reliability.sampleSize })}
             </Badge>
           ) : (
             <>
               <Badge tone={onTimeRate! >= 80 ? 'success' : onTimeRate! >= 50 ? 'warning' : 'danger'}>
-                {onTimeRate}% on time ({reliability.onTime}/{reliability.sampleSize})
+                {t('detail.snapshot.onTimeBadge', { rate: onTimeRate, onTime: reliability.onTime, sampleSize: reliability.sampleSize })}
               </Badge>
               {reliability.late > 0 && reliability.averageDelayDays != null ? (
                 <span className="text-xs text-muted-foreground">
-                  {reliability.late} late, averaging {reliability.averageDelayDays} day{reliability.averageDelayDays === 1 ? '' : 's'} delayed
+                  {t('detail.snapshot.lateAveraging', { late: reliability.late, days: reliability.averageDelayDays })}
                 </span>
               ) : null}
             </>

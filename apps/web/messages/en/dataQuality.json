@@ -1,0 +1,48 @@
+{
+  "title": "Data Quality",
+  "description": "Missing or incomplete records, possible duplicate creators, and relational inconsistencies across your workflow — so nothing quietly falls through the cracks.",
+  "brandFilterPlaceholder": "Brand",
+  "lastChecked": "Last checked {time}",
+  "severity": {
+    "critical": "Critical",
+    "needsAttention": "Needs attention",
+    "incomplete": "Incomplete",
+    "informational": "Informational"
+  },
+  "findings": {
+    "cardTitle": "Data Quality Findings",
+    "attentionBadge": "{count, plural, one {# needs attention} other {# need attention}}",
+    "emptyTitle": "Nothing to check yet",
+    "emptyDescription": "No creators, campaigns or deliverables to evaluate."
+  },
+  "duplicates": {
+    "cardTitle": "Possible Duplicate Creators",
+    "confidence": {
+      "exact": "Likely the same creator",
+      "strongPossible": "Possibly the same creator",
+      "possible": "Worth a look"
+    },
+    "reasonSame": "Same {field}",
+    "reasonField": {
+      "email": "Email",
+      "mobile": "Mobile",
+      "name": "Name"
+    },
+    "emptyTitle": "No possible duplicates found",
+    "emptyDescription": "No two creator records share a handle, email, phone or name right now."
+  },
+  "integrity": {
+    "cardTitle": "Workflow Integrity Findings",
+    "errorBadge": "{count, plural, one {# error} other {# errors}}",
+    "severity": {
+      "error": "Error",
+      "warning": "Warning"
+    },
+    "emptyTitle": "No inconsistencies found",
+    "emptyDescription": "Content, deliverables, campaigns and usage rights all check out against each other right now."
+  },
+  "loadError": {
+    "title": "Couldn't load data quality",
+    "description": "Try reloading the page."
+  }
+}

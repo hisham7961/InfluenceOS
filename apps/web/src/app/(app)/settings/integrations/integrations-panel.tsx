@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
   AlertTriangle,
@@ -28,22 +29,11 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Spinner } from '@/components/ui/spinner';
 import { PlatformBadge } from '@/components/ui/platform-badge';
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
-}
-
 const STATUS_TONE: Record<IntegrationStatus, Tone> = {
   ENABLED: 'success',
   DISABLED: 'neutral',
   NOT_CONFIGURED: 'warning',
   ERROR: 'danger',
-};
-
-const STATUS_LABEL: Record<IntegrationStatus, string> = {
-  ENABLED: 'Enabled',
-  DISABLED: 'Disabled',
-  NOT_CONFIGURED: 'Not configured',
-  ERROR: 'Error',
 };
 
 const LEVEL_TONE: Record<CapabilityLevel, Tone> = {
@@ -55,22 +45,13 @@ const LEVEL_TONE: Record<CapabilityLevel, Tone> = {
   NO: 'danger',
 };
 
-const LEVEL_LABEL: Record<CapabilityLevel, string> = {
-  YES: 'Yes',
-  YES_WITH_API: 'Yes, with API',
-  CONDITIONAL: 'Conditional',
-  AUTHORIZATION_DEPENDENT: 'Authorization required',
-  MANUAL: 'Manual only',
-  NO: 'Not available',
-};
-
 /** Rows shown in the capability matrix, in display order (spec §42). */
-const CAPABILITY_ROWS: { key: keyof IntegrationCapabilityDTO; label: string }[] = [
-  { key: 'profileLookup', label: 'Profile lookup' },
-  { key: 'followerSync', label: 'Follower sync' },
-  { key: 'contentEmbed', label: 'Content embed' },
-  { key: 'contentMetrics', label: 'Content metrics' },
-  { key: 'availabilityMonitoring', label: 'Availability monitoring' },
+const CAPABILITY_ROWS: { key: keyof IntegrationCapabilityDTO; labelKey: string }[] = [
+  { key: 'profileLookup', labelKey: 'profileLookup' },
+  { key: 'followerSync', labelKey: 'followerSync' },
+  { key: 'contentEmbed', labelKey: 'contentEmbed' },
+  { key: 'contentMetrics', labelKey: 'contentMetrics' },
+  { key: 'availabilityMonitoring', labelKey: 'availabilityMonitoring' },
 ];
 
 function isCapabilityLevel(value: string): value is CapabilityLevel {
@@ -81,10 +62,6 @@ function levelTone(value: string): Tone {
   return isCapabilityLevel(value) ? LEVEL_TONE[value] : 'neutral';
 }
 
-function levelLabel(value: string): string {
-  return isCapabilityLevel(value) ? LEVEL_LABEL[value] : value;
-}
-
 /**
  * Admin integrations panel (spec §42): one card per social platform explaining
  * exactly how it connects today, its live test status, and — most importantly —
@@ -93,6 +70,11 @@ function levelLabel(value: string): string {
  * product intentionally does not perform).
  */
 export function IntegrationsPanel({ initial }: { initial: IntegrationDTO[] }) {
+  const t = useTranslations('settings');
+  const errorMessage = React.useCallback(
+    (e: unknown) => (e instanceof ApiError ? e.message : t('integrations.errorGeneric')),
+    [t],
+  );
   const query = useQuery({
     queryKey: ['integrations'],
     queryFn: () => api.integrations.list(),
@@ -112,12 +94,12 @@ export function IntegrationsPanel({ initial }: { initial: IntegrationDTO[] }) {
     return (
       <EmptyState
         icon={ShieldAlert}
-        title="Couldn't load integrations"
+        title={t('integrations.loadErrorTitle')}
         description={errorMessage(query.error)}
         action={
           <Button variant="outline" onClick={() => query.refetch()}>
             <RefreshCcw className="h-4 w-4" />
-            Try again
+            {t('integrations.tryAgain')}
           </Button>
         }
       />
@@ -128,8 +110,8 @@ export function IntegrationsPanel({ initial }: { initial: IntegrationDTO[] }) {
     return (
       <EmptyState
         icon={Plug}
-        title="No integrations configured"
-        description="Social platform integrations will show up here once the platform is set up."
+        title={t('integrations.empty.title')}
+        description={t('integrations.empty.description')}
       />
     );
   }
@@ -144,6 +126,11 @@ export function IntegrationsPanel({ initial }: { initial: IntegrationDTO[] }) {
 }
 
 function IntegrationCard({ integration }: { integration: IntegrationDTO }) {
+  const t = useTranslations('settings');
+  const errorMessage = React.useCallback(
+    (e: unknown) => (e instanceof ApiError ? e.message : t('integrations.errorGeneric')),
+    [t],
+  );
   const queryClient = useQueryClient();
   const { platform, status, isEnabled, monitoringEnabled, lastTestAt, lastSuccessAt, lastError, capabilities } =
     integration;
@@ -158,7 +145,11 @@ function IntegrationCard({ integration }: { integration: IntegrationDTO }) {
     mutationFn: (nextEnabled: boolean) => api.integrations.update(platform, { isEnabled: nextEnabled }),
     onSuccess: (updated) => {
       applyUpdate(updated);
-      toast.success(`${platformLabel(platform)} ${updated.isEnabled ? 'enabled' : 'disabled'}.`);
+      toast.success(
+        updated.isEnabled
+          ? t('integrations.toastEnabled', { platform: platformLabel(platform) })
+          : t('integrations.toastDisabled', { platform: platformLabel(platform) }),
+      );
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -180,12 +171,12 @@ function IntegrationCard({ integration }: { integration: IntegrationDTO }) {
           <PlatformBadge platform={platform} size="md" />
           <div className="flex flex-col gap-1">
             <Badge tone={STATUS_TONE[status]} className="w-fit">
-              {STATUS_LABEL[status]}
+              {t(`integrations.status.${status}`)}
             </Badge>
             {monitoringEnabled ? (
-              <span className="text-[11px] text-muted-foreground">Availability monitoring active</span>
+              <span className="text-[11px] text-muted-foreground">{t('integrations.monitoringActive')}</span>
             ) : (
-              <span className="text-[11px] text-muted-foreground">Availability monitoring off</span>
+              <span className="text-[11px] text-muted-foreground">{t('integrations.monitoringOff')}</span>
             )}
           </div>
         </div>
@@ -196,9 +187,13 @@ function IntegrationCard({ integration }: { integration: IntegrationDTO }) {
               checked={isEnabled}
               disabled={updateEnabled.isPending}
               onCheckedChange={(checked) => updateEnabled.mutate(checked)}
-              aria-label={`${isEnabled ? 'Disable' : 'Enable'} ${platformLabel(platform)}`}
+              aria-label={t(isEnabled ? 'integrations.disableAria' : 'integrations.enableAria', {
+                platform: platformLabel(platform),
+              })}
             />
-            <span className="text-sm text-muted-foreground">{isEnabled ? 'Enabled' : 'Disabled'}</span>
+            <span className="text-sm text-muted-foreground">
+              {isEnabled ? t('integrations.status.ENABLED') : t('integrations.status.DISABLED')}
+            </span>
           </label>
           <Button
             variant="outline"
@@ -207,7 +202,7 @@ function IntegrationCard({ integration }: { integration: IntegrationDTO }) {
             onClick={() => testConnection.mutate()}
           >
             {testConnection.isPending ? <Spinner className="h-3.5 w-3.5" /> : <PlugZap className="h-3.5 w-3.5" />}
-            Test connection
+            {t('integrations.testConnection')}
           </Button>
         </div>
       </CardHeader>
@@ -215,30 +210,34 @@ function IntegrationCard({ integration }: { integration: IntegrationDTO }) {
       <CardContent className="flex flex-1 flex-col gap-5 pt-5">
         <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 text-xs text-muted-foreground sm:grid-cols-3">
           <div title={lastTestAt ? dateTime(lastTestAt) : undefined}>
-            <span className="font-medium text-foreground">Last tested</span>{' '}
-            {lastTestAt ? relativeTime(lastTestAt) : 'Never'}
+            <span className="font-medium text-foreground">{t('integrations.lastTested')}</span>{' '}
+            {lastTestAt ? relativeTime(lastTestAt) : t('integrations.never')}
           </div>
           <div title={lastSuccessAt ? dateTime(lastSuccessAt) : undefined}>
-            <span className="font-medium text-foreground">Last success</span>{' '}
-            {lastSuccessAt ? relativeTime(lastSuccessAt) : 'Never'}
+            <span className="font-medium text-foreground">{t('integrations.lastSuccess')}</span>{' '}
+            {lastSuccessAt ? relativeTime(lastSuccessAt) : t('integrations.never')}
           </div>
           <div className={cn(lastError && 'text-danger')}>
-            <span className={cn('font-medium', lastError ? 'text-danger' : 'text-foreground')}>Last error</span>{' '}
-            {lastError ? <span className="line-clamp-1">{lastError}</span> : 'None'}
+            <span className={cn('font-medium', lastError ? 'text-danger' : 'text-foreground')}>
+              {t('integrations.lastError')}
+            </span>{' '}
+            {lastError ? <span className="line-clamp-1">{lastError}</span> : t('integrations.none')}
           </div>
         </div>
 
         <div className="space-y-3 rounded-xl border border-border bg-surface-muted/50 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            What&apos;s possible today
+            {t('integrations.whatsPossible')}
           </p>
           <div className="divide-y divide-border/70">
             {CAPABILITY_ROWS.map((row) => {
               const value = String(capabilities[row.key]);
               return (
                 <div key={row.key} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
-                  <span className="text-sm text-foreground">{row.label}</span>
-                  <Badge tone={levelTone(value)}>{levelLabel(value)}</Badge>
+                  <span className="text-sm text-foreground">{t(`integrations.capabilityRow.${row.labelKey}`)}</span>
+                  <Badge tone={levelTone(value)}>
+                    {isCapabilityLevel(value) ? t(`integrations.level.${value}`) : value}
+                  </Badge>
                 </div>
               );
             })}
@@ -249,19 +248,19 @@ function IntegrationCard({ integration }: { integration: IntegrationDTO }) {
               {capabilities.requiresCreatorAuthorization ? (
                 <Badge tone="warning" className="gap-1">
                   <ShieldAlert className="h-3 w-3" />
-                  Requires creator authorization
+                  {t('integrations.requiresCreatorAuth')}
                 </Badge>
               ) : null}
               {capabilities.requiresAppAuthorization ? (
                 <Badge tone="warning" className="gap-1">
                   <ShieldAlert className="h-3 w-3" />
-                  Requires app authorization
+                  {t('integrations.requiresAppAuth')}
                 </Badge>
               ) : null}
               {capabilities.manualFallback ? (
                 <Badge tone="neutral" className="gap-1">
                   <ShieldCheck className="h-3 w-3" />
-                  Manual fallback available
+                  {t('integrations.manualFallback')}
                 </Badge>
               ) : null}
             </div>
@@ -278,8 +277,7 @@ function IntegrationCard({ integration }: { integration: IntegrationDTO }) {
         {status === 'NOT_CONFIGURED' ? (
           <p className="flex items-start gap-2 text-xs leading-relaxed text-warning">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            No API credential is configured for {platformLabel(platform)} yet — capabilities marked &quot;Yes, with
-            API&quot; above are inactive until it is.
+            {t('integrations.notConfiguredWarning', { platform: platformLabel(platform) })}
           </p>
         ) : null}
       </CardContent>

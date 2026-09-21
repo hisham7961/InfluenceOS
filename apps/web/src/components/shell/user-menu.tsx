@@ -1,6 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { LogOut, Settings, UserCircle } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import {
@@ -12,11 +13,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { useApp } from './app-context';
 
 export function UserMenu() {
   const { user } = useApp();
   const router = useRouter();
+  const t = useTranslations('common');
+  const tNav = useTranslations('nav');
 
   async function logout() {
     await fetch('/api/session/logout', { method: 'POST' });
@@ -34,27 +38,27 @@ export function UserMenu() {
       <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel>
           <div className="flex flex-col">
-            <span className="font-semibold">{user.name}</span>
-            <span className="text-xs font-normal text-muted-foreground">{user.email}</span>
+            <span className="font-semibold"><BidiText>{user.name}</BidiText></span>
+            <LtrText as="span" className="text-xs font-normal text-muted-foreground">{user.email}</LtrText>
           </div>
           <Badge tone={user.role === 'ADMIN' ? 'accent' : 'info'} className="mt-2 w-fit">
-            {user.role === 'ADMIN' ? 'Administrator' : 'Staff'}
+            {user.role === 'ADMIN' ? t('administrator') : t('staff')}
           </Badge>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href="/settings">
-            <UserCircle className="h-4 w-4" /> Profile & preferences
+            <UserCircle className="h-4 w-4" /> {t('profileAndPreferences')}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/settings">
-            <Settings className="h-4 w-4" /> Settings
+            <Settings className="h-4 w-4" /> {tNav('settings')}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={logout} className="text-danger focus:text-danger">
-          <LogOut className="h-4 w-4" /> Sign out
+          <LogOut className="h-4 w-4" /> {t('signOut')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { KeyRound, Save, Trash2 } from 'lucide-react';
 import type { ProviderCredentialStatusDTO, Tone } from '@influenceos/contracts';
@@ -14,17 +15,10 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { PlatformBadge } from '@/components/ui/platform-badge';
 
-const errorMessage = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
-
 const SOURCE_TONE: Record<ProviderCredentialStatusDTO['source'], Tone> = {
   DB: 'success',
   ENV: 'info',
   NONE: 'neutral',
-};
-const SOURCE_LABEL: Record<ProviderCredentialStatusDTO['source'], string> = {
-  DB: 'Stored (encrypted)',
-  ENV: 'From environment',
-  NONE: 'Not set',
 };
 
 /**
@@ -33,6 +27,12 @@ const SOURCE_LABEL: Record<ProviderCredentialStatusDTO['source'], string> = {
  * the server returns a masked status (last 4 chars), never the secret.
  */
 export function CredentialsCard({ initial }: { initial: ProviderCredentialStatusDTO[] }) {
+  const t = useTranslations('settings');
+  const tCommon = useTranslations('common');
+  const errorMessage = React.useCallback(
+    (e: unknown) => (e instanceof ApiError ? e.message : t('integrations.errorGeneric')),
+    [t],
+  );
   const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ['provider-credentials'],
@@ -46,7 +46,7 @@ export function CredentialsCard({ initial }: { initial: ProviderCredentialStatus
     onSuccess: (rows, { key }) => {
       qc.setQueryData(['provider-credentials'], rows);
       setDrafts((d) => ({ ...d, [key]: '' }));
-      toast.success('Credential saved (encrypted).');
+      toast.success(t('integrations.credentials.toastSaved'));
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -54,7 +54,7 @@ export function CredentialsCard({ initial }: { initial: ProviderCredentialStatus
     mutationFn: (key: string) => api.integrations.removeCredential(key),
     onSuccess: (rows) => {
       qc.setQueryData(['provider-credentials'], rows);
-      toast.success('Credential removed — reverted to environment.');
+      toast.success(t('integrations.credentials.toastRemoved'));
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -71,11 +71,8 @@ export function CredentialsCard({ initial }: { initial: ProviderCredentialStatus
       <CardHeader className="flex flex-row items-center gap-2">
         <KeyRound className="h-4 w-4 text-muted-foreground" aria-hidden />
         <div>
-          <h3 className="text-sm font-semibold">Provider API keys</h3>
-          <p className="text-xs text-muted-foreground">
-            Stored keys are encrypted at rest and override the matching environment variable. Values are never shown
-            back — only a masked hint. Leave blank to keep the environment value.
-          </p>
+          <h3 className="text-sm font-semibold">{t('integrations.credentials.heading')}</h3>
+          <p className="text-xs text-muted-foreground">{t('integrations.credentials.description')}</p>
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -90,7 +87,7 @@ export function CredentialsCard({ initial }: { initial: ProviderCredentialStatus
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-mono text-xs font-medium">{row.key}</p>
                     <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Badge tone={SOURCE_TONE[row.source]}>{SOURCE_LABEL[row.source]}</Badge>
+                      <Badge tone={SOURCE_TONE[row.source]}>{t(`integrations.credentials.source.${row.source}`)}</Badge>
                       {row.last4 ? <span className="font-mono">{row.last4}</span> : null}
                     </p>
                   </div>
@@ -99,9 +96,13 @@ export function CredentialsCard({ initial }: { initial: ProviderCredentialStatus
                       type="password"
                       value={drafts[row.key] ?? ''}
                       onChange={(e) => setDrafts((d) => ({ ...d, [row.key]: e.target.value }))}
-                      placeholder={row.isSet ? 'Replace…' : 'Enter key…'}
+                      placeholder={
+                        row.isSet
+                          ? t('integrations.credentials.placeholderReplace')
+                          : t('integrations.credentials.placeholderEnter')
+                      }
                       className="h-9 w-full sm:w-56"
-                      aria-label={`Value for ${row.key}`}
+                      aria-label={t('integrations.credentials.valueForAria', { key: row.key })}
                     />
                     <Button
                       size="sm"
@@ -109,13 +110,13 @@ export function CredentialsCard({ initial }: { initial: ProviderCredentialStatus
                       onClick={() => save.mutate({ key: row.key, value: (drafts[row.key] ?? '').trim() })}
                     >
                       {save.isPending && save.variables?.key === row.key ? <Spinner className="text-current" /> : <Save className="h-3.5 w-3.5" />}
-                      Save
+                      {tCommon('save')}
                     </Button>
                     {row.source === 'DB' ? (
                       <Button
                         size="sm"
                         variant="ghost"
-                        aria-label={`Remove ${row.key}`}
+                        aria-label={t('integrations.credentials.removeAria', { key: row.key })}
                         disabled={remove.isPending}
                         onClick={() => remove.mutate(row.key)}
                         className="text-muted-foreground hover:text-danger"

@@ -2,11 +2,13 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { Activity as ActivityIcon } from 'lucide-react';
 import { api } from '@/lib/api-browser';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import { BidiText } from '@/components/common/bidi-text';
 import { relativeTime } from '@/lib/format';
 
 /**
@@ -21,8 +23,8 @@ import { relativeTime } from '@/lib/format';
 export function ActivityFeed({
   filter,
   queryKey,
-  emptyTitle = 'No activity yet',
-  emptyDescription = 'Actions taken here will show up in this timeline.',
+  emptyTitle,
+  emptyDescription,
 }: {
   filter: {
     campaignId?: string;
@@ -38,6 +40,7 @@ export function ActivityFeed({
   emptyTitle?: string;
   emptyDescription?: string;
 }) {
+  const t = useTranslations('common');
   const { data, isLoading, isError } = useQuery({
     queryKey,
     queryFn: () => api.activity.feed(filter),
@@ -57,15 +60,21 @@ export function ActivityFeed({
     return (
       <EmptyState
         icon={ActivityIcon}
-        title="Couldn't load activity"
-        description="Something went wrong fetching the activity feed. Try again shortly."
+        title={t('couldntLoadActivity')}
+        description={t('activityLoadError')}
       />
     );
   }
 
   const items = data?.data ?? [];
   if (items.length === 0) {
-    return <EmptyState icon={ActivityIcon} title={emptyTitle} description={emptyDescription} />;
+    return (
+      <EmptyState
+        icon={ActivityIcon}
+        title={emptyTitle ?? t('noActivityYet')}
+        description={emptyDescription ?? t('activityWillAppearHere')}
+      />
+    );
   }
 
   return (
@@ -82,7 +91,11 @@ export function ActivityFeed({
               <p className="text-sm leading-snug">{a.message}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              {a.actorName ? `${a.actorName} · ` : ''}
+              {a.actorName ? (
+                <>
+                  <BidiText as="span">{a.actorName}</BidiText>{' · '}
+                </>
+              ) : null}
               {relativeTime(a.createdAt)}
             </p>
           </div>

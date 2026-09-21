@@ -1,0 +1,41 @@
+{
+  "title": "Notifications",
+  "description": "Alerts about content, deliverables, campaigns, and account activity across your brands.",
+  "tabs": {
+    "all": "All",
+    "unread": "Unread",
+    "unreadWithCount": "Unread ({count})"
+  },
+  "markAllRead": "Mark all as read",
+  "markingInProgress": "Marking…",
+  "markedReadToast": "{count, plural, one {Marked # notification as read} other {Marked # notifications as read}}",
+  "unreadIndicator": "Unread",
+  "empty": {
+    "title": "You're all caught up",
+    "descriptionUnread": "No unread notifications right now.",
+    "descriptionAll": "Alerts about content, deliverables, campaigns, and account activity will show up here."
+  },
+  "loadMore": "Load more",
+  "buckets": {
+    "thisWeek": "This week",
+    "earlier": "Earlier"
+  },
+  "categories": {
+    "CONTENT_REMOVED": "Content removed",
+    "CONTENT_UNAVAILABLE": "Content unavailable",
+    "DELIVERABLE_OVERDUE": "Deliverable overdue",
+    "DELIVERABLE_DUE_SOON": "Deliverable due soon",
+    "CAMPAIGN_ENDING": "Campaign ending",
+    "SYNC_FAILURE": "Sync failure",
+    "NEW_CONTENT": "New content",
+    "FOLLOWER_MILESTONE": "Follower milestone",
+    "USAGE_RIGHT_EXPIRING": "Usage right expiring",
+    "SHIPMENT_DELIVERED": "Shipment delivered",
+    "SUBMISSION_APPROVED": "Submission approved",
+    "GENERAL": "General",
+    "MENTION": "Mention",
+    "REPLY": "Reply",
+    "IMPORTANT_MESSAGE": "Important message",
+    "LOGISTICS_ADDRESS_ISSUE": "Address issue"
+  }
+}

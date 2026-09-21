@@ -1,4 +1,5 @@
 import { ShieldAlert } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
 import { ApiError } from '@influenceos/api-client';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
@@ -9,6 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function UsersSettingsPage() {
   const api = getServerApi();
+  const t = await getTranslations('users');
 
   let users;
   try {
@@ -17,11 +19,11 @@ export default async function UsersSettingsPage() {
     if (e instanceof ApiError && e.status === 403) {
       return (
         <div>
-          <PageHeader title="Users" description="Manage teammates, roles, and access across your workspace." />
+          <PageHeader title={t('list.title')} description={t('list.description')} />
           <EmptyState
             icon={ShieldAlert}
-            title="Admins only"
-            description="You need administrator access to view and manage workspace users. Ask a workspace admin to grant you access."
+            title={t('list.adminsOnly.title')}
+            description={t('list.adminsOnly.description')}
             className="py-16"
           />
         </div>
@@ -32,7 +34,7 @@ export default async function UsersSettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Users" description="Manage teammates, roles, and access across your workspace." />
+      <PageHeader title={t('list.title')} description={t('list.description')} />
       <UsersClient initial={users} />
     </div>
   );

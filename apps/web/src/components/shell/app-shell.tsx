@@ -1,5 +1,6 @@
 'use client';
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import type { BrandSummaryDTO, UserDTO } from '@influenceos/contracts';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { NavLinks, Sidebar } from './sidebar';
@@ -23,6 +24,7 @@ export function AppShell({
   const [commandOpen, setCommandOpen] = React.useState(false);
   const [quickAdd, setQuickAdd] = React.useState<{ open: boolean; kind: QuickAddKind }>({ open: false, kind: 'content' });
   const [mobileNav, setMobileNav] = React.useState(false);
+  const t = useTranslations('common');
 
   const openCommand = React.useCallback(() => setCommandOpen(true), []);
   const openQuickAdd = React.useCallback((kind: QuickAddKind = 'content') => setQuickAdd({ open: true, kind }), []);
@@ -49,8 +51,8 @@ export function AppShell({
               role="status"
               className="border-b border-warning/30 bg-warning/10 px-4 py-2 text-center text-sm font-medium text-warning lg:px-8"
             >
-              {maintenance || 'The system is under maintenance. Some actions are temporarily unavailable.'}
-              {user.role !== 'ADMIN' && ' Changes are read-only until this clears.'}
+              {maintenance || t('maintenanceMessage')}
+              {user.role !== 'ADMIN' && ` ${t('maintenanceReadOnly')}`}
             </div>
           )}
           <main className="flex-1 px-4 py-6 lg:px-8">{children}</main>

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { Eye, LayoutGrid, List as ListIcon, MapPin, Table as TableIcon } from 'lucide-react';
 import type { InfluencerSummaryDTO } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
@@ -21,17 +22,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { formatCompact } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
 type ViewMode = 'cards' | 'list' | 'table';
 const STORAGE_KEY = 'influenceos.directory.view';
-
-const VIEWS: { mode: ViewMode; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { mode: 'cards', label: 'Cards', icon: LayoutGrid },
-  { mode: 'list', label: 'List', icon: ListIcon },
-  { mode: 'table', label: 'Table', icon: TableIcon },
-];
 
 /**
  * Influencer directory with three interchangeable density views (cards / list /
@@ -39,9 +35,16 @@ const VIEWS: { mode: ViewMode; label: string; icon: React.ComponentType<{ classN
  * without leaving the directory. The chosen view persists per viewer.
  */
 export function DirectoryResults({ influencers }: { influencers: InfluencerSummaryDTO[] }) {
+  const t = useTranslations('influencers');
   const [view, setView] = React.useState<ViewMode>('cards');
   const [previewId, setPreviewId] = React.useState<string | null>(null);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
+
+  const VIEWS: { mode: ViewMode; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { mode: 'cards', label: t('directory.results.viewCards'), icon: LayoutGrid },
+    { mode: 'list', label: t('directory.results.viewList'), icon: ListIcon },
+    { mode: 'table', label: t('directory.results.viewTable'), icon: TableIcon },
+  ];
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -73,7 +76,7 @@ export function DirectoryResults({ influencers }: { influencers: InfluencerSumma
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-end">
-        <div className="inline-flex rounded-xl border border-border bg-card p-1" role="tablist" aria-label="Directory view">
+        <div className="inline-flex rounded-xl border border-border bg-card p-1" role="tablist" aria-label={t('directory.results.viewToggleAriaLabel')}>
           {VIEWS.map(({ mode, label, icon: Icon }) => (
             <button
               key={mode}
@@ -118,15 +121,20 @@ export function DirectoryResults({ influencers }: { influencers: InfluencerSumma
 }
 
 function ListRow({ inf, onPreview }: { inf: InfluencerSummaryDTO; onPreview: () => void }) {
+  const t = useTranslations('influencers');
   return (
     <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
       <Avatar name={inf.displayName} src={inf.avatarUrl} size="md" rounded="lg" />
       <div className="min-w-0 flex-1">
         <Link href={`/influencers/${inf.id}`} className="truncate font-semibold hover:underline">
-          {inf.displayName}
+          <BidiText>{inf.displayName}</BidiText>
         </Link>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          {inf.primaryUsername ? <span className="truncate">@{inf.primaryUsername}</span> : null}
+          {inf.primaryUsername ? (
+            <span className="truncate">
+              <LtrText>@{inf.primaryUsername}</LtrText>
+            </span>
+          ) : null}
           {inf.country ? (
             <span className="flex items-center gap-1">
               <MapPin className="h-3 w-3" /> {inf.country}
@@ -149,7 +157,13 @@ function ListRow({ inf, onPreview }: { inf: InfluencerSummaryDTO; onPreview: () 
           {formatCompact(inf.totalFollowers)}
         </Badge>
       ) : null}
-      <Button type="button" variant="ghost" size="sm" onClick={onPreview} aria-label={`Preview ${inf.displayName}`}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={onPreview}
+        aria-label={t('directory.results.previewAriaLabel', { name: inf.displayName })}
+      >
         <Eye className="h-4 w-4" />
       </Button>
     </div>
@@ -167,6 +181,7 @@ function DirectoryTable({
   selected: Set<string>;
   onToggle: (id: string) => void;
 }) {
+  const t = useTranslations('influencers');
   const allSelected = influencers.length > 0 && influencers.every((inf) => selected.has(inf.id));
   return (
     <div className="overflow-x-auto rounded-2xl border border-border bg-card">
@@ -179,16 +194,16 @@ function DirectoryTable({
                 className="h-4 w-4 cursor-pointer rounded border-border accent-brand"
                 checked={allSelected}
                 onChange={() => influencers.forEach((inf) => (allSelected ? selected.has(inf.id) && onToggle(inf.id) : !selected.has(inf.id) && onToggle(inf.id)))}
-                aria-label="Select all"
+                aria-label={t('directory.results.table.selectAllAriaLabel')}
               />
             </th>
-            <th className="px-4 py-3 font-medium">Influencer</th>
-            <th className="px-4 py-3 font-medium">Platform</th>
-            <th className="px-4 py-3 font-medium">Country</th>
-            <th className="px-4 py-3 font-medium">Status</th>
-            <th className="px-4 py-3 font-medium">Audience</th>
-            <th className="px-4 py-3 text-right font-medium">Followers</th>
-            <th className="px-4 py-3 text-right font-medium">Campaigns</th>
+            <th className="px-4 py-3 font-medium">{t('directory.results.table.influencer')}</th>
+            <th className="px-4 py-3 font-medium">{t('directory.results.table.platform')}</th>
+            <th className="px-4 py-3 font-medium">{t('directory.results.table.country')}</th>
+            <th className="px-4 py-3 font-medium">{t('directory.results.table.status')}</th>
+            <th className="px-4 py-3 font-medium">{t('directory.results.table.audience')}</th>
+            <th className="px-4 py-3 text-right font-medium">{t('directory.results.table.followers')}</th>
+            <th className="px-4 py-3 text-right font-medium">{t('directory.results.table.campaigns')}</th>
             <th className="px-4 py-3" />
           </tr>
         </thead>
@@ -201,14 +216,14 @@ function DirectoryTable({
                   className="h-4 w-4 cursor-pointer rounded border-border accent-brand"
                   checked={selected.has(inf.id)}
                   onChange={() => onToggle(inf.id)}
-                  aria-label={`Select ${inf.displayName}`}
+                  aria-label={t('directory.results.table.selectRowAriaLabel', { name: inf.displayName })}
                 />
               </td>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2.5">
                   <Avatar name={inf.displayName} src={inf.avatarUrl} size="xs" />
                   <Link href={`/influencers/${inf.id}`} className="font-medium hover:underline">
-                    {inf.displayName}
+                    <BidiText>{inf.displayName}</BidiText>
                   </Link>
                 </div>
               </td>
@@ -231,7 +246,13 @@ function DirectoryTable({
               </td>
               <td className="px-4 py-3 text-right tabular-nums">{inf.activeCampaigns}</td>
               <td className="px-4 py-3 text-right">
-                <Button type="button" variant="ghost" size="sm" onClick={() => onPreview(inf.id)} aria-label={`Preview ${inf.displayName}`}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onPreview(inf.id)}
+                  aria-label={t('directory.results.previewAriaLabel', { name: inf.displayName })}
+                >
                   <Eye className="h-4 w-4" />
                 </Button>
               </td>
@@ -244,6 +265,7 @@ function DirectoryTable({
 }
 
 function PreviewDrawer({ influencerId, onClose }: { influencerId: string | null; onClose: () => void }) {
+  const t = useTranslations('influencers');
   const { data, isLoading } = useQuery({
     queryKey: ['influencer-preview', influencerId],
     queryFn: () => api.influencers.get(influencerId as string),
@@ -265,9 +287,13 @@ function PreviewDrawer({ influencerId, onClose }: { influencerId: string | null;
               <div className="flex items-center gap-3">
                 <Avatar name={data.displayName} src={data.avatarUrl} size="lg" rounded="lg" />
                 <div className="min-w-0">
-                  <SheetTitle className="truncate">{data.displayName}</SheetTitle>
+                  <SheetTitle className="truncate">
+                    <BidiText>{data.displayName}</BidiText>
+                  </SheetTitle>
                   {data.primaryUsername ? (
-                    <SheetDescription className="truncate">@{data.primaryUsername}</SheetDescription>
+                    <SheetDescription className="truncate">
+                      <LtrText>@{data.primaryUsername}</LtrText>
+                    </SheetDescription>
                   ) : null}
                 </div>
               </div>
@@ -281,14 +307,22 @@ function PreviewDrawer({ influencerId, onClose }: { influencerId: string | null;
             {data.bio ? <p className="text-sm leading-relaxed text-muted-foreground">{data.bio}</p> : null}
 
             <div className="grid grid-cols-2 gap-3">
-              <Stat label="Total followers" value={data.totalFollowers != null ? formatCompact(data.totalFollowers) : '—'} />
-              <Stat label="Active campaigns" value={String(data.activeCampaigns)} />
-              <Stat label="Campaigns (all-time)" value={String(data.history?.campaignCount ?? 0)} />
-              <Stat label="Accounts" value={String(data.socialAccounts?.length ?? 0)} />
+              <Stat
+                label={t('directory.results.preview.totalFollowers')}
+                value={data.totalFollowers != null ? formatCompact(data.totalFollowers) : '—'}
+              />
+              <Stat label={t('directory.results.preview.activeCampaigns')} value={String(data.activeCampaigns)} />
+              <Stat
+                label={t('directory.results.preview.campaignsAllTime')}
+                value={String(data.history?.campaignCount ?? 0)}
+              />
+              <Stat label={t('directory.results.preview.accounts')} value={String(data.socialAccounts?.length ?? 0)} />
             </div>
 
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Platforms</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('directory.results.preview.platforms')}
+              </p>
               <div className="flex flex-wrap gap-2">
                 {data.followersByPlatform.map((f) => (
                   <span key={f.platform} className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs">
@@ -300,7 +334,7 @@ function PreviewDrawer({ influencerId, onClose }: { influencerId: string | null;
             </div>
 
             <Button asChild className="w-full">
-              <Link href={`/influencers/${data.id}`}>View full 360 profile</Link>
+              <Link href={`/influencers/${data.id}`}>{t('directory.results.preview.viewFullProfile')}</Link>
             </Button>
           </div>
         )}

@@ -14,5 +14,21 @@
   "overdueDeliverables": "المحتوى المطلوب المتأخر",
   "totalSpend": "إجمالي الإنفاق",
   "contentAlerts": "تنبيهات المحتوى",
-  "caughtUp": "أنت مطّلع على كل جديد."
+  "caughtUp": "أنت مطّلع على كل جديد.",
+  "viewWall": "عرض المحتوى",
+  "nothingChangedSinceVisit": "لم يطرأ أي تغيير مهم منذ زيارتك الأخيرة.",
+  "newContentItemsLine": "من عناصر المحتوى الجديدة",
+  "campaignsLaunchedLine": "من الحملات المُطلقة",
+  "contentAlertsLine": "من تنبيهات المحتوى",
+  "overdueDeliverablesLine": "من المحتوى المطلوب المتأخر",
+  "shipmentsDeliveredLine": "من الشحنات المُسلَّمة",
+  "draftsApprovedLine": "من المسودات المعتمدة",
+  "usageRightsExpiringLine": "من حقوق الاستخدام الموشكة على الانتهاء",
+  "reviewNewVideos": "{count, plural, one {مراجعة فيديو جديد واحد} other {مراجعة # فيديوهات جديدة}}",
+  "updatesCount": "من التحديثات",
+  "allClear": "لا توجد مشكلات",
+  "noUrgentItems": "لا توجد عناصر عاجلة حاليًا.",
+  "allCampaigns": "كل الحملات",
+  "activeCampaignsWillAppear": "ستظهر الحملات النشطة هنا.",
+  "nothingScheduled": "لا يوجد محتوى مجدول"
 }

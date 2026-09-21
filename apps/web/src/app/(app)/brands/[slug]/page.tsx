@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { ArrowLeft } from 'lucide-react';
 import type { BrandDashboardDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
@@ -10,6 +11,7 @@ import { StatCard } from '@/components/ui/stat-card';
 import { SectionHeader } from '@/components/common/page-header';
 import { MissionControl } from '@/components/dashboard/mission-control';
 import { ContentGrid } from '@/components/content/content-grid';
+import { BidiText } from '@/components/common/bidi-text';
 import { formatCurrency } from '@/lib/format';
 import { BrandEditDialog } from './brand-edit-dialog';
 import { BrandNotesCard } from './brand-notes-card';
@@ -20,6 +22,7 @@ export const dynamic = 'force-dynamic';
 export default async function BrandWorkspacePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const api = getServerApi();
+  const t = await getTranslations('brands');
 
   let dashboard: BrandDashboardDTO;
   try {
@@ -45,7 +48,7 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
         href="/brands"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft className="h-3.5 w-3.5" /> Back to Brands
+        <ArrowLeft className="h-3.5 w-3.5" /> {t('detail.backToBrands')}
       </Link>
 
       {/* Brand hero */}
@@ -89,9 +92,11 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
               </div>
               <div className="min-w-0 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <h1 className="text-2xl font-bold tracking-tight text-white drop-shadow-sm">{brand.name}</h1>
+                  <BidiText as="h1" className="text-2xl font-bold tracking-tight text-white drop-shadow-sm">
+                    {brand.name}
+                  </BidiText>
                   <Badge tone={brand.isActive ? 'success' : 'neutral'} className="border-white/30 bg-white/15 text-white">
-                    {brand.isActive ? 'Active' : 'Inactive'}
+                    {brand.isActive ? t('status.active') : t('status.inactive')}
                   </Badge>
                 </div>
                 {brand.description ? (
@@ -108,11 +113,17 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
       {/* Stat tiles — iconName (not icon) because Server Components can't pass
           a Lucide icon function across the RSC boundary. */}
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Active Campaigns" value={stats.activeCampaigns} iconName="megaphone" tone="info" hint={`${stats.totalCampaigns} total`} />
-        <StatCard label="Influencers" value={stats.influencers} iconName="users" tone="accent" />
-        <StatCard label="Content Published" value={stats.contentCount} iconName="content" tone="success" />
         <StatCard
-          label="Total Spend"
+          label={t('detail.stats.activeCampaigns')}
+          value={stats.activeCampaigns}
+          iconName="megaphone"
+          tone="info"
+          hint={t('detail.stats.totalCampaignsHint', { count: stats.totalCampaigns })}
+        />
+        <StatCard label={t('detail.stats.influencers')} value={stats.influencers} iconName="users" tone="accent" />
+        <StatCard label={t('detail.stats.contentPublished')} value={stats.contentCount} iconName="content" tone="success" />
+        <StatCard
+          label={t('detail.stats.totalSpend')}
           value={stats.totalSpend}
           iconName="wallet"
           tone="warning"
@@ -125,17 +136,17 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
 
       <section className="mt-8">
         <SectionHeader
-          title="Content"
+          title={t('detail.content')}
           action={
             <Link href={`/content`} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-              View in Live Content
+              {t('detail.viewInLiveContent')}
             </Link>
           }
         />
         <ContentGrid
           items={brandContent.data}
-          emptyTitle="No content yet"
-          emptyDescription={`Published content for ${brand.name} will appear here.`}
+          emptyTitle={t('detail.noContentTitle')}
+          emptyDescription={t('detail.noContentDescription', { name: brand.name })}
         />
       </section>
 

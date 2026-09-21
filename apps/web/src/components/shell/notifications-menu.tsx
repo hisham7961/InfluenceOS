@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { Bell, CheckCheck } from 'lucide-react';
 import { api } from '@/lib/api-browser';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,8 @@ import { relativeTime } from '@/lib/format';
 
 export function NotificationsMenu() {
   const queryClient = useQueryClient();
+  const t = useTranslations('common');
+  const tNav = useTranslations('nav');
   const { data: count } = useQuery({
     queryKey: ['notifications', 'unread'],
     queryFn: () => api.notifications.unreadCount(),
@@ -31,7 +34,7 @@ export function NotificationsMenu() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-sm" className="relative" aria-label="Notifications">
+        <Button variant="ghost" size="icon-sm" className="relative" aria-label={tNav('notifications')}>
           <Bell className="h-[18px] w-[18px]" />
           {unread > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-danger-foreground">
@@ -42,10 +45,10 @@ export function NotificationsMenu() {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96 p-0">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <span className="text-sm font-semibold">Notifications</span>
+          <span className="text-sm font-semibold">{tNav('notifications')}</span>
           {unread > 0 && (
             <button onClick={markAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              <CheckCheck className="h-3.5 w-3.5" /> Mark all read
+              <CheckCheck className="h-3.5 w-3.5" /> {t('markAllRead')}
             </button>
           )}
         </div>
@@ -71,13 +74,13 @@ export function NotificationsMenu() {
             </div>
           ) : (
             <div className="p-4">
-              <EmptyState icon={Bell} title="You're all caught up" description="New alerts will appear here." />
+              <EmptyState icon={Bell} title={t('allCaughtUpShort')} description={t('newAlertsWillAppear')} />
             </div>
           )}
         </ScrollArea>
         <div className="border-t border-border p-2">
           <Button asChild variant="ghost" size="sm" className="w-full">
-            <Link href="/notifications">View all notifications</Link>
+            <Link href="/notifications">{t('viewAllNotifications')}</Link>
           </Button>
         </div>
       </PopoverContent>

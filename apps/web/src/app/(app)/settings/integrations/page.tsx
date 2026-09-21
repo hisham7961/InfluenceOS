@@ -1,5 +1,6 @@
 import { ApiError } from '@influenceos/api-client';
 import type { ProviderCredentialStatusDTO } from '@influenceos/contracts';
+import { getTranslations } from 'next-intl/server';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
 import { IntegrationsPanel } from './integrations-panel';
@@ -9,6 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function IntegrationsSettingsPage() {
   const api = getServerApi();
+  const t = await getTranslations('settings');
   const integrations = await api.integrations.list();
 
   // Credentials are admin-only; non-admins simply don't see the card.
@@ -21,10 +23,7 @@ export default async function IntegrationsSettingsPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Social Integrations"
-        description="How each platform connects, and what's available today."
-      />
+      <PageHeader title={t('integrations.title')} description={t('integrations.description')} />
       <IntegrationsPanel initial={integrations} />
       {credentials ? <CredentialsCard initial={credentials} /> : null}
     </div>

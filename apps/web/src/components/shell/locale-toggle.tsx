@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Languages } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api-browser';
@@ -8,6 +8,7 @@ import { api } from '@/lib/api-browser';
 export function LocaleToggle() {
   const router = useRouter();
   const locale = useLocale();
+  const t = useTranslations('common');
 
   function toggle() {
     const next = locale === 'ar' ? 'en' : 'ar';
@@ -19,7 +20,7 @@ export function LocaleToggle() {
   }
 
   return (
-    <Button variant="ghost" size="sm" onClick={toggle} className="gap-1.5 font-semibold" aria-label="Toggle language">
+    <Button variant="ghost" size="sm" onClick={toggle} className="gap-1.5 font-semibold" aria-label={t('toggleLanguage')}>
       <Languages className="h-4 w-4" />
       {locale === 'ar' ? 'ع' : 'EN'}
     </Button>

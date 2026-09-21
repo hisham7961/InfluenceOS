@@ -2,19 +2,13 @@
 
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Filter, Package } from 'lucide-react';
 import type { BrandSummaryDTO, LogisticsRequestDTO } from '@influenceos/contracts';
-import {
-  ADDRESS_HEALTH_LABELS,
-  ADDRESS_HEALTH_TONE,
-  COUNTRIES,
-  DELIVERABLE_TYPE_LABELS,
-  SHIPMENT_STATUSES,
-  SHIPMENT_STATUS_LABELS,
-  SHIPMENT_STATUS_TONE,
-} from '@influenceos/shared';
+import { ADDRESS_HEALTH_TONE, COUNTRIES, SHIPMENT_STATUSES, SHIPMENT_STATUS_TONE } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
+import { enumLabel } from '@/lib/enum-labels';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
 import { SavedViews } from '@/app/(app)/influencers/saved-views';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { LogisticsCountryStrip } from './logistics-country-strip';
 import { LogisticsChatPanel } from './logistics-chat-panel';
 import { ShipmentDetailSheet } from './shipment-detail-sheet';
@@ -93,6 +88,9 @@ export function LogisticsWorkspace({
   brands: BrandSummaryDTO[];
 }) {
   const { user } = useApp();
+  const t = useTranslations('logistics');
+  const tc = useTranslations('common');
+  const te = useTranslations('enums');
   // Initial filter values come from the URL so the Exec Brief's "shipments
   // delivered/failed" metrics, a Saved View, and Needs Attention can all
   // deep-link straight into a pre-filtered view.
@@ -155,10 +153,10 @@ export function LogisticsWorkspace({
         <div className="flex flex-wrap items-center gap-2">
           {(
             [
-              ['all', 'All'],
-              ['mine', 'My Queue'],
-              ['unassigned', 'Unassigned'],
-              ['attention', 'Needs Attention'],
+              ['all', t('workspace.quickView.all')],
+              ['mine', t('workspace.quickView.mine')],
+              ['unassigned', tc('unassigned')],
+              ['attention', t('workspace.quickView.attention')],
             ] as const
           ).map(([v, label]) => (
             <button
@@ -181,23 +179,23 @@ export function LogisticsWorkspace({
         <div className="flex flex-wrap items-center gap-3">
           <Select value={filters.status || ALL} onValueChange={(v) => set({ status: v === ALL ? '' : v })}>
             <SelectTrigger className="h-10 w-full sm:w-44">
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder={tc('status')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>All statuses</SelectItem>
+              <SelectItem value={ALL}>{t('workspace.allStatuses')}</SelectItem>
               {SHIPMENT_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {SHIPMENT_STATUS_LABELS[s]}
+                  {enumLabel(te, 'shipmentStatus', s)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Select value={filters.brandId || ALL} onValueChange={(v) => set({ brandId: v === ALL ? '' : v })}>
             <SelectTrigger className="h-10 w-full sm:w-44">
-              <SelectValue placeholder="Brand" />
+              <SelectValue placeholder={t('workspace.brandPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>All brands</SelectItem>
+              <SelectItem value={ALL}>{tc('allBrands')}</SelectItem>
               {brands.map((b) => (
                 <SelectItem key={b.id} value={b.id}>
                   {b.name}
@@ -207,13 +205,13 @@ export function LogisticsWorkspace({
           </Select>
           <Select value={filters.assigneeId && filters.assigneeId !== 'me' && filters.assigneeId !== 'unassigned' ? filters.assigneeId : ALL} onValueChange={(v) => set({ assigneeId: v === ALL ? '' : v })}>
             <SelectTrigger className="h-10 w-full sm:w-48">
-              <SelectValue placeholder="Assignee" />
+              <SelectValue placeholder={t('workspace.assignee')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Any assignee</SelectItem>
+              <SelectItem value={ALL}>{t('workspace.anyAssignee')}</SelectItem>
               {(directory.data ?? []).map((d) => (
                 <SelectItem key={d.id} value={d.id}>
-                  {d.id === user.id ? `${d.name} (me)` : d.name}
+                  {d.id === user.id ? t('workspace.assigneeMe', { name: d.name }) : <BidiText>{d.name}</BidiText>}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -222,19 +220,19 @@ export function LogisticsWorkspace({
           <Popover>
             <PopoverTrigger asChild>
               <Button type="button" variant="outline" size="sm" className="gap-1.5">
-                <Filter className="h-3.5 w-3.5" /> More filters
+                <Filter className="h-3.5 w-3.5" /> {t('workspace.moreFilters')}
                 {moreFilterCount > 0 && <span className="text-xs text-muted-foreground">({moreFilterCount})</span>}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80 space-y-3" align="start">
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Creator country</label>
+                <label className="text-xs font-medium text-muted-foreground">{t('workspace.creatorCountry')}</label>
                 <Select value={filters.influencerCountryCode || ALL} onValueChange={(v) => set({ influencerCountryCode: v === ALL ? '' : v })}>
                   <SelectTrigger className="mt-1 h-9">
-                    <SelectValue placeholder="Any" />
+                    <SelectValue placeholder={t('workspace.any')} />
                   </SelectTrigger>
                   <SelectContent className="max-h-72">
-                    <SelectItem value={ALL}>Any</SelectItem>
+                    <SelectItem value={ALL}>{t('workspace.any')}</SelectItem>
                     {COUNTRIES.map((c) => (
                       <SelectItem key={c.code} value={c.code}>
                         {c.name}
@@ -244,32 +242,32 @@ export function LogisticsWorkspace({
                 </Select>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Requester</label>
+                <label className="text-xs font-medium text-muted-foreground">{t('workspace.requester')}</label>
                 <Select value={filters.requesterId || ALL} onValueChange={(v) => set({ requesterId: v === ALL ? '' : v })}>
                   <SelectTrigger className="mt-1 h-9">
-                    <SelectValue placeholder="Any" />
+                    <SelectValue placeholder={t('workspace.any')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={ALL}>Any</SelectItem>
+                    <SelectItem value={ALL}>{t('workspace.any')}</SelectItem>
                     {(directory.data ?? []).map((d) => (
                       <SelectItem key={d.id} value={d.id}>
-                        {d.name}
+                        <BidiText>{d.name}</BidiText>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Courier</label>
-                <SearchInput className="mt-1" placeholder="e.g. DHL" value={filters.courier} onChange={(e) => set({ courier: e.target.value })} />
+                <label className="text-xs font-medium text-muted-foreground">{t('form.courier')}</label>
+                <SearchInput className="mt-1" placeholder={t('workspace.courierPlaceholder')} value={filters.courier} onChange={(e) => set({ courier: e.target.value })} />
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Product</label>
-                <SearchInput className="mt-1" placeholder="e.g. Serum" value={filters.productName} onChange={(e) => set({ productName: e.target.value })} />
+                <label className="text-xs font-medium text-muted-foreground">{t('workspace.product')}</label>
+                <SearchInput className="mt-1" placeholder={t('workspace.productPlaceholder')} value={filters.productName} onChange={(e) => set({ productName: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">From</label>
+                  <label className="text-xs font-medium text-muted-foreground">{t('workspace.dateFrom')}</label>
                   <input
                     type="date"
                     className="mt-1 flex h-9 w-full rounded-lg border border-input bg-surface px-2 text-sm shadow-soft"
@@ -278,7 +276,7 @@ export function LogisticsWorkspace({
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">To</label>
+                  <label className="text-xs font-medium text-muted-foreground">{t('workspace.dateTo')}</label>
                   <input
                     type="date"
                     className="mt-1 flex h-9 w-full rounded-lg border border-input bg-surface px-2 text-sm shadow-soft"
@@ -294,17 +292,17 @@ export function LogisticsWorkspace({
                   checked={filters.hasOpenIssue === 'true'}
                   onChange={(e) => set({ hasOpenIssue: e.target.checked ? 'true' : '' })}
                 />
-                Address issue only
+                {t('workspace.addressIssueOnly')}
               </label>
               <div className="flex justify-end">
                 <Button type="button" variant="ghost" size="sm" onClick={() => setFilters(EMPTY_FILTERS)}>
-                  Clear all filters
+                  {t('workspace.clearAllFilters')}
                 </Button>
               </div>
             </PopoverContent>
           </Popover>
 
-          <span className="text-xs text-muted-foreground sm:ms-auto">{rows.length} loaded</span>
+          <span className="text-xs text-muted-foreground sm:ms-auto">{t('workspace.loadedCount', { count: rows.length })}</span>
         </div>
       </div>
 
@@ -317,8 +315,8 @@ export function LogisticsWorkspace({
       ) : rows.length === 0 ? (
         <EmptyState
           icon={Package}
-          title="No shipments"
-          description="Logistics requests created from any campaign's Shipments tab will appear here."
+          title={t('workspace.emptyTitle')}
+          description={t('workspace.emptyDescription')}
         />
       ) : (
         <div className="flex items-start gap-4">
@@ -327,15 +325,15 @@ export function LogisticsWorkspace({
               <Table className="min-w-[1180px]">
                 <TableHead>
                   <TableRow className="border-b border-border bg-surface-muted/60 hover:bg-surface-muted/60">
-                    <TableHeaderCell className="ps-5">Creator</TableHeaderCell>
-                    <TableHeaderCell>Brand / Campaign</TableHeaderCell>
-                    <TableHeaderCell>Deliverable</TableHeaderCell>
-                    <TableHeaderCell>Destination</TableHeaderCell>
-                    <TableHeaderCell>Address Health</TableHeaderCell>
-                    <TableHeaderCell>Assignee</TableHeaderCell>
-                    <TableHeaderCell>Courier / Tracking</TableHeaderCell>
+                    <TableHeaderCell className="ps-5">{t('workspace.columns.creator')}</TableHeaderCell>
+                    <TableHeaderCell>{t('workspace.columns.brandCampaign')}</TableHeaderCell>
+                    <TableHeaderCell>{t('workspace.columns.deliverable')}</TableHeaderCell>
+                    <TableHeaderCell>{t('workspace.columns.destination')}</TableHeaderCell>
+                    <TableHeaderCell>{t('workspace.columns.addressHealth')}</TableHeaderCell>
+                    <TableHeaderCell>{t('workspace.assignee')}</TableHeaderCell>
+                    <TableHeaderCell>{t('workspace.columns.courierTracking')}</TableHeaderCell>
                     <TableHeaderCell align="end" className="pe-5">
-                      Status
+                      {tc('status')}
                     </TableHeaderCell>
                   </TableRow>
                 </TableHead>
@@ -346,32 +344,36 @@ export function LogisticsWorkspace({
                         {s.influencer ? (
                           <span className="flex min-w-0 items-center gap-2.5">
                             <Avatar name={s.influencer.displayName} src={s.influencer.avatarUrl} size="xs" />
-                            <span className="min-w-0 truncate font-medium">{s.influencer.displayName}</span>
+                            <BidiText as="span" className="min-w-0 truncate font-medium">
+                              {s.influencer.displayName}
+                            </BidiText>
                           </span>
                         ) : (
-                          <span className="text-muted-foreground">Unassigned</span>
+                          <span className="text-muted-foreground">{tc('unassigned')}</span>
                         )}
                       </TableCell>
                       <TableCell className="max-w-[180px] truncate text-muted-foreground">
                         {s.brand ? `${s.brand.name} · ${s.campaign?.name}` : '—'}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {s.deliverableType ? DELIVERABLE_TYPE_LABELS[s.deliverableType] : '—'}
+                        {s.deliverableType ? enumLabel(te, 'deliverableType', s.deliverableType) : '—'}
                       </TableCell>
                       <TableCell className="max-w-[160px] truncate text-muted-foreground">
                         {[s.city, s.country].filter(Boolean).join(', ') || '—'}
                       </TableCell>
                       <TableCell>
-                        <Badge tone={ADDRESS_HEALTH_TONE[s.addressHealth]}>{ADDRESS_HEALTH_LABELS[s.addressHealth]}</Badge>
-                        {s.openIssue && <span className="ms-1.5 text-xs text-danger">1 open</span>}
+                        <Badge tone={ADDRESS_HEALTH_TONE[s.addressHealth]}>{enumLabel(te, 'addressHealth', s.addressHealth)}</Badge>
+                        {s.openIssue && <span className="ms-1.5 text-xs text-danger">{t('workspace.oneOpenIssue')}</span>}
                       </TableCell>
-                      <TableCell className="max-w-[140px] truncate text-muted-foreground">{s.assignedToName ?? '—'}</TableCell>
+                      <TableCell className="max-w-[140px] truncate text-muted-foreground">
+                        {s.assignedToName ? <BidiText>{s.assignedToName}</BidiText> : '—'}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {s.courier ? `${s.courier} · ` : ''}
-                        {s.trackingNumber ?? '—'}
+                        {s.trackingNumber ? <LtrText>{s.trackingNumber}</LtrText> : '—'}
                       </TableCell>
                       <TableCell align="end" className="pe-5">
-                        <Badge tone={SHIPMENT_STATUS_TONE[s.status]}>{SHIPMENT_STATUS_LABELS[s.status]}</Badge>
+                        <Badge tone={SHIPMENT_STATUS_TONE[s.status]}>{enumLabel(te, 'shipmentStatus', s.status)}</Badge>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -386,7 +388,7 @@ export function LogisticsWorkspace({
       {rows.length > 0 && query.hasNextPage ? (
         <div className="flex justify-center pt-2">
           <Button variant="outline" onClick={() => query.fetchNextPage()} disabled={query.isFetchingNextPage}>
-            {query.isFetchingNextPage ? 'Loading…' : 'Load more'}
+            {query.isFetchingNextPage ? tc('loading') : t('workspace.loadMore')}
           </Button>
         </div>
       ) : null}

@@ -1,66 +1,72 @@
+import { getTranslations } from 'next-intl/server';
 import { ShieldCheck } from 'lucide-react';
 import type { UsageRightDTO } from '@influenceos/contracts';
-import {
-  USAGE_RIGHT_EFFECTIVE_STATUS_LABELS,
-  USAGE_RIGHT_EFFECTIVE_STATUS_TONE,
-  USAGE_RIGHT_TYPE_LABELS,
-} from '@influenceos/shared';
+import { USAGE_RIGHT_EFFECTIVE_STATUS_TONE } from '@influenceos/shared';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
+import { BidiText } from '@/components/common/bidi-text';
 import { shortDate } from '@/lib/format';
+import { enumLabel } from '@/lib/enum-labels';
 
 /** Usage-rights ledger for a brand (W3-2 web surface): what each licence covers,
  *  where it applies, and how close it is to expiry — the legal-risk view that
  *  the worker also alerts on. Read-only; server-rendered. */
-export function UsageRightsCard({ rights }: { rights: UsageRightDTO[] }) {
+export async function UsageRightsCard({ rights }: { rights: UsageRightDTO[] }) {
+  const t = await getTranslations('brands');
+  const tc = await getTranslations('common');
+  const tEnums = await getTranslations('enums');
   const expiring = rights.filter((r) => r.effectiveStatus === 'EXPIRING_SOON').length;
 
   return (
     <Card className="mt-6 overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2">
-          <ShieldCheck className="size-5 text-muted-foreground" aria-hidden /> Usage rights
+          <ShieldCheck className="size-5 text-muted-foreground" aria-hidden /> {t('usageRights.title')}
         </CardTitle>
-        {expiring > 0 ? <Badge tone="warning">{expiring} expiring soon</Badge> : null}
+        {expiring > 0 ? <Badge tone="warning">{t('usageRights.expiringSoon', { count: expiring })}</Badge> : null}
       </CardHeader>
       {rights.length === 0 ? (
         <CardContent>
-          <EmptyState icon={ShieldCheck} title="No usage rights recorded" description="Licences for this brand's content will appear here with their coverage and expiry." />
+          <EmptyState icon={ShieldCheck} title={t('usageRights.emptyTitle')} description={t('usageRights.emptyDescription')} />
         </CardContent>
       ) : (
         <TableScroll>
           <Table className="min-w-[720px]">
             <TableHead>
               <TableRow className="border-b border-border bg-surface-muted/60 hover:bg-surface-muted/60">
-                <TableHeaderCell className="ps-5">Type</TableHeaderCell>
-                <TableHeaderCell>Scope / territory</TableHeaderCell>
-                <TableHeaderCell>Creator</TableHeaderCell>
-                <TableHeaderCell>Expires</TableHeaderCell>
-                <TableHeaderCell align="end">Status</TableHeaderCell>
+                <TableHeaderCell className="ps-5">{t('usageRights.typeColumn')}</TableHeaderCell>
+                <TableHeaderCell>{t('usageRights.scopeTerritoryColumn')}</TableHeaderCell>
+                <TableHeaderCell>{t('usageRights.creatorColumn')}</TableHeaderCell>
+                <TableHeaderCell>{t('usageRights.expiresColumn')}</TableHeaderCell>
+                <TableHeaderCell align="end">{tc('status')}</TableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {rights.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="ps-5 font-medium">
-                    {USAGE_RIGHT_TYPE_LABELS[r.usageType]}
-                    {r.exclusive ? <Badge tone="accent" className="ms-2">Exclusive</Badge> : null}
+                    {enumLabel(tEnums, 'usageRightType', r.usageType)}
+                    {r.exclusive ? <Badge tone="accent" className="ms-2">{t('usageRights.exclusive')}</Badge> : null}
                   </TableCell>
                   <TableCell className="max-w-[220px] truncate text-muted-foreground">
-                    {[r.scope, r.territory].filter(Boolean).join(' · ') || '—'}
+                    <BidiText>{[r.scope, r.territory].filter(Boolean).join(' · ') || '—'}</BidiText>
                   </TableCell>
-                  <TableCell>{r.influencerName ?? '—'}</TableCell>
                   <TableCell>
-                    {r.expiresAt ? shortDate(r.expiresAt) : 'No expiry'}
+                    <BidiText>{r.influencerName ?? '—'}</BidiText>
+                  </TableCell>
+                  <TableCell>
+                    {r.expiresAt ? shortDate(r.expiresAt) : t('usageRights.noExpiry')}
                     {r.daysUntilExpiry != null && r.daysUntilExpiry >= 0 ? (
-                      <span className="ms-1 text-xs text-muted-foreground">({r.daysUntilExpiry}d)</span>
+                      <span className="ms-1 text-xs text-muted-foreground">
+                        {t('usageRights.daysRemaining', { count: r.daysUntilExpiry })}
+                      </span>
                     ) : null}
                   </TableCell>
                   <TableCell align="end">
                     <Badge tone={USAGE_RIGHT_EFFECTIVE_STATUS_TONE[r.effectiveStatus]}>
-                      {USAGE_RIGHT_EFFECTIVE_STATUS_LABELS[r.effectiveStatus]}
+                      {enumLabel(tEnums, 'usageRightEffectiveStatus', r.effectiveStatus)}
                     </Badge>
                   </TableCell>
                 </TableRow>

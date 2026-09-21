@@ -3,15 +3,18 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { ExternalLink, Package } from 'lucide-react';
-import { SHIPMENT_STATUS_LABELS, SHIPMENT_STATUS_TONE } from '@influenceos/shared';
+import { SHIPMENT_STATUS_TONE } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
+import { enumLabel } from '@/lib/enum-labels';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
+import { LtrText } from '@/components/common/bidi-text';
 import { relativeTime } from '@/lib/format';
 
 // Tracking URLs are scheme-guarded on write (mirrors shipments-tab.tsx); still gate the anchor to http(s).
@@ -30,6 +33,8 @@ const isHttpUrl = (u: string | null): u is string => !!u && /^https?:\/\//i.test
  * app today, so this is the real, already-working way to reach it.
  */
 export function CreatorShipmentsTab({ influencerId }: { influencerId: string }) {
+  const t = useTranslations('influencers');
+  const te = useTranslations('enums');
   const { data, isLoading, isError } = useQuery({
     queryKey: ['creator-shipments', influencerId],
     queryFn: () => api.shipments.list({ influencerId, limit: 50 }),
@@ -49,8 +54,8 @@ export function CreatorShipmentsTab({ influencerId }: { influencerId: string }) 
     return (
       <EmptyState
         icon={Package}
-        title="Couldn't load shipment history"
-        description="Something went wrong fetching logistics requests. Try again shortly."
+        title={t('detail.shipments.errorTitle')}
+        description={t('detail.shipments.errorDescription')}
       />
     );
   }
@@ -61,8 +66,8 @@ export function CreatorShipmentsTab({ influencerId }: { influencerId: string }) 
     return (
       <EmptyState
         icon={Package}
-        title="No shipments yet"
-        description="Logistics requests created for this creator on any campaign will appear here with courier, tracking and delivery status."
+        title={t('detail.shipments.emptyTitle')}
+        description={t('detail.shipments.emptyDescription')}
       />
     );
   }
@@ -74,13 +79,13 @@ export function CreatorShipmentsTab({ influencerId }: { influencerId: string }) 
           <Table className="min-w-[860px]">
             <TableHead>
               <TableRow className="border-b border-border bg-surface-muted/60 hover:bg-surface-muted/60">
-                <TableHeaderCell className="ps-5">Brand / Campaign</TableHeaderCell>
-                <TableHeaderCell>Products</TableHeaderCell>
-                <TableHeaderCell>Destination</TableHeaderCell>
-                <TableHeaderCell>Courier / Tracking</TableHeaderCell>
-                <TableHeaderCell>Shipped / Delivered</TableHeaderCell>
+                <TableHeaderCell className="ps-5">{t('detail.shipments.table.brandCampaign')}</TableHeaderCell>
+                <TableHeaderCell>{t('detail.shipments.table.products')}</TableHeaderCell>
+                <TableHeaderCell>{t('detail.shipments.table.destination')}</TableHeaderCell>
+                <TableHeaderCell>{t('detail.shipments.table.courierTracking')}</TableHeaderCell>
+                <TableHeaderCell>{t('detail.shipments.table.shippedDelivered')}</TableHeaderCell>
                 <TableHeaderCell align="end" className="pe-5">
-                  Status
+                  {t('detail.shipments.table.status')}
                 </TableHeaderCell>
               </TableRow>
             </TableHead>
@@ -110,10 +115,10 @@ export function CreatorShipmentsTab({ influencerId }: { influencerId: string }) 
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-brand hover:underline"
                           >
-                            {s.trackingNumber} <ExternalLink className="size-3.5" aria-hidden />
+                            <LtrText>{s.trackingNumber}</LtrText> <ExternalLink className="size-3.5" aria-hidden />
                           </a>
                         ) : (
-                          s.trackingNumber
+                          <LtrText>{s.trackingNumber}</LtrText>
                         )
                       ) : (
                         '—'
@@ -124,7 +129,7 @@ export function CreatorShipmentsTab({ influencerId }: { influencerId: string }) 
                       {s.deliveredAt ? ` → ${relativeTime(s.deliveredAt)}` : ''}
                     </TableCell>
                     <TableCell align="end" className="pe-5">
-                      <Badge tone={SHIPMENT_STATUS_TONE[s.status]}>{SHIPMENT_STATUS_LABELS[s.status]}</Badge>
+                      <Badge tone={SHIPMENT_STATUS_TONE[s.status]}>{enumLabel(te, 'shipmentStatus', s.status)}</Badge>
                     </TableCell>
                   </TableRow>
                 );
@@ -135,7 +140,7 @@ export function CreatorShipmentsTab({ influencerId }: { influencerId: string }) 
       </Card>
       <div className="flex justify-end">
         <Button asChild variant="outline" size="sm">
-          <Link href={`/logistics?influencerId=${influencerId}`}>Open in Logistics workspace</Link>
+          <Link href={`/logistics?influencerId=${influencerId}`}>{t('detail.shipments.openInLogistics')}</Link>
         </Button>
       </div>
     </div>

@@ -1,0 +1,475 @@
+{
+  "hub": {
+    "title": "Settings",
+    "description": "Manage your profile, connected platforms, and workspace configuration.",
+    "adminBadge": "Admin",
+    "cards": {
+      "general": {
+        "title": "General",
+        "description": "Your profile, contact details, and account preferences."
+      },
+      "security": {
+        "title": "Security",
+        "description": "Change your password. Changing it signs you out of all sessions."
+      },
+      "setup": {
+        "title": "Setup Guide",
+        "description": "Everything that can be configured — infrastructure, storage, and every social integration — with its live status."
+      },
+      "integrations": {
+        "title": "Integrations",
+        "description": "Connect and manage social platforms, webhooks, and third-party tools."
+      },
+      "platform": {
+        "title": "Platform & API",
+        "description": "API endpoints, modules, app versions, and system status."
+      },
+      "users": {
+        "title": "Users",
+        "description": "Invite teammates and manage roles and access across the workspace."
+      },
+      "storage": {
+        "title": "Storage",
+        "description": "Object storage driver, upload limits, and file usage. Private by default."
+      },
+      "audit": {
+        "title": "Audit Log",
+        "description": "A chronological record of actions taken across the workspace."
+      },
+      "featureFlags": {
+        "title": "Feature Flags",
+        "description": "Roll out experimental capabilities and control feature availability."
+      }
+    },
+    "darkTheme": "Dark theme",
+    "lightTheme": "Light theme",
+    "appearance": {
+      "title": "Appearance & language",
+      "description": "Switch between light and dark theme, or toggle English / العربية (RTL), using the controls in the top bar — changes apply instantly and are saved to your account, so they follow you to any device you sign in on."
+    }
+  },
+  "general": {
+    "title": "General",
+    "description": "Your profile, contact details, and account preferences.",
+    "profileDetails": {
+      "title": "Profile details",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "language": "Language",
+      "theme": "Theme",
+      "arabicWithLabel": "العربية (Arabic)",
+      "dark": "Dark",
+      "light": "Light",
+      "managedNote": "These identity details are managed by your workspace administrator and can't be edited here."
+    },
+    "appearance": {
+      "title": "Appearance & language",
+      "themeLabel": "Theme",
+      "themeHint": "Switch between light and dark",
+      "languageLabel": "Language",
+      "languageHint": "English or العربية (RTL)",
+      "savedNote": "Changes apply instantly and are saved to your account, so they follow you to any device you sign in on."
+    },
+    "passwordSessions": {
+      "title": "Password & sessions",
+      "description": "Change your password and manage the devices signed in to your account.",
+      "cta": "Go to Security"
+    }
+  },
+  "security": {
+    "title": "Security",
+    "description": "Manage your password and account security.",
+    "changePassword": {
+      "title": "Change password",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "confirmNewPassword": "Confirm new password",
+      "hintDefault": "At least 10 chars, mixed case and a number.",
+      "hintNeeds": "Needs {list}.",
+      "issue": {
+        "length": "at least 10 characters",
+        "case": "upper- and lower-case letters",
+        "number": "a number"
+      },
+      "mismatch": "Passwords do not match.",
+      "securityNote": "For your security, changing your password signs you out of all sessions on every device. You'll sign in again with the new password.",
+      "submit": "Update password",
+      "submitting": "Updating…",
+      "successToast": "Password changed. Please sign in again.",
+      "errorToast": "Could not change your password."
+    },
+    "sessions": {
+      "title": "Active sessions",
+      "description": "Devices currently signed in to your account. Revoke any you don't recognise.",
+      "revokeAll": "Revoke all other sessions",
+      "revoking": "Revoking…",
+      "revokeOne": "Revoke session",
+      "thisDevice": "This device",
+      "lastActiveLine": "Last active {relative} · Signed in {date}",
+      "noSessions": "No active sessions found.",
+      "loadErrorTitle": "Couldn't load sessions",
+      "tryAgain": "Try again",
+      "confirmAllTitle": "Revoke all other sessions?",
+      "confirmAllDescription": "This signs out {count, plural, one {# other device} other {# other devices}}. Your current session stays active, and this can't be undone.",
+      "confirmOneTitle": "Revoke this session?",
+      "confirmOneDescription": "{device} will be signed out immediately. This can't be undone.",
+      "revokeAllAction": "Revoke all",
+      "revokeAction": "Revoke",
+      "toastRevoked": "Session revoked.",
+      "toastRevokedAll": "Signed out of all other sessions.",
+      "errorGeneric": "Something went wrong. Please try again."
+    }
+  },
+  "integrations": {
+    "title": "Social Integrations",
+    "description": "How each platform connects, and what's available today.",
+    "errorGeneric": "Something went wrong. Please try again.",
+    "status": {
+      "ENABLED": "Enabled",
+      "DISABLED": "Disabled",
+      "NOT_CONFIGURED": "Not configured",
+      "ERROR": "Error"
+    },
+    "level": {
+      "YES": "Yes",
+      "YES_WITH_API": "Yes, with API",
+      "CONDITIONAL": "Conditional",
+      "AUTHORIZATION_DEPENDENT": "Authorization required",
+      "MANUAL": "Manual only",
+      "NO": "Not available"
+    },
+    "capabilityRow": {
+      "profileLookup": "Profile lookup",
+      "followerSync": "Follower sync",
+      "contentEmbed": "Content embed",
+      "contentMetrics": "Content metrics",
+      "availabilityMonitoring": "Availability monitoring"
+    },
+    "loadErrorTitle": "Couldn't load integrations",
+    "tryAgain": "Try again",
+    "empty": {
+      "title": "No integrations configured",
+      "description": "Social platform integrations will show up here once the platform is set up."
+    },
+    "monitoringActive": "Availability monitoring active",
+    "monitoringOff": "Availability monitoring off",
+    "enableAria": "Enable {platform}",
+    "disableAria": "Disable {platform}",
+    "testConnection": "Test connection",
+    "lastTested": "Last tested",
+    "lastSuccess": "Last success",
+    "lastError": "Last error",
+    "never": "Never",
+    "none": "None",
+    "whatsPossible": "What's possible today",
+    "requiresCreatorAuth": "Requires creator authorization",
+    "requiresAppAuth": "Requires app authorization",
+    "manualFallback": "Manual fallback available",
+    "notConfiguredWarning": "No API credential is configured for {platform} yet — capabilities marked \"Yes, with API\" above are inactive until it is.",
+    "toastEnabled": "{platform} enabled.",
+    "toastDisabled": "{platform} disabled.",
+    "credentials": {
+      "source": {
+        "DB": "Stored (encrypted)",
+        "ENV": "From environment",
+        "NONE": "Not set"
+      },
+      "heading": "Provider API keys",
+      "description": "Stored keys are encrypted at rest and override the matching environment variable. Values are never shown back — only a masked hint. Leave blank to keep the environment value.",
+      "placeholderReplace": "Replace…",
+      "placeholderEnter": "Enter key…",
+      "valueForAria": "Value for {key}",
+      "removeAria": "Remove {key}",
+      "toastSaved": "Credential saved (encrypted).",
+      "toastRemoved": "Credential removed — reverted to environment."
+    }
+  },
+  "storage": {
+    "title": "Storage",
+    "description": "Object storage configuration and file usage across the workspace.",
+    "adminsOnly": {
+      "description": "Object storage configuration and file usage.",
+      "title": "Admins only",
+      "detail": "You need administrator access to view storage configuration."
+    },
+    "driver": "Driver",
+    "driverS3": "S3 / MinIO",
+    "driverLocal": "Local disk",
+    "filesStored": "Files stored",
+    "totalSize": "Total size",
+    "maxUpload": "Max upload",
+    "accessModel": {
+      "title": "Access model",
+      "privateByDefault": "Private by default",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "explanation": "Objects are never publicly readable. Every upload uses a signed, expiring URL and every download is served through a short-lived signed URL (presigned S3 GET, or a signed proxy link for the local driver). There is no public bucket and no permanent public file URL.",
+      "bucket": "Bucket",
+      "endpoint": "Endpoint"
+    },
+    "allowedTypes": {
+      "title": "Allowed file types",
+      "explanation": "Uploads are validated against this allowlist and the {maxUploadMb} MB size limit on the server, and filenames are sanitized before storage."
+    }
+  },
+  "platform": {
+    "title": "Platform & API",
+    "description": "Live system health, API surface, and mobile-readiness coverage across the InfluenceOS platform.",
+    "errorGeneric": "Something went wrong. Please try again.",
+    "tabs": {
+      "overview": "Overview",
+      "modules": "API Modules",
+      "mobile": "Mobile Readiness",
+      "explorer": "API Explorer",
+      "flags": "Feature Flags"
+    },
+    "overview": {
+      "systemStatus": "System status",
+      "apiVersion": "API version",
+      "environment": "Environment",
+      "backendVersion": "Backend version",
+      "webVersion": "Web version",
+      "gitSha": "Git SHA",
+      "built": "Built",
+      "uptime": "Uptime",
+      "mobileReadiness": "Mobile readiness",
+      "ready": "ready",
+      "componentHealth": "Component health",
+      "noHealthSignals": "No health signals reported",
+      "featureCoverage": "Feature coverage",
+      "coverage": {
+        "totalFeatures": "Total features",
+        "apiReady": "API ready",
+        "webReady": "Web ready",
+        "mobileReady": "Mobile ready",
+        "adminOnly": "Admin only"
+      }
+    },
+    "health": {
+      "ok": "Operational",
+      "degraded": "Degraded",
+      "down": "Down",
+      "unknown": "Unknown"
+    },
+    "modulesTab": {
+      "module": "Module",
+      "apiReady": "API ready",
+      "webIntegrated": "Web integrated",
+      "mobileReady": "Mobile ready",
+      "version": "Version",
+      "endpoints": "Endpoints",
+      "docs": "Docs",
+      "ready": "Ready",
+      "notReady": "Not ready",
+      "empty": "No API modules registered"
+    },
+    "featureClass": {
+      "SHARED": "Shared — Web + Mobile",
+      "WEB_ONLY_BY_DESIGN": "Web only, by design",
+      "MOBILE_ONLY_BY_DESIGN": "Mobile only, by design",
+      "ADMIN_DESKTOP_ONLY": "Admin desktop only"
+    },
+    "featureStatus": {
+      "READY": "Ready",
+      "PARTIAL": "Partial",
+      "PLANNED": "Planned",
+      "ADMIN_SERVER_ONLY": "Admin/server only",
+      "NOT_EXPOSED": "Not exposed"
+    },
+    "mobileTab": {
+      "feature": "Feature",
+      "api": "API",
+      "web": "Web",
+      "mobileReady": "Mobile ready",
+      "empty": "No features registered"
+    },
+    "explorer": {
+      "searchPlaceholder": "Search endpoints by path, module, or method…",
+      "fullDocs": "Full API docs",
+      "emptyTitle": "No matching endpoints",
+      "emptyDescription": "Try a different search term.",
+      "auth": {
+        "public": "Public",
+        "user": "Signed-in user",
+        "admin": "Admin only"
+      },
+      "countOfTotal": "{filtered} of {total} endpoints"
+    },
+    "flags": {
+      "loadErrorTitle": "Couldn't load feature flags",
+      "empty": "No feature flags configured",
+      "toastEnabled": "{key} enabled.",
+      "toastDisabled": "{key} disabled."
+    }
+  },
+  "audit": {
+    "title": "Audit Log",
+    "description": "A chronological, workspace-wide record of who did what and when — filterable and searchable.",
+    "adminsOnly": {
+      "title": "Admins only",
+      "description": "You need administrator access to view the workspace audit log."
+    },
+    "searchPlaceholder": "Search actions…",
+    "searchAria": "Search audit log",
+    "actorFilter": "Actor",
+    "allActors": "All actors",
+    "actionFilter": "Action",
+    "allActions": "All actions",
+    "entityFilter": "Entity",
+    "allEntities": "All entities",
+    "fromDateAria": "From date",
+    "toDateAria": "To date",
+    "reset": "Reset",
+    "loadMore": "Load more",
+    "systemActor": "System",
+    "empty": {
+      "noMatchesTitle": "No matching activity",
+      "noMatchesDescription": "Try widening your filters.",
+      "noneYetTitle": "No activity yet",
+      "noneYetDescription": "Actions taken across the workspace will be recorded here."
+    },
+    "detail": {
+      "when": "When",
+      "actor": "Actor",
+      "entity": "Entity",
+      "brand": "Brand",
+      "campaign": "Campaign",
+      "details": "Details",
+      "openRelated": "Open related record"
+    },
+    "actionType": {
+      "BRAND_CREATED": "Brand created",
+      "BRAND_UPDATED": "Brand updated",
+      "INFLUENCER_ADDED": "Influencer added",
+      "INFLUENCER_UPDATED": "Influencer updated",
+      "SOCIAL_ACCOUNT_ADDED": "Social account added",
+      "INFLUENCER_ADDED_TO_CAMPAIGN": "Influencer added to campaign",
+      "CAMPAIGN_CREATED": "Campaign created",
+      "CAMPAIGN_STATUS_CHANGED": "Campaign status changed",
+      "CAMPAIGN_UPDATED": "Campaign updated",
+      "DELIVERABLE_ADDED": "Deliverable added",
+      "DELIVERABLE_STATUS_CHANGED": "Deliverable status changed",
+      "SCRIPT_ADDED": "Script added",
+      "SCRIPT_UPDATED": "Script updated",
+      "CONTENT_PUBLISHED": "Content published",
+      "CONTENT_STATUS_CHANGED": "Content status changed",
+      "COST_ADDED": "Cost added",
+      "COST_UPDATED": "Cost updated",
+      "NOTE_ADDED": "Note added",
+      "FOLLOWER_MILESTONE": "Follower milestone",
+      "GENERIC": "Other"
+    },
+    "entityType": {
+      "brand": "Brand",
+      "campaign": "Campaign",
+      "influencer": "Influencer",
+      "deliverable": "Deliverable",
+      "content": "Content"
+    }
+  },
+  "setup": {
+    "title": "Setup Guide",
+    "description": "Everything that can be configured — the required infrastructure, file storage, and every social integration — with its live status. No keys are shown here.",
+    "coreCallout": {
+      "title": "Core features work with no external setup.",
+      "body": "The directory, campaigns, content, reports and the <emphasis>influencer CSV/JSON export</emphasis> all run out of the box. Everything below is <emphasis>optional</emphasis> — each key upgrades one social platform from manual entry to automatic fetching. You're currently auto-fetching {active} of {total} platforms."
+    },
+    "section": {
+      "core": { "title": "Core requirements", "hint": "Required to run at all — already satisfied if you can see this page." },
+      "storage": { "title": "File storage", "hint": "For attachments and images." },
+      "social": { "title": "Social integrations", "hint": "All optional. Each upgrades one platform from manual to auto-fetch." },
+      "creatorConnections": { "title": "Creator connections (Instagram / TikTok post metrics)", "hint": "Read a creator's OWN post/video metrics." },
+      "verify": { "title": "Verify it works", "hint": "Confirm a platform is live end to end." }
+    },
+    "running": "Running",
+    "core": {
+      "database": {
+        "title": "PostgreSQL database",
+        "body": "Primary data store. Set DATABASE_URL (and DIRECT_DATABASE_URL for migrations). Apply schema with “pnpm db:deploy”."
+      },
+      "redis": {
+        "title": "Redis",
+        "body": "Backs the monitoring worker's job queues (BullMQ) and the shared rate-limit store. Set REDIS_URL."
+      },
+      "authSecret": {
+        "title": "Auth secret",
+        "body": "Signs sessions and derives the key that encrypts stored provider secrets. Production requires ≥32 chars and a non-default value."
+      },
+      "firstAdmin": {
+        "title": "First administrator",
+        "body": "Created once via “pnpm db:bootstrap”. Defaults to info@influence-op.com; in production you must supply BOOTSTRAP_ADMIN_PASSWORD from a secret store."
+      }
+    },
+    "storageBody": "Two drivers, chosen with <driver></driver>: <strong>local</strong> (default, disk, no keys) or <strong>s3</strong> for S3/MinIO. Selecting s3 requires <endpoint></endpoint>, <bucket></bucket>, <accessKey></accessKey> and <secretKey></secretKey> (the server refuses to start otherwise).",
+    "openStorageSettings": "Open Storage settings",
+    "providers": {
+      "YOUTUBE": {
+        "headline": "Turnkey — recommended first",
+        "unlocks": "Auto-fetch channel stats and video metrics (views / likes / comments), on add and on every scheduled refresh.",
+        "steps": [
+          "Google Cloud Console → create or select a project.",
+          "Enable “YouTube Data API v3”.",
+          "APIs & Services → Credentials → create an API key, restricted to the YouTube Data API.",
+          "Paste it below as YOUTUBE_API_KEY (or set the env var and restart)."
+        ]
+      },
+      "X": {
+        "headline": "Key only — plan-dependent",
+        "unlocks": "Auto-fetch profile public metrics and tweet metrics, subject to your API access tier.",
+        "steps": [
+          "X Developer Portal → your project/app → generate a Bearer Token (App-only auth).",
+          "Paste it below as X_API_BEARER_TOKEN."
+        ],
+        "limitation": "The free tier is very limited; a 403 from X surfaces as “requires app authorization”."
+      },
+      "INSTAGRAM": {
+        "headline": "Profile lookup — Business/Creator accounts only",
+        "unlocks": "Auto-fetch profile (name, avatar, bio, followers) for Professional target accounts via Business Discovery.",
+        "steps": [
+          "Connect an Instagram Business/Creator account to a Facebook Page you own.",
+          "Meta for Developers → create an app → add “Instagram Graph API”.",
+          "Generate a long-lived access token (instagram_basic, pages_read_engagement, Business Discovery).",
+          "Find your connected IG Business account id. BOTH values are required — with only one, it stays inactive."
+        ],
+        "limitation": "Does NOT give likes/comments/views of an arbitrary creator's posts — that needs Creator connections (below)."
+      },
+      "TIKTOK": {
+        "headline": "Embed + availability only",
+        "unlocks": "Public video embed and an availability check work with no keys. Statistics require Creator connections (below).",
+        "steps": [
+          "No key needed for embeds/availability.",
+          "For creator video stats, set up Creator connections (see the section below)."
+        ]
+      },
+      "SNAPCHAT": {
+        "headline": "Manual",
+        "unlocks": "No public profile/content API. Snapchat is URL/manual-based; availability is a best-effort link check only.",
+        "steps": ["Nothing to configure — data is entered manually."]
+      }
+    },
+    "keyNotes": {
+      "instagramBusinessAccountId": "the “self” account the lookup runs through",
+      "tiktokOauthFoundation": "for the creator-OAuth foundation"
+    },
+    "noKeysRequired": "No keys required.",
+    "providerStatus": {
+      "manual": "Manual",
+      "autoFetchActive": "Auto-fetch active",
+      "needsCreatorOAuth": "Needs creator OAuth",
+      "manualNotConfigured": "Manual (not configured)"
+    },
+    "footerNote": "Enter any provider key <strong>encrypted at rest</strong> from the Integrations screen (admin) — no restart needed — or set the environment variable and restart.",
+    "openIntegrations": "Open Integrations",
+    "creatorConnections": {
+      "intro": "The only lawful way to read a specific creator's post/video metrics is for that creator to authorize the app, and for the app to pass the platform's review (Meta / TikTok). The flow is wired end to end but stays inert — it says “not configured” rather than pretending — until you complete review and set the app keys.",
+      "step1": "Create the Meta / TikTok app and complete app review for the insight scopes.",
+      "step2Prefix": "Register the redirect URI:",
+      "step3Prefix": "Set the app credentials:",
+      "outro": "Then a creator connects from their profile page (Creator connections card). This is a platform constraint (app review), not a code gap."
+    },
+    "verify": {
+      "body": "After adding a key, the platform card above flips to <strong>Auto-fetch active</strong>. To prove the fetch path, add an influencer from a real profile URL — a result marked <strong>Official API</strong> (not Manual) with real numbers confirms it. The Integrations screen also has a per-platform “test connection”."
+    }
+  }
+}

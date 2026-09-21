@@ -2,10 +2,12 @@
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Sparkles } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/input';
 
 export function LoginForm() {
+  const t = useTranslations('auth');
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get('next') || '/';
@@ -26,13 +28,13 @@ export function LoginForm() {
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-        setError(body?.error?.message ?? 'Login failed. Please check your credentials.');
+        setError(body?.error?.message ?? t('loginFailed'));
         return;
       }
       router.replace(next);
       router.refresh();
     } catch {
-      setError('Could not reach the server. Please try again.');
+      setError(t('networkError'));
     } finally {
       setLoading(false);
     }
@@ -40,17 +42,17 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
-      <Field label="Email">
+      <Field label={t('email')}>
         <Input
           type="email"
           autoComplete="username"
-          placeholder="you@company.com"
+          placeholder={t('emailPlaceholder')}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
         />
       </Field>
-      <Field label="Password">
+      <Field label={t('password')}>
         <Input
           type="password"
           autoComplete="current-password"
@@ -66,7 +68,7 @@ export function LoginForm() {
         </div>
       ) : null}
       <Button type="submit" size="lg" disabled={loading} className="mt-1">
-        {loading ? 'Signing in…' : 'Sign in'}
+        {loading ? t('signingIn') : t('signIn')}
         {!loading && <Sparkles className="h-4 w-4" />}
       </Button>
     </form>

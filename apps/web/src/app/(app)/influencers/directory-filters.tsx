@@ -2,14 +2,10 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { X } from 'lucide-react';
-import {
-  COUNTRIES,
-  PLATFORMS,
-  PLATFORM_META,
-  RELATIONSHIP_STATUSES,
-  RELATIONSHIP_STATUS_LABELS,
-} from '@influenceos/shared';
+import { COUNTRIES, PLATFORMS, PLATFORM_META, RELATIONSHIP_STATUSES } from '@influenceos/shared';
+import { enumLabel } from '@/lib/enum-labels';
 import { SearchInput } from '@/components/ui/search-input';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +38,9 @@ export function DirectoryFilters({
   city,
 }: DirectoryFiltersProps) {
   const router = useRouter();
+  const t = useTranslations('influencers');
+  const tc = useTranslations('common');
+  const te = useTranslations('enums');
   const [search, setSearch] = React.useState(q ?? '');
   const [cityInput, setCityInput] = React.useState(city ?? '');
 
@@ -106,8 +105,8 @@ export function DirectoryFilters({
           <SearchInput
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by name or @username…"
-            aria-label="Search influencers"
+            placeholder={t('directory.filters.searchPlaceholder')}
+            aria-label={t('directory.filters.searchAriaLabel')}
           />
         </form>
 
@@ -117,10 +116,10 @@ export function DirectoryFilters({
             onValueChange={(value) => navigate({ platform: value === ALL ? '' : value })}
           >
             <SelectTrigger className="h-10 w-full sm:w-44">
-              <SelectValue placeholder="Platform" />
+              <SelectValue placeholder={t('directory.filters.platformPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>All platforms</SelectItem>
+              <SelectItem value={ALL}>{t('directory.filters.allPlatforms')}</SelectItem>
               {PLATFORMS.map((p) => (
                 <SelectItem key={p} value={p}>
                   {PLATFORM_META[p].label}
@@ -134,13 +133,13 @@ export function DirectoryFilters({
             onValueChange={(value) => navigate({ relationshipStatus: value === ALL ? '' : value })}
           >
             <SelectTrigger className="h-10 w-full sm:w-48">
-              <SelectValue placeholder="Relationship" />
+              <SelectValue placeholder={t('directory.filters.relationshipPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>All relationships</SelectItem>
+              <SelectItem value={ALL}>{t('directory.filters.allRelationships')}</SelectItem>
               {RELATIONSHIP_STATUSES.map((status) => (
                 <SelectItem key={status} value={status}>
-                  {RELATIONSHIP_STATUS_LABELS[status]}
+                  {enumLabel(te, 'relationshipStatus', status)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -151,10 +150,10 @@ export function DirectoryFilters({
             onValueChange={(value) => navigate({ countryCode: value === ALL ? '' : value })}
           >
             <SelectTrigger className="h-10 w-full sm:w-44">
-              <SelectValue placeholder="Country" />
+              <SelectValue placeholder={t('directory.filters.countryPlaceholder')} />
             </SelectTrigger>
             <SelectContent className="max-h-72">
-              <SelectItem value={ALL}>All countries</SelectItem>
+              <SelectItem value={ALL}>{tc('allCountries')}</SelectItem>
               {COUNTRIES.map((c) => (
                 <SelectItem key={c.code} value={c.code}>
                   {c.name}
@@ -167,8 +166,8 @@ export function DirectoryFilters({
             <SearchInput
               value={cityInput}
               onChange={(e) => setCityInput(e.target.value)}
-              placeholder="City"
-              aria-label="Filter by city"
+              placeholder={t('directory.filters.cityPlaceholder')}
+              aria-label={t('directory.filters.cityAriaLabel')}
             />
           </form>
 
@@ -192,7 +191,7 @@ export function DirectoryFilters({
                 onClick={() => router.push('/influencers')}
                 className="text-muted-foreground"
               >
-                <X className="h-3.5 w-3.5" /> Reset
+                <X className="h-3.5 w-3.5" /> {t('directory.filters.reset')}
               </Button>
             ) : null}
           </div>

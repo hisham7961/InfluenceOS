@@ -2,20 +2,14 @@
 
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Check, Globe2, KeyRound, ShieldCheck, Tags, X } from 'lucide-react';
 import type { BrandSummaryDTO, Capability, RoleProfile, UserAdminDetailDTO, UserRole } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
-import {
-  CAPABILITIES,
-  CAPABILITY_LABELS,
-  COUNTRIES,
-  ROLE_PROFILES,
-  ROLE_PROFILE_DESCRIPTIONS,
-  ROLE_PROFILE_LABELS,
-  USER_ROLES,
-} from '@influenceos/shared';
+import { CAPABILITIES, COUNTRIES, ROLE_PROFILES, USER_ROLES, countryName } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
+import { enumLabel } from '@/lib/enum-labels';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/input';
@@ -26,10 +20,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/cn';
-
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
-}
+import { BidiText } from '@/components/common/bidi-text';
 
 const NO_PROFILE = '__legacy__';
 /** Tri-state per capability: undefined = follow the Role Profile default. */
@@ -53,6 +44,10 @@ export function UserEditSheet({
   onOpenChange: (open: boolean) => void;
 }) {
   const open = userId != null;
+  const t = useTranslations('users');
+  const tPerm = useTranslations('permissions');
+  const tEnums = useTranslations('enums');
+  const tCommon = useTranslations('common');
   const queryClient = useQueryClient();
 
   const detailQuery = useQuery({
@@ -127,12 +122,12 @@ export function UserEditSheet({
       if (brandsChanged) await api.users.setBrandAccess(userId, [...brandIds]);
     },
     onSuccess: () => {
-      toast.success('Permissions updated.');
+      toast.success(tPerm('editor.toastUpdated'));
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
       close();
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : t('editSheet.errorGeneric')),
   });
 
   const brands = brandsQuery.data ?? [];
@@ -156,13 +151,17 @@ export function UserEditSheet({
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-accent" />
-                {detail.name}
+                <BidiText>{detail.name}</BidiText>
               </SheetTitle>
-              <SheetDescription>{detail.email} — Role Profile, capabilities, brand & country scope.</SheetDescription>
+              <SheetDescription>
+                {t.rich('editSheet.description', {
+                  email: () => <BidiText as="span">{detail.email}</BidiText>,
+                })}
+              </SheetDescription>
             </SheetHeader>
 
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Legacy role">
+              <Field label={t('editSheet.legacyRole')}>
                 <Select
                   value={role}
                   onValueChange={(v) => {
@@ -180,21 +179,21 @@ export function UserEditSheet({
                   <SelectContent>
                     {USER_ROLES.map((r) => (
                       <SelectItem key={r} value={r}>
-                        {r === 'ADMIN' ? 'Administrator' : r === 'VIEWER' ? 'Viewer (read-only)' : 'Staff'}
+                        {t(`list.roleLabel.${r}`)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Account status">
+              <Field label={t('editSheet.accountStatus')}>
                 <div className="flex h-10 items-center gap-2">
                   <Switch checked={isActive} onCheckedChange={setIsActive} />
-                  <span className="text-sm text-foreground">{isActive ? 'Active' : 'Inactive'}</span>
+                  <span className="text-sm text-foreground">{isActive ? t('list.active') : t('list.inactive')}</span>
                 </div>
               </Field>
             </div>
 
-            <Field label="Role Profile" hint="Sets this person's default capabilities by operational responsibility — never a raw permission list.">
+            <Field label={tPerm('editor.roleProfileLabel')} hint={tPerm('editor.roleProfileHint')}>
               <Select
                 value={roleProfile ?? NO_PROFILE}
                 onValueChange={(v) => setRoleProfile(v === NO_PROFILE ? null : (v as RoleProfile))}
@@ -203,36 +202,40 @@ export function UserEditSheet({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_PROFILE}>No profile (legacy role defaults)</SelectItem>
+                  <SelectItem value={NO_PROFILE}>{tPerm('editor.noProfileOption')}</SelectItem>
                   {ROLE_PROFILES.map((p) => {
                     const compatible = profileCompatibleWithRole(p, role);
                     return (
                       <SelectItem key={p} value={p} disabled={!compatible}>
-                        {ROLE_PROFILE_LABELS[p]}
-                        {!compatible ? ' (requires a different legacy role)' : ''}
+                        {enumLabel(tEnums, 'roleProfile', p)}
+                        {!compatible ? tPerm('editor.incompatibleRoleSuffix') : ''}
                       </SelectItem>
                     );
                   })}
                 </SelectContent>
               </Select>
-              {roleProfile && <p className="mt-1.5 text-xs text-muted-foreground">{ROLE_PROFILE_DESCRIPTIONS[roleProfile]}</p>}
+              {roleProfile && (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  {tPerm(`editor.roleProfileDescription.${roleProfile}`)}
+                </p>
+              )}
             </Field>
 
             <Tabs defaultValue="capabilities">
               <TabsList>
-                <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
+                <TabsTrigger value="capabilities">{tPerm('editor.tabs.capabilities')}</TabsTrigger>
                 <TabsTrigger value="countries">
-                  Countries {countryCodes.size > 0 && <span className="ms-1 text-muted-foreground">({countryCodes.size})</span>}
+                  {tPerm('editor.tabs.countries')}{' '}
+                  {countryCodes.size > 0 && <span className="ms-1 text-muted-foreground">({countryCodes.size})</span>}
                 </TabsTrigger>
                 <TabsTrigger value="brands">
-                  Brands {brandIds.size > 0 && <span className="ms-1 text-muted-foreground">({brandIds.size})</span>}
+                  {tPerm('editor.tabs.brands')}{' '}
+                  {brandIds.size > 0 && <span className="ms-1 text-muted-foreground">({brandIds.size})</span>}
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="capabilities">
-                <p className="mb-2 text-xs text-muted-foreground">
-                  Default follows the Role Profile above. Grant or Revoke sets an explicit override for this person only.
-                </p>
+                <p className="mb-2 text-xs text-muted-foreground">{tPerm('editor.capabilitiesTab.intro')}</p>
                 <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
                   {CAPABILITIES.map((cap) => {
                     const line = preview?.permissionPreview.find((p) => p.capability === cap);
@@ -245,7 +248,7 @@ export function UserEditSheet({
                           ) : (
                             <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
                           )}
-                          <span className="truncate text-sm text-foreground">{CAPABILITY_LABELS[cap]}</span>
+                          <span className="truncate text-sm text-foreground">{enumLabel(tEnums, 'capability', cap)}</span>
                         </div>
                         <div className="flex shrink-0 overflow-hidden rounded-lg border border-border text-xs">
                           {(['revoke', 'default', 'grant'] as const).map((opt) => {
@@ -261,11 +264,11 @@ export function UserEditSheet({
                                   }))
                                 }
                                 className={cn(
-                                  'px-2 py-1 capitalize transition-colors',
+                                  'px-2 py-1 transition-colors',
                                   active ? 'bg-accent text-accent-foreground' : 'bg-transparent text-muted-foreground hover:bg-surface-muted',
                                 )}
                               >
-                                {opt}
+                                {tPerm(`editor.capabilitiesTab.toggle.${opt}`)}
                               </button>
                             );
                           })}
@@ -278,14 +281,16 @@ export function UserEditSheet({
 
               <TabsContent value="countries">
                 <SearchInput
-                  placeholder="Search countries…"
+                  placeholder={tPerm('editor.countriesTab.searchPlaceholder')}
                   value={countryFilter}
                   onChange={(e) => setCountryFilter(e.target.value)}
                   className="mb-2"
                 />
                 <p className="mb-2 text-xs text-muted-foreground">
                   <Globe2 className="me-1 inline h-3 w-3" />
-                  {countryCodes.size === 0 ? 'Unrestricted — this person sees every country.' : `Scoped to ${countryCodes.size} countr${countryCodes.size === 1 ? 'y' : 'ies'}.`}
+                  {countryCodes.size === 0
+                    ? tPerm('editor.countriesTab.unrestricted')
+                    : tPerm('editor.countriesTab.scoped', { count: countryCodes.size })}
                 </p>
                 <div className="max-h-64 space-y-0.5 overflow-y-auto rounded-xl border border-border p-2">
                   {filteredCountries.map((c) => (
@@ -302,19 +307,28 @@ export function UserEditSheet({
                           })
                         }
                       />
-                      <span className="text-foreground">{c.name}</span>
+                      <span className="text-foreground">{countryName(c.code)}</span>
                       <span className="text-muted-foreground">{c.code}</span>
                     </label>
                   ))}
-                  {filteredCountries.length === 0 && <p className="px-2 py-4 text-center text-xs text-muted-foreground">No countries match.</p>}
+                  {filteredCountries.length === 0 && (
+                    <p className="px-2 py-4 text-center text-xs text-muted-foreground">{tPerm('editor.countriesTab.noMatches')}</p>
+                  )}
                 </div>
               </TabsContent>
 
               <TabsContent value="brands">
-                <SearchInput placeholder="Search brands…" value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)} className="mb-2" />
+                <SearchInput
+                  placeholder={tPerm('editor.brandsTab.searchPlaceholder')}
+                  value={brandFilter}
+                  onChange={(e) => setBrandFilter(e.target.value)}
+                  className="mb-2"
+                />
                 <p className="mb-2 text-xs text-muted-foreground">
                   <Tags className="me-1 inline h-3 w-3" />
-                  {brandIds.size === 0 ? 'Unrestricted — this person sees every brand.' : `Scoped to ${brandIds.size} brand${brandIds.size === 1 ? '' : 's'}.`}
+                  {brandIds.size === 0
+                    ? tPerm('editor.brandsTab.unrestricted')
+                    : tPerm('editor.brandsTab.scoped', { count: brandIds.size })}
                 </p>
                 <div className="max-h-64 space-y-0.5 overflow-y-auto rounded-xl border border-border p-2">
                   {filteredBrands.map((b: BrandSummaryDTO) => (
@@ -331,26 +345,31 @@ export function UserEditSheet({
                           })
                         }
                       />
-                      <span className="text-foreground">{b.name}</span>
+                      <span className="text-foreground">
+                        <BidiText>{b.name}</BidiText>
+                      </span>
                     </label>
                   ))}
-                  {filteredBrands.length === 0 && <p className="px-2 py-4 text-center text-xs text-muted-foreground">No brands match.</p>}
+                  {filteredBrands.length === 0 && (
+                    <p className="px-2 py-4 text-center text-xs text-muted-foreground">{tPerm('editor.brandsTab.noMatches')}</p>
+                  )}
                 </div>
               </TabsContent>
             </Tabs>
 
             <div className="rounded-xl border border-border bg-surface-muted/40 p-3">
               <p className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                <KeyRound className="h-3.5 w-3.5" /> Permission preview — {grantedCount} of {CAPABILITIES.length} capabilities
+                <KeyRound className="h-3.5 w-3.5" />{' '}
+                {tPerm('editor.preview.heading', { granted: grantedCount, total: CAPABILITIES.length })}
               </p>
               <div className="grid max-h-40 grid-cols-2 gap-x-4 gap-y-1 overflow-y-auto text-xs">
                 {(preview?.permissionPreview ?? []).map((p) => (
                   <div key={p.capability} className={cn('flex items-center gap-1.5', p.granted ? 'text-foreground' : 'text-muted-foreground/60')}>
                     {p.granted ? <Check className="h-3 w-3 shrink-0 text-success" /> : <X className="h-3 w-3 shrink-0" />}
-                    <span className="truncate">{p.label}</span>
+                    <span className="truncate">{enumLabel(tEnums, 'capability', p.capability)}</span>
                     {p.isOverride && (
                       <Badge tone="accent" className="px-1 py-0 text-[10px]">
-                        override
+                        {tPerm('editor.preview.overrideBadge')}
                       </Badge>
                     )}
                   </div>
@@ -360,11 +379,11 @@ export function UserEditSheet({
 
             <SheetFooter>
               <Button type="button" variant="outline" onClick={close}>
-                Cancel
+                {tCommon('cancel')}
               </Button>
               <Button type="button" disabled={save.isPending} onClick={() => save.mutate()}>
                 {save.isPending ? <Spinner className="text-current" /> : <Check className="h-4 w-4" />}
-                {save.isPending ? 'Saving…' : 'Save changes'}
+                {save.isPending ? tCommon('saving') : t('editSheet.saveChanges')}
               </Button>
             </SheetFooter>
           </>

@@ -1,5 +1,6 @@
 'use client';
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { PlaySquare } from 'lucide-react';
 import type { PublishedContentDTO } from '@influenceos/contracts';
 import { cn } from '@/lib/cn';
@@ -10,19 +11,26 @@ import { ContentViewer } from './content-viewer';
 export function ContentGrid({
   items,
   className,
-  emptyTitle = 'No content yet',
-  emptyDescription = 'Published campaign content will appear here.',
+  emptyTitle,
+  emptyDescription,
 }: {
   items: PublishedContentDTO[];
   className?: string;
   emptyTitle?: string;
   emptyDescription?: string;
 }) {
+  const t = useTranslations('content');
   const [index, setIndex] = React.useState(0);
   const [open, setOpen] = React.useState(false);
 
   if (items.length === 0) {
-    return <EmptyState icon={PlaySquare} title={emptyTitle} description={emptyDescription} />;
+    return (
+      <EmptyState
+        icon={PlaySquare}
+        title={emptyTitle ?? t('grid.emptyTitle')}
+        description={emptyDescription ?? t('grid.emptyDescription')}
+      />
+    );
   }
 
   return (

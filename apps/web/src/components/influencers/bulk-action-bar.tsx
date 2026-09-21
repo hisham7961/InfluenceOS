@@ -2,12 +2,14 @@
 
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Loader2, Tag, UserCog, X } from 'lucide-react';
-import { RELATIONSHIP_STATUSES, RELATIONSHIP_STATUS_LABELS } from '@influenceos/shared';
+import { RELATIONSHIP_STATUSES } from '@influenceos/shared';
 import type { BulkPreviewDTO, requests } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
+import { enumLabel } from '@/lib/enum-labels';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -17,8 +19,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 type BulkInfluencerRequest = requests.BulkInfluencerRequest;
 type Action = BulkInfluencerRequest['action'];
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong.';
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
 }
 
 /**
@@ -28,6 +30,9 @@ function errorMessage(e: unknown): string {
  * computed, never a guess) before the admin-only execute step.
  */
 export function BulkActionBar({ selected, onClear }: { selected: string[]; onClear: () => void }) {
+  const t = useTranslations('influencers');
+  const tc = useTranslations('common');
+  const te = useTranslations('enums');
   const [action, setAction] = React.useState<Action>('ASSIGN_OWNER');
   const [ownerId, setOwnerId] = React.useState('');
   const [tagName, setTagName] = React.useState('');
@@ -56,19 +61,23 @@ export function BulkActionBar({ selected, onClear }: { selected: string[]; onCle
       setPreview(data);
       setPreviewOpen(true);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tc('somethingWentWrong'))),
   });
 
   const executeMutation = useMutation({
     mutationFn: (input: BulkInfluencerRequest) => api.influencers.bulkExecute(input),
     onSuccess: (result) => {
-      toast.success(`Updated ${result.added} creator${result.added === 1 ? '' : 's'}.${result.failed > 0 ? ` ${result.failed} failed.` : ''}`);
+      toast.success(
+        result.failed > 0
+          ? t('directory.bulkActions.updatedWithFailuresToast', { count: result.added, failed: result.failed })
+          : t('directory.bulkActions.updatedToast', { count: result.added }),
+      );
       setPreviewOpen(false);
       setPreview(null);
       onClear();
       queryClient.invalidateQueries({ queryKey: ['influencers'] });
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tc('somethingWentWrong'))),
   });
 
   const input = buildInput();
@@ -78,16 +87,16 @@ export function BulkActionBar({ selected, onClear }: { selected: string[]; onCle
   return (
     <>
       <div className="sticky bottom-4 z-10 mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-3 shadow-card">
-        <Badge tone="accent">{selected.length} selected</Badge>
+        <Badge tone="accent">{t('directory.bulkActions.selectedBadge', { count: selected.length })}</Badge>
 
         <Select value={action} onValueChange={(v) => setAction(v as Action)}>
           <SelectTrigger className="h-9 w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ASSIGN_OWNER">Assign owner</SelectItem>
-            <SelectItem value="ADD_TAG">Add tag</SelectItem>
-            <SelectItem value="SET_RELATIONSHIP_STATUS">Set relationship status</SelectItem>
+            <SelectItem value="ASSIGN_OWNER">{t('directory.bulkActions.actionAssignOwner')}</SelectItem>
+            <SelectItem value="ADD_TAG">{t('directory.bulkActions.actionAddTag')}</SelectItem>
+            <SelectItem value="SET_RELATIONSHIP_STATUS">{t('directory.bulkActions.actionSetRelationshipStatus')}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -95,7 +104,7 @@ export function BulkActionBar({ selected, onClear }: { selected: string[]; onCle
           <Select value={ownerId || undefined} onValueChange={setOwnerId}>
             <SelectTrigger className="h-9 w-48">
               <UserCog className="h-3.5 w-3.5" />
-              <SelectValue placeholder="Choose owner…" />
+              <SelectValue placeholder={t('directory.bulkActions.chooseOwnerPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
               {(directory.data ?? []).map((u) => (
@@ -108,10 +117,10 @@ export function BulkActionBar({ selected, onClear }: { selected: string[]; onCle
         ) : action === 'ADD_TAG' ? (
           <Input
             className="h-9 w-44"
-            placeholder="Tag name…"
+            placeholder={t('directory.bulkActions.tagNamePlaceholder')}
             value={tagName}
             onChange={(e) => setTagName(e.target.value)}
-            aria-label="Tag name"
+            aria-label={t('directory.bulkActions.tagNameAriaLabel')}
           />
         ) : (
           <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
@@ -121,7 +130,7 @@ export function BulkActionBar({ selected, onClear }: { selected: string[]; onCle
             <SelectContent>
               {RELATIONSHIP_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {RELATIONSHIP_STATUS_LABELS[s]}
+                  {enumLabel(te, 'relationshipStatus', s)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -135,10 +144,16 @@ export function BulkActionBar({ selected, onClear }: { selected: string[]; onCle
           onClick={() => input && previewMutation.mutate(input)}
         >
           {previewMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Tag className="h-3.5 w-3.5" />}
-          Preview
+          {t('directory.bulkActions.previewButton')}
         </Button>
 
-        <Button type="button" size="sm" variant="ghost" onClick={onClear} aria-label="Clear selection">
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={onClear}
+          aria-label={t('directory.bulkActions.clearSelectionAriaLabel')}
+        >
           <X className="h-4 w-4" />
         </Button>
       </div>
@@ -146,9 +161,15 @@ export function BulkActionBar({ selected, onClear }: { selected: string[]; onCle
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Confirm bulk action</DialogTitle>
+            <DialogTitle>{t('directory.bulkActions.confirmTitle')}</DialogTitle>
             <DialogDescription>
-              {preview ? `${preview.willUpdate} of ${preview.selected} will be updated. ${preview.willSkip} will be skipped.` : ''}
+              {preview
+                ? t('directory.bulkActions.confirmDescription', {
+                    willUpdate: preview.willUpdate,
+                    selected: preview.selected,
+                    willSkip: preview.willSkip,
+                  })
+                : ''}
             </DialogDescription>
           </DialogHeader>
 
@@ -156,8 +177,10 @@ export function BulkActionBar({ selected, onClear }: { selected: string[]; onCle
             <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-border p-2 text-sm">
               {preview.rows.map((row, i) => (
                 <div key={row.influencerId ?? i} className="flex items-center justify-between gap-2 px-2 py-1">
-                  <span className="truncate">{row.label ?? 'Unknown'}</span>
-                  <Badge tone={row.status === 'added' ? 'success' : 'neutral'}>{row.status === 'added' ? 'Will update' : row.message ?? 'Skip'}</Badge>
+                  <span className="truncate">{row.label ?? tc('unknown')}</span>
+                  <Badge tone={row.status === 'added' ? 'success' : 'neutral'}>
+                    {row.status === 'added' ? t('directory.bulkActions.willUpdateBadge') : (row.message ?? t('directory.bulkActions.skipBadge'))}
+                  </Badge>
                 </div>
               ))}
             </div>
@@ -165,7 +188,7 @@ export function BulkActionBar({ selected, onClear }: { selected: string[]; onCle
 
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setPreviewOpen(false)}>
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button
               type="button"
@@ -173,7 +196,7 @@ export function BulkActionBar({ selected, onClear }: { selected: string[]; onCle
               onClick={() => input && executeMutation.mutate(input)}
             >
               {executeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Apply to {preview?.willUpdate ?? 0}
+              {t('directory.bulkActions.applyButton', { count: preview?.willUpdate ?? 0 })}
             </Button>
           </DialogFooter>
         </DialogContent>

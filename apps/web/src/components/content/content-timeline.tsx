@@ -1,23 +1,25 @@
 'use client';
 
 import * as React from 'react';
+import { useFormatter, useTranslations } from 'next-intl';
 import { ChevronDown, ChevronRight, PlaySquare } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import type { PublishedContentDTO } from '@influenceos/contracts';
 import { contentReviewStatus } from '@influenceos/shared';
+import { enumLabel } from '@/lib/enum-labels';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ContentCard, ALERT_STATUSES } from './content-card';
 import { ContentViewer } from './content-viewer';
 
 interface DayGroup {
   key: string;
-  label: string;
+  date: Date;
   items: PublishedContentDTO[];
 }
 
 interface BrandGroup {
   brandId: string | null;
-  brandName: string;
+  brandName: string | null;
   logoUrl: string | null;
   primaryColor: string | null;
   items: PublishedContentDTO[];
@@ -26,12 +28,6 @@ interface BrandGroup {
 /** publishedAt when trustworthy/available, detectedAt fallback (item 12) — never mislabel detection time as publication time. */
 function contentDate(c: PublishedContentDTO): Date {
   return new Date(c.publishedAt ?? c.detectedAt);
-}
-
-function dayLabel(date: Date): string {
-  if (isToday(date)) return `Today — ${format(date, 'd MMMM')}`;
-  if (isYesterday(date)) return `Yesterday — ${format(date, 'd MMMM')}`;
-  return format(date, 'EEEE · d MMMM');
 }
 
 function groupByDay(items: PublishedContentDTO[]): DayGroup[] {
@@ -44,7 +40,7 @@ function groupByDay(items: PublishedContentDTO[]): DayGroup[] {
     const key = format(date, 'yyyy-MM-dd');
     let group = map.get(key);
     if (!group) {
-      group = { key, label: dayLabel(date), items: [] };
+      group = { key, date, items: [] };
       map.set(key, group);
     }
     group.items.push(item);
@@ -60,7 +56,7 @@ function groupByBrand(items: PublishedContentDTO[]): BrandGroup[] {
     if (!group) {
       group = {
         brandId: item.brand?.id ?? null,
-        brandName: item.brand?.name ?? 'No brand',
+        brandName: item.brand?.name ?? null,
         logoUrl: item.brand?.logoUrl ?? null,
         primaryColor: item.brand?.primaryColor ?? null,
         items: [],
@@ -80,20 +76,37 @@ function groupByBrand(items: PublishedContentDTO[]): BrandGroup[] {
  * second content source — and the SAME ContentCard/ContentViewer.
  */
 export function ContentTimeline({ items }: { items: PublishedContentDTO[] }) {
+  const t = useTranslations('content');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
+  const formatter = useFormatter();
   const [index, setIndex] = React.useState(0);
   const [open, setOpen] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
 
   const days = React.useMemo(() => groupByDay(items), [items]);
 
+  // "Today"/"Yesterday" reuse common.today/common.yesterday; every other day
+  // is a locale-formatted weekday + day + month (Arabic month/weekday names
+  // in ar, never a hardcoded English string) — see docs/localization/README.md.
+  function dayLabel(date: Date): string {
+    if (isToday(date)) {
+      return t('timeline.dayWithLabel', {
+        label: tCommon('today'),
+        date: formatter.dateTime(date, { day: 'numeric', month: 'long' }),
+      });
+    }
+    if (isYesterday(date)) {
+      return t('timeline.dayWithLabel', {
+        label: tCommon('yesterday'),
+        date: formatter.dateTime(date, { day: 'numeric', month: 'long' }),
+      });
+    }
+    return formatter.dateTime(date, { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
   if (items.length === 0) {
-    return (
-      <EmptyState
-        icon={PlaySquare}
-        title="Nothing here yet"
-        description="Published content will appear here, grouped by day and brand."
-      />
-    );
+    return <EmptyState icon={PlaySquare} title={t('timeline.emptyTitle')} description={t('timeline.emptyDescription')} />;
   }
 
   function openAt(content: PublishedContentDTO) {
@@ -113,7 +126,7 @@ export function ContentTimeline({ items }: { items: PublishedContentDTO[] }) {
       {days.map((day) => (
         <section key={day.key}>
           <div className="sticky top-16 z-20 -mx-1 mb-4 bg-background/95 px-1 py-2 backdrop-blur">
-            <h2 className="text-sm font-semibold text-foreground">{day.label}</h2>
+            <h2 className="text-sm font-semibold text-foreground">{dayLabel(day.date)}</h2>
           </div>
           <div className="space-y-6">
             {groupByBrand(day.items).map((brand) => {
@@ -145,11 +158,13 @@ export function ContentTimeline({ items }: { items: PublishedContentDTO[] }) {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={brand.logoUrl} alt="" className="h-5 w-5 shrink-0 rounded object-cover" />
                     ) : null}
-                    <span className="truncate text-sm font-medium text-foreground">{brand.brandName}</span>
+                    <span className="truncate text-sm font-medium text-foreground">
+                      {brand.brandName ?? t('timeline.noBrand')}
+                    </span>
                     <span className="shrink-0 text-xs text-muted-foreground">
-                      {brand.items.length} content
-                      {newCount > 0 ? ` · ${newCount} new` : ''}
-                      {alertCount > 0 ? ` · ${alertCount} alert${alertCount === 1 ? '' : 's'}` : ''}
+                      {brand.items.length} {t('feed.summary.content')}
+                      {newCount > 0 ? ` · ${newCount} ${enumLabel(tEnums, 'contentReviewStatus', 'NEW')}` : ''}
+                      {alertCount > 0 ? ` · ${alertCount} ${t('feed.summary.alerts')}` : ''}
                     </span>
                   </button>
                   {!isCollapsed ? (

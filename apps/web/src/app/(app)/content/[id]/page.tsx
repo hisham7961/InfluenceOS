@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
 import type { PublishedContentDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import { getServerApi } from '@/lib/api-server';
@@ -23,6 +24,7 @@ export const dynamic = 'force-dynamic';
 export default async function ContentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const api = getServerApi();
+  const t = await getTranslations('content');
 
   let content: PublishedContentDTO;
   try {
@@ -38,7 +40,7 @@ export default async function ContentDetailPage({ params }: { params: Promise<{ 
         href="/content"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft className="h-3.5 w-3.5" /> Back to Live Content
+        <ArrowLeft className="h-3.5 w-3.5" /> {t('viewer.backToFeed')}
       </Link>
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

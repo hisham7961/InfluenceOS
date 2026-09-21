@@ -2,14 +2,17 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Check, Search, UserPlus } from 'lucide-react';
 import type { DealType, InfluencerSummaryDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
-import { DEAL_TYPES, DEAL_TYPE_LABELS } from '@influenceos/shared';
+import { DEAL_TYPES } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { formatCompact } from '@/lib/format';
+import { enumLabel } from '@/lib/enum-labels';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -26,8 +29,8 @@ import { Avatar } from '@/components/ui/avatar';
 import { Spinner } from '@/components/ui/spinner';
 import { EmptyState } from '@/components/ui/empty-state';
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
 }
 
 /**
@@ -41,6 +44,9 @@ export function AddInfluencerDialog({
   campaignId: string;
   existingInfluencerIds?: string[];
 }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -67,7 +73,7 @@ export function AddInfluencerDialog({
 
   const addInfluencer = useMutation({
     mutationFn: () => {
-      if (!selected) throw new Error('Pick an influencer first.');
+      if (!selected) throw new Error(t('addInfluencerDialog.pickInfluencerError'));
       const cost = agreedCost.trim();
       return api.campaigns.addInfluencer(campaignId, {
         influencerId: selected.id,
@@ -76,12 +82,12 @@ export function AddInfluencerDialog({
       });
     },
     onSuccess: (ci) => {
-      toast.success(`${ci.influencer.displayName} added to the campaign.`);
+      toast.success(t('addInfluencerDialog.addedToast', { name: ci.influencer.displayName }));
       queryClient.invalidateQueries();
       router.refresh();
       resetAndClose();
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, t('errors.generic'))),
   });
 
   function resetAndClose() {
@@ -97,13 +103,13 @@ export function AddInfluencerDialog({
     <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : resetAndClose())}>
       <DialogTrigger asChild>
         <Button size="sm">
-          <UserPlus className="h-4 w-4" /> Add influencer
+          <UserPlus className="h-4 w-4" /> {t('addInfluencerDialog.trigger')}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add influencer to campaign</DialogTitle>
-          <DialogDescription>Search your network, pick a creator, and set the deal terms.</DialogDescription>
+          <DialogTitle>{t('addInfluencerDialog.title')}</DialogTitle>
+          <DialogDescription>{t('addInfluencerDialog.description')}</DialogDescription>
         </DialogHeader>
 
         {!selected ? (
@@ -114,7 +120,7 @@ export function AddInfluencerDialog({
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by name or @username…"
+                placeholder={t('addInfluencerDialog.searchPlaceholder')}
                 className="pl-9"
               />
             </div>
@@ -122,7 +128,7 @@ export function AddInfluencerDialog({
             <div className="max-h-72 space-y-1.5 overflow-y-auto">
               {debouncedQuery.length === 0 ? (
                 <p className="px-1 py-6 text-center text-sm text-muted-foreground">
-                  Start typing to search your influencer network.
+                  {t('addInfluencerDialog.startTyping')}
                 </p>
               ) : search.isLoading ? (
                 <div className="flex justify-center py-6">
@@ -130,8 +136,8 @@ export function AddInfluencerDialog({
                 </div>
               ) : results.length === 0 ? (
                 <EmptyState
-                  title="No matches"
-                  description="Try a different name or username."
+                  title={t('addInfluencerDialog.noMatches')}
+                  description={t('addInfluencerDialog.noMatchesDescription')}
                   className="border-0 bg-transparent py-6"
                 />
               ) : (
@@ -144,9 +150,11 @@ export function AddInfluencerDialog({
                   >
                     <Avatar name={inf.displayName} src={inf.avatarUrl} size="sm" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{inf.displayName}</p>
+                      <p className="truncate text-sm font-medium">
+                        <BidiText>{inf.displayName}</BidiText>
+                      </p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {inf.primaryUsername ? `@${inf.primaryUsername}` : (inf.category ?? '—')}
+                        {inf.primaryUsername ? <LtrText>@{inf.primaryUsername}</LtrText> : (inf.category ?? '—')}
                       </p>
                     </div>
                     {inf.totalFollowers != null ? (
@@ -162,18 +170,20 @@ export function AddInfluencerDialog({
             <div className="flex items-center gap-3 rounded-xl border border-brand/30 bg-brand-soft/40 p-3">
               <Avatar name={selected.displayName} src={selected.avatarUrl} size="md" rounded="lg" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{selected.displayName}</p>
+                <p className="truncate text-sm font-semibold">
+                  <BidiText>{selected.displayName}</BidiText>
+                </p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {selected.primaryUsername ? `@${selected.primaryUsername}` : '—'}
+                  {selected.primaryUsername ? <LtrText>@{selected.primaryUsername}</LtrText> : '—'}
                 </p>
               </div>
               <Button type="button" variant="ghost" size="sm" onClick={() => setSelected(null)}>
-                Change
+                {t('addInfluencerDialog.changeButton')}
               </Button>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Deal type">
+              <Field label={t('fields.dealType')}>
                 <Select value={dealType} onValueChange={(v) => setDealType(v as DealType)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -181,13 +191,13 @@ export function AddInfluencerDialog({
                   <SelectContent>
                     {DEAL_TYPES.map((d) => (
                       <SelectItem key={d} value={d}>
-                        {DEAL_TYPE_LABELS[d]}
+                        {enumLabel(tEnums, 'dealType', d)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Agreed cost" hint="Optional">
+              <Field label={t('workspace.influencers.agreedCostLabel')} hint={t('fields.optionalHint')}>
                 <Input
                   type="number"
                   min={0}
@@ -203,11 +213,11 @@ export function AddInfluencerDialog({
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={resetAndClose}>
-            Cancel
+            {tCommon('cancel')}
           </Button>
           <Button disabled={!selected || addInfluencer.isPending} onClick={() => addInfluencer.mutate()}>
             {addInfluencer.isPending ? <Spinner className="text-current" /> : <Check className="h-4 w-4" />}
-            {addInfluencer.isPending ? 'Adding…' : 'Add to campaign'}
+            {addInfluencer.isPending ? t('addInfluencerDialog.adding') : t('addInfluencerDialog.addToCampaign')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,0 +1,19 @@
+{
+  "close": "إغلاق",
+  "tooltip": {
+    "moreInformation": "مزيد من المعلومات"
+  },
+  "spinner": {
+    "loading": "جارٍ التحميل"
+  },
+  "confirmDialog": {
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "working": "جارٍ التنفيذ…"
+  },
+  "provenance": {
+    "source": "المصدر: {source}",
+    "updated": "آخر تحديث {time}",
+    "updatedBy": "آخر تحديث {time} بواسطة {name}"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "title": "الإشعارات",
+  "description": "تنبيهات حول المحتوى، والمحتوى المطلوب، والحملات، ونشاط الحساب عبر علاماتك التجارية.",
+  "tabs": {
+    "all": "الكل",
+    "unread": "غير مقروء",
+    "unreadWithCount": "غير مقروء ({count})"
+  },
+  "markAllRead": "تحديد الكل كمقروء",
+  "markingInProgress": "جارٍ التحديد…",
+  "markedReadToast": "تم تحديد {count} من الإشعارات كمقروءة",
+  "unreadIndicator": "غير مقروء",
+  "empty": {
+    "title": "أنت مطّلع على كل جديد",
+    "descriptionUnread": "لا توجد إشعارات غير مقروءة حاليًا.",
+    "descriptionAll": "ستظهر هنا التنبيهات المتعلقة بالمحتوى والمحتوى المطلوب والحملات ونشاط الحساب."
+  },
+  "loadMore": "عرض المزيد",
+  "buckets": {
+    "thisWeek": "هذا الأسبوع",
+    "earlier": "سابقًا"
+  },
+  "categories": {
+    "CONTENT_REMOVED": "إزالة المحتوى",
+    "CONTENT_UNAVAILABLE": "محتوى غير متاح",
+    "DELIVERABLE_OVERDUE": "تأخر المحتوى المطلوب",
+    "DELIVERABLE_DUE_SOON": "اقتراب موعد تسليم المحتوى المطلوب",
+    "CAMPAIGN_ENDING": "اقتراب انتهاء الحملة",
+    "SYNC_FAILURE": "فشل المزامنة",
+    "NEW_CONTENT": "محتوى جديد",
+    "FOLLOWER_MILESTONE": "إنجاز في عدد المتابعين",
+    "USAGE_RIGHT_EXPIRING": "اقتراب انتهاء حقوق الاستخدام",
+    "SHIPMENT_DELIVERED": "تم تسليم الشحنة",
+    "SUBMISSION_APPROVED": "تمت الموافقة على التسليم",
+    "GENERAL": "عام",
+    "MENTION": "إشارة",
+    "REPLY": "رد",
+    "IMPORTANT_MESSAGE": "رسالة مهمة",
+    "LOGISTICS_ADDRESS_ISSUE": "مشكلة في العنوان"
+  }
+}

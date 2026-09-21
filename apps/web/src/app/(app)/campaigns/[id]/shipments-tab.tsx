@@ -2,11 +2,12 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ExternalLink, MessageSquare, Package, Plus, Trash2 } from 'lucide-react';
 import type { CampaignInfluencerDTO, ProductShipmentDTO } from '@influenceos/contracts';
-import { DELIVERABLE_TYPE_LABELS, SHIPMENT_STATUSES, SHIPMENT_STATUS_LABELS, SHIPMENT_STATUS_TONE } from '@influenceos/shared';
+import { SHIPMENT_STATUSES, SHIPMENT_STATUS_TONE } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
 
 // Tracking URLs are scheme-guarded on write; still gate the anchor to http(s).
@@ -14,6 +15,8 @@ const isHttpUrl = (u: string | null): u is string => !!u && /^https?:\/\//i.test
 const NONE = '__none__';
 
 import { api } from '@/lib/api-browser';
+import { enumLabel } from '@/lib/enum-labels';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { CommentThread } from '@/components/collaboration/comment-thread';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,8 +29,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong.';
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
 }
 
 /** Logistics fulfilment requests across a campaign roster (evolved W3-5 web
@@ -36,6 +39,8 @@ function errorMessage(e: unknown): string {
  *  needs a product, plus general gifts. Fully interactive: create + advance
  *  status here, the same rows the `/logistics` cross-campaign workspace reads. */
 export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; influencers: CampaignInfluencerDTO[] }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
   const { data, isLoading, isError } = useQuery({
     queryKey: ['campaign-shipments', campaignId],
     queryFn: () => api.campaigns.shipments(campaignId),
@@ -56,7 +61,13 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
   }
 
   if (isError) {
-    return <EmptyState icon={Package} title="Couldn't load shipments" description="Something went wrong fetching logistics requests. Try again shortly." />;
+    return (
+      <EmptyState
+        icon={Package}
+        title={t('shipments.loadErrorTitle')}
+        description={t('shipments.loadErrorDescription')}
+      />
+    );
   }
 
   const shipments = data ?? [];
@@ -65,15 +76,15 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
     <div className="space-y-4">
       <div className="flex items-center justify-end">
         <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4" /> Create shipment
+          <Plus className="h-4 w-4" /> {t('shipments.createShipmentButton')}
         </Button>
       </div>
 
       {shipments.length === 0 ? (
         <EmptyState
           icon={Package}
-          title="No shipments yet"
-          description="Logistics requests for gifted or UGC-product creators will appear here with courier, tracking and delivery status."
+          title={t('shipments.emptyTitle')}
+          description={t('shipments.emptyDescription')}
         />
       ) : (
         <Card className="overflow-hidden">
@@ -81,12 +92,12 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
             <Table className="min-w-[860px]">
               <TableHead>
                 <TableRow className="border-b border-border bg-surface-muted/60 hover:bg-surface-muted/60">
-                  <TableHeaderCell className="ps-5">Creator</TableHeaderCell>
-                  <TableHeaderCell>Products</TableHeaderCell>
-                  <TableHeaderCell>Destination</TableHeaderCell>
-                  <TableHeaderCell>Courier / Tracking</TableHeaderCell>
+                  <TableHeaderCell className="ps-5">{t('sourcing.creatorHeader')}</TableHeaderCell>
+                  <TableHeaderCell>{t('shipments.productsHeader')}</TableHeaderCell>
+                  <TableHeaderCell>{t('shipments.destinationHeader')}</TableHeaderCell>
+                  <TableHeaderCell>{t('shipments.courierTrackingHeader')}</TableHeaderCell>
                   <TableHeaderCell align="end" className="pe-5">
-                    Status
+                    {t('fields.status')}
                   </TableHeaderCell>
                   <TableHeaderCell align="end" className="pe-5" />
                 </TableRow>
@@ -99,8 +110,10 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
                     <TableRow key={s.id}>
                       <TableCell className="ps-5">
                         <div className="flex items-center gap-2.5">
-                          <Avatar name={inf?.displayName ?? 'Unknown'} src={inf?.avatarUrl ?? undefined} size="xs" />
-                          <span className="truncate font-medium">{inf?.displayName ?? 'Unassigned'}</span>
+                          <Avatar name={inf?.displayName ?? tCommon('unknown')} src={inf?.avatarUrl ?? undefined} size="xs" />
+                          <span className="truncate font-medium">
+                            {inf?.displayName ? <BidiText>{inf.displayName}</BidiText> : tCommon('unassigned')}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell className="max-w-[220px] truncate text-muted-foreground">
@@ -121,10 +134,10 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 text-brand hover:underline"
                             >
-                              {s.trackingNumber} <ExternalLink className="size-3.5" aria-hidden />
+                              <LtrText>{s.trackingNumber}</LtrText> <ExternalLink className="size-3.5" aria-hidden />
                             </a>
                           ) : (
-                            s.trackingNumber
+                            <LtrText>{s.trackingNumber}</LtrText>
                           )
                         ) : s.courier ? (
                           '—'
@@ -136,7 +149,13 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
                         <StatusCell shipment={s} />
                       </TableCell>
                       <TableCell align="end" className="pe-5">
-                        <Button type="button" variant="ghost" size="icon-sm" aria-label="Comments" onClick={() => setCommentsShipmentId(s.id)}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={t('workspace.deliverables.comments')}
+                          onClick={() => setCommentsShipmentId(s.id)}
+                        >
                           <MessageSquare className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -154,14 +173,14 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
       <Dialog open={commentsShipmentId != null} onOpenChange={(open) => !open && setCommentsShipmentId(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Shipment comments</DialogTitle>
+            <DialogTitle>{t('shipments.shipmentCommentsTitle')}</DialogTitle>
           </DialogHeader>
           {commentsShipmentId ? (
             <CommentThread
               context={{ shipmentId: commentsShipmentId }}
               cacheKey={`shipment:${commentsShipmentId}`}
-              emptyTitle="No comments yet"
-              emptyDescription="Discuss this shipment with your team."
+              emptyTitle={t('workspace.deliverables.commentsEmptyTitle')}
+              emptyDescription={t('shipments.commentsEmptyDescription')}
             />
           ) : null}
         </DialogContent>
@@ -171,21 +190,24 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
 }
 
 function StatusCell({ shipment }: { shipment: ProductShipmentDTO }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const router = useRouter();
   const queryClient = useQueryClient();
   const update = useMutation({
     mutationFn: (status: (typeof SHIPMENT_STATUSES)[number]) => api.shipments.updateStatus(shipment.id, { status }),
     onSuccess: () => {
-      toast.success('Status updated.');
+      toast.success(t('shipments.statusUpdatedToast'));
       queryClient.invalidateQueries();
       router.refresh();
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (
     <div className="flex items-center justify-end gap-2">
-      <Badge tone={SHIPMENT_STATUS_TONE[shipment.status]}>{SHIPMENT_STATUS_LABELS[shipment.status]}</Badge>
+      <Badge tone={SHIPMENT_STATUS_TONE[shipment.status]}>{enumLabel(tEnums, 'shipmentStatus', shipment.status)}</Badge>
       <Select value={shipment.status} onValueChange={(v) => update.mutate(v as (typeof SHIPMENT_STATUSES)[number])} disabled={update.isPending}>
         <SelectTrigger className="h-8 w-40 text-xs">
           <SelectValue />
@@ -193,7 +215,7 @@ function StatusCell({ shipment }: { shipment: ProductShipmentDTO }) {
         <SelectContent>
           {SHIPMENT_STATUSES.map((s) => (
             <SelectItem key={s} value={s}>
-              {SHIPMENT_STATUS_LABELS[s]}
+              {enumLabel(tEnums, 'shipmentStatus', s)}
             </SelectItem>
           ))}
         </SelectContent>
@@ -218,6 +240,9 @@ function CreateShipmentDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [campaignInfluencerId, setCampaignInfluencerId] = React.useState('');
@@ -259,7 +284,7 @@ function CreateShipmentDialog({
 
   const create = useMutation({
     mutationFn: () => {
-      if (!campaignInfluencerId) throw new Error('Select a creator.');
+      if (!campaignInfluencerId) throw new Error(t('shipments.selectCreatorError'));
       const cleanItems = items
         .filter((it) => it.productName.trim())
         .map((it) => ({
@@ -280,24 +305,24 @@ function CreateShipmentDialog({
       });
     },
     onSuccess: () => {
-      toast.success('Shipment created.');
+      toast.success(t('shipments.createdToast'));
       queryClient.invalidateQueries();
       router.refresh();
       onOpenChange(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create shipment</DialogTitle>
-          <DialogDescription>A logistics fulfilment request — address is copied here, not linked live.</DialogDescription>
+          <DialogTitle>{t('shipments.createShipmentButton')}</DialogTitle>
+          <DialogDescription>{t('shipments.createDialogDescription')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <Field label="Creator">
+          <Field label={t('shipments.creatorFieldLabel')}>
             <Select
               value={campaignInfluencerId || NONE}
               onValueChange={(v) => {
@@ -306,15 +331,15 @@ function CreateShipmentDialog({
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Choose a creator on this campaign" />
+                <SelectValue placeholder={t('shipments.selectCreatorPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NONE} disabled>
-                  Choose a creator on this campaign
+                  {t('shipments.selectCreatorPlaceholder')}
                 </SelectItem>
                 {influencers.map((ci) => (
                   <SelectItem key={ci.id} value={ci.id}>
-                    {ci.influencer.displayName}
+                    <BidiText>{ci.influencer.displayName}</BidiText>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -322,17 +347,17 @@ function CreateShipmentDialog({
           </Field>
 
           {selectedCi && selectedCi.deliverables.length > 0 ? (
-            <Field label="Deliverable" hint="Optional — links this shipment to what it's for">
+            <Field label={t('submissions.deliverableHeader')} hint={t('shipments.deliverableFieldHint')}>
               <Select value={deliverableId || NONE} onValueChange={(v) => setDeliverableId(v === NONE ? '' : v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Not tied to a specific deliverable" />
+                  <SelectValue placeholder={t('shipments.notTiedPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}>Not tied to a specific deliverable</SelectItem>
+                  <SelectItem value={NONE}>{t('shipments.notTiedPlaceholder')}</SelectItem>
                   {selectedCi.deliverables.map((d) => (
                     <SelectItem key={d.id} value={d.id}>
-                      {DELIVERABLE_TYPE_LABELS[d.type]} · {d.platform}
-                      {d.requiresProduct ? ' (needs product)' : ''}
+                      {enumLabel(tEnums, 'deliverableType', d.type)} · {d.platform}
+                      {d.requiresProduct ? t('shipments.needsProductSuffix') : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -341,49 +366,55 @@ function CreateShipmentDialog({
           ) : null}
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Recipient">
+            <Field label={t('shipments.recipientLabel')}>
               <Input value={recipientName} onChange={(e) => setRecipientName(e.target.value)} />
             </Field>
-            <Field label="Phone">
+            <Field label={t('shipments.phoneLabel')}>
               <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
             </Field>
-            <Field label="Address" className="col-span-2">
+            <Field label={t('shipments.addressLabel')} className="col-span-2">
               <Input value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
             </Field>
-            <Field label="City">
+            <Field label={t('shipments.cityLabel')}>
               <Input value={city} onChange={(e) => setCity(e.target.value)} />
             </Field>
-            <Field label="Country">
+            <Field label={t('shipments.countryLabel')}>
               <Input value={country} onChange={(e) => setCountry(e.target.value)} />
             </Field>
           </div>
 
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Products</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('shipments.productsHeader')}
+              </p>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => setItems((prev) => [...prev, { productName: '', sku: '', variant: '', quantity: '1' }])}
               >
-                <Plus className="h-3.5 w-3.5" /> Add item
+                <Plus className="h-3.5 w-3.5" /> {t('shipments.addItemButton')}
               </Button>
             </div>
             <div className="space-y-2">
               {items.map((item, i) => (
                 <div key={i} className="grid grid-cols-[2fr_1fr_1fr_auto] items-end gap-2">
-                  <Field label={i === 0 ? 'Product' : undefined}>
+                  <Field label={i === 0 ? t('shipments.productFieldLabel') : undefined}>
                     <Input
                       value={item.productName}
                       onChange={(e) => updateItem(i, { productName: e.target.value })}
-                      placeholder="e.g. Toner"
+                      placeholder={t('shipments.productPlaceholder')}
                     />
                   </Field>
-                  <Field label={i === 0 ? 'SKU' : undefined}>
-                    <Input value={item.sku} onChange={(e) => updateItem(i, { sku: e.target.value })} placeholder="Optional" />
+                  <Field label={i === 0 ? t('shipments.skuFieldLabel') : undefined}>
+                    <Input
+                      value={item.sku}
+                      onChange={(e) => updateItem(i, { sku: e.target.value })}
+                      placeholder={t('fields.optionalHint')}
+                    />
                   </Field>
-                  <Field label={i === 0 ? 'Qty' : undefined}>
+                  <Field label={i === 0 ? t('fields.quantity') : undefined}>
                     <Input
                       type="number"
                       min={1}
@@ -395,7 +426,7 @@ function CreateShipmentDialog({
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label="Remove item"
+                    aria-label={t('shipments.removeItemAriaLabel')}
                     className="text-muted-foreground hover:text-danger"
                     onClick={() => setItems((prev) => prev.filter((_, idx) => idx !== i))}
                   >
@@ -406,17 +437,17 @@ function CreateShipmentDialog({
             </div>
           </div>
 
-          <Field label="Notes" hint="Optional">
+          <Field label={t('fields.notes')} hint={t('fields.optionalHint')}>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </Field>
         </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tCommon('cancel')}
           </Button>
           <Button disabled={!campaignInfluencerId || create.isPending} onClick={() => create.mutate()}>
-            {create.isPending ? 'Creating…' : 'Create shipment'}
+            {create.isPending ? t('shipments.creating') : t('shipments.createShipmentButton')}
           </Button>
         </DialogFooter>
       </DialogContent>

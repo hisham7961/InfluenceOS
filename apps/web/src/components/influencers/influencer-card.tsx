@@ -1,13 +1,18 @@
+'use client';
+
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { MapPin } from 'lucide-react';
 import type { InfluencerSummaryDTO } from '@influenceos/contracts';
 import { Avatar } from '@/components/ui/avatar';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { AudienceHealthBadge, RelationshipStatusBadge } from '@/components/ui/status-badges';
 import { Badge } from '@/components/ui/badge';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { formatCompact } from '@/lib/format';
 
 export function InfluencerCard({ influencer }: { influencer: InfluencerSummaryDTO }) {
+  const t = useTranslations('influencers');
   return (
     <Link
       href={`/influencers/${influencer.id}`}
@@ -16,9 +21,13 @@ export function InfluencerCard({ influencer }: { influencer: InfluencerSummaryDT
       <div className="flex items-start gap-3">
         <Avatar name={influencer.displayName} src={influencer.avatarUrl} size="lg" rounded="lg" />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold">{influencer.displayName}</p>
+          <p className="truncate font-semibold">
+            <BidiText>{influencer.displayName}</BidiText>
+          </p>
           {influencer.primaryUsername ? (
-            <p className="truncate text-sm text-muted-foreground">@{influencer.primaryUsername}</p>
+            <p className="truncate text-sm text-muted-foreground">
+              <LtrText>@{influencer.primaryUsername}</LtrText>
+            </p>
           ) : null}
           <div className="mt-1.5 flex items-center gap-1.5">
             {influencer.followersByPlatform.slice(0, 4).map((f) => (
@@ -47,7 +56,9 @@ export function InfluencerCard({ influencer }: { influencer: InfluencerSummaryDT
           )}
         </span>
         {influencer.totalFollowers != null ? (
-          <Badge tone="neutral">{formatCompact(influencer.totalFollowers)} total</Badge>
+          <Badge tone="neutral">
+            {t('directory.results.totalFollowersBadge', { count: formatCompact(influencer.totalFollowers) })}
+          </Badge>
         ) : null}
       </div>
     </Link>

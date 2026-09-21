@@ -2,9 +2,10 @@
 
 import * as React from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { DATA_SOURCE_LABELS } from '@influenceos/shared';
+import { useTranslations } from 'next-intl';
 import type { ProvenanceDTO } from '@influenceos/contracts';
 import { cn } from '@/lib/cn';
+import { enumLabel } from '@/lib/enum-labels';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
 
 export interface ProvenanceTooltipProps {
@@ -17,6 +18,8 @@ export interface ProvenanceTooltipProps {
 /** Wraps `children` in a tooltip explaining where a value came from and when it was last updated. */
 export function ProvenanceTooltip({ provenance, children }: ProvenanceTooltipProps) {
   const { source, updatedAt, updatedByName } = provenance;
+  const t = useTranslations('ui');
+  const tEnums = useTranslations('enums');
 
   return (
     <TooltipProvider>
@@ -24,11 +27,17 @@ export function ProvenanceTooltip({ provenance, children }: ProvenanceTooltipPro
         <TooltipTrigger asChild>{children}</TooltipTrigger>
         <TooltipContent>
           <div className="flex flex-col gap-0.5">
-            <span>Source: {DATA_SOURCE_LABELS[source]}</span>
+            <span>{t('provenance.source', { source: enumLabel(tEnums, 'dataSource', source) })}</span>
             {updatedAt ? (
               <span>
-                Updated {formatDistanceToNow(new Date(updatedAt), { addSuffix: true })}
-                {updatedByName ? ` by ${updatedByName}` : ''}
+                {updatedByName
+                  ? t('provenance.updatedBy', {
+                      time: formatDistanceToNow(new Date(updatedAt), { addSuffix: true }),
+                      name: updatedByName,
+                    })
+                  : t('provenance.updated', {
+                      time: formatDistanceToNow(new Date(updatedAt), { addSuffix: true }),
+                    })}
               </span>
             ) : null}
           </div>
@@ -44,6 +53,7 @@ export interface DataSourceBadgeProps extends Omit<React.HTMLAttributes<HTMLSpan
 
 /** A tiny muted pill labelling where a value's data came from. */
 export function DataSourceBadge({ source, className, ...props }: DataSourceBadgeProps) {
+  const t = useTranslations('enums');
   return (
     <span
       className={cn(
@@ -52,7 +62,7 @@ export function DataSourceBadge({ source, className, ...props }: DataSourceBadge
       )}
       {...props}
     >
-      {DATA_SOURCE_LABELS[source]}
+      {enumLabel(t, 'dataSource', source)}
     </span>
   );
 }

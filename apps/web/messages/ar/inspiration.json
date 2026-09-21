@@ -1,0 +1,50 @@
+{
+  "pageTitle": "الإلهام",
+  "pageDescription": "الترندات، وتحركات المنافسين، والمواد المرجعية التي تستحق التذكّر.",
+  "none": "بدون",
+  "filters": {
+    "allCategories": "جميع الفئات",
+    "pinnedOnly": "مثبّت"
+  },
+  "actions": {
+    "saveTrend": "حفظ الترند"
+  },
+  "empty": {
+    "title": "لا يوجد شيء محفوظ بعد",
+    "description": "أضف رابطًا لإعلان منافس، أو صيغة رائجة، أو أسلوب يستحق التذكّر."
+  },
+  "addDialog": {
+    "title": "حفظ ترند أو مرجع",
+    "linkLabel": "الرابط",
+    "linkPlaceholder": "https://…",
+    "titleLabel": "العنوان (اختياري)",
+    "titlePlaceholder": "ما هو؟",
+    "noteLabel": "لماذا يستحق الاهتمام؟ (اختياري)",
+    "categoryLabel": "الفئة",
+    "brandLabel": "العلامة التجارية ذات الصلة (اختياري)",
+    "campaignLabel": "الحملة ذات الصلة (اختياري)",
+    "campaignHint": "يتيح لك لاحقًا ربط هذا بسيناريو ضمن تلك الحملة",
+    "tagsLabel": "الوسوم (مفصولة بفواصل، اختياري)",
+    "tagsPlaceholder": "خطاف، العناية بالبشرة، قبل وبعد",
+    "savedToast": "تم الحفظ في الإلهام"
+  },
+  "detail": {
+    "untitled": "بلا عنوان",
+    "savedBy": "بواسطة <name>{value}</name>",
+    "pin": "تثبيت",
+    "unpin": "إلغاء التثبيت",
+    "discussion": "النقاش",
+    "noCommentsYet": "لا توجد تعليقات بعد",
+    "commentsEmptyDescription": "ما الذي يمكن أن نستفيده من هذا؟",
+    "commentsComposerPlaceholder": "أضف فكرة… استخدم @ للإشارة إلى شخص",
+    "removedToast": "تمت الإزالة"
+  },
+  "script": {
+    "link": "ربط سيناريو",
+    "unlink": "إلغاء الربط",
+    "linkedFallback": "السيناريو المرتبط",
+    "noScriptsYet": "لا توجد سيناريوهات في هذه الحملة بعد.",
+    "linkedToast": "تم ربط السيناريو",
+    "unlinkedToast": "تم إلغاء ربط السيناريو"
+  }
+}

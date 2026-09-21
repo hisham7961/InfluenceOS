@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { Globe2 } from 'lucide-react';
 import { countryName } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
@@ -25,6 +26,8 @@ export function InfluencerCountryStrip({
   selected: string;
   onSelect: (countryCode: string) => void;
 }) {
+  const t = useTranslations('influencers');
+  const tc = useTranslations('common');
   const query = useQuery({
     queryKey: ['influencer-country-summary', filters],
     queryFn: () => api.influencers.countrySummary(filters),
@@ -45,10 +48,10 @@ export function InfluencerCountryStrip({
   if (rows.length === 0) return null;
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Filter by country">
+    <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label={t('directory.countryStrip.ariaLabel')}>
       <Chip
         icon={<Globe2 className="h-3.5 w-3.5" />}
-        label="All creators"
+        label={t('directory.countryStrip.allCreators')}
         total={totalAll}
         active={selected === ''}
         onClick={() => onSelect('')}
@@ -56,7 +59,7 @@ export function InfluencerCountryStrip({
       {rows.map((r) => (
         <Chip
           key={r.countryCode ?? '__none__'}
-          label={r.countryName ?? countryName(r.countryCode) ?? 'Unknown'}
+          label={r.countryName ?? countryName(r.countryCode) ?? tc('unknown')}
           code={r.countryCode}
           total={r.total}
           active={selected === (r.countryCode ?? '')}

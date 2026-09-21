@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Pin, PinOff, StickyNote, Trash2 } from 'lucide-react';
 import type { NoteDTO } from '@influenceos/contracts';
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { AttachmentChip, Composer } from '@/components/collaboration/comment-thread';
+import { BidiText } from '@/components/common/bidi-text';
 import { relativeTime } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
@@ -21,6 +23,8 @@ import { cn } from '@/lib/cn';
  *  Shares its composer (including the @mention picker) with the rest of the Collaboration Layer. */
 export function NotesPanel({ influencerId, notes }: { influencerId: string; notes: NoteDTO[] }) {
   const router = useRouter();
+  const t = useTranslations('influencers');
+  const tc = useTranslations('common');
   const queryClient = useQueryClient();
   const [items, setItems] = React.useState(notes);
 
@@ -35,7 +39,7 @@ export function NotesPanel({ influencerId, notes }: { influencerId: string; note
   );
 
   function onError(e: unknown) {
-    toast.error(e instanceof ApiError ? e.message : 'Something went wrong');
+    toast.error(e instanceof ApiError ? e.message : tc('somethingWentWrong'));
   }
 
   const createNote = useMutation({
@@ -58,7 +62,7 @@ export function NotesPanel({ influencerId, notes }: { influencerId: string; note
     },
     onSuccess: (note) => {
       setItems((prev) => [note, ...prev]);
-      toast.success('Note added');
+      toast.success(t('detail.notes.noteAdded'));
       queryClient.invalidateQueries();
       router.refresh();
     },
@@ -79,7 +83,7 @@ export function NotesPanel({ influencerId, notes }: { influencerId: string; note
     mutationFn: (id: string) => api.notes.remove(id),
     onSuccess: (_data, id) => {
       setItems((prev) => prev.filter((n) => n.id !== id));
-      toast.success('Note removed');
+      toast.success(t('detail.notes.noteRemoved'));
       queryClient.invalidateQueries();
       router.refresh();
     },
@@ -89,29 +93,31 @@ export function NotesPanel({ influencerId, notes }: { influencerId: string; note
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
       <Card className="h-fit p-4">
-        <p className="mb-3 text-sm font-semibold">Add a note</p>
+        <p className="mb-3 text-sm font-semibold">{t('detail.notes.addNote')}</p>
         <Composer
           onSubmit={(body, mentionedUserIds, files) => createNote.mutate({ body, mentionedUserIds, files })}
           pending={createNote.isPending}
-          placeholder="Log a call, a rate negotiation, a red flag… use @ to mention someone"
+          placeholder={t('detail.notes.composerPlaceholder')}
         />
       </Card>
 
       {sorted.length === 0 ? (
         <EmptyState
           icon={StickyNote}
-          title="No notes yet"
-          description="Internal notes about this influencer will show up here."
+          title={t('detail.notes.emptyTitle')}
+          description={t('detail.notes.emptyDescription')}
         />
       ) : (
         <div className="space-y-3">
           {sorted.map((note) => (
             <Card key={note.id} className={cn('p-4', note.pinned && 'border-brand/40 bg-brand-soft/40')}>
               <div className="flex items-start gap-3">
-                <Avatar name={note.authorName ?? 'Unknown'} size="sm" />
+                <Avatar name={note.authorName ?? tc('unknown')} size="sm" />
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{note.authorName ?? 'Unknown'}</p>
+                    <p className="text-sm font-medium">
+                      <BidiText>{note.authorName ?? tc('unknown')}</BidiText>
+                    </p>
                     <span className="text-xs text-muted-foreground">{relativeTime(note.createdAt)}</span>
                   </div>
                   <p className="whitespace-pre-wrap text-sm text-foreground">{note.body}</p>
@@ -127,7 +133,7 @@ export function NotesPanel({ influencerId, notes }: { influencerId: string; note
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    title={note.pinned ? 'Unpin note' : 'Pin note'}
+                    title={note.pinned ? t('detail.notes.unpinNote') : t('detail.notes.pinNote')}
                     disabled={togglePin.isPending}
                     onClick={() => togglePin.mutate(note)}
                   >
@@ -136,7 +142,7 @@ export function NotesPanel({ influencerId, notes }: { influencerId: string; note
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    title="Delete note"
+                    title={t('detail.notes.deleteNote')}
                     disabled={removeNote.isPending}
                     onClick={() => removeNote.mutate(note.id)}
                   >

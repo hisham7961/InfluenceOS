@@ -1,0 +1,31 @@
+{
+  "composer": {
+    "attachFile": "Attach a file",
+    "removeFile": "Remove {fileName}",
+    "send": "Send",
+    "mentionSomeone": "Mention someone",
+    "couldNotOpenFile": "Could not open the file.",
+    "uploadFailed": "upload failed",
+    "attachmentFailed": "\"{fileName}\" didn't attach: {error}"
+  },
+  "message": {
+    "reply": "Reply",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "editedSuffix": " · edited",
+    "writeReplyPlaceholder": "Write a reply…"
+  },
+  "thread": {
+    "emptyTitle": "No messages yet",
+    "emptyDescription": "Start the conversation below.",
+    "composerPlaceholder": "Write a message… use @ to mention someone",
+    "loadEarlierMessages": "Load earlier messages",
+    "couldNotSendMessage": "Could not send the message."
+  },
+  "teamChat": {
+    "pageTitle": "Team",
+    "pageDescription": "General coordination that doesn't belong to one brand or campaign.",
+    "emptyDescription": "Say hello, or post something the whole team should know.",
+    "composerPlaceholder": "Message the team… use @ to mention someone"
+  }
+}

@@ -11,5 +11,11 @@
   "calendar": "التقويم",
   "reports": "التقارير",
   "notifications": "الإشعارات",
-  "settings": "الإعدادات"
+  "settings": "الإعدادات",
+  "workspace": "مساحة العمل",
+  "insights": "الرؤى",
+  "account": "الحساب",
+  "executive": "الملخص التنفيذي",
+  "allBrandsGlobal": "جميع العلامات التجارية (عرض عام)",
+  "navigateHeading": "التنقل"
 }

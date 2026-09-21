@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
 import { ReportsView } from './reports-view';
@@ -16,6 +17,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const from = sp.from || undefined;
   const to = sp.to || undefined;
 
+  const t = await getTranslations('reports');
   const api = getServerApi();
   const [report, brands] = await Promise.all([
     api.reports.generate({ type, brandId, from, to }),
@@ -24,10 +26,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
   return (
     <div>
-      <PageHeader
-        title="Reports"
-        description="Export-ready performance and spend reports across every brand, campaign and creator."
-      />
+      <PageHeader title={t('title')} description={t('description')} />
       <ReportsView initial={report} brands={brands} type={type} brandId={brandId} from={from} to={to} />
     </div>
   );

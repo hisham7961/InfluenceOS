@@ -1,0 +1,128 @@
+{
+  "title": "التقارير",
+  "description": "تقارير أداء وإنفاق جاهزة للتصدير عبر كل علامة تجارية وحملة ومؤثر.",
+  "tabs": {
+    "campaign": "الحملات",
+    "influencer": "المؤثرون",
+    "brand": "العلامات التجارية",
+    "content": "المحتوى",
+    "spend": "الإنفاق"
+  },
+  "print": "طباعة",
+  "exportCsv": "تصدير CSV",
+  "printTitle": "تقرير {report}",
+  "printSubtitle": "{brand} · {range} · {generated}",
+  "printGeneratedAt": "تاريخ الإنشاء {time}",
+  "selectedBrandFallback": "العلامة المحددة",
+  "fromLabel": "من",
+  "toLabel": "إلى",
+  "fromDateAria": "تاريخ البداية",
+  "toDateAria": "تاريخ النهاية",
+  "reset": "إعادة تعيين",
+  "updating": "جارٍ التحديث…",
+  "rangeAllTime": "كل الأوقات",
+  "rangeStart": "البداية",
+  "rangeNow": "الآن",
+  "table": {
+    "emptyTitle": "لا توجد بيانات لهذا التقرير",
+    "emptyDescription": "جرّب توسيع النطاق الزمني أو إزالة تصفية العلامة التجارية — ستظهر البيانات هنا فور توفرها.",
+    "rowCount": "عدد الصفوف: {count} · {currency}",
+    "total": "الإجمالي"
+  },
+  "exec": {
+    "title": "لوحة المعلومات التنفيذية",
+    "description": "الإنفاق مقابل الميزانية، وما حدث اليوم، وما تغيّر منذ الأمس، ووضع كل علامة تجارية ومؤثر — بتحديث مباشر.",
+    "spendVsBudget": {
+      "plannedBudget": "الميزانية المخططة",
+      "totalSpend": "إجمالي الإنفاق",
+      "remaining": "المتبقي",
+      "budgetUsed": "الميزانية المستخدمة",
+      "unpaidSpend": "الإنفاق غير المدفوع",
+      "campaignsOverBudget": "عدد الحملات التي تجاوزت الميزانية: {count}."
+    },
+    "today": {
+      "title": "اليوم",
+      "contentPublished": "المحتوى المنشور",
+      "deliverablesDue": "المحتوى المطلوب المستحق",
+      "campaignsStarting": "الحملات التي تبدأ",
+      "campaignsEnding": "الحملات التي تنتهي"
+    },
+    "sinceYesterday": {
+      "title": "منذ الأمس",
+      "contentPublished": "المحتوى المنشور",
+      "deliverablesCompleted": "المحتوى المطلوب المكتمل",
+      "campaignsCreated": "الحملات المنشأة",
+      "campaignsCompleted": "الحملات المكتملة",
+      "rosterAdditions": "الإضافات إلى قائمة المؤثرين",
+      "contentRemoved": "المحتوى الذي تمت إزالته",
+      "shipmentsDelivered": "الشحنات المسلَّمة",
+      "shipmentsFailed": "الشحنات المتعذر تسليمها",
+      "ugcAwaitingReview": "محتوى UGC بانتظار المراجعة"
+    },
+    "brands": {
+      "title": "العلامات التجارية",
+      "emptyTitle": "لا توجد علامات تجارية ضمن النطاق",
+      "emptyDescription": "يظهر أداء العلامة التجارية هنا فور وجود علامات تجارية لها حملات.",
+      "overBudget": "تجاوزت الميزانية",
+      "columns": {
+        "brand": "العلامة التجارية",
+        "active": "النشطة",
+        "spend": "الإنفاق",
+        "budget": "الميزانية",
+        "used": "المستخدم",
+        "overdue": "المتأخر",
+        "alerts": "التنبيهات",
+        "issues": "المشكلات"
+      }
+    },
+    "leaderboard": {
+      "title": "أفضل المؤثرين",
+      "emptyTitle": "لا يوجد مؤثرون مصنّفون بعد",
+      "emptyDescription": "يظهر المؤثرون هنا بعد التزامهم بحملات وتسليم أعمالهم.",
+      "columns": {
+        "creator": "المؤثر",
+        "campaigns": "الحملات",
+        "published": "المنشور",
+        "completion": "نسبة الإنجاز",
+        "tier": "الفئة",
+        "score": "النقاط"
+      },
+      "tier": {
+        "GOLD": "ذهبية",
+        "SILVER": "فضية",
+        "BRONZE": "برونزية",
+        "NEW": "جديدة"
+      }
+    },
+    "generatedAt": "تاريخ الإنشاء {time}."
+  },
+  "calendar": {
+    "title": "التقويم",
+    "description": "مواعيد الحملات، والمحتوى المطلوب، وتواريخ النشر في مكان واحد.",
+    "eventCount": "عدد الأحداث: {count}",
+    "views": {
+      "month": "شهر",
+      "week": "أسبوع",
+      "agenda": "جدول"
+    },
+    "kinds": {
+      "CAMPAIGN_START": "بداية الحملة",
+      "CAMPAIGN_END": "نهاية الحملة",
+      "DELIVERABLE_DUE": "استحقاق المحتوى المطلوب",
+      "EXPECTED_PUBLISH": "النشر المتوقع",
+      "PUBLISHED": "منشور"
+    },
+    "eventTooltip": "{title} · {kind}",
+    "moreCount": "+{count} أخرى",
+    "emptyTitle": "لا يوجد شيء مجدول",
+    "emptyDescription": "ستظهر هنا مواعيد الحملات والمحتوى المطلوب وتواريخ النشر فور جدولتها.",
+    "detail": {
+      "date": "التاريخ",
+      "brand": "العلامة التجارية",
+      "influencer": "المؤثر",
+      "platform": "المنصة",
+      "open": "فتح"
+    },
+    "loadError": "تعذّر تحميل التقويم."
+  }
+}

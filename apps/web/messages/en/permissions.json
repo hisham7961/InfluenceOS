@@ -1,0 +1,46 @@
+{
+  "editor": {
+    "roleProfileLabel": "Role Profile",
+    "roleProfileHint": "Sets this person's default capabilities by operational responsibility — never a raw permission list.",
+    "noProfileOption": "No profile (legacy role defaults)",
+    "incompatibleRoleSuffix": " (requires a different legacy role)",
+    "roleProfileDescription": {
+      "ADMIN": "Full system administration — users, permissions, integrations, all data.",
+      "GENERAL_MANAGER": "Broad operational visibility across brands, countries and campaigns — not system configuration.",
+      "OPERATIONS_MANAGER": "Monitors campaign progress, content and logistics workflows; not an administrator.",
+      "LOGISTICS": "Fulfils shipments — address, courier, tracking and logistics issues for their assigned countries.",
+      "INFLUENCER_MANAGER": "Manages creator relationships, campaign participation and content for their assigned countries.",
+      "VIEWER": "Read-only access within whatever scopes are granted."
+    },
+    "tabs": {
+      "capabilities": "Capabilities",
+      "countries": "Countries",
+      "brands": "Brands"
+    },
+    "capabilitiesTab": {
+      "intro": "Default follows the Role Profile above. Grant or Revoke sets an explicit override for this person only.",
+      "toggle": {
+        "revoke": "Revoke",
+        "default": "Default",
+        "grant": "Grant"
+      }
+    },
+    "countriesTab": {
+      "searchPlaceholder": "Search countries…",
+      "unrestricted": "Unrestricted — this person sees every country.",
+      "scoped": "Scoped to {count, plural, one {# country} other {# countries}}.",
+      "noMatches": "No countries match."
+    },
+    "brandsTab": {
+      "searchPlaceholder": "Search brands…",
+      "unrestricted": "Unrestricted — this person sees every brand.",
+      "scoped": "Scoped to {count, plural, one {# brand} other {# brands}}.",
+      "noMatches": "No brands match."
+    },
+    "preview": {
+      "heading": "Permission preview — {granted} of {total} capabilities",
+      "overrideBadge": "override"
+    },
+    "toastUpdated": "Permissions updated."
+  }
+}

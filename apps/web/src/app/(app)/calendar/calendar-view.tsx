@@ -17,7 +17,9 @@ import {
   subMonths,
   subWeeks,
 } from 'date-fns';
+import { arSA, enUS } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   CalendarClock,
   CalendarDays,
@@ -47,31 +49,26 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { BidiText } from '@/components/common/bidi-text';
 
 type CalendarViewMode = 'month' | 'week' | 'agenda';
 
-const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MAX_VISIBLE_PER_DAY = 3;
 
-const KIND_META: Record<
-  CalendarEventDTO['kind'],
-  { label: string; icon: LucideIcon; dot: string; tint: string }
-> = {
-  CAMPAIGN_START: { label: 'Campaign start', icon: Rocket, dot: 'bg-info', tint: 'bg-info/10 text-info' },
-  CAMPAIGN_END: {
-    label: 'Campaign end',
-    icon: FlagTriangleRight,
-    dot: 'bg-muted-foreground',
-    tint: 'bg-surface-muted text-muted-foreground',
-  },
-  DELIVERABLE_DUE: { label: 'Deliverable due', icon: Clock3, dot: 'bg-warning', tint: 'bg-warning/10 text-warning' },
-  EXPECTED_PUBLISH: {
-    label: 'Expected publish',
-    icon: CalendarClock,
-    dot: 'bg-accent',
-    tint: 'bg-accent/10 text-accent',
-  },
-  PUBLISHED: { label: 'Published', icon: CheckCircle2, dot: 'bg-success', tint: 'bg-success/10 text-success' },
+/** Resolves the date-fns locale object for the active app locale, so every
+ * `format()` call below (weekday/month names) renders in the right language
+ * instead of always defaulting to English. */
+function useDateFnsLocale() {
+  const locale = useLocale();
+  return locale === 'ar' ? arSA : enUS;
+}
+
+const KIND_META: Record<CalendarEventDTO['kind'], { icon: LucideIcon; dot: string; tint: string }> = {
+  CAMPAIGN_START: { icon: Rocket, dot: 'bg-info', tint: 'bg-info/10 text-info' },
+  CAMPAIGN_END: { icon: FlagTriangleRight, dot: 'bg-muted-foreground', tint: 'bg-surface-muted text-muted-foreground' },
+  DELIVERABLE_DUE: { icon: Clock3, dot: 'bg-warning', tint: 'bg-warning/10 text-warning' },
+  EXPECTED_PUBLISH: { icon: CalendarClock, dot: 'bg-accent', tint: 'bg-accent/10 text-accent' },
+  PUBLISHED: { icon: CheckCircle2, dot: 'bg-success', tint: 'bg-success/10 text-success' },
 };
 
 function dayKey(date: Date): string {
@@ -92,6 +89,8 @@ function rangeFor(anchor: Date, view: CalendarViewMode): { from: Date; to: Date 
  * agenda. Selecting any event opens a quick-preview drawer.
  */
 export function CalendarView() {
+  const t = useTranslations('reports');
+  const dfLocale = useDateFnsLocale();
   const [anchor, setAnchor] = React.useState<Date>(() => new Date());
   const [view, setView] = React.useState<CalendarViewMode>('month');
   const [selected, setSelected] = React.useState<CalendarEventDTO | null>(null);
@@ -106,9 +105,9 @@ export function CalendarView() {
 
   React.useEffect(() => {
     if (query.error) {
-      toast.error(query.error instanceof ApiError ? query.error.message : 'Could not load the calendar.');
+      toast.error(query.error instanceof ApiError ? query.error.message : t('calendar.loadError'));
     }
-  }, [query.error]);
+  }, [query.error, t]);
 
   const events = React.useMemo(() => query.data ?? [], [query.data]);
 
@@ -133,8 +132,8 @@ export function CalendarView() {
 
   const label =
     view === 'week'
-      ? `${format(from, 'MMM d')} – ${format(to, isSameMonth(from, to) ? 'd, yyyy' : 'MMM d, yyyy')}`
-      : format(anchor, 'MMMM yyyy');
+      ? `${format(from, 'MMM d', { locale: dfLocale })} – ${format(to, isSameMonth(from, to) ? 'd, yyyy' : 'MMM d, yyyy', { locale: dfLocale })}`
+      : format(anchor, 'MMMM yyyy', { locale: dfLocale });
 
   return (
     <div className="space-y-6">
@@ -190,38 +189,38 @@ function CalendarToolbar({
   eventCount: number;
   isLoading: boolean;
 }) {
+  const t = useTranslations('reports');
+  const tCommon = useTranslations('common');
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-0.5 rounded-xl border border-border bg-card p-1 shadow-soft">
-          <Button variant="ghost" size="icon-sm" onClick={onPrev} aria-label="Previous">
+          <Button variant="ghost" size="icon-sm" onClick={onPrev} aria-label={tCommon('previous')}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon-sm" onClick={onNext} aria-label="Next">
+          <Button variant="ghost" size="icon-sm" onClick={onNext} aria-label={tCommon('next')}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
         <h2 className="min-w-[10ch] text-lg font-semibold tracking-tight">{label}</h2>
         <Button variant="outline" size="sm" onClick={onToday} disabled={isCurrent}>
-          Today
+          {tCommon('today')}
         </Button>
         {!isLoading ? (
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            {eventCount} {eventCount === 1 ? 'event' : 'events'}
-          </span>
+          <span className="hidden text-xs text-muted-foreground sm:inline">{t('calendar.eventCount', { count: eventCount })}</span>
         ) : null}
       </div>
 
       <Tabs value={view} onValueChange={(v) => onViewChange(v as CalendarViewMode)}>
         <TabsList>
           <TabsTrigger value="month" className="gap-1.5">
-            <LayoutGrid className="h-3.5 w-3.5" /> Month
+            <LayoutGrid className="h-3.5 w-3.5" /> {t('calendar.views.month')}
           </TabsTrigger>
           <TabsTrigger value="week" className="gap-1.5">
-            <ColumnsIcon className="h-3.5 w-3.5" /> Week
+            <ColumnsIcon className="h-3.5 w-3.5" /> {t('calendar.views.week')}
           </TabsTrigger>
           <TabsTrigger value="agenda" className="gap-1.5">
-            <Rows3 className="h-3.5 w-3.5" /> Agenda
+            <Rows3 className="h-3.5 w-3.5" /> {t('calendar.views.agenda')}
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -238,20 +237,22 @@ function MonthGrid({
   eventsByDay: Map<string, CalendarEventDTO[]>;
   onSelect: (event: CalendarEventDTO) => void;
 }) {
+  const dfLocale = useDateFnsLocale();
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
   const gridEnd = endOfWeek(endOfMonth(monthStart), { weekStartsOn: 0 });
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
+  const weekdayLabelDays = React.useMemo(() => eachDayOfInterval({ start: gridStart, end: endOfWeek(gridStart, { weekStartsOn: 0 }) }), [gridStart]);
   const today = new Date();
 
   return (
     <Card className="overflow-hidden p-0">
       <div className="grid grid-cols-7 border-b border-border bg-surface-muted/60">
-        {WEEKDAY_LABELS.map((label) => (
+        {weekdayLabelDays.map((day) => (
           <div
-            key={label}
+            key={dayKey(day)}
             className="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground"
           >
-            {label}
+            {format(day, 'EEE', { locale: dfLocale })}
           </div>
         ))}
       </div>
@@ -281,7 +282,7 @@ function MonthGrid({
                   isSameDay(day, today) ? 'bg-brand text-brand-foreground' : inMonth ? 'text-foreground' : 'text-muted-foreground/50',
                 )}
               >
-                {format(day, 'd')}
+                {format(day, 'd', { locale: dfLocale })}
               </span>
 
               <div className="flex flex-1 flex-col gap-1 overflow-hidden">
@@ -307,6 +308,7 @@ function WeekView({
   eventsByDay: Map<string, CalendarEventDTO[]>;
   onSelect: (event: CalendarEventDTO) => void;
 }) {
+  const dfLocale = useDateFnsLocale();
   const days = eachDayOfInterval({ start: weekStart, end: endOfWeek(weekStart, { weekStartsOn: 0 }) });
   const today = new Date();
 
@@ -327,7 +329,7 @@ function WeekView({
             >
               <div className="flex items-center justify-between border-b border-border bg-surface-muted/60 px-3 py-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {format(day, 'EEE')}
+                  {format(day, 'EEE', { locale: dfLocale })}
                 </span>
                 <span
                   className={cn(
@@ -335,7 +337,7 @@ function WeekView({
                     isTodayCol ? 'bg-brand text-brand-foreground' : 'text-foreground',
                   )}
                 >
-                  {format(day, 'd')}
+                  {format(day, 'd', { locale: dfLocale })}
                 </span>
               </div>
               <div className="flex flex-1 flex-col gap-1.5 p-2">
@@ -354,8 +356,10 @@ function WeekView({
 }
 
 function WeekEventCard({ event, onSelect }: { event: CalendarEventDTO; onSelect: (event: CalendarEventDTO) => void }) {
+  const t = useTranslations('reports');
   const meta = KIND_META[event.kind];
   const Icon = meta.icon;
+  const kindLabel = t(`calendar.kinds.${event.kind}`);
   return (
     <button
       type="button"
@@ -364,8 +368,10 @@ function WeekEventCard({ event, onSelect }: { event: CalendarEventDTO; onSelect:
     >
       <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <span className="min-w-0">
-        <span className="block truncate text-[11px] font-semibold leading-tight text-foreground">{event.title}</span>
-        <span className="block truncate text-[10px] text-muted-foreground">{meta.label}</span>
+        <BidiText as="span" className="block truncate text-[11px] font-semibold leading-tight text-foreground">
+          {event.title}
+        </BidiText>
+        <span className="block truncate text-[10px] text-muted-foreground">{kindLabel}</span>
       </span>
     </button>
   );
@@ -380,12 +386,13 @@ function EventPill({
   className?: string;
   onSelect: (event: CalendarEventDTO) => void;
 }) {
+  const t = useTranslations('reports');
   const meta = KIND_META[event.kind];
   return (
     <button
       type="button"
       onClick={() => onSelect(event)}
-      title={`${event.title} · ${meta.label}`}
+      title={t('calendar.eventTooltip', { title: event.title, kind: t(`calendar.kinds.${event.kind}`) })}
       className={cn(
         'group flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[11px] font-medium leading-none text-foreground transition-colors hover:bg-surface-muted',
         className,
@@ -397,7 +404,9 @@ function EventPill({
         style={event.brandColor ? { backgroundColor: event.brandColor } : undefined}
       />
       {event.platform ? <PlatformIcon platform={event.platform} className="h-3 w-3 shrink-0 text-muted-foreground" /> : null}
-      <span className="truncate group-hover:underline">{event.title}</span>
+      <BidiText as="span" className="truncate group-hover:underline">
+        {event.title}
+      </BidiText>
     </button>
   );
 }
@@ -413,6 +422,8 @@ function DayOverflow({
   moreCount: number;
   onSelect: (event: CalendarEventDTO) => void;
 }) {
+  const t = useTranslations('reports');
+  const dfLocale = useDateFnsLocale();
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -420,11 +431,11 @@ function DayOverflow({
           type="button"
           className="rounded-md px-1.5 py-0.5 text-left text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
         >
-          +{moreCount} more
+          {t('calendar.moreCount', { count: moreCount })}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72">
-        <p className="mb-2 text-xs font-semibold text-muted-foreground">{format(day, 'EEEE, MMM d')}</p>
+        <p className="mb-2 text-xs font-semibold text-muted-foreground">{format(day, 'EEEE, MMM d', { locale: dfLocale })}</p>
         <div className="flex flex-col gap-0.5">
           {events.map((event) => (
             <EventPill key={event.id} event={event} className="hover:bg-surface" onSelect={onSelect} />
@@ -442,16 +453,13 @@ function AgendaList({
   eventsByDay: Map<string, CalendarEventDTO[]>;
   onSelect: (event: CalendarEventDTO) => void;
 }) {
+  const t = useTranslations('reports');
+  const tCommon = useTranslations('common');
+  const dfLocale = useDateFnsLocale();
   const sortedKeys = React.useMemo(() => [...eventsByDay.keys()].sort(), [eventsByDay]);
 
   if (sortedKeys.length === 0) {
-    return (
-      <EmptyState
-        icon={CalendarDays}
-        title="Nothing scheduled"
-        description="Campaign milestones, deliverables and publish dates will appear here as they're scheduled."
-      />
-    );
+    return <EmptyState icon={CalendarDays} title={t('calendar.emptyTitle')} description={t('calendar.emptyDescription')} />;
   }
 
   const today = new Date();
@@ -465,12 +473,12 @@ function AgendaList({
           <div key={key} className="flex flex-col gap-3 p-5 sm:flex-row sm:gap-6">
             <div className="flex shrink-0 items-center gap-2 sm:w-40 sm:flex-col sm:items-start">
               <div>
-                <p className="text-sm font-semibold">{format(day, 'EEEE')}</p>
-                <p className="text-xs text-muted-foreground">{format(day, 'MMMM d, yyyy')}</p>
+                <p className="text-sm font-semibold">{format(day, 'EEEE', { locale: dfLocale })}</p>
+                <p className="text-xs text-muted-foreground">{format(day, 'MMMM d, yyyy', { locale: dfLocale })}</p>
               </div>
               {isSameDay(day, today) ? (
                 <Badge tone="accent" solid className="bg-brand text-brand-foreground">
-                  Today
+                  {tCommon('today')}
                 </Badge>
               ) : null}
             </div>
@@ -487,9 +495,11 @@ function AgendaList({
 }
 
 function AgendaRow({ event, onSelect }: { event: CalendarEventDTO; onSelect: (event: CalendarEventDTO) => void }) {
+  const t = useTranslations('reports');
+  const dfLocale = useDateFnsLocale();
   const meta = KIND_META[event.kind];
   const Icon = meta.icon;
-  const subtitle = [meta.label, event.brandName, event.influencerName].filter(Boolean).join(' · ');
+  const kindLabel = t(`calendar.kinds.${event.kind}`);
 
   return (
     <button
@@ -504,16 +514,34 @@ function AgendaRow({ event, onSelect }: { event: CalendarEventDTO; onSelect: (ev
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{event.title}</p>
-        <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+        <BidiText as="p" className="truncate text-sm font-medium">
+          {event.title}
+        </BidiText>
+        <p className="truncate text-xs text-muted-foreground">
+          {kindLabel}
+          {event.brandName ? (
+            <>
+              {' · '}
+              <BidiText as="span">{event.brandName}</BidiText>
+            </>
+          ) : null}
+          {event.influencerName ? (
+            <>
+              {' · '}
+              <BidiText as="span">{event.influencerName}</BidiText>
+            </>
+          ) : null}
+        </p>
       </div>
       {event.platform ? <PlatformIcon platform={event.platform} className="h-4 w-4 shrink-0 text-muted-foreground" /> : null}
-      <span className="shrink-0 text-xs text-muted-foreground">{format(parseISO(event.date), 'MMM d')}</span>
+      <span className="shrink-0 text-xs text-muted-foreground">{format(parseISO(event.date), 'MMM d', { locale: dfLocale })}</span>
     </button>
   );
 }
 
 function EventDrawer({ event, onClose }: { event: CalendarEventDTO | null; onClose: () => void }) {
+  const t = useTranslations('reports');
+  const dfLocale = useDateFnsLocale();
   const meta = event ? KIND_META[event.kind] : null;
   const Icon = meta?.icon;
   return (
@@ -527,22 +555,24 @@ function EventDrawer({ event, onClose }: { event: CalendarEventDTO | null; onClo
                   {Icon ? <Icon className="h-5 w-5" /> : null}
                 </span>
                 <div className="min-w-0">
-                  <SheetTitle className="truncate">{event.title}</SheetTitle>
-                  <SheetDescription>{meta.label}</SheetDescription>
+                  <SheetTitle className="truncate">
+                    <BidiText as="span">{event.title}</BidiText>
+                  </SheetTitle>
+                  <SheetDescription>{t(`calendar.kinds.${event.kind}`)}</SheetDescription>
                 </div>
               </div>
             </SheetHeader>
 
             <div className="space-y-3">
-              <DetailRow label="Date" value={format(parseISO(event.date), 'EEEE, MMMM d, yyyy')} />
-              {event.brandName ? <DetailRow label="Brand" value={event.brandName} /> : null}
-              {event.influencerName ? <DetailRow label="Influencer" value={event.influencerName} /> : null}
-              {event.platform ? <DetailRow label="Platform" value={event.platform} /> : null}
+              <DetailRow label={t('calendar.detail.date')} value={format(parseISO(event.date), 'EEEE, MMMM d, yyyy', { locale: dfLocale })} />
+              {event.brandName ? <DetailRow label={t('calendar.detail.brand')} value={event.brandName} bidi /> : null}
+              {event.influencerName ? <DetailRow label={t('calendar.detail.influencer')} value={event.influencerName} bidi /> : null}
+              {event.platform ? <DetailRow label={t('calendar.detail.platform')} value={event.platform} /> : null}
             </div>
 
             <Button asChild className="w-full">
               <Link href={event.link}>
-                <ExternalLink className="h-4 w-4" /> Open
+                <ExternalLink className="h-4 w-4" /> {t('calendar.detail.open')}
               </Link>
             </Button>
           </div>
@@ -552,11 +582,17 @@ function EventDrawer({ event, onClose }: { event: CalendarEventDTO | null; onClo
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({ label, value, bidi }: { label: string; value: string; bidi?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-2.5 last:border-0">
       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="text-right text-sm font-medium">{value}</span>
+      {bidi ? (
+        <BidiText as="span" className="text-right text-sm font-medium">
+          {value}
+        </BidiText>
+      ) : (
+        <span className="text-right text-sm font-medium">{value}</span>
+      )}
     </div>
   );
 }
@@ -565,8 +601,8 @@ function MonthGridSkeleton() {
   return (
     <Card className="overflow-hidden p-0">
       <div className="grid grid-cols-7 border-b border-border bg-surface-muted/60">
-        {WEEKDAY_LABELS.map((label) => (
-          <div key={label} className="px-3 py-2.5">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="px-3 py-2.5">
             <Skeleton className="mx-auto h-3 w-8" />
           </div>
         ))}

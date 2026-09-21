@@ -1,0 +1,144 @@
+{
+  "feed": {
+    "title": "المحتوى المنشور",
+    "description": "كل محتوى ينشره المؤثرون، فور نشره عبر علاماتك التجارية.",
+    "loadError": "تعذر تحميل جدار المحتوى.",
+    "emptyTitle": "لا يوجد محتوى منشور بعد",
+    "emptyDescription": "سيظهر هنا محتوى المؤثرين المنشور فور نشره.",
+    "emptyFilteredTitle": "لا يوجد محتوى مطابق للتصفية المحددة",
+    "emptyFilteredDescription": "جرّب كلمة بحث مختلفة أو امسح التصفية لعرض الجدار بالكامل.",
+    "newBanner": "{count, plural, zero {لا عناصر جديدة — عرض المحتوى الجديد} one {عنصر جديد واحد — عرض المحتوى الجديد} two {عنصران جديدان — عرض المحتوى الجديد} few {# عناصر جديدة — عرض المحتوى الجديد} many {# عنصرًا جديدًا — عرض المحتوى الجديد} other {# عنصر جديد — عرض المحتوى الجديد}}",
+    "loadMore": "تحميل المزيد",
+    "summary": {
+      "content": "محتوى",
+      "alerts": "تنبيهات",
+      "brandsActive": "علامات نشطة"
+    },
+    "brandOverview": {
+      "emptyTitle": "لا توجد علامات تجارية لعرضها",
+      "emptyDescription": "ستظهر هنا إحصاءات المحتوى الخاصة بكل علامة تجارية."
+    },
+    "filterBar": {
+      "searchPlaceholder": "ابحث في التعليق التوضيحي أو اسم صانع المحتوى…",
+      "searchAriaLabel": "البحث في المحتوى",
+      "brand": "العلامة التجارية",
+      "platform": "المنصة",
+      "allPlatforms": "كل المنصات",
+      "allStatuses": "كل الحالات",
+      "campaign": "الحملة",
+      "allCampaigns": "كل الحملات",
+      "influencer": "المؤثر",
+      "allInfluencers": "كل المؤثرين",
+      "assignment": "الارتباط",
+      "allContent": "كل المحتوى",
+      "reset": "إعادة التعيين",
+      "resultsLoaded": "تم تحميل {count}"
+    },
+    "layouts": {
+      "timeline": "السجل الزمني",
+      "timelineAria": "طريقة عرض السجل الزمني",
+      "byBrand": "حسب العلامة التجارية",
+      "byBrandAria": "طريقة العرض حسب العلامة التجارية",
+      "grid": "شبكة",
+      "gridAria": "طريقة عرض الشبكة",
+      "masonry": "عرض متدرج",
+      "masonryAria": "طريقة العرض المتدرج",
+      "feed": "الخلاصة",
+      "feedAria": "طريقة عرض الخلاصة"
+    },
+    "chips": {
+      "all": "الكل",
+      "groupAriaLabel": "عوامل تصفية المحتوى"
+    }
+  },
+  "timeline": {
+    "emptyTitle": "لا يوجد شيء هنا بعد",
+    "emptyDescription": "سيظهر هنا المحتوى المنشور، مُجمّعًا حسب اليوم والعلامة التجارية.",
+    "noBrand": "بدون علامة تجارية",
+    "dayWithLabel": "{label} — {date}"
+  },
+  "grid": {
+    "emptyTitle": "لا يوجد محتوى بعد",
+    "emptyDescription": "سيظهر هنا محتوى الحملة المنشور."
+  },
+  "player": {
+    "embeddedContentTitle": "محتوى مضمّن",
+    "play": "تشغيل",
+    "playPlatformContent": "تشغيل محتوى {platform}",
+    "previewUnavailable": "المعاينة غير متاحة لهذه المنصة"
+  },
+  "viewer": {
+    "backToFeed": "العودة إلى المحتوى المنشور",
+    "indexOfTotal": "{index} من {total}",
+    "managerCalloutLabel": "ملاحظة إدارية مهمة",
+    "stats": {
+      "views": "المشاهدات",
+      "likes": "الإعجابات",
+      "comments": "التعليقات",
+      "shares": "المشاركات"
+    },
+    "fields": {
+      "published": "تاريخ النشر",
+      "detected": "تاريخ الرصد",
+      "lastChecked": "آخر تحقق",
+      "metricsSource": "مصدر المقاييس"
+    },
+    "notYetChecked": "لم يتم بعد",
+    "recentMonitoring": "أحدث عمليات المراقبة",
+    "activity": "سجل النشاط",
+    "activityEmptyTitle": "لا يوجد نشاط بعد",
+    "activityEmptyDescription": "ستظهر هنا التغييرات على الارتباطات، والتوفر، وتحديثات الحالة لهذا المنشور.",
+    "notes": "الملاحظات",
+    "notesEmptyTitle": "لا توجد ملاحظات بعد",
+    "notesEmptyDescription": "تعليقات داخلية للفريق فقط — يمكن تثبيت إحداها كملاحظة إدارية مهمة.",
+    "notesComposerPlaceholder": "افتتاحية قوية… قد يصلح كأصل لإعلان مدفوع…"
+  },
+  "reviewMode": {
+    "markReviewed": "تحديد كمراجَع",
+    "markUnreviewed": "إلغاء تحديد المراجعة",
+    "markReviewedShortcut": "تحديد كمراجَع (R)",
+    "reviewLaterShortcut": "مراجعة لاحقًا (S)",
+    "reviewLater": "مراجعة لاحقًا",
+    "savedForLater": "محفوظ لمراجعة لاحقة",
+    "progress": "تمت مراجعة {done} من {total}",
+    "nextUnreviewed": "التالي غير المراجَع",
+    "reviewNewContent": "مراجعة المحتوى الجديد",
+    "reviewCountNewContent": "مراجعة {count} من المحتوى الجديد",
+    "caughtUp": "أنت مطّلع على كل جديد — لا يوجد محتوى جديد للمراجعة."
+  },
+  "associations": {
+    "title": "الارتباطات",
+    "edit": "تعديل الارتباطات",
+    "updateSuccess": "تم تحديث الارتباطات.",
+    "fields": {
+      "influencer": "المؤثر",
+      "campaign": "الحملة",
+      "brand": "العلامة التجارية",
+      "deliverable": "المحتوى المطلوب"
+    },
+    "influencerHint": "امسح الحقل لتحديد المحتوى كغير مرتبط",
+    "campaignHint": "امسح الحقل لجعل هذا محتوى مستقلاً",
+    "noCampaign": "بلا حملة",
+    "noCampaignIndependent": "بلا حملة — محتوى مستقل",
+    "validationNote": "يتم التحقق عند الحفظ — يُرفض اختيار مؤثر غير مدرج ضمن قائمة الحملة المختارة بدلاً من حفظه بشكل غير متسق. حفظ الحملة أو المؤثر لهذا المحتوى المرتبط بمحتوى مطلوب، دون تغيير المحتوى المطلوب نفسه، يبقيهما متزامنين تلقائيًا."
+  },
+  "addFlow": {
+    "contentUrlLabel": "رابط المحتوى",
+    "contentUrlHint": "Instagram أو TikTok أو YouTube أو X أو Snapchat",
+    "successToast": "تمت إضافة المحتوى إلى المحتوى المنشور.",
+    "linkedToDeliverable": "مرتبط بـ {label} — يتم تحديد المؤثر والحملة والعلامة التجارية تلقائيًا.",
+    "thisDeliverable": "هذا المحتوى المطلوب",
+    "influencerLabel": "المؤثر:",
+    "influencerFieldLabel": "المؤثر (اختياري)",
+    "influencerFieldHint": "اتركه فارغًا إذا كنت لا تعرف المؤثر بعد",
+    "unknownInfluencer": "لا أعرف المؤثر بعد",
+    "campaignLabel": "الحملة:",
+    "campaignFieldLabel": "الحملة (اختياري)",
+    "linkToCampaign": "ربط بحملة",
+    "deliverableFieldLabel": "المحتوى المطلوب (اختياري)",
+    "deliverableFieldHint": "عند تحديد محتوى مطلوب معيّن، تُشتق بقية البيانات تلقائيًا",
+    "noDeliverable": "غير مرتبط بمحتوى مطلوب محدد",
+    "adding": "جارٍ الإضافة…",
+    "addContent": "إضافة محتوى"
+  }
+}

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { ArrowLeft, CalendarClock, Target, Wallet } from 'lucide-react';
 import type { CampaignDetailDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
@@ -11,6 +12,7 @@ import { ProgressBar } from '@/components/ui/progress';
 import { StatCard } from '@/components/ui/stat-card';
 import { Avatar } from '@/components/ui/avatar';
 import { formatCurrency, shortDate } from '@/lib/format';
+import { BidiText } from '@/components/common/bidi-text';
 import { Workspace } from './workspace';
 import { CampaignActions } from './campaign-actions';
 
@@ -19,6 +21,7 @@ export const dynamic = 'force-dynamic';
 export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const api = getServerApi();
+  const t = await getTranslations('campaigns');
 
   let campaign: CampaignDetailDTO;
   try {
@@ -44,7 +47,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         href="/campaigns"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft className="h-3.5 w-3.5" /> Back to Campaigns
+        <ArrowLeft className="h-3.5 w-3.5" /> {t('workspace.backToCampaigns')}
       </Link>
 
       {/* Hero */}
@@ -69,11 +72,13 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
                 href={`/brands/${campaign.brand.id}`}
                 className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
-                {campaign.brand.name}
+                <BidiText>{campaign.brand.name}</BidiText>
               </Link>
             </div>
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-2xl font-bold tracking-tight">{campaign.name}</h1>
+              <h1 className="text-2xl font-bold tracking-tight">
+                <BidiText>{campaign.name}</BidiText>
+              </h1>
               <CampaignStatusBadge status={campaign.status} />
             </div>
             {campaign.description ? (
@@ -85,12 +90,12 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             <CampaignActions campaign={campaign} />
             <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
               <CalendarClock className="h-4 w-4 text-muted-foreground" />
-              {campaign.startDate ? shortDate(campaign.startDate) : 'No start date'} –{' '}
-              {campaign.endDate ? shortDate(campaign.endDate) : 'Ongoing'}
+              {campaign.startDate ? shortDate(campaign.startDate) : t('workspace.hero.noStartDate')} –{' '}
+              {campaign.endDate ? shortDate(campaign.endDate) : t('workspace.hero.ongoing')}
             </span>
             {p.daysRemaining != null && p.daysRemaining >= 0 ? (
               <span className="text-xs text-muted-foreground">
-                {p.daysRemaining} day{p.daysRemaining === 1 ? '' : 's'} remaining
+                {t('workspace.hero.daysRemaining', { days: p.daysRemaining })}
               </span>
             ) : null}
           </div>
@@ -102,7 +107,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         <Card>
           <CardContent className="flex flex-col gap-3 p-5">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-muted-foreground">Progress</span>
+              <span className="text-sm font-medium text-muted-foreground">{t('workspace.stats.progress')}</span>
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
                 <Target className="size-5" />
               </span>
@@ -112,7 +117,10 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             </p>
             <ProgressBar value={p.deliverableCompletion} tone="brand" />
             <p className="text-xs text-muted-foreground">
-              {p.deliverablesPublished}/{p.deliverablesTotal} deliverables published
+              {t('workspace.stats.deliverablesProgress', {
+                published: p.deliverablesPublished,
+                total: p.deliverablesTotal,
+              })}
             </p>
           </CardContent>
         </Card>
@@ -120,7 +128,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         <Card>
           <CardContent className="flex flex-col gap-3 p-5">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-muted-foreground">Spend</span>
+              <span className="text-sm font-medium text-muted-foreground">{t('workspace.stats.spend')}</span>
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-warning/10 text-warning">
                 <Wallet className="size-5" />
               </span>
@@ -132,23 +140,28 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
               <>
                 <ProgressBar value={p.budgetUsedPercent ?? 0} tone={budgetOverspent ? 'danger' : 'warning'} showLabel />
                 <p className="text-xs text-muted-foreground">
-                  of {formatCurrency(p.plannedBudget, campaign.currency)} planned
+                  {t('workspace.stats.ofPlanned', { budget: formatCurrency(p.plannedBudget, campaign.currency) })}
                 </p>
               </>
             ) : (
-              <p className="text-xs text-muted-foreground">No budget set</p>
+              <p className="text-xs text-muted-foreground">{t('workspace.stats.noBudgetSet')}</p>
             )}
           </CardContent>
         </Card>
 
         <StatCard
-          label="Influencers"
+          label={t('workspace.stats.influencers')}
           value={p.influencersTotal}
           iconName="users"
           tone="info"
-          hint={`${p.influencersCompleted} completed`}
+          hint={t('workspace.stats.influencersCompletedHint', { count: p.influencersCompleted })}
         />
-        <StatCard label="Published Content" value={campaign.publishedContentCount} iconName="content" tone="success" />
+        <StatCard
+          label={t('workspace.stats.publishedContent')}
+          value={campaign.publishedContentCount}
+          iconName="content"
+          tone="success"
+        />
       </div>
 
       <Workspace

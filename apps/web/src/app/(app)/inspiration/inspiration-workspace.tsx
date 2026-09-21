@@ -3,10 +3,11 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { ExternalLink, FileText, Lightbulb, Pin, Plus, Trash2, X } from 'lucide-react';
 import type { BrandSummaryDTO, InspirationItemDTO } from '@influenceos/contracts';
-import { INSPIRATION_CATEGORIES, INSPIRATION_CATEGORY_LABELS, type InspirationCategory } from '@influenceos/shared';
+import { INSPIRATION_CATEGORIES, type InspirationCategory } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { Card } from '@/components/ui/card';
@@ -21,15 +22,20 @@ import { relativeTime } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { useApp } from '@/components/shell/app-context';
 import { CommentThread } from '@/components/collaboration/comment-thread';
+import { enumLabel } from '@/lib/enum-labels';
+import { BidiText } from '@/components/common/bidi-text';
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong.';
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
 }
 
 const CATEGORY_ALL = 'ALL';
 
 function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSummaryDTO[]; open: boolean; onOpenChange: (open: boolean) => void }) {
   const queryClient = useQueryClient();
+  const t = useTranslations('inspiration');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const [url, setUrl] = React.useState('');
   const [title, setTitle] = React.useState('');
   const [note, setNote] = React.useState('');
@@ -62,36 +68,36 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
         campaignId: campaignId || undefined,
         tags: tags
           .split(',')
-          .map((t) => t.trim())
+          .map((tag) => tag.trim())
           .filter(Boolean),
       }),
     onSuccess: () => {
-      toast.success('Saved to Inspiration');
+      toast.success(t('addDialog.savedToast'));
       reset();
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ['inspiration'] });
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Save a trend or reference</DialogTitle>
+          <DialogTitle>{t('addDialog.title')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <Field label="Link">
-            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" autoFocus />
+          <Field label={t('addDialog.linkLabel')}>
+            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={t('addDialog.linkPlaceholder')} autoFocus />
           </Field>
-          <Field label="Title (optional)">
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What is it?" />
+          <Field label={t('addDialog.titleLabel')}>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('addDialog.titlePlaceholder')} />
           </Field>
-          <Field label="Why it's interesting (optional)">
+          <Field label={t('addDialog.noteLabel')}>
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Category">
+            <Field label={t('addDialog.categoryLabel')}>
               <Select value={category} onValueChange={(v) => setCategory(v as InspirationCategory)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -99,13 +105,13 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
                 <SelectContent>
                   {INSPIRATION_CATEGORIES.map((c) => (
                     <SelectItem key={c} value={c}>
-                      {INSPIRATION_CATEGORY_LABELS[c]}
+                      {enumLabel(tEnums, 'inspirationCategory', c)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Relevant brand (optional)">
+            <Field label={t('addDialog.brandLabel')}>
               <Select
                 value={brandId || CATEGORY_ALL}
                 onValueChange={(v) => {
@@ -117,7 +123,7 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={CATEGORY_ALL}>None</SelectItem>
+                  <SelectItem value={CATEGORY_ALL}>{t('none')}</SelectItem>
                   {brands.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
                       {b.name}
@@ -127,13 +133,13 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
               </Select>
             </Field>
           </div>
-          <Field label="Relevant campaign (optional)" hint="Lets you later link this to a script in that campaign">
+          <Field label={t('addDialog.campaignLabel')} hint={t('addDialog.campaignHint')}>
             <Select value={campaignId || CATEGORY_ALL} onValueChange={(v) => setCampaignId(v === CATEGORY_ALL ? '' : v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={CATEGORY_ALL}>None</SelectItem>
+                <SelectItem value={CATEGORY_ALL}>{t('none')}</SelectItem>
                 {campaignOptions.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
@@ -142,16 +148,16 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Tags (comma-separated, optional)">
-            <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="hook, skincare, before-after" />
+          <Field label={t('addDialog.tagsLabel')}>
+            <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t('addDialog.tagsPlaceholder')} />
           </Field>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tCommon('cancel')}
           </Button>
           <Button disabled={!url.trim() || create.isPending} onClick={() => create.mutate()}>
-            {create.isPending ? 'Saving…' : 'Save'}
+            {create.isPending ? tCommon('saving') : tCommon('save')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -160,6 +166,8 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
 }
 
 function InspirationCard({ item, onOpen }: { item: InspirationItemDTO; onOpen: () => void }) {
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   return (
     <Card
       role="button"
@@ -169,22 +177,22 @@ function InspirationCard({ item, onOpen }: { item: InspirationItemDTO; onOpen: (
       className="flex cursor-pointer flex-col gap-2 p-4 transition-shadow hover:shadow-pop"
     >
       <div className="flex items-start justify-between gap-2">
-        <Badge tone="accent">{INSPIRATION_CATEGORY_LABELS[item.category]}</Badge>
+        <Badge tone="accent">{enumLabel(tEnums, 'inspirationCategory', item.category)}</Badge>
         {item.pinned && <Pin className="h-4 w-4 shrink-0 text-brand" />}
       </div>
       <p className="line-clamp-2 font-medium">{item.title ?? item.url}</p>
       {item.note ? <p className="line-clamp-3 text-sm text-muted-foreground">{item.note}</p> : null}
       {item.tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {item.tags.slice(0, 4).map((t) => (
-            <Badge key={t} tone="neutral" className="text-[10px]">
-              #{t}
+          {item.tags.slice(0, 4).map((tag) => (
+            <Badge key={tag} tone="neutral" className="text-[10px]">
+              #{tag}
             </Badge>
           ))}
         </div>
       )}
       <div className="mt-auto flex items-center justify-between pt-1 text-xs text-muted-foreground">
-        <span>{item.brandName ?? 'All brands'}</span>
+        <span>{item.brandName ?? tCommon('allBrands')}</span>
         <span>{relativeTime(item.createdAt)}</span>
       </div>
     </Card>
@@ -194,6 +202,8 @@ function InspirationCard({ item, onOpen }: { item: InspirationItemDTO; onOpen: (
 function ScriptLinkPicker({ item }: { item: InspirationItemDTO }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
+  const t = useTranslations('inspiration');
+  const tCommon = useTranslations('common');
   const scripts = useQuery({
     queryKey: ['campaign-scripts', item.campaignId],
     queryFn: () => api.campaigns.scripts(item.campaignId!),
@@ -203,11 +213,11 @@ function ScriptLinkPicker({ item }: { item: InspirationItemDTO }) {
   const link = useMutation({
     mutationFn: (scriptReferenceId: string | null) => api.inspiration.update(item.id, { scriptReferenceId }),
     onSuccess: () => {
-      toast.success(item.scriptReferenceId ? 'Script unlinked' : 'Script linked');
+      toast.success(item.scriptReferenceId ? t('script.unlinkedToast') : t('script.linkedToast'));
       queryClient.invalidateQueries({ queryKey: ['inspiration'] });
       setOpen(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   if (item.scriptReferenceId) {
@@ -215,9 +225,9 @@ function ScriptLinkPicker({ item }: { item: InspirationItemDTO }) {
       <div className="flex items-center gap-2 text-sm">
         <FileText className="h-3.5 w-3.5 text-muted-foreground" />
         <Link href={`/campaigns/${item.campaignId}?tab=scripts`} className="text-brand hover:underline">
-          {item.scriptReferenceTitle ?? 'Linked script'}
+          {item.scriptReferenceTitle ?? t('script.linkedFallback')}
         </Link>
-        <Button variant="ghost" size="icon-sm" title="Unlink" disabled={link.isPending} onClick={() => link.mutate(null)}>
+        <Button variant="ghost" size="icon-sm" title={t('script.unlink')} disabled={link.isPending} onClick={() => link.mutate(null)}>
           <X className="h-3.5 w-3.5" />
         </Button>
       </div>
@@ -229,14 +239,14 @@ function ScriptLinkPicker({ item }: { item: InspirationItemDTO }) {
   return (
     <div className="relative">
       <Button type="button" variant="outline" size="sm" onClick={() => setOpen((v) => !v)}>
-        <FileText className="h-3.5 w-3.5" /> Link a script
+        <FileText className="h-3.5 w-3.5" /> {t('script.link')}
       </Button>
       {open ? (
         <div className="absolute z-10 mt-1 w-64 rounded-lg border border-border bg-card p-1 shadow-card">
           {scripts.isLoading ? (
-            <p className="px-2 py-1.5 text-xs text-muted-foreground">Loading…</p>
+            <p className="px-2 py-1.5 text-xs text-muted-foreground">{tCommon('loading')}</p>
           ) : (scripts.data ?? []).length === 0 ? (
-            <p className="px-2 py-1.5 text-xs text-muted-foreground">No scripts on this campaign yet.</p>
+            <p className="px-2 py-1.5 text-xs text-muted-foreground">{t('script.noScriptsYet')}</p>
           ) : (
             (scripts.data ?? []).map((s) => (
               <button
@@ -260,39 +270,49 @@ function InspirationDetail({ item, onClose }: { item: InspirationItemDTO; onClos
   const queryClient = useQueryClient();
   const { user } = useApp();
   const canModify = user.role === 'ADMIN' || item.submittedById === user.id;
+  const t = useTranslations('inspiration');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
 
   const togglePin = useMutation({
     mutationFn: () => api.inspiration.update(item.id, { pinned: !item.pinned }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inspiration'] }),
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
   const remove = useMutation({
     mutationFn: () => api.inspiration.remove(item.id),
     onSuccess: () => {
-      toast.success('Removed');
+      toast.success(t('detail.removedToast'));
       queryClient.invalidateQueries({ queryKey: ['inspiration'] });
       onClose();
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <Badge tone="accent">{INSPIRATION_CATEGORY_LABELS[item.category]}</Badge>
-          <h2 className="mt-2 text-lg font-semibold">{item.title ?? 'Untitled'}</h2>
+          <Badge tone="accent">{enumLabel(tEnums, 'inspirationCategory', item.category)}</Badge>
+          <h2 className="mt-2 text-lg font-semibold">{item.title ?? t('detail.untitled')}</h2>
           <p className="text-xs text-muted-foreground">
-            Saved by {item.submittedByName ?? 'Unknown'} · {relativeTime(item.createdAt)}
+            {t.rich('detail.savedBy', { value: item.submittedByName ?? tCommon('unknown'), name: (chunks) => <BidiText>{chunks}</BidiText> })} ·{' '}
+            {relativeTime(item.createdAt)}
             {item.campaignName ? ` · ${item.campaignName}` : ''}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <Button variant="ghost" size="icon-sm" title={item.pinned ? 'Unpin' : 'Pin'} disabled={togglePin.isPending} onClick={() => togglePin.mutate()}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title={item.pinned ? t('detail.unpin') : t('detail.pin')}
+            disabled={togglePin.isPending}
+            onClick={() => togglePin.mutate()}
+          >
             <Pin className={cn('h-4 w-4', item.pinned && 'text-brand')} />
           </Button>
           {canModify && (
-            <Button variant="ghost" size="icon-sm" title="Remove" disabled={remove.isPending} onClick={() => remove.mutate()}>
+            <Button variant="ghost" size="icon-sm" title={tCommon('remove')} disabled={remove.isPending} onClick={() => remove.mutate()}>
               <Trash2 className="h-4 w-4 text-danger" />
             </Button>
           )}
@@ -301,7 +321,7 @@ function InspirationDetail({ item, onClose }: { item: InspirationItemDTO; onClos
 
       <Button asChild variant="secondary" size="sm">
         <a href={item.url} target="_blank" rel="noopener noreferrer">
-          Open link <ExternalLink className="h-3.5 w-3.5" />
+          {tCommon('openOriginal')} <ExternalLink className="h-3.5 w-3.5" />
         </a>
       </Button>
 
@@ -309,9 +329,9 @@ function InspirationDetail({ item, onClose }: { item: InspirationItemDTO; onClos
 
       {item.tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {item.tags.map((t) => (
-            <Badge key={t} tone="neutral">
-              #{t}
+          {item.tags.map((tag) => (
+            <Badge key={tag} tone="neutral">
+              #{tag}
             </Badge>
           ))}
         </div>
@@ -320,13 +340,13 @@ function InspirationDetail({ item, onClose }: { item: InspirationItemDTO; onClos
       {item.campaignId ? <ScriptLinkPicker item={item} /> : null}
 
       <div className="border-t border-border pt-4">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Discussion</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('detail.discussion')}</p>
         <CommentThread
           context={{ inspirationItemId: item.id }}
           cacheKey={`inspiration:${item.id}`}
-          emptyTitle="No comments yet"
-          emptyDescription="What could we borrow from this?"
-          composerPlaceholder="Add a thought… use @ to mention someone"
+          emptyTitle={t('detail.noCommentsYet')}
+          emptyDescription={t('detail.commentsEmptyDescription')}
+          composerPlaceholder={t('detail.commentsComposerPlaceholder')}
         />
       </div>
     </div>
@@ -338,6 +358,8 @@ export function InspirationWorkspace({ brands }: { brands: BrandSummaryDTO[] }) 
   const [selected, setSelected] = React.useState<string | null>(null);
   const [category, setCategory] = React.useState<InspirationCategory | typeof CATEGORY_ALL>(CATEGORY_ALL);
   const [pinnedOnly, setPinnedOnly] = React.useState(false);
+  const t = useTranslations('inspiration');
+  const tEnums = useTranslations('enums');
 
   const query = useQuery({
     queryKey: ['inspiration', { category, pinnedOnly }],
@@ -360,30 +382,30 @@ export function InspirationWorkspace({ brands }: { brands: BrandSummaryDTO[] }) 
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={CATEGORY_ALL}>All categories</SelectItem>
+            <SelectItem value={CATEGORY_ALL}>{t('filters.allCategories')}</SelectItem>
             {INSPIRATION_CATEGORIES.map((c) => (
               <SelectItem key={c} value={c}>
-                {INSPIRATION_CATEGORY_LABELS[c]}
+                {enumLabel(tEnums, 'inspirationCategory', c)}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Button variant={pinnedOnly ? 'secondary' : 'outline'} size="sm" onClick={() => setPinnedOnly((v) => !v)}>
-          <Pin className="h-3.5 w-3.5" /> Pinned
+          <Pin className="h-3.5 w-3.5" /> {t('filters.pinnedOnly')}
         </Button>
         <Button size="sm" className="ms-auto" onClick={() => setAddOpen(true)}>
-          <Plus className="h-3.5 w-3.5" /> Save trend
+          <Plus className="h-3.5 w-3.5" /> {t('actions.saveTrend')}
         </Button>
       </div>
 
       {items.length === 0 ? (
         <EmptyState
           icon={Lightbulb}
-          title="Nothing saved yet"
-          description="Drop a link to a competitor ad, a trending format, or a technique worth remembering."
+          title={t('empty.title')}
+          description={t('empty.description')}
           action={
             <Button size="sm" onClick={() => setAddOpen(true)}>
-              <Plus className="h-3.5 w-3.5" /> Save trend
+              <Plus className="h-3.5 w-3.5" /> {t('actions.saveTrend')}
             </Button>
           }
         />

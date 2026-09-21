@@ -1,6 +1,7 @@
 'use client';
 import * as React from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Activity as ActivityIcon,
@@ -18,6 +19,7 @@ import {
 import type { ContentViewerStateDTO, PublishedContentDTO } from '@influenceos/contracts';
 import { contentReviewStatus } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
+import { enumLabel } from '@/lib/enum-labels';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { PlatformBadge } from '@/components/ui/platform-badge';
@@ -27,6 +29,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { SocialContentPlayer } from './social-content-player';
 import { CommentThread } from '@/components/collaboration/comment-thread';
 import { ActivityFeed } from '@/components/common/activity-feed';
+import { BidiText } from '@/components/common/bidi-text';
 import { dateTime, formatCompact, relativeTime } from '@/lib/format';
 
 const EMPTY_STATE: ContentViewerStateDTO = { firstSeenAt: null, lastOpenedAt: null, reviewedAt: null, savedForLaterAt: null };
@@ -70,6 +73,8 @@ export function ContentViewer({
   /** Optional externally-tracked "N of M reviewed" — falls back to counting `items` locally. */
   reviewProgress?: { done: number; total: number };
 }) {
+  const t = useTranslations('content');
+  const tCommon = useTranslations('common');
   const queryClient = useQueryClient();
   const [localState, setLocalState] = React.useState<Record<string, ContentViewerStateDTO>>({});
   // The Mark Reviewed button flips its label optimistically (before the PATCH
@@ -212,10 +217,10 @@ export function ContentViewer({
             size="sm"
             onClick={handleMarkReviewed}
             disabled={busy}
-            title="Mark Reviewed (R)"
+            title={t('reviewMode.markReviewedShortcut')}
           >
             {isReviewed ? <Undo2 className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
-            {isReviewed ? 'Mark Unreviewed' : 'Mark Reviewed'}
+            {isReviewed ? t('reviewMode.markUnreviewed') : t('reviewMode.markReviewed')}
           </Button>
           <Button
             type="button"
@@ -223,15 +228,15 @@ export function ContentViewer({
             size="sm"
             onClick={handleReviewLater}
             disabled={busy}
-            title="Review Later (S)"
+            title={t('reviewMode.reviewLaterShortcut')}
           >
             {isSavedForLater ? <BookmarkCheck className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
-            {isSavedForLater ? 'Saved for later' : 'Review Later'}
+            {isSavedForLater ? t('reviewMode.savedForLater') : t('reviewMode.reviewLater')}
           </Button>
 
           {reviewMode ? (
             <span className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
-              {progress.done} of {progress.total} reviewed
+              {t('reviewMode.progress', { done: progress.done, total: progress.total })}
               <Button
                 type="button"
                 variant="ghost"
@@ -242,20 +247,20 @@ export function ContentViewer({
                   if (next !== -1) onIndexChange(next);
                 }}
               >
-                Next unreviewed <SkipForward className="h-3.5 w-3.5" />
+                {t('reviewMode.nextUnreviewed')} <SkipForward className="h-3.5 w-3.5" />
               </Button>
             </span>
           ) : (
             <span className="ms-auto text-xs text-muted-foreground">
-              {index + 1} of {items.length}
+              {t('viewer.indexOfTotal', { index: index + 1, total: items.length })}
             </span>
           )}
 
           <Button variant="ghost" size="sm" disabled={index <= 0} onClick={() => onIndexChange(index - 1)}>
-            <ChevronLeft className="h-4 w-4" /> Previous
+            <ChevronLeft className="h-4 w-4" /> {tCommon('previous')}
           </Button>
           <Button variant="ghost" size="sm" disabled={index >= items.length - 1} onClick={() => onIndexChange(index + 1)}>
-            Next <ChevronRight className="h-4 w-4" />
+            {tCommon('next')} <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </DialogContent>
@@ -267,6 +272,8 @@ export function ContentViewer({
  *  pinned top-level content note surfaced above the fold, sharing the SAME query cache key CommentThread
  *  below uses, so pinning a note there updates this banner without an extra fetch. */
 function ManagerCallout({ contentId }: { contentId: string }) {
+  const t = useTranslations('content');
+  const tCommon = useTranslations('common');
   const thread = useQuery({
     queryKey: ['comment-thread', `content:${contentId}`],
     queryFn: () => api.notes.list({ publishedContentId: contentId }, { limit: 30 }),
@@ -277,7 +284,9 @@ function ManagerCallout({ contentId }: { contentId: string }) {
     <div className="flex items-start gap-2 rounded-lg border border-brand/40 bg-brand-soft/40 px-3 py-2 text-sm">
       <Pin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
       <div className="min-w-0">
-        <p className="text-xs font-semibold text-brand">Manager Callout · {pinned.authorName ?? 'Unknown'}</p>
+        <p className="text-xs font-semibold text-brand">
+          {t('viewer.managerCalloutLabel')} · <BidiText>{pinned.authorName ?? tCommon('unknown')}</BidiText>
+        </p>
         <p className="whitespace-pre-wrap text-foreground/90">{pinned.body}</p>
       </div>
     </div>
@@ -285,6 +294,9 @@ function ManagerCallout({ contentId }: { contentId: string }) {
 }
 
 export function ContentDetails({ content }: { content: PublishedContentDTO }) {
+  const t = useTranslations('content');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const monitoring = useQuery({
     queryKey: ['content', content.id, 'monitoring'],
     queryFn: () => api.content.monitoring(content.id),
@@ -301,10 +313,10 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
         <div className="min-w-0 flex-1">
           {content.influencer ? (
             <Link href={`/influencers/${content.influencer.id}`} className="truncate font-semibold hover:underline">
-              {content.influencer.displayName}
+              <BidiText>{content.influencer.displayName}</BidiText>
             </Link>
           ) : (
-            <p className="truncate font-semibold">Unassigned</p>
+            <p className="truncate font-semibold">{enumLabel(tEnums, 'contentAssociationStatus', 'UNASSIGNED')}</p>
           )}
           {content.campaign ? (
             <Link href={`/campaigns/${content.campaign.id}`} className="truncate text-xs text-muted-foreground hover:underline">
@@ -319,7 +331,7 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
           )}
         </div>
         <Badge tone={reviewStatus === 'NEW' ? 'info' : reviewStatus === 'REVIEWED' ? 'success' : 'neutral'}>
-          {reviewStatus === 'NEW' ? 'New' : reviewStatus === 'REVIEWED' ? 'Reviewed' : 'Seen'}
+          {enumLabel(tEnums, 'contentReviewStatus', reviewStatus)}
         </Badge>
       </div>
 
@@ -329,10 +341,10 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
         {content.deliverable ? (
           content.campaign ? (
             <Link href={`/campaigns/${content.campaign.id}?tab=submissions`}>
-              <Badge tone="accent">{content.deliverable.type}</Badge>
+              <Badge tone="accent">{enumLabel(tEnums, 'deliverableType', content.deliverable.type)}</Badge>
             </Link>
           ) : (
-            <Badge tone="accent">{content.deliverable.type}</Badge>
+            <Badge tone="accent">{enumLabel(tEnums, 'deliverableType', content.deliverable.type)}</Badge>
           )
         ) : null}
       </div>
@@ -340,24 +352,31 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
       {content.caption ? <p className="text-sm text-muted-foreground">{content.caption}</p> : null}
 
       <div className="grid grid-cols-2 gap-2">
-        <Stat label="Views" value={m?.views} />
-        <Stat label="Likes" value={m?.likes} />
-        <Stat label="Comments" value={m?.comments} />
-        <Stat label="Shares" value={m?.shares} />
+        <Stat label={t('viewer.stats.views')} value={m?.views} na={tCommon('na')} />
+        <Stat label={t('viewer.stats.likes')} value={m?.likes} na={tCommon('na')} />
+        <Stat label={t('viewer.stats.comments')} value={m?.comments} na={tCommon('na')} />
+        <Stat label={t('viewer.stats.shares')} value={m?.shares} na={tCommon('na')} />
       </div>
 
       <dl className="space-y-1.5 text-sm">
-        <Row label="Published" value={content.publishedAt ? dateTime(content.publishedAt) : '—'} />
-        <Row label="Detected" value={dateTime(content.detectedAt)} />
-        <Row label="Last checked" value={content.lastCheckedAt ? relativeTime(content.lastCheckedAt) : 'Not yet'} />
-        <Row label="Metrics source" value={m?.source ?? content.provenance.source} />
+        <Row label={t('viewer.fields.published')} value={content.publishedAt ? dateTime(content.publishedAt) : '—'} />
+        <Row label={t('viewer.fields.detected')} value={dateTime(content.detectedAt)} />
+        <Row
+          label={t('viewer.fields.lastChecked')}
+          value={content.lastCheckedAt ? relativeTime(content.lastCheckedAt) : t('viewer.notYetChecked')}
+        />
+        <Row
+          label={t('viewer.fields.metricsSource')}
+          value={enumLabel(tEnums, 'dataSource', m?.source ?? content.provenance.source)}
+        />
       </dl>
 
       {monitoring.data && monitoring.data.length > 0 ? (
         <div className="rounded-lg border border-border bg-surface-muted p-3 text-xs">
-          <p className="mb-1 font-medium">Recent monitoring</p>
+          <p className="mb-1 font-medium">{t('viewer.recentMonitoring')}</p>
           <p className="text-muted-foreground">
-            {monitoring.data[0]!.toStatus ?? '—'} · {relativeTime(monitoring.data[0]!.checkedAt)}
+            {monitoring.data[0]!.toStatus ? enumLabel(tEnums, 'contentStatus', monitoring.data[0]!.toStatus!) : '—'} ·{' '}
+            {relativeTime(monitoring.data[0]!.checkedAt)}
           </p>
         </div>
       ) : null}
@@ -365,7 +384,7 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
       <div className="flex gap-2">
         <Button asChild variant="secondary" size="sm" className="flex-1">
           <a href={content.originalUrl} target="_blank" rel="noopener noreferrer">
-            Open original <ExternalLink className="h-3.5 w-3.5" />
+            {tCommon('openOriginal')} <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </Button>
         <RefreshButton id={content.id} />
@@ -378,24 +397,24 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
           CommentThread section below, which is human discussion, not history. */}
       <div className="space-y-2 rounded-lg border border-border bg-surface-muted/40 p-3">
         <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <ActivityIcon className="h-3.5 w-3.5" /> Activity
+          <ActivityIcon className="h-3.5 w-3.5" /> {t('viewer.activity')}
         </p>
         <ActivityFeed
           filter={{ publishedContentId: content.id, limit: 20 }}
           queryKey={['content-activity', content.id]}
-          emptyTitle="No activity yet"
-          emptyDescription="Association changes, availability and status updates for this post will show up here."
+          emptyTitle={t('viewer.activityEmptyTitle')}
+          emptyDescription={t('viewer.activityEmptyDescription')}
         />
       </div>
 
       <div className="space-y-2 border-t border-border pt-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('viewer.notes')}</p>
         <CommentThread
           context={{ publishedContentId: content.id }}
           cacheKey={`content:${content.id}`}
-          emptyTitle="No notes yet"
-          emptyDescription="Staff commentary only — pin one as a Manager Callout for the team."
-          composerPlaceholder="Strong opening hook… potential paid-media asset…"
+          emptyTitle={t('viewer.notesEmptyTitle')}
+          emptyDescription={t('viewer.notesEmptyDescription')}
+          composerPlaceholder={t('viewer.notesComposerPlaceholder')}
         />
       </div>
     </div>
@@ -403,6 +422,7 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
 }
 
 function RefreshButton({ id }: { id: string }) {
+  const tCommon = useTranslations('common');
   const [loading, setLoading] = React.useState(false);
   async function refresh() {
     setLoading(true);
@@ -413,16 +433,16 @@ function RefreshButton({ id }: { id: string }) {
     }
   }
   return (
-    <Button variant="outline" size="sm" onClick={refresh} disabled={loading} aria-label="Refresh">
+    <Button variant="outline" size="sm" onClick={refresh} disabled={loading} aria-label={tCommon('refresh')}>
       <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
     </Button>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number | null | undefined }) {
+function Stat({ label, value, na }: { label: string; value: number | null | undefined; na: string }) {
   return (
     <div className="rounded-lg border border-border bg-surface-muted px-3 py-2">
-      <p className="text-lg font-semibold">{value == null ? 'N/A' : formatCompact(value)}</p>
+      <p className="text-lg font-semibold">{value == null ? na : formatCompact(value)}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );

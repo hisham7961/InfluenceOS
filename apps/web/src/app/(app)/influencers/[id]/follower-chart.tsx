@@ -3,12 +3,14 @@
 import * as React from 'react';
 import { format, parseISO } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { API_PREFIX, type Platform, type SocialAccountDTO } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PlatformIcon } from '@/components/ui/platform-badge';
+import { LtrText } from '@/components/common/bidi-text';
 import { formatCompact } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
@@ -24,13 +26,13 @@ interface FollowerSeriesAccount {
   points: FollowerSeriesPoint[];
 }
 
-const RANGES = [
-  { key: '30d', label: '30D', days: 30 },
-  { key: '90d', label: '90D', days: 90 },
-  { key: 'all', label: 'All', days: null },
+const RANGE_DAYS = [
+  { key: '30d', days: 30 },
+  { key: '90d', days: 90 },
+  { key: 'all', days: null },
 ] as const;
 
-type RangeKey = (typeof RANGES)[number]['key'];
+type RangeKey = (typeof RANGE_DAYS)[number]['key'];
 
 /** Growth chart for an influencer's followers — one area series per synced social account. */
 export function FollowerChart({
@@ -40,6 +42,12 @@ export function FollowerChart({
   influencerId: string;
   accounts: SocialAccountDTO[];
 }) {
+  const t = useTranslations('influencers');
+  const RANGES = [
+    { key: '30d' as const, label: t('detail.followerChart.range30d'), days: 30 },
+    { key: '90d' as const, label: t('detail.followerChart.range90d'), days: 90 },
+    { key: 'all' as const, label: t('detail.followerChart.rangeAll'), days: null },
+  ];
   const { data, isLoading, isError } = useQuery({
     queryKey: ['influencer-followers', influencerId],
     queryFn: () => api.http.get<FollowerSeriesAccount[]>(`${API_PREFIX}/influencers/${influencerId}/followers`),
@@ -55,7 +63,7 @@ export function FollowerChart({
 
   const points = React.useMemo(() => {
     if (!active) return [];
-    const rangeDef = RANGES.find((r) => r.key === range);
+    const rangeDef = RANGE_DAYS.find((r) => r.key === range);
     const cutoff = rangeDef?.days ? Date.now() - rangeDef.days * 24 * 60 * 60 * 1000 : null;
     return active.points
       .filter((p): p is { capturedAt: string; followers: number } => p.followers != null)
@@ -65,8 +73,8 @@ export function FollowerChart({
   if (accounts.length === 0) {
     return (
       <EmptyState
-        title="No social accounts linked"
-        description="Growth charts appear once a social profile is connected."
+        title={t('detail.followerChart.noAccountsTitle')}
+        description={t('detail.followerChart.noAccountsDescription')}
         className="h-56 border-0 bg-transparent py-8"
       />
     );
@@ -79,8 +87,8 @@ export function FollowerChart({
   if (isError || series.length === 0 || points.length === 0) {
     return (
       <EmptyState
-        title="No growth history yet"
-        description="Follower snapshots build up over time as this profile is synced."
+        title={t('detail.followerChart.noHistoryTitle')}
+        description={t('detail.followerChart.noHistoryDescription')}
         className="h-56 border-0 bg-transparent py-8"
       />
     );
@@ -103,7 +111,8 @@ export function FollowerChart({
                     : 'border-border bg-surface text-muted-foreground hover:bg-surface-muted',
                 )}
               >
-                <PlatformIcon platform={s.platform} className="h-3.5 w-3.5" />@{s.username}
+                <PlatformIcon platform={s.platform} className="h-3.5 w-3.5" />
+                <LtrText>@{s.username}</LtrText>
               </button>
             ))}
           </div>
@@ -153,7 +162,7 @@ export function FollowerChart({
               width={48}
             />
             <Tooltip
-              formatter={(value: number) => [formatCompact(value), 'Followers']}
+              formatter={(value: number) => [formatCompact(value), t('detail.followerChart.tooltipFollowers')]}
               labelFormatter={(d: string) => format(parseISO(d), 'MMM d, yyyy')}
               contentStyle={{
                 borderRadius: 12,

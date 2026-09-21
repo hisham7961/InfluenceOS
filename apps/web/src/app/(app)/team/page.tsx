@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server';
 import { PageHeader } from '@/components/common/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { CommentThread } from '@/components/collaboration/comment-thread';
@@ -11,19 +12,19 @@ export const dynamic = 'force-dynamic';
  * comment surface (Content, Deliverable, Shipment, Trends, Campaign Chat),
  * scoped by channel: 'general' — never a bespoke chat system.
  */
-export default function TeamPage() {
+export default async function TeamPage() {
+  const t = await getTranslations('collaboration');
   return (
     <div>
-      <PageHeader title="Team" description="General coordination that doesn't belong to one brand or campaign." />
+      <PageHeader title={t('teamChat.pageTitle')} description={t('teamChat.pageDescription')} />
       <Card>
         <CardContent className="pt-6">
           <CommentThread
             context={{ channel: 'general' }}
             cacheKey="general-chat"
             conversationKey="channel:general"
-            emptyTitle="No messages yet"
-            emptyDescription="Say hello, or post something the whole team should know."
-            composerPlaceholder="Message the team… use @ to mention someone"
+            emptyDescription={t('teamChat.emptyDescription')}
+            composerPlaceholder={t('teamChat.composerPlaceholder')}
           />
         </CardContent>
       </Card>

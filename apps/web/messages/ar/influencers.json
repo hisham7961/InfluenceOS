@@ -1,0 +1,402 @@
+{
+  "directory": {
+    "pageTitle": "المؤثرون",
+    "pageDescription": "شبكة المؤثرين العالمية لديك.",
+    "addInfluencer": "إضافة مؤثر",
+    "exportCsv": "تصدير CSV",
+    "empty": {
+      "filteredTitle": "لا يوجد مؤثرون يطابقون عوامل التصفية",
+      "filteredDescription": "جرّب مصطلح بحث مختلفًا أو امسح عوامل التصفية لعرض الجميع.",
+      "emptyTitle": "ابدأ ببناء شبكة المؤثرين لديك",
+      "emptyDescription": "أضف أول مؤثر لبدء تتبع العلاقات والحملات والمحتوى."
+    },
+    "pagination": {
+      "summary": "الصفحة {page} من {totalPages} · عدد المؤثرين: {count}"
+    },
+    "filters": {
+      "searchPlaceholder": "ابحث بالاسم أو @اسم المستخدم…",
+      "searchAriaLabel": "البحث عن المؤثرين",
+      "platformPlaceholder": "المنصة",
+      "allPlatforms": "جميع المنصات",
+      "relationshipPlaceholder": "العلاقة",
+      "allRelationships": "جميع حالات العلاقة",
+      "countryPlaceholder": "دولة المؤثر",
+      "cityPlaceholder": "المدينة",
+      "cityAriaLabel": "التصفية حسب المدينة",
+      "reset": "إعادة التعيين"
+    },
+    "countryStrip": {
+      "ariaLabel": "التصفية حسب الدولة",
+      "allCreators": "كل المؤثرين"
+    },
+    "savedViews": {
+      "trigger": "طرق العرض",
+      "label": "طرق العرض المحفوظة",
+      "empty": "لا توجد طرق عرض محفوظة بعد.",
+      "saveCurrent": "حفظ عوامل التصفية الحالية",
+      "namePrompt": "سمِّ طريقة العرض هذه",
+      "viewSaved": "تم حفظ طريقة العرض",
+      "viewDeleted": "تم حذف طريقة العرض",
+      "deleteAriaLabel": "حذف {name}"
+    },
+    "results": {
+      "viewToggleAriaLabel": "عرض الدليل",
+      "viewCards": "بطاقات",
+      "viewList": "قائمة",
+      "viewTable": "جدول",
+      "table": {
+        "selectAllAriaLabel": "تحديد الكل",
+        "selectRowAriaLabel": "تحديد {name}",
+        "influencer": "المؤثر",
+        "platform": "المنصة",
+        "country": "دولة المؤثر",
+        "status": "الحالة",
+        "audience": "الجمهور",
+        "followers": "المتابعون",
+        "campaigns": "الحملات"
+      },
+      "previewAriaLabel": "معاينة {name}",
+      "totalFollowersBadge": "{count} إجمالاً",
+      "preview": {
+        "totalFollowers": "إجمالي المتابعين",
+        "activeCampaigns": "الحملات النشطة",
+        "campaignsAllTime": "الحملات (كل الأوقات)",
+        "accounts": "الحسابات",
+        "platforms": "المنصات",
+        "viewFullProfile": "عرض الملف الكامل 360"
+      }
+    },
+    "bulkActions": {
+      "selectedBadge": "{count} محدد",
+      "actionAssignOwner": "تعيين مسؤول",
+      "actionAddTag": "إضافة وسم",
+      "actionSetRelationshipStatus": "تحديد حالة العلاقة",
+      "chooseOwnerPlaceholder": "اختر المسؤول…",
+      "tagNamePlaceholder": "اسم الوسم…",
+      "tagNameAriaLabel": "اسم الوسم",
+      "previewButton": "معاينة",
+      "clearSelectionAriaLabel": "إلغاء التحديد",
+      "confirmTitle": "تأكيد الإجراء الجماعي",
+      "confirmDescription": "سيتم تحديث {willUpdate} من أصل {selected}. سيتم تخطي {willSkip}.",
+      "willUpdateBadge": "سيتم تحديثه",
+      "skipBadge": "سيتم تخطيه",
+      "applyButton": "تطبيق على {count}",
+      "updatedToast": "تم تحديث {count} من المؤثرين.",
+      "updatedWithFailuresToast": "تم تحديث {count} من المؤثرين. فشل تحديث {failed}."
+    }
+  },
+  "form": {
+    "addPageTitle": "إضافة مؤثر",
+    "addPageDescription": "استخرج بيانات الملف الشخصي تلقائيًا، أو أدخل التفاصيل يدويًا لتنمية شبكة المؤثرين لديك.",
+    "backToDirectory": "العودة إلى الدليل",
+    "findCreator": {
+      "cardTitle": "البحث عن المؤثر",
+      "cardDescription": "الصق رابط الملف الشخصي أو @اسم المستخدم — سنحاول استخراج المنصة والصورة الرمزية وعدد المتابعين تلقائيًا.",
+      "inputPlaceholder": "https://instagram.com/creator or @creator",
+      "platformPlaceholder": "المنصة",
+      "autoDetect": "كشف تلقائي",
+      "resolve": "جلب البيانات",
+      "resolving": "جارٍ الجلب…",
+      "verified": "موثّق",
+      "followersSuffix": "{count} متابع",
+      "couldNotResolve": "تعذّر استخراج بيانات هذا الملف الشخصي. يمكنك إدخال التفاصيل يدويًا أدناه.",
+      "skipHint": "اختياري — يمكنك تخطي هذه الخطوة وإدخال كل التفاصيل يدويًا.",
+      "pasteFirstToast": "الصق رابط الملف الشخصي أو @اسم المستخدم أولاً.",
+      "manualDataUnavailableToast": "البيانات الرسمية غير متاحة لهذا الملف الشخصي — أضفه يدويًا أدناه.",
+      "foundToast": "تم العثور على @{username} على {platform}."
+    },
+    "duplicateWarning": {
+      "titleExact": "يبدو أن هذا المؤثر مسجّل لدينا بالفعل",
+      "titlePossible": "قد يكون هذا المؤثر مسجلاً مسبقًا",
+      "matchesFound": "{count} من المؤثرين المسجلين لدينا مسبقًا يشتركون في تفاصيل تعريفية مماثلة لما أدخلته.",
+      "advisoryNote": "هذا للاطلاع فقط — لن يتم تعبئة أي بيانات أو دمجها تلقائيًا.",
+      "sameField": "نفس {field}: {value}",
+      "openExistingProfile": "فتح السجل الموجود",
+      "proceedAnyway": "المتابعة على أي حال — هذا مؤثر جديد",
+      "confidenceExact": "تطابق تام",
+      "confidencePossible": "تطابق محتمل",
+      "fieldName": "الاسم",
+      "fieldEmail": "البريد الإلكتروني",
+      "fieldMobile": "الجوال",
+      "fieldWhatsapp": "واتساب"
+    },
+    "details": {
+      "cardTitle": "تفاصيل المؤثر",
+      "cardDescription": "كل ما يحتاجه فريقك للتواصل وتتبع هذه العلاقة."
+    },
+    "fields": {
+      "displayName": "الاسم المعروض",
+      "displayNameHint": "يظهر في جميع أنحاء InfluenceOS",
+      "displayNamePlaceholder": "مثال: سارة الفهد",
+      "fullName": "الاسم الكامل",
+      "fullNamePlaceholder": "الاسم القانوني",
+      "category": "الفئة",
+      "categoryPlaceholder": "الجمال، اللياقة، الطعام…",
+      "priority": "الأولوية",
+      "country": "دولة المؤثر",
+      "countryRequiredHint": "إلزامي — يُستخدم في التصفية والنطاق حسب دولة المؤثر.",
+      "countryProfileHint": "دولة المؤثر في ملفه الشخصي — وهي مختلفة عن دولة وجهة شحنة معيّنة.",
+      "countryPlaceholder": "اختر دولة",
+      "noCountrySet": "لم تُحدَّد الدولة",
+      "city": "المدينة",
+      "cityPlaceholder": "مدينة الكويت",
+      "relationshipStatus": "حالة العلاقة",
+      "languages": "اللغات",
+      "languagesHint": "مفصولة بفواصل",
+      "languagesPlaceholder": "العربية، الإنجليزية",
+      "email": "البريد الإلكتروني",
+      "emailPlaceholder": "creator@email.com",
+      "mobile": "الجوال",
+      "mobilePlaceholder": "+965 ...",
+      "whatsapp": "واتساب",
+      "whatsappPlaceholder": "+965 ...",
+      "tags": "الوسوم",
+      "tagsHint": "مفصولة بفواصل",
+      "tagsPlaceholder": "ramadan, macro, ugc",
+      "pricingNotes": "ملاحظات التسعير",
+      "pricingNotesPlaceholder": "الأسعار القياسية، القابل للتفاوض، الصفقات السابقة…",
+      "internalNotes": "ملاحظات داخلية",
+      "internalNotesPlaceholder": "أي شيء يجب أن يعرفه فريقك قبل التواصل",
+      "bio": "نبذة تعريفية",
+      "bioPlaceholder": "نبذة مختصرة…",
+      "primaryUsername": "اسم المستخدم الأساسي",
+      "primaryUsernameHint": "بدون علامة @",
+      "primaryUsernamePlaceholder": "creator",
+      "active": "نشط",
+      "activeHint": "يتم إخفاء المؤثرين غير النشطين من القوائم النشطة."
+    },
+    "validation": {
+      "displayNameRequired": "الاسم المعروض إلزامي.",
+      "countryRequired": "الدولة إلزامية — تُستخدم في التصفية والنطاق حسب دولة المؤثر."
+    },
+    "submit": {
+      "adding": "جارٍ الإضافة…"
+    },
+    "successToast": "تمت إضافة {name} إلى شبكتك.",
+    "linkFailedToast": "تم إنشاء المؤثر، لكن ربط الحساب الاجتماعي فشل: {error}",
+    "preview": {
+      "title": "معاينة",
+      "fallbackName": "مؤثر جديد",
+      "priorityBadge": "أولوية {priority}",
+      "followersCount": "{count} متابع",
+      "fillFormHint": "عبِّئ النموذج وستُستكمل هذه البطاقة تلقائيًا أثناء الكتابة."
+    },
+    "edit": {
+      "title": "تعديل المؤثر",
+      "dialogDescription": "تحديث الملف الشخصي وبيانات التواصل لهذا المؤثر.",
+      "saveChanges": "حفظ التغييرات",
+      "updatedToast": "تم تحديث {name}."
+    }
+  },
+  "detail": {
+    "backToInfluencers": "العودة إلى المؤثرين",
+    "managedBy": "يتابعه {name}",
+    "noContactInfo": "لا توجد بيانات تواصل مسجّلة",
+    "whatsappButton": "واتساب",
+    "emailButton": "البريد الإلكتروني",
+    "callButton": "اتصال",
+    "stats": {
+      "totalFollowers": "إجمالي المتابعين",
+      "campaigns": "الحملات",
+      "activeNow": "{count} نشطة الآن",
+      "averageRate": "متوسط السعر",
+      "deliverablesPublished": "المحتوى المطلوب المنشور",
+      "ofTotal": "من أصل {count}"
+    },
+    "tabs": {
+      "overview": "نظرة عامة",
+      "socialProfiles": "الحسابات الاجتماعية",
+      "campaignHistory": "سجل الحملات",
+      "timeline": "السجل الزمني",
+      "content": "المحتوى",
+      "ugc": "محتوى UGC",
+      "shipmentHistory": "سجل الشحنات",
+      "costs": "التكاليف",
+      "notes": "الملاحظات",
+      "brands": "العلامات التجارية"
+    },
+    "overview": {
+      "aboutTitle": "نبذة",
+      "noBio": "لا توجد نبذة تعريفية مسجّلة بعد.",
+      "notesTitle": "ملاحظات التسعير والملاحظات الداخلية",
+      "pricingNotesLabel": "ملاحظات التسعير",
+      "internalNotesLabel": "ملاحظات داخلية",
+      "audienceHealthTitle": "صحة الجمهور",
+      "dataPointsAnalyzed": "{count} نقطة بيانات تم تحليلها",
+      "noSignalsYet": "لا توجد مؤشرات جمهور بعد."
+    },
+    "campaignHistory": {
+      "timelineCardTitle": "السجل الزمني",
+      "firstCollaboration": "أول تعاون",
+      "lastCollaboration": "آخر تعاون",
+      "brandsWorkedWithTitle": "العلامات التجارية التي تم التعاون معها",
+      "noBrandHistory": "لا يوجد سجل تعاون مع علامات تجارية بعد."
+    },
+    "content": {
+      "addContent": "إضافة محتوى",
+      "dialogTitle": "إضافة محتوى منشور",
+      "dialogDescription": "لـ {name}. الصق رابطًا عامًا — لا حاجة إلى حملة للمحتوى المستقل.",
+      "emptyTitle": "لا يوجد محتوى بعد",
+      "emptyDescription": "سيظهر هنا المحتوى المنشور من {name}. لا يحتاج المحتوى إلى حملة."
+    },
+    "costs": {
+      "totalPaid": "إجمالي المدفوعات",
+      "averageRate": "متوسط السعر",
+      "deliverablesPublished": "المحتوى المطلوب المنشور",
+      "pricingNotesTitle": "ملاحظات التسعير"
+    },
+    "brands": {
+      "emptyTitle": "لا توجد علاقات مع علامات تجارية بعد",
+      "emptyDescription": "ستظهر هنا علاقات المؤثر بالعلامات التجارية بمجرد انضمامه إلى قائمة إحدى العلامات.",
+      "collaborations": "التعاونات",
+      "defaultRate": "السعر الافتراضي",
+      "lastCampaign": "آخر حملة {time}"
+    },
+    "notes": {
+      "addNote": "إضافة ملاحظة",
+      "composerPlaceholder": "سجّل مكالمة، تفاوضًا على السعر، أو ملاحظة تحذيرية… استخدم @ للإشارة إلى أحد الزملاء",
+      "emptyTitle": "لا توجد ملاحظات بعد",
+      "emptyDescription": "ستظهر هنا الملاحظات الداخلية المتعلقة بهذا المؤثر.",
+      "pinNote": "تثبيت الملاحظة",
+      "unpinNote": "إلغاء تثبيت الملاحظة",
+      "deleteNote": "حذف الملاحظة",
+      "noteAdded": "تمت إضافة الملاحظة",
+      "noteRemoved": "تمت إزالة الملاحظة"
+    },
+    "snapshot": {
+      "logisticsBannerSingle": "الخدمات اللوجستية بحاجة إلى توضيح العنوان — {issueType}",
+      "logisticsBannerMultiple": "الخدمات اللوجستية بحاجة إلى توضيح العنوان على {count} شحنات",
+      "viewInLogistics": "عرض في الخدمات اللوجستية",
+      "title": "لمحة عن العلاقة",
+      "owner": "المسؤول",
+      "brandsWorkedWith": "العلامات التجارية التي تم التعاون معها",
+      "collaborationsTotal": "{count} تعاون إجمالاً",
+      "lastCollaboration": "آخر تعاون",
+      "never": "أبدًا",
+      "lastContact": "آخر تواصل",
+      "noRecord": "لا يوجد سجل",
+      "rateRange": "نطاق السعر",
+      "noPaidDealsYet": "لا توجد صفقات مدفوعة بعد",
+      "outstandingPayment": "المدفوعات المستحقة",
+      "awaitingPayment": "بانتظار الدفع",
+      "activeDeliverables": "المحتوى المطلوب النشط",
+      "activeShipments": "الشحنات النشطة",
+      "currentShipment": "الشحنة الحالية",
+      "deliveryReliability": "موثوقية التسليم",
+      "noCompletedDeliverables": "لا يوجد محتوى مطلوب مكتمل بتاريخ استحقاق بعد",
+      "limitedHistoryBadge": "{onTime}/{sampleSize} في الوقت المحدد — سجل محدود، غير كافٍ للحكم بعد",
+      "onTimeBadge": "{rate}% في الوقت المحدد ({onTime}/{sampleSize})",
+      "lateAveraging": "{late} متأخر، بمتوسط تأخير {days} يوم"
+    },
+    "connections": {
+      "title": "حسابات المؤثر المرتبطة",
+      "description": "اطلب من المؤثر منح الإذن لقراءة إحصاءات منشوراته الخاصة (إنستغرام / تيك توك). يتطلب هذا تطبيق منصة تمت مراجعته — إلى أن يتم ذلك يبقى هذا الخيار معطلاً.",
+      "connected": "متصل",
+      "disconnect": "إلغاء الاتصال",
+      "connect": "اتصال",
+      "disconnectedToast": "تم إلغاء الاتصال."
+    },
+    "timeline": {
+      "all": "الكل",
+      "buckets": {
+        "campaign": "الحملة",
+        "content": "المحتوى",
+        "ugc": "UGC",
+        "logistics": "الخدمات اللوجستية",
+        "payment": "الدفع",
+        "notes": "الملاحظات",
+        "activity": "النشاط",
+        "contacted": "تم التواصل",
+        "usageRights": "حقوق الاستخدام"
+      },
+      "emptyTitle": "لا يوجد شيء هنا بعد",
+      "emptyDescription": "ستظهر هنا انضمامات الحملات والمحتوى المطلوب والشحنات والمحتوى والمدفوعات والتسليمات والملاحظات فور حدوثها.",
+      "loadEarlier": "تحميل السابق"
+    },
+    "shipments": {
+      "table": {
+        "brandCampaign": "العلامة التجارية / الحملة",
+        "products": "المنتجات",
+        "destination": "الوجهة",
+        "courierTracking": "شركة الشحن / رقم التتبع",
+        "shippedDelivered": "الشحن / التسليم",
+        "status": "الحالة"
+      },
+      "errorTitle": "تعذّر تحميل سجل الشحنات",
+      "errorDescription": "حدث خطأ أثناء جلب طلبات الخدمات اللوجستية. حاول مرة أخرى بعد قليل.",
+      "emptyTitle": "لا توجد شحنات بعد",
+      "emptyDescription": "ستظهر هنا طلبات الخدمات اللوجستية التي تم إنشاؤها لهذا المؤثر في أي حملة، مع شركة الشحن ورقم التتبع وحالة التسليم.",
+      "openInLogistics": "فتح في مساحة عمل الخدمات اللوجستية"
+    },
+    "submissions": {
+      "table": {
+        "campaign": "الحملة",
+        "version": "الإصدار",
+        "submitted": "تاريخ التسليم",
+        "reviewer": "المراجِع",
+        "reviewNotes": "ملاحظات المراجعة",
+        "status": "الحالة"
+      },
+      "errorTitle": "تعذّر تحميل التسليمات",
+      "errorDescription": "حدث خطأ أثناء جلب تسليمات UGC لهذا المؤثر. حاول مرة أخرى بعد قليل.",
+      "emptyTitle": "لا توجد تسليمات بعد",
+      "emptyDescription": "ستظهر هنا تسليمات المسودات/UGC من أي حملة يشارك فيها هذا المؤثر، مع حالة مراجعتها.",
+      "openAssetAriaLabel": "فتح الملف"
+    },
+    "socialAccounts": {
+      "subtitle": "المنصات التي ينشط عليها هذا المؤثر.",
+      "addAccount": "إضافة حساب اجتماعي",
+      "emptyTitle": "لا توجد حسابات اجتماعية مرتبطة",
+      "emptyDescription": "أضف حسابًا اجتماعيًا لبدء تتبع النمو والمحتوى.",
+      "followerGrowthTitle": "نمو المتابعين",
+      "primaryBadge": "أساسي",
+      "followersLabel": "متابع",
+      "sevenDaySuffix": "7 أيام",
+      "openProfile": "فتح الملف الشخصي",
+      "syncNow": "مزامنة الآن",
+      "editAccount": "تعديل الحساب",
+      "removeAccount": "إزالة الحساب",
+      "removeConfirmTitle": "إزالة الحساب الاجتماعي؟",
+      "removeConfirmDescription": "سيؤدي هذا إلى إزالة @{username} على {platform}. لا يمكن التراجع عن هذا الإجراء.",
+      "accountUpdatedToast": "تم تحديث الحساب الاجتماعي.",
+      "accountAddedToast": "تمت إضافة الحساب الاجتماعي.",
+      "accountRemovedToast": "تمت إزالة الحساب الاجتماعي.",
+      "syncedToast": "تمت مزامنة الحساب",
+      "syncedNothingNewToast": "تمت المزامنة، لا جديد",
+      "dialog": {
+        "editTitle": "تعديل الحساب الاجتماعي",
+        "addTitle": "إضافة حساب اجتماعي",
+        "editDescription": "تحديث بيانات هذا الحساب.",
+        "addDescription": "اربط حساب منصة لتتبع نموه ومحتواه.",
+        "platform": "المنصة",
+        "username": "اسم المستخدم",
+        "usernameHint": "بدون علامة @",
+        "usernamePlaceholder": "creator",
+        "displayName": "الاسم المعروض",
+        "displayNamePlaceholder": "يظهر في البطاقة",
+        "profileUrl": "رابط الملف الشخصي",
+        "profileUrlHint": "اختياري",
+        "profileUrlPlaceholder": "https://…",
+        "followers": "المتابعون",
+        "following": "تتابع",
+        "posts": "المنشورات",
+        "verified": "موثّق",
+        "primaryAccount": "الحساب الأساسي",
+        "addAccountButton": "إضافة الحساب"
+      }
+    },
+    "followerChart": {
+      "noAccountsTitle": "لا توجد حسابات اجتماعية مرتبطة",
+      "noAccountsDescription": "تظهر مخططات النمو بمجرد ربط حساب اجتماعي.",
+      "noHistoryTitle": "لا يوجد سجل نمو بعد",
+      "noHistoryDescription": "تتراكم لقطات المتابعين بمرور الوقت مع مزامنة هذا الحساب.",
+      "range30d": "30 يوم",
+      "range90d": "90 يوم",
+      "rangeAll": "الكل",
+      "tooltipFollowers": "المتابعون"
+    }
+  },
+  "errors": {
+    "generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى."
+  }
+}

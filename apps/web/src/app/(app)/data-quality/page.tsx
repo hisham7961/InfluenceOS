@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
 import { DataQualityWorkspace } from './data-quality-workspace';
@@ -11,6 +12,7 @@ export const dynamic = 'force-dynamic';
  * data-quality.service.ts). Never a fabricated "quality score".
  */
 export default async function DataQualityPage() {
+  const t = await getTranslations('dataQuality');
   const api = getServerApi();
   const [report, duplicates, integrityFindings, brands] = await Promise.all([
     api.dataQuality.report(),
@@ -21,10 +23,7 @@ export default async function DataQualityPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Data Quality"
-        description="Missing or incomplete records, possible duplicate creators, and relational inconsistencies across your workflow — so nothing quietly falls through the cracks."
-      />
+      <PageHeader title={t('title')} description={t('description')} />
       <DataQualityWorkspace initialReport={report} initialDuplicates={duplicates} initialIntegrityFindings={integrityFindings} brands={brands} />
     </div>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { Button, type ButtonProps } from './button';
 import {
   Dialog,
@@ -20,8 +21,8 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = 'Delete',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   confirmVariant = 'danger',
   loading = false,
   onConfirm,
@@ -36,6 +37,7 @@ export function ConfirmDialog({
   loading?: boolean;
   onConfirm: () => void;
 }) {
+  const t = useTranslations('ui');
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
@@ -45,10 +47,10 @@ export function ConfirmDialog({
         </DialogHeader>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-            {cancelLabel}
+            {cancelLabel ?? t('confirmDialog.cancel')}
           </Button>
           <Button type="button" variant={confirmVariant} onClick={onConfirm} disabled={loading}>
-            {loading ? 'Working…' : confirmLabel}
+            {loading ? t('confirmDialog.working') : (confirmLabel ?? t('confirmDialog.delete'))}
           </Button>
         </DialogFooter>
       </DialogContent>

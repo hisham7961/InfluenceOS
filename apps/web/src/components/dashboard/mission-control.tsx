@@ -2,6 +2,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import {
   AlertTriangle,
   ArrowRight,
@@ -24,9 +25,13 @@ import { PlatformIcon } from '@/components/ui/platform-badge';
 import { SectionHeader } from '@/components/common/page-header';
 import { ReviewNewContentButton } from '@/components/content/review-new-content-button';
 import { CampaignCard } from '@/components/campaigns/campaign-card';
+import { BidiText } from '@/components/common/bidi-text';
 import { formatCurrency, relativeTime } from '@/lib/format';
 
 export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; brandId?: string }) {
+  const t = useTranslations('dashboard');
+  const tCommon = useTranslations('common');
+  const tEmpty = useTranslations('empty');
   const p = data.pulse;
   const ws = data.whatsNewSummary;
   // On a brand-scoped dashboard (item 41 "Review N New <Brand> Videos"), the
@@ -44,14 +49,19 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const whatsNewLines: { label: string; count: number }[] = [
-    { label: 'new content item', count: ws.newContent },
-    { label: 'campaign launched', count: ws.campaignsLaunched },
-    { label: 'content alert', count: ws.contentAlerts },
-    { label: 'overdue deliverable', count: ws.overdueDeliverables },
-    { label: 'shipment delivered', count: ws.shipmentsDelivered },
-    { label: 'draft approved', count: ws.submissionsApproved },
-    { label: 'usage right expiring', count: ws.usageRightsExpiring },
+  // Each line's translated noun phrase is looked up by key rather than built
+  // via string concatenation — the leading count is rendered separately
+  // (bold), so the phrase itself never embeds the number (Arabic uses a
+  // stable "N من X" genitive construction that's valid for any count; see
+  // docs/localization/README.md's pluralization section).
+  const whatsNewLines: { key: string; count: number }[] = [
+    { key: 'newContentItemsLine', count: ws.newContent },
+    { key: 'campaignsLaunchedLine', count: ws.campaignsLaunched },
+    { key: 'contentAlertsLine', count: ws.contentAlerts },
+    { key: 'overdueDeliverablesLine', count: ws.overdueDeliverables },
+    { key: 'shipmentsDeliveredLine', count: ws.shipmentsDelivered },
+    { key: 'draftsApprovedLine', count: ws.submissionsApproved },
+    { key: 'usageRightsExpiringLine', count: ws.usageRightsExpiring },
   ].filter((l) => l.count > 0);
 
   return (
@@ -59,13 +69,13 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
       {/* Campaign Pulse */}
       <section>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-          <StatCard label="Active Campaigns" value={p.activeCampaigns} icon={Megaphone} tone="info" />
-          <StatCard label="Active Influencers" value={p.activeInfluencers} icon={Users} tone="accent" />
-          <StatCard label="Content This Week" value={p.contentPublishedThisWeek} icon={PlaySquare} tone="success" />
-          <StatCard label="Upcoming Deliverables" value={p.upcomingDeliverables} icon={Timer} tone="neutral" />
-          <StatCard label="Overdue Deliverables" value={p.overdueDeliverables} icon={AlertTriangle} tone="danger" />
-          <StatCard label="Total Spend" value={p.totalSpend} icon={Wallet} tone="warning" format={(n) => formatCurrency(n, p.currency)} />
-          <StatCard label="Content Alerts" value={p.contentAlerts} icon={ShieldAlert} tone="danger" />
+          <StatCard label={t('activeCampaignsStat')} value={p.activeCampaigns} icon={Megaphone} tone="info" />
+          <StatCard label={t('activeInfluencers')} value={p.activeInfluencers} icon={Users} tone="accent" />
+          <StatCard label={t('contentThisWeek')} value={p.contentPublishedThisWeek} icon={PlaySquare} tone="success" />
+          <StatCard label={t('upcomingDeliverables')} value={p.upcomingDeliverables} icon={Timer} tone="neutral" />
+          <StatCard label={t('overdueDeliverables')} value={p.overdueDeliverables} icon={AlertTriangle} tone="danger" />
+          <StatCard label={t('totalSpend')} value={p.totalSpend} icon={Wallet} tone="warning" format={(n) => formatCurrency(n, p.currency)} />
+          <StatCard label={t('contentAlerts')} value={p.contentAlerts} icon={ShieldAlert} tone="danger" />
         </div>
       </section>
 
@@ -73,10 +83,10 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
         {/* Since Your Last Visit */}
         <section>
           <SectionHeader
-            title="Since Your Last Visit"
+            title={t('whatsNewSinceVisit')}
             action={
               <Link href="/content" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-                View wall <ArrowRight className="h-3.5 w-3.5" />
+                {t('viewWall')} <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             }
           />
@@ -84,18 +94,15 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
             {whatsNewLines.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-6 text-center">
                 <PartyPopper className="h-6 w-6 text-muted-foreground" />
-                <p className="text-sm font-medium text-foreground">You&apos;re caught up</p>
-                <p className="text-xs text-muted-foreground">Nothing meaningful has changed since your last visit.</p>
+                <p className="text-sm font-medium text-foreground">{t('caughtUp')}</p>
+                <p className="text-xs text-muted-foreground">{t('nothingChangedSinceVisit')}</p>
               </div>
             ) : (
               <ul className="space-y-1.5 text-sm">
                 {whatsNewLines.map((line) => (
-                  <li key={line.label} className="flex items-baseline gap-2">
+                  <li key={line.key} className="flex items-baseline gap-2">
                     <span className="font-semibold text-foreground">{line.count}</span>
-                    <span className="text-muted-foreground">
-                      {line.label}
-                      {line.count === 1 ? '' : 's'}
-                    </span>
+                    <span className="text-muted-foreground">{t(line.key, { count: line.count })}</span>
                   </li>
                 ))}
               </ul>
@@ -104,14 +111,14 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
               <ReviewNewContentButton
                 brandId={brandId}
                 count={newForScope}
-                label={brandId ? `Review ${newForScope} New Videos` : undefined}
+                label={brandId ? t('reviewNewVideos', { count: newForScope }) : undefined}
               />
             </div>
             {ws.byBrand.length > 0 ? (
               <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
                 {ws.byBrand.slice(0, 6).map((b) => (
                   <span key={b.brandId}>
-                    {b.brandName} · <span className="font-medium text-foreground">{b.updates}</span> update{b.updates === 1 ? '' : 's'}
+                    <BidiText as="span">{b.brandName}</BidiText> · <span className="font-medium text-foreground">{b.updates}</span> {t('updatesCount', { count: b.updates })}
                   </span>
                 ))}
               </div>
@@ -121,10 +128,10 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
 
         {/* Needs Attention */}
         <section>
-          <SectionHeader title="Needs Attention" />
+          <SectionHeader title={t('needsAttention')} />
           <Card className="divide-y divide-border">
             {data.attention.length === 0 ? (
-              <EmptyState title="All clear" description="No urgent items right now." className="border-0 shadow-none" />
+              <EmptyState title={t('allClear')} description={t('noUrgentItems')} className="border-0 shadow-none" />
             ) : (
               data.attention.slice(0, 7).map((item) => (
                 <Link key={item.id} href={item.link} className="flex items-start gap-3 p-3.5 transition-colors hover:bg-surface-muted">
@@ -144,9 +151,9 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
 
       {/* Active Campaigns */}
       <section>
-        <SectionHeader title="Active Campaigns" action={<Link href="/campaigns" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">All campaigns <ArrowRight className="h-3.5 w-3.5" /></Link>} />
+        <SectionHeader title={t('activeCampaigns')} action={<Link href="/campaigns" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">{t('allCampaigns')} <ArrowRight className="h-3.5 w-3.5" /></Link>} />
         {data.activeCampaigns.length === 0 ? (
-          <EmptyState icon={Megaphone} title="Nothing live right now" description="Active campaigns will appear here." />
+          <EmptyState icon={Megaphone} title={tEmpty('noCampaigns')} description={t('activeCampaignsWillAppear')} />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {data.activeCampaigns.map((c) => (
@@ -159,17 +166,19 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Upcoming Content */}
         <section>
-          <SectionHeader title="Upcoming Content" />
+          <SectionHeader title={t('upcomingContent')} />
           <Card className="divide-y divide-border">
             {data.upcomingContent.length === 0 ? (
-              <EmptyState title="Nothing scheduled" className="border-0 shadow-none" />
+              <EmptyState title={t('nothingScheduled')} className="border-0 shadow-none" />
             ) : (
               data.upcomingContent.map((u) => (
                 <div key={u.id} className="flex items-center gap-3 p-3.5">
                   <Avatar name={u.influencerName} src={u.influencerAvatarUrl} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{u.influencerName}</p>
-                    <p className="truncate text-xs text-muted-foreground">{u.brandName} · {u.campaignName}</p>
+                    <p className="truncate text-sm font-medium"><BidiText as="span">{u.influencerName}</BidiText></p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      <BidiText as="span">{u.brandName}</BidiText> · <BidiText as="span">{u.campaignName}</BidiText>
+                    </p>
                   </div>
                   <PlatformIcon platform={u.platform} className="h-4 w-4 text-muted-foreground" />
                   <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -183,10 +192,10 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
 
         {/* Recent Activity */}
         <section>
-          <SectionHeader title="Recent Activity" />
+          <SectionHeader title={t('recentActivity')} />
           <Card className="divide-y divide-border">
             {data.recentActivity.length === 0 ? (
-              <EmptyState title="No activity yet" className="border-0 shadow-none" />
+              <EmptyState title={tCommon('noActivityYet')} className="border-0 shadow-none" />
             ) : (
               data.recentActivity.map((a) => (
                 <div key={a.id} className="flex items-start gap-3 p-3.5">

@@ -2,6 +2,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { Command } from 'cmdk';
 import { Megaphone, PlusCircle, Search, Store, UserPlus, Users } from 'lucide-react';
 import { api } from '@/lib/api-browser';
@@ -9,10 +10,23 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { NAV_ITEMS } from './nav';
 import { useApp } from './app-context';
 
+// SearchResultDTO['type'] isn't part of the shared enums.json registry (see
+// apps/web/src/lib/enum-labels.ts) — it's a small, closed set local to global
+// search, so it's mapped to the same entity-noun keys the Quick Add menu uses
+// rather than inventing a parallel mini-enum namespace.
+const RESULT_TYPE_LABEL_KEY: Record<string, string> = {
+  influencer: 'quickAddLabelInfluencer',
+  campaign: 'quickAddLabelCampaign',
+  brand: 'quickAddLabelBrand',
+  published_content: 'quickAddLabelContent',
+};
+
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const router = useRouter();
   const { openQuickAdd } = useApp();
   const [query, setQuery] = React.useState('');
+  const t = useTranslations('common');
+  const tNav = useTranslations('nav');
 
   const { data: results } = useQuery({
     queryKey: ['search', query],
@@ -35,18 +49,18 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             <Command.Input
               value={query}
               onValueChange={setQuery}
-              placeholder="Search influencers, campaigns, brands, content…"
+              placeholder={t('commandPaletteSearchPlaceholder')}
               className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               autoFocus
             />
           </div>
           <Command.List className="max-h-96 overflow-y-auto p-2">
             <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
-              {query.trim().length >= 2 ? 'No matches found.' : 'Type to search…'}
+              {query.trim().length >= 2 ? t('noMatchesFound') : t('typeToSearch')}
             </Command.Empty>
 
             {results && results.length > 0 && (
-              <Command.Group heading="Results" className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground">
+              <Command.Group heading={t('results')} className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground">
                 {results.map((r) => (
                   <Command.Item
                     key={`${r.type}-${r.id}`}
@@ -59,21 +73,23 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                       <p className="truncate font-medium">{r.title}</p>
                       {r.subtitle && <p className="truncate text-xs text-muted-foreground">{r.subtitle}</p>}
                     </div>
-                    <span className="text-[10px] uppercase text-muted-foreground">{r.type.replace('_', ' ')}</span>
+                    <span className="text-[10px] uppercase text-muted-foreground">
+                      {t(RESULT_TYPE_LABEL_KEY[r.type] ?? 'quickAddLabelContent')}
+                    </span>
                   </Command.Item>
                 ))}
               </Command.Group>
             )}
 
-            <Command.Group heading="Quick actions" className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground">
-              <Action label="Add influencer" icon={UserPlus} onSelect={() => { onOpenChange(false); openQuickAdd('influencer'); }} />
-              <Action label="Add campaign" icon={Megaphone} onSelect={() => { onOpenChange(false); openQuickAdd('campaign'); }} />
-              <Action label="Add published content" icon={PlusCircle} onSelect={() => { onOpenChange(false); openQuickAdd('content'); }} />
+            <Command.Group heading={t('quickActions')} className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground">
+              <Action label={t('addInfluencerTitle')} icon={UserPlus} onSelect={() => { onOpenChange(false); openQuickAdd('influencer'); }} />
+              <Action label={t('addCampaignAction')} icon={Megaphone} onSelect={() => { onOpenChange(false); openQuickAdd('campaign'); }} />
+              <Action label={t('addPublishedContentTitle')} icon={PlusCircle} onSelect={() => { onOpenChange(false); openQuickAdd('content'); }} />
             </Command.Group>
 
-            <Command.Group heading="Navigate" className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground">
+            <Command.Group heading={tNav('navigateHeading')} className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground">
               {NAV_ITEMS.map((item) => (
-                <Action key={item.href} label={item.label} icon={item.icon} onSelect={() => go(item.href)} />
+                <Action key={item.href} label={tNav(item.labelKey)} icon={item.icon} onSelect={() => go(item.href)} />
               ))}
             </Command.Group>
           </Command.List>

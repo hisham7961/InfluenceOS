@@ -1,0 +1,144 @@
+{
+  "feed": {
+    "title": "Live Content",
+    "description": "Every piece of influencer content, as it goes live across your brands.",
+    "loadError": "Could not load the content wall.",
+    "emptyTitle": "Nothing live yet",
+    "emptyDescription": "Published influencer content will surface here the moment it goes live.",
+    "emptyFilteredTitle": "No content matches your filters",
+    "emptyFilteredDescription": "Try a different search term or clear your filters to see the full wall.",
+    "newBanner": "{count, plural, one {# new item — Show new content} other {# new items — Show new content}}",
+    "loadMore": "Load more",
+    "summary": {
+      "content": "content",
+      "alerts": "alerts",
+      "brandsActive": "brands active"
+    },
+    "brandOverview": {
+      "emptyTitle": "No brands in view",
+      "emptyDescription": "Brand-level content stats will appear here."
+    },
+    "filterBar": {
+      "searchPlaceholder": "Search caption or creator…",
+      "searchAriaLabel": "Search content",
+      "brand": "Brand",
+      "platform": "Platform",
+      "allPlatforms": "All platforms",
+      "allStatuses": "All statuses",
+      "campaign": "Campaign",
+      "allCampaigns": "All campaigns",
+      "influencer": "Influencer",
+      "allInfluencers": "All influencers",
+      "assignment": "Assignment",
+      "allContent": "All content",
+      "reset": "Reset",
+      "resultsLoaded": "{count} loaded"
+    },
+    "layouts": {
+      "timeline": "Timeline",
+      "timelineAria": "Timeline layout",
+      "byBrand": "By Brand",
+      "byBrandAria": "By Brand layout",
+      "grid": "Grid",
+      "gridAria": "Grid layout",
+      "masonry": "Masonry",
+      "masonryAria": "Masonry layout",
+      "feed": "Feed",
+      "feedAria": "Feed layout"
+    },
+    "chips": {
+      "all": "All",
+      "groupAriaLabel": "Content filters"
+    }
+  },
+  "timeline": {
+    "emptyTitle": "Nothing here yet",
+    "emptyDescription": "Published content will appear here, grouped by day and brand.",
+    "noBrand": "No brand",
+    "dayWithLabel": "{label} — {date}"
+  },
+  "grid": {
+    "emptyTitle": "No content yet",
+    "emptyDescription": "Published campaign content will appear here."
+  },
+  "player": {
+    "embeddedContentTitle": "Embedded content",
+    "play": "Play",
+    "playPlatformContent": "Play {platform} content",
+    "previewUnavailable": "Preview not available for this platform"
+  },
+  "viewer": {
+    "backToFeed": "Back to Live Content",
+    "indexOfTotal": "{index} of {total}",
+    "managerCalloutLabel": "Manager Callout",
+    "stats": {
+      "views": "Views",
+      "likes": "Likes",
+      "comments": "Comments",
+      "shares": "Shares"
+    },
+    "fields": {
+      "published": "Published",
+      "detected": "Detected",
+      "lastChecked": "Last checked",
+      "metricsSource": "Metrics source"
+    },
+    "notYetChecked": "Not yet",
+    "recentMonitoring": "Recent monitoring",
+    "activity": "Activity",
+    "activityEmptyTitle": "No activity yet",
+    "activityEmptyDescription": "Association changes, availability and status updates for this post will show up here.",
+    "notes": "Notes",
+    "notesEmptyTitle": "No notes yet",
+    "notesEmptyDescription": "Staff commentary only — pin one as a Manager Callout for the team.",
+    "notesComposerPlaceholder": "Strong opening hook… potential paid-media asset…"
+  },
+  "reviewMode": {
+    "markReviewed": "Mark Reviewed",
+    "markUnreviewed": "Mark Unreviewed",
+    "markReviewedShortcut": "Mark Reviewed (R)",
+    "reviewLaterShortcut": "Review Later (S)",
+    "reviewLater": "Review Later",
+    "savedForLater": "Saved for later",
+    "progress": "{done} of {total} reviewed",
+    "nextUnreviewed": "Next unreviewed",
+    "reviewNewContent": "Review New Content",
+    "reviewCountNewContent": "Review {count} New Content",
+    "caughtUp": "You're caught up — no new content to review."
+  },
+  "associations": {
+    "title": "Associations",
+    "edit": "Edit associations",
+    "updateSuccess": "Associations updated.",
+    "fields": {
+      "influencer": "Influencer",
+      "campaign": "Campaign",
+      "brand": "Brand",
+      "deliverable": "Deliverable"
+    },
+    "influencerHint": "Clear to mark as unassigned",
+    "campaignHint": "Clear to make this independent content",
+    "noCampaign": "No campaign",
+    "noCampaignIndependent": "No campaign — independent content",
+    "validationNote": "Validated on save — an influencer not on the chosen campaign's roster is rejected rather than saved inconsistently. Saving this deliverable-linked content's campaign/influencer without changing the deliverable keeps them in sync automatically."
+  },
+  "addFlow": {
+    "contentUrlLabel": "Content URL",
+    "contentUrlHint": "Instagram, TikTok, YouTube, X or Snapchat",
+    "successToast": "Content added to the live wall.",
+    "linkedToDeliverable": "Linked to {label} — influencer, campaign and brand are derived automatically.",
+    "thisDeliverable": "this deliverable",
+    "influencerLabel": "Influencer:",
+    "influencerFieldLabel": "Influencer (optional)",
+    "influencerFieldHint": "Leave blank if you don't know the influencer yet",
+    "unknownInfluencer": "I don't know the influencer yet",
+    "campaignLabel": "Campaign:",
+    "campaignFieldLabel": "Campaign (optional)",
+    "linkToCampaign": "Link to a campaign",
+    "deliverableFieldLabel": "Deliverable (optional)",
+    "deliverableFieldHint": "Fulfilling a specific deliverable derives everything automatically",
+    "noDeliverable": "Not tied to a specific deliverable",
+    "adding": "Adding…",
+    "addContent": "Add content"
+  }
+}

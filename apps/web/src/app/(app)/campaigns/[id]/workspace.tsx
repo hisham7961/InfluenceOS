@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -52,26 +53,19 @@ import type {
 } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import {
-  CAMPAIGN_OBJECTIVE_LABELS,
   DEAL_TYPES,
-  DEAL_TYPE_LABELS,
   DELIVERABLE_STATUSES,
-  DELIVERABLE_STATUS_LABELS,
   DELIVERABLE_TYPES,
-  DELIVERABLE_TYPE_LABELS,
   EXPENSE_TYPES,
-  EXPENSE_TYPE_LABELS,
-  DATA_SOURCE_LABELS,
   PARTICIPATION_STATUSES,
-  PARTICIPATION_STATUS_LABELS,
   PAYMENT_STATUSES,
-  PAYMENT_STATUS_LABELS,
   PLATFORM_META,
   PLATFORMS,
-  SHIPMENT_STATUS_LABELS,
 } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { useConversationUnread } from '@/lib/use-conversation-unread';
+import { enumLabel } from '@/lib/enum-labels';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -115,8 +109,8 @@ import { BulkAddInfluencersDialog } from './bulk-add-influencers-dialog';
 /** Sentinel for "no influencer attributed" in the expense form's Select (Radix forbids an empty-string value). */
 const NONE = 'none';
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Something went wrong.';
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : e instanceof Error ? e.message : fallback;
 }
 
 /** ISO/date string → yyyy-mm-dd for a native date input (local calendar day). */
@@ -167,6 +161,7 @@ const WORKSPACE_TABS = [
 
 /** The campaign control room — tabs covering everything about one campaign. */
 export function Workspace({ campaign, influencers, costs, scripts, contentFeed }: WorkspaceProps) {
+  const t = useTranslations('campaigns');
   const discussionUnread = useConversationUnread(`campaign:${campaign.id}`);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -183,21 +178,21 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
   return (
     <Tabs value={tab} onValueChange={changeTab}>
       <TabsList className="flex-wrap">
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="sourcing">Sourcing</TabsTrigger>
-        <TabsTrigger value="influencers">Influencers</TabsTrigger>
-        <TabsTrigger value="operations">Operations Board</TabsTrigger>
-        <TabsTrigger value="deliverables">Deliverables</TabsTrigger>
-        <TabsTrigger value="submissions">Submissions</TabsTrigger>
-        <TabsTrigger value="scripts">Scripts</TabsTrigger>
-        <TabsTrigger value="content">Live Content</TabsTrigger>
-        <TabsTrigger value="shipments">Shipments</TabsTrigger>
-        <TabsTrigger value="costs">Costs</TabsTrigger>
-        <TabsTrigger value="performance">Performance</TabsTrigger>
-        <TabsTrigger value="files">Files</TabsTrigger>
-        <TabsTrigger value="activity">Activity</TabsTrigger>
+        <TabsTrigger value="overview">{t('workspace.tabs.overview')}</TabsTrigger>
+        <TabsTrigger value="sourcing">{t('workspace.tabs.sourcing')}</TabsTrigger>
+        <TabsTrigger value="influencers">{t('workspace.tabs.influencers')}</TabsTrigger>
+        <TabsTrigger value="operations">{t('workspace.tabs.operations')}</TabsTrigger>
+        <TabsTrigger value="deliverables">{t('workspace.tabs.deliverables')}</TabsTrigger>
+        <TabsTrigger value="submissions">{t('workspace.tabs.submissions')}</TabsTrigger>
+        <TabsTrigger value="scripts">{t('workspace.tabs.scripts')}</TabsTrigger>
+        <TabsTrigger value="content">{t('workspace.tabs.content')}</TabsTrigger>
+        <TabsTrigger value="shipments">{t('workspace.tabs.shipments')}</TabsTrigger>
+        <TabsTrigger value="costs">{t('workspace.tabs.costs')}</TabsTrigger>
+        <TabsTrigger value="performance">{t('workspace.tabs.performance')}</TabsTrigger>
+        <TabsTrigger value="files">{t('workspace.tabs.files')}</TabsTrigger>
+        <TabsTrigger value="activity">{t('workspace.tabs.activity')}</TabsTrigger>
         <TabsTrigger value="discussion" className="gap-1.5">
-          Discussion
+          {t('workspace.tabs.discussion')}
           {discussionUnread > 0 ? (
             <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold text-white">
               {discussionUnread > 99 ? '99+' : discussionUnread}
@@ -253,7 +248,7 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
       <TabsContent value="files">
         <Card>
           <CardHeader>
-            <CardTitle>Campaign files</CardTitle>
+            <CardTitle>{t('workspace.filesCardTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
             <AttachmentsPanel target={{ campaignId: campaign.id }} compact />
@@ -268,16 +263,16 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
       <TabsContent value="discussion">
         <Card>
           <CardHeader>
-            <CardTitle>Campaign Chat</CardTitle>
+            <CardTitle>{t('workspace.campaignChatTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
             <CommentThread
               context={{ campaignId: campaign.id }}
               cacheKey={`campaign-chat:${campaign.id}`}
               conversationKey={`campaign:${campaign.id}`}
-              emptyTitle="No discussion yet"
-              emptyDescription="Coordinate with the team about this campaign here."
-              composerPlaceholder="Message the team about this campaign… use @ to mention someone"
+              emptyTitle={t('workspace.discussion.emptyTitle')}
+              emptyDescription={t('workspace.discussion.emptyDescription')}
+              composerPlaceholder={t('workspace.discussion.composerPlaceholder')}
             />
           </CardContent>
         </Card>
@@ -300,6 +295,7 @@ function LiveContentTab({
   influencers: CampaignInfluencerDTO[];
   contentFeed: PublishedContentDTO[];
 }) {
+  const t = useTranslations('campaigns');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
@@ -308,19 +304,16 @@ function LiveContentTab({
     <div className="space-y-4">
       <div className="flex items-center justify-end">
         <Button type="button" size="sm" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4" /> Add content
+          <Plus className="h-4 w-4" /> {t('workspace.liveContent.addContent')}
         </Button>
       </div>
-      <ContentGrid
-        items={contentFeed}
-        emptyDescription="Published content for this campaign will show up here once influencers go live."
-      />
+      <ContentGrid items={contentFeed} emptyDescription={t('workspace.liveContent.emptyDescription')} />
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add published content</DialogTitle>
+            <DialogTitle>{t('workspace.liveContent.addDialogTitle')}</DialogTitle>
             <DialogDescription>
-              For {campaign.name}. Pick who published it, and optionally which deliverable it fulfills.
+              {t('workspace.liveContent.addDialogDescription', { name: campaign.name })}
             </DialogDescription>
           </DialogHeader>
           <AddContentFlow
@@ -344,7 +337,7 @@ function LiveContentTab({
 // Overview
 // ---------------------------------------------------------------------------
 
-function DetailRow({ label, value }: { label: string; value?: string | null }) {
+function DetailRow({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-3 last:border-0 last:pb-0">
       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
@@ -354,6 +347,8 @@ function DetailRow({ label, value }: { label: string; value?: string | null }) {
 }
 
 function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
+  const t = useTranslations('campaigns');
+  const tEnums = useTranslations('enums');
   const p = campaign.progress;
 
   return (
@@ -361,26 +356,26 @@ function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Description</CardTitle>
+            <CardTitle>{t('fields.description')}</CardTitle>
           </CardHeader>
           <CardContent>
             {campaign.description ? (
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{campaign.description}</p>
             ) : (
-              <p className="text-sm text-muted-foreground">No description on file yet.</p>
+              <p className="text-sm text-muted-foreground">{t('workspace.overview.noDescription')}</p>
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Creative Brief</CardTitle>
+            <CardTitle>{t('newForm.creativeBriefLabel')}</CardTitle>
           </CardHeader>
           <CardContent>
             {campaign.brief ? (
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{campaign.brief}</p>
             ) : (
-              <p className="text-sm text-muted-foreground">No brief on file yet.</p>
+              <p className="text-sm text-muted-foreground">{t('workspace.overview.noBrief')}</p>
             )}
           </CardContent>
         </Card>
@@ -388,7 +383,7 @@ function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
         {campaign.internalNotes ? (
           <Card>
             <CardHeader>
-              <CardTitle>Internal Notes</CardTitle>
+              <CardTitle>{t('workspace.overview.internalNotesTitle')}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="whitespace-pre-wrap text-sm text-foreground">{campaign.internalNotes}</p>
@@ -400,12 +395,12 @@ function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Progress Summary</CardTitle>
+            <CardTitle>{t('workspace.overview.progressSummaryTitle')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Deliverables published</span>
+                <span>{t('workspace.overview.deliverablesPublishedLabel')}</span>
                 <span className="font-medium text-foreground">
                   {p.deliverablesPublished}/{p.deliverablesTotal}
                 </span>
@@ -414,7 +409,7 @@ function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
             </div>
             <div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Influencers completed</span>
+                <span>{t('workspace.overview.influencersCompletedLabel')}</span>
                 <span className="font-medium text-foreground">
                   {p.influencersCompleted}/{p.influencersTotal}
                 </span>
@@ -428,7 +423,7 @@ function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
             {p.timeElapsedPercent != null ? (
               <div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Time elapsed</span>
+                  <span>{t('workspace.overview.timeElapsedLabel')}</span>
                   <span className="font-medium text-foreground">{formatPercent(p.timeElapsedPercent, 0)}</span>
                 </div>
                 <ProgressBar value={p.timeElapsedPercent} tone="warning" className="mt-1.5" />
@@ -437,7 +432,7 @@ function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
             {p.plannedBudget != null ? (
               <div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Budget used</span>
+                  <span>{t('workspace.overview.budgetUsedLabel')}</span>
                   <span className="font-medium text-foreground">{formatPercent(p.budgetUsedPercent, 0)}</span>
                 </div>
                 <ProgressBar
@@ -452,14 +447,20 @@ function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Details</CardTitle>
+            <CardTitle>{t('workspace.overview.detailsTitle')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <DetailRow label="Objective" value={campaign.objective ? CAMPAIGN_OBJECTIVE_LABELS[campaign.objective] : null} />
-            <DetailRow label="Target market" value={campaign.targetMarket} />
-            <DetailRow label="Owner" value={campaign.owner?.name} />
-            <DetailRow label="Currency" value={campaign.currency} />
-            <DetailRow label="Created" value={shortDate(campaign.createdAt)} />
+            <DetailRow
+              label={t('fields.objective')}
+              value={campaign.objective ? enumLabel(tEnums, 'campaignObjective', campaign.objective) : null}
+            />
+            <DetailRow label={t('fields.targetMarket')} value={campaign.targetMarket} />
+            <DetailRow
+              label={t('fields.owner')}
+              value={campaign.owner?.name ? <BidiText>{campaign.owner.name}</BidiText> : null}
+            />
+            <DetailRow label={t('fields.currency')} value={campaign.currency} />
+            <DetailRow label={t('fields.created')} value={shortDate(campaign.createdAt)} />
           </CardContent>
         </Card>
       </div>
@@ -472,13 +473,14 @@ function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
 // ---------------------------------------------------------------------------
 
 function InfluencersTab({ campaign, influencers }: { campaign: CampaignDetailDTO; influencers: CampaignInfluencerDTO[] }) {
+  const t = useTranslations('campaigns');
   const [addDeliverableFor, setAddDeliverableFor] = React.useState<CampaignInfluencerDTO | null>(null);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {influencers.length} influencer{influencers.length === 1 ? '' : 's'} on this campaign
+          {t('workspace.influencers.countOnCampaign', { count: influencers.length })}
         </p>
         <div className="flex items-center gap-2">
           <BulkAddInfluencersDialog campaignId={campaign.id} existingInfluencerIds={influencers.map((ci) => ci.influencer.id)} />
@@ -489,8 +491,8 @@ function InfluencersTab({ campaign, influencers }: { campaign: CampaignDetailDTO
       {influencers.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="No influencers yet"
-          description="Add creators to this campaign to start tracking deliverables, payments and content."
+          title={t('workspace.influencers.emptyTitle')}
+          description={t('workspace.influencers.emptyDescription')}
         />
       ) : (
         <div className="space-y-4">
@@ -520,6 +522,9 @@ function InfluencerRow({
   campaign: CampaignDetailDTO;
   onAddDeliverable: () => void;
 }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const router = useRouter();
   const queryClient = useQueryClient();
   const dp = ci.deliverableProgress;
@@ -529,12 +534,12 @@ function InfluencerRow({
   const remove = useMutation({
     mutationFn: () => api.campaignInfluencers.remove(ci.id),
     onSuccess: () => {
-      toast.success('Influencer removed from campaign');
+      toast.success(t('workspace.influencers.removedToast'));
       queryClient.invalidateQueries();
       router.refresh();
       setRemoveOpen(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (
@@ -544,15 +549,17 @@ function InfluencerRow({
           <Avatar name={ci.influencer.displayName} src={ci.influencer.avatarUrl} size="lg" rounded="lg" />
           <div className="min-w-0">
             <Link href={`/influencers/${ci.influencer.id}`} className="truncate font-semibold hover:underline">
-              {ci.influencer.displayName}
+              <BidiText>{ci.influencer.displayName}</BidiText>
             </Link>
             {ci.influencer.primaryUsername ? (
-              <p className="truncate text-sm text-muted-foreground">@{ci.influencer.primaryUsername}</p>
+              <p className="truncate text-sm text-muted-foreground">
+                <LtrText>@{ci.influencer.primaryUsername}</LtrText>
+              </p>
             ) : null}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <DealTypeBadge status={ci.dealType} />
               <PaymentStatusBadge status={ci.paymentStatus} />
-              <Badge tone="neutral">{PARTICIPATION_STATUS_LABELS[ci.participationStatus]}</Badge>
+              <Badge tone="neutral">{enumLabel(tEnums, 'participationStatus', ci.participationStatus)}</Badge>
             </div>
           </div>
         </div>
@@ -563,7 +570,7 @@ function InfluencerRow({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={`Edit ${ci.influencer.displayName}`}
+              aria-label={t('workspace.influencers.editAriaLabel', { name: ci.influencer.displayName })}
               onClick={() => setEditOpen(true)}
             >
               <Pencil className="h-4 w-4" />
@@ -572,7 +579,7 @@ function InfluencerRow({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={`Remove ${ci.influencer.displayName} from campaign`}
+              aria-label={t('workspace.influencers.removeAriaLabel', { name: ci.influencer.displayName })}
               className="text-muted-foreground hover:text-danger"
               onClick={() => setRemoveOpen(true)}
             >
@@ -583,16 +590,18 @@ function InfluencerRow({
             {ci.agreedCost != null
               ? formatCurrency(ci.agreedCost, ci.currency ?? undefined)
               : ci.dealType === 'GIFTED_PRODUCT'
-                ? 'Gifted'
+                ? t('workspace.influencers.gifted')
                 : '—'}
           </p>
           {ci.giftedProductValue != null ? (
             <p className="text-xs text-muted-foreground">
-              + {formatCurrency(ci.giftedProductValue, ci.currency ?? undefined)} gift value
+              {t('workspace.influencers.giftValue', {
+                value: formatCurrency(ci.giftedProductValue, ci.currency ?? undefined),
+              })}
             </p>
           ) : null}
           <p className="text-xs text-muted-foreground">
-            {dp.published}/{dp.total} delivered
+            {t('workspace.influencers.deliveredCount', { published: dp.published, total: dp.total })}
           </p>
         </div>
       </div>
@@ -601,22 +610,24 @@ function InfluencerRow({
       <ConfirmDialog
         open={removeOpen}
         onOpenChange={setRemoveOpen}
-        title="Remove influencer?"
-        description={`${ci.influencer.displayName} and their deliverables will be removed from this campaign. This cannot be undone.`}
-        confirmLabel="Remove"
+        title={t('workspace.influencers.removeConfirmTitle')}
+        description={t('workspace.influencers.removeConfirmDescription', { name: ci.influencer.displayName })}
+        confirmLabel={tCommon('remove')}
         loading={remove.isPending}
         onConfirm={() => remove.mutate()}
       />
 
       <div className="border-t border-border bg-surface-muted/40 p-5">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Deliverables</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {t('card.deliverablesLabel')}
+          </p>
           <Button type="button" variant="ghost" size="sm" onClick={onAddDeliverable}>
-            <Plus className="h-3.5 w-3.5" /> Add deliverable
+            <Plus className="h-3.5 w-3.5" /> {t('workspace.deliverables.addDeliverable')}
           </Button>
         </div>
         {ci.deliverables.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No deliverables yet.</p>
+          <p className="text-sm text-muted-foreground">{t('workspace.deliverables.emptyShort')}</p>
         ) : (
           <div className="space-y-2">
             {ci.deliverables.map((d) => (
@@ -638,6 +649,9 @@ function EditInfluencerDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [dealType, setDealType] = React.useState<DealType>(ci.dealType);
@@ -664,8 +678,8 @@ function EditInfluencerDialog({
     mutationFn: () => {
       const cost = agreedCost.trim();
       const gift = giftedProductValue.trim();
-      if (cost !== '' && !Number.isFinite(Number(cost))) throw new Error('Enter a valid agreed cost.');
-      if (gift !== '' && !Number.isFinite(Number(gift))) throw new Error('Enter a valid gift value.');
+      if (cost !== '' && !Number.isFinite(Number(cost))) throw new Error(t('workspace.influencers.invalidAgreedCost'));
+      if (gift !== '' && !Number.isFinite(Number(gift))) throw new Error(t('workspace.influencers.invalidGiftValue'));
       return api.campaignInfluencers.update(ci.id, {
         dealType,
         agreedCost: cost === '' ? null : Number(cost),
@@ -676,24 +690,26 @@ function EditInfluencerDialog({
       });
     },
     onSuccess: () => {
-      toast.success('Influencer updated');
+      toast.success(t('workspace.influencers.updatedToast'));
       queryClient.invalidateQueries();
       router.refresh();
       onOpenChange(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit influencer</DialogTitle>
-          <DialogDescription>Update deal terms and status for {ci.influencer.displayName}.</DialogDescription>
+          <DialogTitle>{t('workspace.influencers.editDialogTitle')}</DialogTitle>
+          <DialogDescription>
+            {t('workspace.influencers.editDialogDescription', { name: ci.influencer.displayName })}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Deal type">
+          <Field label={t('fields.dealType')}>
             <Select value={dealType} onValueChange={(v) => setDealType(v as DealType)}>
               <SelectTrigger>
                 <SelectValue />
@@ -701,13 +717,13 @@ function EditInfluencerDialog({
               <SelectContent>
                 {DEAL_TYPES.map((d) => (
                   <SelectItem key={d} value={d}>
-                    {DEAL_TYPE_LABELS[d]}
+                    {enumLabel(tEnums, 'dealType', d)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Agreed cost" hint="0 is valid for free deals">
+          <Field label={t('workspace.influencers.agreedCostLabel')} hint={t('workspace.influencers.agreedCostHint')}>
             <Input
               type="number"
               min={0}
@@ -717,7 +733,7 @@ function EditInfluencerDialog({
               placeholder="0.00"
             />
           </Field>
-          <Field label="Gift value" hint="Optional">
+          <Field label={t('workspace.influencers.giftValueLabel')} hint={t('fields.optionalHint')}>
             <Input
               type="number"
               min={0}
@@ -727,7 +743,7 @@ function EditInfluencerDialog({
               placeholder="0.00"
             />
           </Field>
-          <Field label="Participation">
+          <Field label={t('fields.participationStatus')}>
             <Select value={participationStatus} onValueChange={(v) => setParticipationStatus(v as ParticipationStatus)}>
               <SelectTrigger>
                 <SelectValue />
@@ -735,13 +751,13 @@ function EditInfluencerDialog({
               <SelectContent>
                 {PARTICIPATION_STATUSES.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {PARTICIPATION_STATUS_LABELS[s]}
+                    {enumLabel(tEnums, 'participationStatus', s)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Payment status" className="col-span-2">
+          <Field label={t('fields.paymentStatus')} className="col-span-2">
             <Select value={paymentStatus} onValueChange={(v) => setPaymentStatus(v as PaymentStatus)}>
               <SelectTrigger>
                 <SelectValue />
@@ -749,23 +765,23 @@ function EditInfluencerDialog({
               <SelectContent>
                 {PAYMENT_STATUSES.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {PAYMENT_STATUS_LABELS[s]}
+                    {enumLabel(tEnums, 'paymentStatus', s)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Notes" hint="Optional" className="col-span-2">
+          <Field label={t('fields.notes')} hint={t('fields.optionalHint')} className="col-span-2">
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </Field>
         </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tCommon('cancel')}
           </Button>
           <Button disabled={save.isPending} onClick={() => save.mutate()}>
-            {save.isPending ? 'Saving…' : 'Save changes'}
+            {save.isPending ? tCommon('saving') : t('workspace.saveChanges')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -794,32 +810,36 @@ function DeliverableRow({
   influencerName?: string;
   influencerAvatar?: string | null;
 }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [removeOpen, setRemoveOpen] = React.useState(false);
   const [addContentOpen, setAddContentOpen] = React.useState(false);
   const [submitDraftOpen, setSubmitDraftOpen] = React.useState(false);
   const [commentsOpen, setCommentsOpen] = React.useState(false);
+  const typeLabel = enumLabel(tEnums, 'deliverableType', deliverable.type);
 
   const updateStatus = useMutation({
     mutationFn: (status: DeliverableStatus) => api.deliverables.update(deliverable.id, { status }),
     onSuccess: () => {
-      toast.success('Deliverable status updated');
+      toast.success(t('workspace.deliverables.statusUpdatedToast'));
       queryClient.invalidateQueries();
       router.refresh();
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   const remove = useMutation({
     mutationFn: () => api.deliverables.remove(deliverable.id),
     onSuccess: () => {
-      toast.success('Deliverable removed');
+      toast.success(t('workspace.deliverables.removedToast'));
       queryClient.invalidateQueries();
       router.refresh();
       setRemoveOpen(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   const isOverdue =
@@ -832,44 +852,46 @@ function DeliverableRow({
       {influencerName ? (
         <div className="flex min-w-0 items-center gap-2">
           <Avatar name={influencerName} src={influencerAvatar} size="xs" />
-          <span className="truncate text-sm font-medium">{influencerName}</span>
+          <span className="truncate text-sm font-medium">
+            <BidiText>{influencerName}</BidiText>
+          </span>
         </div>
       ) : null}
 
       <span className="inline-flex items-center gap-1.5 text-sm font-medium">
         <PlatformIcon platform={deliverable.platform} className="h-4 w-4 text-muted-foreground" />
-        {DELIVERABLE_TYPE_LABELS[deliverable.type]}
+        {typeLabel}
         {deliverable.quantity > 1 ? ` ×${deliverable.quantity}` : ''}
       </span>
 
       {deliverable.dueDate ? (
         <span className={cn('flex items-center gap-1 text-xs', isOverdue ? 'font-medium text-danger' : 'text-muted-foreground')}>
-          <Clock className="h-3.5 w-3.5" /> Due {shortDate(deliverable.dueDate)}
+          <Clock className="h-3.5 w-3.5" /> {t('workspace.deliverables.dueLabel', { date: shortDate(deliverable.dueDate) })}
         </span>
       ) : null}
 
       {deliverable.publishedUrl ? (
         <a href={deliverable.publishedUrl} target="_blank" rel="noreferrer" className="text-xs text-brand hover:underline">
-          View published
+          {t('workspace.deliverables.viewPublished')}
         </a>
       ) : null}
 
       {deliverable.requiresProduct ? (
         <Badge tone="warning" className="inline-flex items-center gap-1">
-          <Package className="h-3 w-3" /> Needs product
+          <Package className="h-3 w-3" /> {t('workspace.deliverables.needsProduct')}
         </Badge>
       ) : null}
 
       <Button type="button" variant="ghost" size="sm" onClick={() => setAddContentOpen(true)}>
-        <Plus className="h-3.5 w-3.5" /> Add content
+        <Plus className="h-3.5 w-3.5" /> {t('workspace.liveContent.addContent')}
       </Button>
       {deliverable.type === 'UGC' ? (
         <Button type="button" variant="ghost" size="sm" onClick={() => setSubmitDraftOpen(true)}>
-          <FileText className="h-3.5 w-3.5" /> Submit draft
+          <FileText className="h-3.5 w-3.5" /> {t('workspace.deliverables.submitDraft')}
         </Button>
       ) : null}
       <Button type="button" variant="ghost" size="sm" onClick={() => setCommentsOpen(true)}>
-        <MessageSquare className="h-3.5 w-3.5" /> Comments
+        <MessageSquare className="h-3.5 w-3.5" /> {t('workspace.deliverables.comments')}
       </Button>
       <DeliverableShipmentsAction deliverable={deliverable} campaign={campaign} influencer={influencer} />
 
@@ -886,7 +908,7 @@ function DeliverableRow({
           <SelectContent>
             {DELIVERABLE_STATUSES.map((s) => (
               <SelectItem key={s} value={s}>
-                {DELIVERABLE_STATUS_LABELS[s]}
+                {enumLabel(tEnums, 'deliverableStatus', s)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -895,7 +917,7 @@ function DeliverableRow({
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="Remove deliverable"
+          aria-label={t('workspace.deliverables.removeAriaLabel')}
           className="text-muted-foreground hover:text-danger"
           onClick={() => setRemoveOpen(true)}
         >
@@ -906,9 +928,9 @@ function DeliverableRow({
       <ConfirmDialog
         open={removeOpen}
         onOpenChange={setRemoveOpen}
-        title="Remove deliverable?"
-        description={`This ${DELIVERABLE_TYPE_LABELS[deliverable.type]} deliverable will be permanently removed. This cannot be undone.`}
-        confirmLabel="Remove"
+        title={t('workspace.deliverables.removeConfirmTitle')}
+        description={t('workspace.deliverables.removeConfirmDescription', { type: typeLabel })}
+        confirmLabel={tCommon('remove')}
         loading={remove.isPending}
         onConfirm={() => remove.mutate()}
       />
@@ -916,16 +938,20 @@ function DeliverableRow({
       <Dialog open={addContentOpen} onOpenChange={setAddContentOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add published content</DialogTitle>
+            <DialogTitle>{t('workspace.liveContent.addDialogTitle')}</DialogTitle>
             <DialogDescription>
-              {influencerName ? `For ${influencerName}'s ` : 'For this '}
-              {DELIVERABLE_TYPE_LABELS[deliverable.type].toLowerCase()} deliverable — influencer, campaign and brand are
-              derived automatically.
+              {influencerName
+                ? t('workspace.deliverables.addContentDescriptionNamed', { name: influencerName, type: typeLabel })
+                : t('workspace.deliverables.addContentDescriptionGeneric', { type: typeLabel })}
             </DialogDescription>
           </DialogHeader>
           <AddContentFlow
             lockDeliverableId={deliverable.id}
-            lockDeliverableLabel={`${influencerName ? `${influencerName}'s ` : ''}${DELIVERABLE_TYPE_LABELS[deliverable.type]}`}
+            lockDeliverableLabel={
+              influencerName
+                ? t('workspace.deliverables.lockLabelNamed', { name: influencerName, type: typeLabel })
+                : typeLabel
+            }
             onCancel={() => setAddContentOpen(false)}
             onSuccess={() => {
               queryClient.invalidateQueries();
@@ -946,15 +972,16 @@ function DeliverableRow({
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {influencerName ? `${influencerName}'s ` : ''}
-              {DELIVERABLE_TYPE_LABELS[deliverable.type]} — comments
+              {influencerName
+                ? t('workspace.deliverables.commentsDialogTitleNamed', { name: influencerName, type: typeLabel })
+                : t('workspace.deliverables.commentsDialogTitleGeneric', { type: typeLabel })}
             </DialogTitle>
           </DialogHeader>
           <CommentThread
             context={{ deliverableId: deliverable.id }}
             cacheKey={`deliverable:${deliverable.id}`}
-            emptyTitle="No comments yet"
-            emptyDescription="Discuss this deliverable with your team."
+            emptyTitle={t('workspace.deliverables.commentsEmptyTitle')}
+            emptyDescription={t('workspace.deliverables.commentsEmptyDescription')}
           />
         </DialogContent>
       </Dialog>
@@ -982,6 +1009,8 @@ function DeliverableShipmentsAction({
   campaign: CampaignDetailDTO;
   influencer?: InfluencerSummaryDTO;
 }) {
+  const t = useTranslations('campaigns');
+  const tEnums = useTranslations('enums');
   const queryClient = useQueryClient();
   const [selected, setSelected] = React.useState<LogisticsRequestDTO | null>(null);
   // Shipments are only ever created for deliverables that need a product —
@@ -1014,7 +1043,7 @@ function DeliverableShipmentsAction({
     return (
       <>
         <Button type="button" variant="ghost" size="sm" onClick={() => setSelected(toDetail(shipments[0]!))}>
-          <Truck className="h-3.5 w-3.5" /> Shipment
+          <Truck className="h-3.5 w-3.5" /> {t('workspace.deliverables.shipmentSingular')}
         </Button>
         <ShipmentDetailSheet shipment={selected} onOpenChange={close} />
       </>
@@ -1026,13 +1055,14 @@ function DeliverableShipmentsAction({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button type="button" variant="ghost" size="sm">
-            <Truck className="h-3.5 w-3.5" /> Shipments ({shipments.length})
+            <Truck className="h-3.5 w-3.5" /> {t('workspace.deliverables.shipmentsCount', { count: shipments.length })}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           {shipments.map((s) => (
             <DropdownMenuItem key={s.id} onSelect={() => setSelected(toDetail(s))}>
-              {SHIPMENT_STATUS_LABELS[s.status]} · {[s.city, s.country].filter(Boolean).join(', ') || 'No destination on file'}
+              {enumLabel(tEnums, 'shipmentStatus', s.status)} ·{' '}
+              {[s.city, s.country].filter(Boolean).join(', ') || t('workspace.deliverables.noDestinationOnFile')}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
@@ -1056,6 +1086,8 @@ function SubmitDraftDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [assetUrl, setAssetUrl] = React.useState('');
@@ -1071,37 +1103,35 @@ function SubmitDraftDialog({
   const submit = useMutation({
     mutationFn: () => api.deliverables.submit(deliverableId, { assetUrl: assetUrl.trim() || undefined, notes: notes.trim() || undefined }),
     onSuccess: () => {
-      toast.success('Draft submitted for review.');
+      toast.success(t('workspace.deliverables.draftSubmittedToast'));
       queryClient.invalidateQueries();
       router.refresh();
       onOpenChange(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Submit draft for review</DialogTitle>
-          <DialogDescription>
-            Owned UGC assets never need a public post — approval completes this deliverable directly.
-          </DialogDescription>
+          <DialogTitle>{t('workspace.deliverables.submitDraftDialogTitle')}</DialogTitle>
+          <DialogDescription>{t('workspace.deliverables.submitDraftDialogDescription')}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <Field label="Asset link" hint="Optional — a private file/drive link, if the asset isn't attached separately">
+          <Field label={t('workspace.deliverables.assetLinkLabel')} hint={t('workspace.deliverables.assetLinkHint')}>
             <Input value={assetUrl} onChange={(e) => setAssetUrl(e.target.value)} placeholder="https://drive.google.com/…" />
           </Field>
-          <Field label="Notes" hint="Optional — context for the reviewer">
+          <Field label={t('fields.notes')} hint={t('workspace.deliverables.notesReviewerHint')}>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
           </Field>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tCommon('cancel')}
           </Button>
           <Button disabled={submit.isPending} onClick={() => submit.mutate()}>
-            {submit.isPending ? 'Submitting…' : 'Submit for review'}
+            {submit.isPending ? t('workspace.deliverables.submitting') : t('workspace.deliverables.submitForReview')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1110,6 +1140,7 @@ function SubmitDraftDialog({
 }
 
 function DeliverablesTab({ campaign, influencers }: { campaign: CampaignDetailDTO; influencers: CampaignInfluencerDTO[] }) {
+  const t = useTranslations('campaigns');
   const rows = React.useMemo(() => {
     const flat = influencers.flatMap((ci) => ci.deliverables.map((d) => ({ ci, d })));
     return flat.sort((a, b) => {
@@ -1123,8 +1154,8 @@ function DeliverablesTab({ campaign, influencers }: { campaign: CampaignDetailDT
     return (
       <EmptyState
         icon={ListChecks}
-        title="No deliverables yet"
-        description="Deliverables assigned to influencers on this campaign will appear here."
+        title={t('workspace.deliverables.emptyTitle')}
+        description={t('workspace.deliverables.emptyDescription')}
       />
     );
   }
@@ -1154,6 +1185,9 @@ function AddDeliverableDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [platform, setPlatform] = React.useState<Platform>('INSTAGRAM');
@@ -1176,7 +1210,7 @@ function AddDeliverableDialog({
 
   const addDeliverable = useMutation({
     mutationFn: () => {
-      if (!campaignInfluencer) throw new Error('No influencer selected.');
+      if (!campaignInfluencer) throw new Error(t('workspace.deliverables.noInfluencerSelected'));
       return api.campaignInfluencers.addDeliverable(campaignInfluencer.id, {
         platform,
         type,
@@ -1187,26 +1221,28 @@ function AddDeliverableDialog({
       });
     },
     onSuccess: () => {
-      toast.success('Deliverable added');
+      toast.success(t('workspace.deliverables.addedToast'));
       queryClient.invalidateQueries();
       router.refresh();
       onOpenChange(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add deliverable</DialogTitle>
+          <DialogTitle>{t('workspace.deliverables.addDeliverable')}</DialogTitle>
           <DialogDescription>
-            {campaignInfluencer ? `For ${campaignInfluencer.influencer.displayName}` : 'Assign a new deliverable.'}
+            {campaignInfluencer
+              ? t('workspace.deliverables.addDialogDescriptionNamed', { name: campaignInfluencer.influencer.displayName })
+              : t('workspace.deliverables.addDialogDescriptionGeneric')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Platform">
+          <Field label={t('fields.platform')}>
             <Select value={platform} onValueChange={(v) => setPlatform(v as Platform)}>
               <SelectTrigger>
                 <SelectValue />
@@ -1220,49 +1256,55 @@ function AddDeliverableDialog({
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Type">
+          <Field label={t('fields.type')}>
             <Select value={type} onValueChange={(v) => setType(v as DeliverableType)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {DELIVERABLE_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {DELIVERABLE_TYPE_LABELS[t]}
+                {DELIVERABLE_TYPES.map((dt) => (
+                  <SelectItem key={dt} value={dt}>
+                    {enumLabel(tEnums, 'deliverableType', dt)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Quantity">
+          <Field label={t('fields.quantity')}>
             <Input type="number" min={1} max={100} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
           </Field>
-          <Field label="Due date" hint="Optional">
+          <Field label={t('fields.dueDate')} hint={t('fields.optionalHint')}>
             <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </Field>
-          <Field label="Requirements" hint="Optional" className="col-span-2">
+          <Field label={t('workspace.deliverables.requirementsLabel')} hint={t('fields.optionalHint')} className="col-span-2">
             <Textarea
               value={requirements}
               onChange={(e) => setRequirements(e.target.value)}
-              placeholder="Hashtags, mentions, key messages…"
+              placeholder={t('workspace.deliverables.requirementsPlaceholder')}
               rows={3}
             />
           </Field>
           <div className="col-span-2 flex items-center justify-between rounded-lg border border-border bg-surface-muted px-3 py-2.5">
             <div>
-              <p className="text-sm font-medium text-foreground">Physical product required</p>
-              <p className="text-xs text-muted-foreground">Enables creating a logistics shipment for this deliverable.</p>
+              <p className="text-sm font-medium text-foreground">{t('workspace.deliverables.physicalProductRequired')}</p>
+              <p className="text-xs text-muted-foreground">
+                {t('workspace.deliverables.physicalProductRequiredDescription')}
+              </p>
             </div>
-            <Switch aria-label="Physical product required" checked={requiresProduct} onCheckedChange={setRequiresProduct} />
+            <Switch
+              aria-label={t('workspace.deliverables.physicalProductRequired')}
+              checked={requiresProduct}
+              onCheckedChange={setRequiresProduct}
+            />
           </div>
         </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tCommon('cancel')}
           </Button>
           <Button disabled={addDeliverable.isPending} onClick={() => addDeliverable.mutate()}>
-            {addDeliverable.isPending ? 'Adding…' : 'Add deliverable'}
+            {addDeliverable.isPending ? t('workspace.deliverables.adding') : t('workspace.deliverables.addDeliverable')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1293,6 +1335,7 @@ function TagList({ label, items, tone }: { label: string; items: string[]; tone:
 }
 
 function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: ScriptDTO[] }) {
+  const t = useTranslations('campaigns');
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
   const [newOpen, setNewOpen] = React.useState(false);
   const [addVersionFor, setAddVersionFor] = React.useState<ScriptDTO | null>(null);
@@ -1310,18 +1353,18 @@ function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: Scri
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {scripts.length} script{scripts.length === 1 ? '' : 's'} for this campaign
+          {t('workspace.scripts.countForCampaign', { count: scripts.length })}
         </p>
         <Button type="button" size="sm" onClick={() => setNewOpen(true)}>
-          <Plus className="h-4 w-4" /> New script
+          <Plus className="h-4 w-4" /> {t('workspace.scripts.newScript')}
         </Button>
       </div>
 
       {scripts.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title="No scripts yet"
-          description="Content scripts and creative guidelines for this campaign will appear here."
+          title={t('workspace.scripts.emptyTitle')}
+          description={t('workspace.scripts.emptyDescription')}
         />
       ) : (
         scripts.map((script) => {
@@ -1341,9 +1384,14 @@ function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: Scri
                       <FileText className="h-5 w-5" />
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate font-semibold">{script.title}</p>
+                      <p className="truncate font-semibold">
+                        <BidiText>{script.title}</BidiText>
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        Version {script.currentVersion} · Updated {relativeTime(script.updatedAt)}
+                        {t('workspace.scripts.versionUpdated', {
+                          version: script.currentVersion,
+                          relative: relativeTime(script.updatedAt),
+                        })}
                       </p>
                     </div>
                   </div>
@@ -1354,7 +1402,7 @@ function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: Scri
                   )}
                 </button>
                 <Button type="button" variant="ghost" size="sm" onClick={() => setAddVersionFor(script)}>
-                  <Plus className="h-3.5 w-3.5" /> Add version
+                  <Plus className="h-3.5 w-3.5" /> {t('workspace.scripts.addVersion')}
                 </Button>
               </div>
 
@@ -1362,32 +1410,42 @@ function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: Scri
                 <div className="space-y-4 border-t border-border p-5">
                 {current.body ? (
                   <div>
-                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Script</p>
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t('workspace.scripts.scriptLabel')}
+                    </p>
                     <p className="whitespace-pre-wrap text-sm text-foreground">{current.body}</p>
                   </div>
                 ) : null}
                 {current.captionSuggestion ? (
                   <div>
                     <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Caption suggestion
+                      {t('workspace.scripts.captionSuggestionLabel')}
                     </p>
                     <p className="whitespace-pre-wrap text-sm text-foreground">{current.captionSuggestion}</p>
                   </div>
                 ) : null}
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <TagList label="Do's" items={current.dos} tone="success" />
-                  <TagList label="Don'ts" items={current.donts} tone="danger" />
-                  <TagList label="Talking points" items={current.talkingPoints} tone="info" />
-                  <TagList label="Required claims" items={current.requiredClaims} tone="neutral" />
-                  <TagList label="Hashtags" items={current.hashtags.map((h) => `#${h}`)} tone="accent" />
-                  <TagList label="Mentions" items={current.mentions.map((m) => `@${m}`)} tone="accent" />
+                  <TagList label={t('workspace.scripts.dos')} items={current.dos} tone="success" />
+                  <TagList label={t('workspace.scripts.donts')} items={current.donts} tone="danger" />
+                  <TagList label={t('workspace.scripts.talkingPoints')} items={current.talkingPoints} tone="info" />
+                  <TagList label={t('workspace.scripts.requiredClaims')} items={current.requiredClaims} tone="neutral" />
+                  <TagList
+                    label={t('workspace.scripts.hashtags')}
+                    items={current.hashtags.map((h) => `#${h}`)}
+                    tone="accent"
+                  />
+                  <TagList
+                    label={t('workspace.scripts.mentions')}
+                    items={current.mentions.map((m) => `@${m}`)}
+                    tone="accent"
+                  />
                 </div>
 
                 {current.referenceLinks.length > 0 ? (
                   <div>
                     <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Reference links
+                      {t('workspace.scripts.referenceLinks')}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {current.referenceLinks.map((link) => (
@@ -1398,7 +1456,7 @@ function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: Scri
                           rel="noreferrer"
                           className="rounded-full border border-border bg-surface-muted px-3 py-1 text-xs text-brand hover:underline"
                         >
-                          {link}
+                          <LtrText>{link}</LtrText>
                         </a>
                       ))}
                     </div>
@@ -1408,14 +1466,16 @@ function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: Scri
                 {current.internalComments ? (
                   <div>
                     <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Internal comments
+                      {t('workspace.scripts.internalCommentsLabel')}
                     </p>
                     <p className="whitespace-pre-wrap text-sm text-muted-foreground">{current.internalComments}</p>
                   </div>
                 ) : null}
 
                 {current.createdByName ? (
-                  <p className="text-xs text-muted-foreground">Written by {current.createdByName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t('workspace.scripts.writtenBy', { name: current.createdByName })}
+                  </p>
                 ) : null}
               </div>
             ) : null}
@@ -1484,34 +1544,58 @@ function useScriptVersionFields() {
 }
 
 function ScriptVersionFields({ fields }: { fields: ReturnType<typeof useScriptVersionFields> }) {
+  const t = useTranslations('campaigns');
   const f = fields;
   return (
     <div className="space-y-4">
-      <Field label="Script body" hint="Optional">
-        <Textarea value={f.body} onChange={(e) => f.setBody(e.target.value)} rows={4} placeholder="The main script / voiceover…" />
+      <Field label={t('workspace.scripts.scriptBodyLabel')} hint={t('fields.optionalHint')}>
+        <Textarea
+          value={f.body}
+          onChange={(e) => f.setBody(e.target.value)}
+          rows={4}
+          placeholder={t('workspace.scripts.scriptBodyPlaceholder')}
+        />
       </Field>
-      <Field label="Talking points" hint="Comma-separated">
+      <Field label={t('workspace.scripts.talkingPoints')} hint={t('workspace.scripts.commaSeparatedHint')}>
         <Textarea
           value={f.talkingPoints}
           onChange={(e) => f.setTalkingPoints(e.target.value)}
           rows={2}
-          placeholder="Key benefit, price point, launch date"
+          placeholder={t('workspace.scripts.talkingPointsPlaceholder')}
         />
       </Field>
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Do's" hint="Comma-separated">
-          <Textarea value={f.dos} onChange={(e) => f.setDos(e.target.value)} rows={2} placeholder="Tag the brand, show the product" />
+        <Field label={t('workspace.scripts.dos')} hint={t('workspace.scripts.commaSeparatedHint')}>
+          <Textarea
+            value={f.dos}
+            onChange={(e) => f.setDos(e.target.value)}
+            rows={2}
+            placeholder={t('workspace.scripts.dosPlaceholder')}
+          />
         </Field>
-        <Field label="Don'ts" hint="Comma-separated">
-          <Textarea value={f.donts} onChange={(e) => f.setDonts(e.target.value)} rows={2} placeholder="No competitors, no discounts" />
+        <Field label={t('workspace.scripts.donts')} hint={t('workspace.scripts.commaSeparatedHint')}>
+          <Textarea
+            value={f.donts}
+            onChange={(e) => f.setDonts(e.target.value)}
+            rows={2}
+            placeholder={t('workspace.scripts.dontsPlaceholder')}
+          />
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Hashtags" hint="Comma-separated">
-          <Input value={f.hashtags} onChange={(e) => f.setHashtags(e.target.value)} placeholder="summer, glow, ad" />
+        <Field label={t('workspace.scripts.hashtags')} hint={t('workspace.scripts.commaSeparatedHint')}>
+          <Input
+            value={f.hashtags}
+            onChange={(e) => f.setHashtags(e.target.value)}
+            placeholder={t('workspace.scripts.hashtagsPlaceholder')}
+          />
         </Field>
-        <Field label="Mentions" hint="Comma-separated">
-          <Input value={f.mentions} onChange={(e) => f.setMentions(e.target.value)} placeholder="brandhandle" />
+        <Field label={t('workspace.scripts.mentions')} hint={t('workspace.scripts.commaSeparatedHint')}>
+          <Input
+            value={f.mentions}
+            onChange={(e) => f.setMentions(e.target.value)}
+            placeholder={t('workspace.scripts.mentionsPlaceholder')}
+          />
         </Field>
       </div>
     </div>
@@ -1527,6 +1611,8 @@ function NewScriptDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [title, setTitle] = React.useState('');
@@ -1543,39 +1629,43 @@ function NewScriptDialog({
   const create = useMutation({
     mutationFn: () => {
       const trimmed = title.trim();
-      if (!trimmed) throw new Error('Enter a script title.');
+      if (!trimmed) throw new Error(t('workspace.scripts.enterTitleError'));
       return api.scripts.create({ campaignId, title: trimmed, ...fields.buildVersion() });
     },
     onSuccess: () => {
-      toast.success('Script created');
+      toast.success(t('workspace.scripts.createdToast'));
       queryClient.invalidateQueries();
       router.refresh();
       onOpenChange(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New script</DialogTitle>
-          <DialogDescription>Author a content script and creative guidelines for this campaign.</DialogDescription>
+          <DialogTitle>{t('workspace.scripts.newScript')}</DialogTitle>
+          <DialogDescription>{t('workspace.scripts.newScriptDialogDescription')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <Field label="Title">
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Reel voiceover v1" />
+          <Field label={t('fields.title')}>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={t('workspace.scripts.titlePlaceholder')}
+            />
           </Field>
           <ScriptVersionFields fields={fields} />
         </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tCommon('cancel')}
           </Button>
           <Button disabled={!title.trim() || create.isPending} onClick={() => create.mutate()}>
-            {create.isPending ? 'Creating…' : 'Create script'}
+            {create.isPending ? t('workspace.scripts.creating') : t('workspace.scripts.createScript')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1592,6 +1682,8 @@ function AddScriptVersionDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const queryClient = useQueryClient();
   const fields = useScriptVersionFields();
@@ -1603,34 +1695,38 @@ function AddScriptVersionDialog({
 
   const addVersion = useMutation({
     mutationFn: () => {
-      if (!script) throw new Error('No script selected.');
+      if (!script) throw new Error(t('workspace.scripts.noScriptSelected'));
       return api.scripts.addVersion(script.id, fields.buildVersion());
     },
     onSuccess: () => {
-      toast.success('Version added');
+      toast.success(t('workspace.scripts.versionAddedToast'));
       queryClient.invalidateQueries();
       router.refresh();
       onOpenChange(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add version</DialogTitle>
-          <DialogDescription>{script ? `A new version of "${script.title}".` : 'Add a new script version.'}</DialogDescription>
+          <DialogTitle>{t('workspace.scripts.addVersion')}</DialogTitle>
+          <DialogDescription>
+            {script
+              ? t('workspace.scripts.addVersionDescriptionNamed', { title: script.title })
+              : t('workspace.scripts.addVersionDescriptionGeneric')}
+          </DialogDescription>
         </DialogHeader>
 
         <ScriptVersionFields fields={fields} />
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tCommon('cancel')}
           </Button>
           <Button disabled={addVersion.isPending} onClick={() => addVersion.mutate()}>
-            {addVersion.isPending ? 'Adding…' : 'Add version'}
+            {addVersion.isPending ? t('workspace.scripts.addingVersion') : t('workspace.scripts.addVersion')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1643,6 +1739,9 @@ function AddScriptVersionDialog({
 // ---------------------------------------------------------------------------
 
 function ExpenseRow({ expense }: { expense: ExpenseDTO }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = React.useState(false);
@@ -1651,15 +1750,16 @@ function ExpenseRow({ expense }: { expense: ExpenseDTO }) {
   const remove = useMutation({
     mutationFn: () => api.expenses.remove(expense.id),
     onSuccess: () => {
-      toast.success('Expense removed');
+      toast.success(t('workspace.expenses.removedToast'));
       queryClient.invalidateQueries();
       router.refresh();
       setRemoveOpen(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
-  const name = expense.label || EXPENSE_TYPE_LABELS[expense.type];
+  const typeLabel = enumLabel(tEnums, 'expenseType', expense.type);
+  const name = expense.label || typeLabel;
 
   return (
     <div className="flex items-center gap-3 p-4">
@@ -1667,9 +1767,11 @@ function ExpenseRow({ expense }: { expense: ExpenseDTO }) {
         <Receipt className="h-4 w-4" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{name}</p>
+        <p className="truncate text-sm font-medium">
+          <BidiText>{name}</BidiText>
+        </p>
         <p className="text-xs text-muted-foreground">
-          {EXPENSE_TYPE_LABELS[expense.type]} · {expense.incurredAt ? shortDate(expense.incurredAt) : 'No date'}
+          {typeLabel} · {expense.incurredAt ? shortDate(expense.incurredAt) : t('workspace.expenses.noDate')}
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
@@ -1681,7 +1783,7 @@ function ExpenseRow({ expense }: { expense: ExpenseDTO }) {
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label={`Edit expense ${name}`}
+          aria-label={t('workspace.expenses.editAriaLabel', { name })}
           onClick={() => setEditOpen(true)}
         >
           <Pencil className="h-4 w-4" />
@@ -1690,7 +1792,7 @@ function ExpenseRow({ expense }: { expense: ExpenseDTO }) {
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label={`Remove expense ${name}`}
+          aria-label={t('workspace.expenses.removeAriaLabel', { name })}
           className="text-muted-foreground hover:text-danger"
           onClick={() => setRemoveOpen(true)}
         >
@@ -1702,9 +1804,9 @@ function ExpenseRow({ expense }: { expense: ExpenseDTO }) {
       <ConfirmDialog
         open={removeOpen}
         onOpenChange={setRemoveOpen}
-        title="Remove expense?"
-        description={`"${name}" will be permanently removed from this campaign's costs. This cannot be undone.`}
-        confirmLabel="Remove"
+        title={t('workspace.expenses.removeConfirmTitle')}
+        description={t('workspace.expenses.removeConfirmDescription', { name })}
+        confirmLabel={tCommon('remove')}
         loading={remove.isPending}
         onConfirm={() => remove.mutate()}
       />
@@ -1721,6 +1823,9 @@ function EditExpenseDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [type, setType] = React.useState<ExpenseType>(expense.type);
@@ -1745,7 +1850,7 @@ function EditExpenseDialog({
     mutationFn: () => {
       const parsed = Number(amount);
       if (!amount.trim() || !Number.isFinite(parsed) || parsed < 0) {
-        throw new Error('Enter a valid amount.');
+        throw new Error(t('workspace.expenses.invalidAmount'));
       }
       return api.expenses.update(expense.id, {
         type,
@@ -1757,42 +1862,42 @@ function EditExpenseDialog({
       });
     },
     onSuccess: () => {
-      toast.success('Expense updated');
+      toast.success(t('workspace.expenses.updatedToast'));
       queryClient.invalidateQueries();
       router.refresh();
       onOpenChange(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit expense</DialogTitle>
-          <DialogDescription>Update this campaign expense.</DialogDescription>
+          <DialogTitle>{t('workspace.expenses.editDialogTitle')}</DialogTitle>
+          <DialogDescription>{t('workspace.expenses.editDialogDescription')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <Field label="Type">
+          <Field label={t('fields.type')}>
             <Select value={type} onValueChange={(v) => setType(v as ExpenseType)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {EXPENSE_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {EXPENSE_TYPE_LABELS[t]}
+                {EXPENSE_TYPES.map((et) => (
+                  <SelectItem key={et} value={et}>
+                    {enumLabel(tEnums, 'expenseType', et)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Label" hint="Optional">
-            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Studio rental" />
+          <Field label={t('workspace.expenses.labelField')} hint={t('fields.optionalHint')}>
+            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t('workspace.expenses.labelPlaceholder')} />
           </Field>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Amount">
+            <Field label={t('workspace.expenses.amountLabel')}>
               <Input
                 type="number"
                 min={0}
@@ -1802,11 +1907,11 @@ function EditExpenseDialog({
                 placeholder="0.00"
               />
             </Field>
-            <Field label="Incurred on" hint="Optional">
+            <Field label={t('workspace.expenses.incurredOnLabel')} hint={t('fields.optionalHint')}>
               <Input type="date" value={incurredAt} onChange={(e) => setIncurredAt(e.target.value)} />
             </Field>
           </div>
-          <Field label="Payment status">
+          <Field label={t('fields.paymentStatus')}>
             <Select value={paymentStatus} onValueChange={(v) => setPaymentStatus(v as PaymentStatus)}>
               <SelectTrigger>
                 <SelectValue />
@@ -1814,23 +1919,23 @@ function EditExpenseDialog({
               <SelectContent>
                 {PAYMENT_STATUSES.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {PAYMENT_STATUS_LABELS[s]}
+                    {enumLabel(tEnums, 'paymentStatus', s)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Notes" hint="Optional">
+          <Field label={t('fields.notes')} hint={t('fields.optionalHint')}>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </Field>
         </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {tCommon('cancel')}
           </Button>
           <Button disabled={!amount.trim() || save.isPending} onClick={() => save.mutate()}>
-            {save.isPending ? 'Saving…' : 'Save changes'}
+            {save.isPending ? tCommon('saving') : t('workspace.saveChanges')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1847,6 +1952,9 @@ function AddExpenseForm({
   currency: string;
   influencers: CampaignInfluencerDTO[];
 }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [type, setType] = React.useState<ExpenseType>('OTHER');
@@ -1861,7 +1969,7 @@ function AddExpenseForm({
     mutationFn: () => {
       const parsed = Number(amount);
       if (!amount.trim() || !Number.isFinite(parsed) || parsed < 0) {
-        throw new Error('Enter a valid amount.');
+        throw new Error(t('workspace.expenses.invalidAmount'));
       }
       return api.campaigns.addExpense(campaignId, {
         type,
@@ -1875,7 +1983,7 @@ function AddExpenseForm({
       });
     },
     onSuccess: () => {
-      toast.success('Expense added');
+      toast.success(t('workspace.expenses.addedToast'));
       setType('OTHER');
       setLabel('');
       setAmount('');
@@ -1886,41 +1994,41 @@ function AddExpenseForm({
       queryClient.invalidateQueries();
       router.refresh();
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (
     <Card className="h-fit">
       <CardHeader>
-        <CardTitle>Add expense</CardTitle>
+        <CardTitle>{t('workspace.expenses.addExpenseTitle')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Field label="Type">
+        <Field label={t('fields.type')}>
           <Select value={type} onValueChange={(v) => setType(v as ExpenseType)}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {EXPENSE_TYPES.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {EXPENSE_TYPE_LABELS[t]}
+              {EXPENSE_TYPES.map((et) => (
+                <SelectItem key={et} value={et}>
+                  {enumLabel(tEnums, 'expenseType', et)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Field>
-        <Field label="Label" hint="Optional">
-          <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Studio rental" />
+        <Field label={t('workspace.expenses.labelField')} hint={t('fields.optionalHint')}>
+          <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t('workspace.expenses.labelPlaceholder')} />
         </Field>
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Amount">
+          <Field label={t('workspace.expenses.amountLabel')}>
             <Input type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
           </Field>
-          <Field label="Incurred on" hint="Optional">
+          <Field label={t('workspace.expenses.incurredOnLabel')} hint={t('fields.optionalHint')}>
             <Input type="date" value={incurredAt} onChange={(e) => setIncurredAt(e.target.value)} />
           </Field>
         </div>
-        <Field label="Payment status">
+        <Field label={t('fields.paymentStatus')}>
           <Select value={paymentStatus} onValueChange={(v) => setPaymentStatus(v as PaymentStatus)}>
             <SelectTrigger>
               <SelectValue />
@@ -1928,36 +2036,36 @@ function AddExpenseForm({
             <SelectContent>
               {PAYMENT_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {PAYMENT_STATUS_LABELS[s]}
+                  {enumLabel(tEnums, 'paymentStatus', s)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Field>
         {influencers.length > 0 ? (
-          <Field label="Attributed influencer" hint="Optional">
+          <Field label={t('workspace.expenses.attributedInfluencerLabel')} hint={t('fields.optionalHint')}>
             <Select value={campaignInfluencerId} onValueChange={setCampaignInfluencerId}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE}>None</SelectItem>
+                <SelectItem value={NONE}>{t('workspace.expenses.noneOption')}</SelectItem>
                 {influencers.map((ci) => (
                   <SelectItem key={ci.id} value={ci.id}>
-                    {ci.influencer.displayName}
+                    <BidiText>{ci.influencer.displayName}</BidiText>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
         ) : null}
-        <Field label="Notes" hint="Optional">
+        <Field label={t('fields.notes')} hint={t('fields.optionalHint')}>
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
         </Field>
       </CardContent>
       <CardFooter>
         <Button className="w-full" disabled={!amount.trim() || addExpense.isPending} onClick={() => addExpense.mutate()}>
-          {addExpense.isPending ? 'Adding…' : 'Add expense'}
+          {addExpense.isPending ? t('workspace.expenses.adding') : t('workspace.expenses.addExpenseTitle')}
         </Button>
       </CardFooter>
     </Card>
@@ -1975,33 +2083,74 @@ function CostsTab({
   influencers: CampaignInfluencerDTO[];
   costs: { expenses: ExpenseDTO[]; summary: CostSummaryDTO };
 }) {
+  const t = useTranslations('campaigns');
   const s = costs.summary;
   const overspent = (s.budgetUsedPercent ?? 0) > 100;
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Planned Budget" value={s.plannedBudget} icon={Target} tone="neutral" format={(n) => formatCurrency(n, s.currency)} />
         <StatCard
-          label="Total Spend"
+          label={t('fields.plannedBudget')}
+          value={s.plannedBudget}
+          icon={Target}
+          tone="neutral"
+          format={(n) => formatCurrency(n, s.currency)}
+        />
+        <StatCard
+          label={t('workspace.expenses.totalSpend')}
           value={s.totalSpend}
           icon={Wallet}
           tone={overspent ? 'danger' : 'warning'}
           format={(n) => formatCurrency(n, s.currency)}
-          hint={s.budgetUsedPercent != null ? `${formatPercent(s.budgetUsedPercent, 0)} of budget` : undefined}
+          hint={
+            s.budgetUsedPercent != null
+              ? t('workspace.expenses.percentOfBudget', { percent: formatPercent(s.budgetUsedPercent, 0) })
+              : undefined
+          }
         />
-        <StatCard label="Influencer Fees" value={s.influencerFees} icon={Coins} tone="info" format={(n) => formatCurrency(n, s.currency)} />
-        <StatCard label="Gift Value" value={s.giftValue} icon={Package} tone="accent" format={(n) => formatCurrency(n, s.currency)} />
-        <StatCard label="Other Expenses" value={s.otherExpenses} icon={Receipt} tone="neutral" format={(n) => formatCurrency(n, s.currency)} />
-        <StatCard label="Paid" value={s.paid} icon={CheckCircle2} tone="success" format={(n) => formatCurrency(n, s.currency)} />
-        <StatCard label="Unpaid" value={s.unpaid} icon={AlertCircle} tone="danger" format={(n) => formatCurrency(n, s.currency)} />
+        <StatCard
+          label={t('workspace.expenses.influencerFees')}
+          value={s.influencerFees}
+          icon={Coins}
+          tone="info"
+          format={(n) => formatCurrency(n, s.currency)}
+        />
+        <StatCard
+          label={t('workspace.expenses.giftValueLabel')}
+          value={s.giftValue}
+          icon={Package}
+          tone="accent"
+          format={(n) => formatCurrency(n, s.currency)}
+        />
+        <StatCard
+          label={t('workspace.expenses.otherExpenses')}
+          value={s.otherExpenses}
+          icon={Receipt}
+          tone="neutral"
+          format={(n) => formatCurrency(n, s.currency)}
+        />
+        <StatCard
+          label={t('workspace.expenses.paidLabel')}
+          value={s.paid}
+          icon={CheckCircle2}
+          tone="success"
+          format={(n) => formatCurrency(n, s.currency)}
+        />
+        <StatCard
+          label={t('workspace.expenses.unpaidLabel')}
+          value={s.unpaid}
+          icon={AlertCircle}
+          tone="danger"
+          format={(n) => formatCurrency(n, s.currency)}
+        />
       </div>
 
       {s.plannedBudget != null ? (
         <Card>
           <CardContent className="p-5">
             <div className="mb-1.5 flex items-center justify-between text-sm">
-              <span className="font-medium text-foreground">Budget utilization</span>
+              <span className="font-medium text-foreground">{t('workspace.expenses.budgetUtilization')}</span>
               <span className="text-muted-foreground">{formatPercent(s.budgetUsedPercent, 0)}</span>
             </div>
             <ProgressBar value={s.budgetUsedPercent ?? 0} tone={overspent ? 'danger' : 'primary'} />
@@ -2012,14 +2161,14 @@ function CostsTab({
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Expenses</CardTitle>
+            <CardTitle>{t('workspace.expenses.expensesTitle')}</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {costs.expenses.length === 0 ? (
               <EmptyState
                 icon={Receipt}
-                title="No expenses logged"
-                description="Add an expense to start tracking campaign costs."
+                title={t('workspace.expenses.emptyTitle')}
+                description={t('workspace.expenses.emptyDescription')}
                 className="border-0"
               />
             ) : (
@@ -2077,30 +2226,38 @@ function MetricTile({
  * amount of trust.
  */
 function MetricsFreshnessBanner({ efficiency }: { efficiency: CampaignEfficiencyDTO }) {
+  const t = useTranslations('campaigns');
+  const tEnums = useTranslations('enums');
   const synced = efficiency.metricsLastSyncedAt;
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-border bg-surface-muted/40 px-4 py-3 text-sm">
       <span className="inline-flex items-center gap-1.5 text-muted-foreground">
         <Clock className="size-4" />
-        {synced ? <>Metrics synced {relativeTime(synced)}</> : 'Metrics never synced'}
+        {synced
+          ? t('workspace.performance.metricsSynced', { relative: relativeTime(synced) })
+          : t('workspace.performance.metricsNeverSynced')}
       </span>
       <Badge tone={efficiency.isStale ? 'warning' : 'success'}>
         {efficiency.isStale ? (
           <span className="inline-flex items-center gap-1">
-            <AlertCircle className="size-3.5" /> Stale (&gt;{efficiency.freshnessWindowDays}d)
+            <AlertCircle className="size-3.5" />{' '}
+            {t('workspace.performance.staleLabel', { days: efficiency.freshnessWindowDays })}
           </span>
         ) : (
-          'Fresh'
+          t('workspace.performance.freshLabel')
         )}
       </Badge>
       <span className="text-muted-foreground">
-        {efficiency.contentWithMetrics}/{efficiency.contentCount} measured
+        {t('workspace.performance.measuredCount', {
+          measured: efficiency.contentWithMetrics,
+          total: efficiency.contentCount,
+        })}
       </span>
       {efficiency.sources.length > 0 && (
         <span className="inline-flex flex-wrap items-center gap-1.5">
           {efficiency.sources.map((s) => (
             <Badge key={s.source} tone="neutral">
-              {DATA_SOURCE_LABELS[s.source]} · {s.count}
+              {enumLabel(tEnums, 'dataSource', s.source)} · {s.count}
             </Badge>
           ))}
         </span>
@@ -2110,6 +2267,8 @@ function MetricsFreshnessBanner({ efficiency }: { efficiency: CampaignEfficiency
 }
 
 function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; contentFeed: PublishedContentDTO[] }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
   // Efficiency (CPV/CPM/CPE + rollups + freshness) is computed server-side
   // (W6-1 / ARCH-01) — the browser renders these numbers, it never derives them.
   const { data, isLoading, isError } = useQuery({
@@ -2134,8 +2293,8 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
     return (
       <EmptyState
         icon={TrendingUp}
-        title="Couldn't load performance"
-        description="Something went wrong computing this campaign's efficiency. Try again shortly."
+        title={t('workspace.performance.loadErrorTitle')}
+        description={t('workspace.performance.loadErrorDescription')}
       />
     );
   }
@@ -2144,8 +2303,8 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
     return (
       <EmptyState
         icon={TrendingUp}
-        title="No performance data yet"
-        description="Metrics appear once influencer content is published and synced."
+        title={t('workspace.performance.emptyTitle')}
+        description={t('workspace.performance.emptyDescription')}
       />
     );
   }
@@ -2158,57 +2317,63 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
       <MetricsFreshnessBanner efficiency={data} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <StatCard label="Total Views" value={data.totalViews} icon={Eye} tone="info" format={formatCompact} />
-        <StatCard label="Total Engagement" value={data.totalEngagement} icon={Heart} tone="accent" format={formatCompact} />
-        <MetricTile
-          label="Avg. Engagement Rate"
-          value={data.avgEngagementRate != null ? formatPercent(data.avgEngagementRate) : 'N/A'}
-          icon={PercentIcon}
-          tooltip="Average of each post's engagement rate — (likes + comments + shares) ÷ views."
-        />
-        <MetricTile
-          label="Cost per Content"
-          value={data.costPerContent != null ? formatCurrency(data.costPerContent, currency) : 'N/A'}
-          icon={DollarSign}
-          tooltip="Total campaign spend ÷ number of published content pieces."
-        />
-        <MetricTile
-          label="CPV"
-          value={data.costPerView != null ? formatCurrency(data.costPerView, currency) : 'N/A'}
-          icon={Eye}
-          tooltip="Cost Per View — total campaign spend ÷ total views across this campaign's content."
-        />
-        <MetricTile
-          label="CPM"
-          value={data.costPerMille != null ? formatCurrency(data.costPerMille, currency) : 'N/A'}
-          icon={TrendingUp}
-          tooltip="Cost Per Mille — cost to reach 1,000 views (spend ÷ views × 1,000)."
-        />
-        <MetricTile
-          label="CPE"
-          value={data.costPerEngagement != null ? formatCurrency(data.costPerEngagement, currency) : 'N/A'}
+        <StatCard label={t('workspace.performance.totalViews')} value={data.totalViews} icon={Eye} tone="info" format={formatCompact} />
+        <StatCard
+          label={t('workspace.performance.totalEngagement')}
+          value={data.totalEngagement}
           icon={Heart}
-          tooltip="Cost Per Engagement — total campaign spend ÷ total engagements across this campaign's content."
+          tone="accent"
+          format={formatCompact}
+        />
+        <MetricTile
+          label={t('workspace.performance.avgEngagementRate')}
+          value={data.avgEngagementRate != null ? formatPercent(data.avgEngagementRate) : tCommon('na')}
+          icon={PercentIcon}
+          tooltip={t('workspace.performance.avgEngagementRateTooltip')}
+        />
+        <MetricTile
+          label={t('workspace.performance.costPerContent')}
+          value={data.costPerContent != null ? formatCurrency(data.costPerContent, currency) : tCommon('na')}
+          icon={DollarSign}
+          tooltip={t('workspace.performance.costPerContentTooltip')}
+        />
+        <MetricTile
+          label={t('workspace.performance.cpvLabel')}
+          value={data.costPerView != null ? formatCurrency(data.costPerView, currency) : tCommon('na')}
+          icon={Eye}
+          tooltip={t('workspace.performance.cpvTooltip')}
+        />
+        <MetricTile
+          label={t('workspace.performance.cpmLabel')}
+          value={data.costPerMille != null ? formatCurrency(data.costPerMille, currency) : tCommon('na')}
+          icon={TrendingUp}
+          tooltip={t('workspace.performance.cpmTooltip')}
+        />
+        <MetricTile
+          label={t('workspace.performance.cpeLabel')}
+          value={data.costPerEngagement != null ? formatCurrency(data.costPerEngagement, currency) : tCommon('na')}
+          icon={Heart}
+          tooltip={t('workspace.performance.cpeTooltip')}
         />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Content Performance</CardTitle>
+          <CardTitle>{t('workspace.performance.contentPerformanceTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-5 py-3 font-medium">Content</th>
-                <th className="px-5 py-3 font-medium">Platform</th>
-                <th className="px-5 py-3 font-medium">Views</th>
-                <th className="px-5 py-3 font-medium">Engagement</th>
-                <th className="px-5 py-3 font-medium">Eng. rate</th>
+                <th className="px-5 py-3 font-medium">{t('workspace.performance.contentHeader')}</th>
+                <th className="px-5 py-3 font-medium">{t('fields.platform')}</th>
+                <th className="px-5 py-3 font-medium">{t('workspace.performance.viewsHeader')}</th>
+                <th className="px-5 py-3 font-medium">{t('workspace.performance.engagementHeader')}</th>
+                <th className="px-5 py-3 font-medium">{t('workspace.performance.engRateHeader')}</th>
                 <th className="px-5 py-3 font-medium">
                   <span className="inline-flex items-center gap-1">
-                    Est. CPV
-                    <InfoTooltip text="Cost per view, assuming total spend is split evenly across this campaign's published content." />
+                    {t('workspace.performance.estCpvHeader')}
+                    <InfoTooltip text={t('workspace.performance.estCpvTooltip')} />
                   </span>
                 </th>
               </tr>
@@ -2220,9 +2385,15 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
                   <tr key={c.id}>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2.5">
-                        <Avatar name={c.influencer?.displayName ?? 'Unknown'} src={c.influencer?.avatarUrl} size="xs" />
+                        <Avatar name={c.influencer?.displayName ?? tCommon('unknown')} src={c.influencer?.avatarUrl} size="xs" />
                         <div className="min-w-0">
-                          <p className="truncate font-medium">{c.influencer?.displayName ?? 'Unassigned'}</p>
+                          <p className="truncate font-medium">
+                            {c.influencer?.displayName ? (
+                              <BidiText>{c.influencer.displayName}</BidiText>
+                            ) : (
+                              tCommon('unassigned')
+                            )}
+                          </p>
                           <p className="truncate text-xs text-muted-foreground">{relativeTime(c.publishedAt ?? c.detectedAt)}</p>
                         </div>
                       </div>
@@ -2230,11 +2401,15 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
                     <td className="px-5 py-3">
                       <PlatformBadge platform={c.platform} size="sm" />
                     </td>
-                    <td className="px-5 py-3 tabular-nums">{eff?.views != null ? formatCompact(eff.views) : 'N/A'}</td>
-                    <td className="px-5 py-3 tabular-nums">{eff?.totalEngagement != null ? formatCompact(eff.totalEngagement) : 'N/A'}</td>
-                    <td className="px-5 py-3 tabular-nums">{eff?.engagementRate != null ? formatPercent(eff.engagementRate) : 'N/A'}</td>
+                    <td className="px-5 py-3 tabular-nums">{eff?.views != null ? formatCompact(eff.views) : tCommon('na')}</td>
                     <td className="px-5 py-3 tabular-nums">
-                      {eff?.costPerView != null ? formatCurrency(eff.costPerView, currency) : 'N/A'}
+                      {eff?.totalEngagement != null ? formatCompact(eff.totalEngagement) : tCommon('na')}
+                    </td>
+                    <td className="px-5 py-3 tabular-nums">
+                      {eff?.engagementRate != null ? formatPercent(eff.engagementRate) : tCommon('na')}
+                    </td>
+                    <td className="px-5 py-3 tabular-nums">
+                      {eff?.costPerView != null ? formatCurrency(eff.costPerView, currency) : tCommon('na')}
                     </td>
                   </tr>
                 );
@@ -2252,11 +2427,12 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
 // ---------------------------------------------------------------------------
 
 function ActivityTab({ campaignId }: { campaignId: string }) {
+  const t = useTranslations('campaigns');
   return (
     <ActivityFeed
       filter={{ campaignId }}
       queryKey={['campaign-activity', campaignId]}
-      emptyDescription="Actions taken on this campaign will show up here."
+      emptyDescription={t('workspace.activity.emptyDescription')}
     />
   );
 }

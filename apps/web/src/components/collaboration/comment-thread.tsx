@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { AtSign, FileText, MessageSquare, Paperclip, Pencil, Pin, PinOff, Reply, Send, Trash2, X } from 'lucide-react';
 import type { CursorPage, NoteDTO } from '@influenceos/contracts';
@@ -16,6 +17,7 @@ import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover'
 import { relativeTime } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { useApp } from '@/components/shell/app-context';
+import { BidiText } from '@/components/common/bidi-text';
 
 /** Exactly one context field identifies the thread — mirrors NoteContext on the domain layer. */
 export interface CommentContext {
@@ -74,6 +76,8 @@ export function Composer({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const directory = useMentionDirectory();
   const { user } = useApp();
+  const t = useTranslations('collaboration');
+  const tCommon = useTranslations('common');
 
   const filtered = React.useMemo(() => {
     if (!mentionQuery) return [];
@@ -123,7 +127,7 @@ export function Composer({
               <button
                 type="button"
                 onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                aria-label={`Remove ${f.name}`}
+                aria-label={t('composer.removeFile', { fileName: f.name })}
                 className="text-muted-foreground hover:text-foreground"
               >
                 <X className="h-3 w-3" />
@@ -154,7 +158,7 @@ export function Composer({
           </PopoverAnchor>
           <PopoverContent align="start" className="w-64 p-1" onOpenAutoFocus={(e) => e.preventDefault()}>
             <p className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground">
-              <AtSign className="h-3 w-3" /> Mention someone
+              <AtSign className="h-3 w-3" /> {t('composer.mentionSomeone')}
             </p>
             {filtered.map((m) => (
               <button
@@ -164,7 +168,7 @@ export function Composer({
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-muted"
               >
                 <Avatar name={m.name} size="xs" />
-                {m.name}
+                <BidiText>{m.name}</BidiText>
               </button>
             ))}
           </PopoverContent>
@@ -177,14 +181,21 @@ export function Composer({
           onChange={(e) => e.target.files && setFiles((prev) => [...prev, ...Array.from(e.target.files!)])}
         />
         <div className="flex flex-col justify-end gap-1">
-          <Button type="button" size="icon-sm" variant="ghost" title="Attach a file" onClick={() => fileInputRef.current?.click()} aria-label="Attach a file">
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            title={t('composer.attachFile')}
+            onClick={() => fileInputRef.current?.click()}
+            aria-label={t('composer.attachFile')}
+          >
             <Paperclip className="h-3.5 w-3.5" />
           </Button>
-          <Button type="button" size="icon-sm" disabled={!body.trim() || pending} onClick={submit} aria-label="Send">
+          <Button type="button" size="icon-sm" disabled={!body.trim() || pending} onClick={submit} aria-label={t('composer.send')}>
             <Send className="h-3.5 w-3.5" />
           </Button>
           {onCancel && (
-            <Button type="button" size="icon-sm" variant="ghost" onClick={onCancel} aria-label="Cancel">
+            <Button type="button" size="icon-sm" variant="ghost" onClick={onCancel} aria-label={tCommon('cancel')}>
               <X className="h-3.5 w-3.5" />
             </Button>
           )}
@@ -200,6 +211,7 @@ export function Composer({
  *  URL would just expire before anyone gets around to clicking it. */
 export function AttachmentChip({ id, fileName }: { id: string; fileName: string }) {
   const [pending, setPending] = React.useState(false);
+  const t = useTranslations('collaboration');
 
   async function open() {
     setPending(true);
@@ -207,7 +219,7 @@ export function AttachmentChip({ id, fileName }: { id: string; fileName: string 
       const attachment = await api.files.get(id);
       window.open(toBrowserUrl(attachment.downloadUrl), '_blank', 'noreferrer');
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : 'Could not open the file.');
+      toast.error(e instanceof ApiError ? e.message : t('composer.couldNotOpenFile'));
     } finally {
       setPending(false);
     }
@@ -240,9 +252,11 @@ function MessageRow({
   const queryClient = useQueryClient();
   const { user } = useApp();
   const [editing, setEditing] = React.useState(false);
+  const t = useTranslations('collaboration');
+  const tCommon = useTranslations('common');
 
   function onError(e: unknown) {
-    toast.error(e instanceof ApiError ? e.message : 'Something went wrong.');
+    toast.error(e instanceof ApiError ? e.message : tCommon('somethingWentWrong'));
   }
   function invalidate() {
     queryClient.invalidateQueries({ queryKey });
@@ -269,10 +283,11 @@ function MessageRow({
 
   const canModify = note.authorId === user.id || user.role === 'ADMIN';
   const deleted = note.deleted;
+  const authorName = note.authorName ?? tCommon('unknown');
 
   return (
     <div className={cn('flex items-start gap-2', isReply && 'ms-8')}>
-      <Avatar name={note.authorName ?? 'Unknown'} size={isReply ? 'xs' : 'sm'} />
+      <Avatar name={authorName} size={isReply ? 'xs' : 'sm'} />
       <div
         className={cn(
           'min-w-0 flex-1 rounded-lg px-3 py-2 text-sm',
@@ -281,12 +296,12 @@ function MessageRow({
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs font-medium">
-            {note.authorName ?? 'Unknown'}
+            <BidiText>{authorName}</BidiText>
             {note.pinned && <Pin className="ms-1 inline h-3 w-3 text-brand" />}
           </p>
           <span className="text-xs text-muted-foreground">
             {relativeTime(note.createdAt)}
-            {note.editedAt && !deleted && ' · edited'}
+            {note.editedAt && !deleted && t('message.editedSuffix')}
           </span>
         </div>
         {editing ? (
@@ -309,7 +324,7 @@ function MessageRow({
         {!deleted && (
           <div className="mt-1 flex items-center gap-1">
             {onReply && (
-              <Button type="button" variant="ghost" size="icon-sm" title="Reply" onClick={onReply}>
+              <Button type="button" variant="ghost" size="icon-sm" title={t('message.reply')} onClick={onReply}>
                 <Reply className="h-3.5 w-3.5" />
               </Button>
             )}
@@ -318,7 +333,7 @@ function MessageRow({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                title={note.pinned ? 'Unpin' : 'Pin'}
+                title={note.pinned ? t('message.unpin') : t('message.pin')}
                 disabled={togglePin.isPending}
                 onClick={() => togglePin.mutate()}
               >
@@ -327,14 +342,14 @@ function MessageRow({
             )}
             {canModify && (
               <>
-                <Button type="button" variant="ghost" size="icon-sm" title="Edit" onClick={() => setEditing(true)}>
+                <Button type="button" variant="ghost" size="icon-sm" title={tCommon('edit')} onClick={() => setEditing(true)}>
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  title="Delete"
+                  title={tCommon('delete')}
                   disabled={remove.isPending}
                   onClick={() => remove.mutate()}
                 >
@@ -351,15 +366,16 @@ function MessageRow({
 
 function EditBox({ initial, pending, onCancel, onSave }: { initial: string; pending: boolean; onCancel: () => void; onSave: (body: string) => void }) {
   const [value, setValue] = React.useState(initial);
+  const tCommon = useTranslations('common');
   return (
     <div className="mt-1 space-y-1">
       <Textarea value={value} onChange={(e) => setValue(e.target.value)} rows={2} className="text-sm" autoFocus />
       <div className="flex justify-end gap-1">
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
-          Cancel
+          {tCommon('cancel')}
         </Button>
         <Button type="button" size="sm" disabled={!value.trim() || pending} onClick={() => onSave(value.trim())}>
-          Save
+          {tCommon('save')}
         </Button>
       </div>
     </div>
@@ -376,9 +392,9 @@ export function CommentThread({
   context,
   cacheKey,
   conversationKey,
-  emptyTitle = 'No messages yet',
-  emptyDescription = 'Start the conversation below.',
-  composerPlaceholder = 'Write a message… use @ to mention someone',
+  emptyTitle,
+  emptyDescription,
+  composerPlaceholder,
 }: {
   context: CommentContext;
   /** Unique per-thread cache key segment, e.g. `content:${id}` or `campaign-chat:${campaignId}`. */
@@ -393,6 +409,11 @@ export function CommentThread({
   const queryKey = React.useMemo(() => ['comment-thread', cacheKey], [cacheKey]);
   const [replyTo, setReplyTo] = React.useState<string | null>(null);
   const markedRef = React.useRef<string | null>(null);
+  const t = useTranslations('collaboration');
+  const tCommon = useTranslations('common');
+  const resolvedEmptyTitle = emptyTitle ?? t('thread.emptyTitle');
+  const resolvedEmptyDescription = emptyDescription ?? t('thread.emptyDescription');
+  const resolvedComposerPlaceholder = composerPlaceholder ?? t('thread.composerPlaceholder');
 
   const thread = useQuery({
     queryKey,
@@ -409,7 +430,7 @@ export function CommentThread({
   }, [conversationKey, thread.data, queryClient]);
 
   function onError(e: unknown) {
-    toast.error(e instanceof ApiError ? e.message : 'Could not send the message.');
+    toast.error(e instanceof ApiError ? e.message : t('thread.couldNotSendMessage'));
   }
 
   const post = useMutation({
@@ -425,7 +446,12 @@ export function CommentThread({
         try {
           await uploadAttachment(file, { noteId: note.id });
         } catch (e) {
-          toast.error(`"${file.name}" didn't attach: ${e instanceof ApiError ? e.message : 'upload failed'}`);
+          toast.error(
+            t('composer.attachmentFailed', {
+              fileName: file.name,
+              error: e instanceof ApiError ? e.message : t('composer.uploadFailed'),
+            }),
+          );
         }
       }
       return note;
@@ -452,13 +478,13 @@ export function CommentThread({
   return (
     <div className="space-y-4">
       <Composer
-        placeholder={composerPlaceholder}
+        placeholder={resolvedComposerPlaceholder}
         pending={post.isPending}
         onSubmit={(body, mentionedUserIds, files) => post.mutate({ body, mentionedUserIds, files })}
       />
 
       {thread.isLoading ? null : messages.length === 0 ? (
-        <EmptyState icon={MessageSquare} title={emptyTitle} description={emptyDescription} />
+        <EmptyState icon={MessageSquare} title={resolvedEmptyTitle} description={resolvedEmptyDescription} />
       ) : (
         <div className="space-y-3">
           {messages.map((note) => (
@@ -470,7 +496,7 @@ export function CommentThread({
               {replyTo === note.id && (
                 <div className="ms-8">
                   <Composer
-                    placeholder="Write a reply…"
+                    placeholder={t('message.writeReplyPlaceholder')}
                     pending={post.isPending}
                     autoFocus
                     onCancel={() => setReplyTo(null)}
@@ -486,7 +512,7 @@ export function CommentThread({
       {thread.data?.hasMore && thread.data.nextCursor && (
         <div className="flex justify-center">
           <Button type="button" variant="outline" size="sm" disabled={loadMore.isPending} onClick={() => loadMore.mutate(thread.data!.nextCursor!)}>
-            {loadMore.isPending ? 'Loading…' : 'Load earlier messages'}
+            {loadMore.isPending ? tCommon('loading') : t('thread.loadEarlierMessages')}
           </Button>
         </div>
       )}

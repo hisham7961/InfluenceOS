@@ -2,18 +2,16 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ClipboardCheck, ExternalLink } from 'lucide-react';
 import type { CampaignInfluencerDTO, DeliverableSubmissionDTO } from '@influenceos/contracts';
-import {
-  DELIVERABLE_TYPE_LABELS,
-  SUBMISSION_STATUS_LABELS,
-  SUBMISSION_STATUS_TONE,
-  type SubmissionDecision,
-} from '@influenceos/shared';
+import { SUBMISSION_STATUS_TONE, type SubmissionDecision } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
+import { enumLabel } from '@/lib/enum-labels';
+import { BidiText } from '@/components/common/bidi-text';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,8 +23,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
 import { relativeTime } from '@/lib/format';
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong.';
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
 }
 
 const OPEN_STATUSES = new Set(['IN_REVIEW', 'CHANGES_REQUESTED']);
@@ -36,6 +34,9 @@ const OPEN_STATUSES = new Set(['IN_REVIEW', 'CHANGES_REQUESTED']);
  *  and reviewer — so "what's waiting on me?" is answerable. Open submissions can
  *  be reviewed (approve/request changes/reject) directly from this queue. */
 export function SubmissionsTab({ campaignId, influencers }: { campaignId: string; influencers: CampaignInfluencerDTO[] }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const { data, isLoading, isError } = useQuery({
     queryKey: ['campaign-submissions', campaignId],
     queryFn: () => api.campaigns.submissions(campaignId),
@@ -58,21 +59,29 @@ export function SubmissionsTab({ campaignId, influencers }: { campaignId: string
   }
 
   if (isError) {
-    return <EmptyState icon={ClipboardCheck} title="Couldn't load submissions" description="Something went wrong fetching the review queue. Try again shortly." />;
+    return (
+      <EmptyState
+        icon={ClipboardCheck}
+        title={t('submissions.loadErrorTitle')}
+        description={t('submissions.loadErrorDescription')}
+      />
+    );
   }
 
   const submissions = data ?? [];
   const pending = submissions.filter((s) => s.status === 'IN_REVIEW').length;
 
   if (submissions.length === 0) {
-    return <EmptyState icon={ClipboardCheck} title="No submissions yet" description="Drafts submitted for review across this campaign's deliverables will appear here." />;
+    return (
+      <EmptyState icon={ClipboardCheck} title={t('submissions.emptyTitle')} description={t('submissions.emptyDescription')} />
+    );
   }
 
   return (
     <div className="space-y-3">
       {pending > 0 ? (
         <p className="text-sm text-muted-foreground">
-          <Badge tone="warning" className="me-1">{pending}</Badge> awaiting review
+          <Badge tone="warning" className="me-1">{pending}</Badge> {t('submissions.awaitingReview')}
         </p>
       ) : null}
       <Card className="overflow-hidden">
@@ -80,14 +89,14 @@ export function SubmissionsTab({ campaignId, influencers }: { campaignId: string
           <Table className="min-w-[820px]">
             <TableHead>
               <TableRow className="border-b border-border bg-surface-muted/60 hover:bg-surface-muted/60">
-                <TableHeaderCell className="ps-5">Creator</TableHeaderCell>
-                <TableHeaderCell>Deliverable</TableHeaderCell>
-                <TableHeaderCell align="end">Ver.</TableHeaderCell>
-                <TableHeaderCell>Submitted</TableHeaderCell>
-                <TableHeaderCell>Reviewer</TableHeaderCell>
-                <TableHeaderCell align="end">Status</TableHeaderCell>
+                <TableHeaderCell className="ps-5">{t('sourcing.creatorHeader')}</TableHeaderCell>
+                <TableHeaderCell>{t('submissions.deliverableHeader')}</TableHeaderCell>
+                <TableHeaderCell align="end">{t('submissions.verHeader')}</TableHeaderCell>
+                <TableHeaderCell>{t('submissions.submittedHeader')}</TableHeaderCell>
+                <TableHeaderCell>{t('submissions.reviewerHeader')}</TableHeaderCell>
+                <TableHeaderCell align="end">{t('fields.status')}</TableHeaderCell>
                 <TableHeaderCell align="end" className="pe-5">
-                  Action
+                  {tCommon('actions')}
                 </TableHeaderCell>
               </TableRow>
             </TableHead>
@@ -96,25 +105,31 @@ export function SubmissionsTab({ campaignId, influencers }: { campaignId: string
                 const d = byDeliverable.get(s.deliverableId);
                 return (
                   <TableRow key={s.id}>
-                    <TableCell className="ps-5 font-medium">{d?.creator ?? '—'}</TableCell>
+                    <TableCell className="ps-5 font-medium">
+                      {d?.creator ? <BidiText>{d.creator}</BidiText> : '—'}
+                    </TableCell>
                     <TableCell>
                       <span className="inline-flex items-center gap-2">
                         {d ? <PlatformBadge platform={d.platform} size="sm" /> : null}
-                        <span className="text-muted-foreground">{d ? DELIVERABLE_TYPE_LABELS[d.type] : '—'}</span>
+                        <span className="text-muted-foreground">
+                          {d ? enumLabel(tEnums, 'deliverableType', d.type) : '—'}
+                        </span>
                       </span>
                     </TableCell>
                     <TableCell align="end" className="tabular-nums">v{s.version}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {s.submittedByName ?? '—'} · {relativeTime(s.createdAt)}
+                      {s.submittedByName ? <BidiText>{s.submittedByName}</BidiText> : '—'} · {relativeTime(s.createdAt)}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{s.reviewedByName ?? '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {s.reviewedByName ? <BidiText>{s.reviewedByName}</BidiText> : '—'}
+                    </TableCell>
                     <TableCell align="end">
-                      <Badge tone={SUBMISSION_STATUS_TONE[s.status]}>{SUBMISSION_STATUS_LABELS[s.status]}</Badge>
+                      <Badge tone={SUBMISSION_STATUS_TONE[s.status]}>{enumLabel(tEnums, 'submissionStatus', s.status)}</Badge>
                     </TableCell>
                     <TableCell align="end" className="pe-5">
                       {OPEN_STATUSES.has(s.status) ? (
                         <Button type="button" variant="outline" size="sm" onClick={() => setReviewing(s)}>
-                          Review
+                          {t('submissions.reviewButton')}
                         </Button>
                       ) : null}
                     </TableCell>
@@ -154,6 +169,8 @@ function SubmissionReviewDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [note, setNote] = React.useState('');
@@ -168,23 +185,21 @@ function SubmissionReviewDialog({
 
   const decide = useMutation({
     mutationFn: (decision: SubmissionDecision) => {
-      if (!submission) throw new Error('No submission selected.');
+      if (!submission) throw new Error(t('submissions.noSubmissionSelected'));
       return api.submissions.review(submission.id, { decision, note: note.trim() || undefined });
     },
     onSuccess: (_, decision) => {
-      toast.success(
-        decision === 'APPROVE' ? 'Approved — deliverable completed, no public post required.' : 'Feedback sent.',
-      );
+      toast.success(decision === 'APPROVE' ? t('submissions.approvedToast') : t('submissions.feedbackSentToast'));
       queryClient.invalidateQueries();
       router.refresh();
       onOpenChange(false);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   const addComment = useMutation({
     mutationFn: () => {
-      if (!submission) throw new Error('No submission selected.');
+      if (!submission) throw new Error(t('submissions.noSubmissionSelected'));
       return api.submissions.addComment(submission.id, { body: comment.trim() });
     },
     onSuccess: () => {
@@ -192,7 +207,7 @@ function SubmissionReviewDialog({
       queryClient.invalidateQueries();
       router.refresh();
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   if (!submission) return null;
@@ -201,9 +216,11 @@ function SubmissionReviewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Review submission</DialogTitle>
+          <DialogTitle>{t('submissions.reviewDialogTitle')}</DialogTitle>
           <DialogDescription>
-            {creatorName ? `${creatorName} · ` : ''}Version {submission.version}
+            {creatorName
+              ? t('submissions.reviewDialogDescriptionNamed', { name: creatorName, version: submission.version })
+              : t('submissions.reviewDialogDescriptionGeneric', { version: submission.version })}
           </DialogDescription>
         </DialogHeader>
 
@@ -215,10 +232,10 @@ function SubmissionReviewDialog({
               rel="noreferrer"
               className="flex items-center gap-1.5 text-sm font-medium text-brand hover:underline"
             >
-              Open asset <ExternalLink className="h-3.5 w-3.5" />
+              {t('submissions.openAsset')} <ExternalLink className="h-3.5 w-3.5" />
             </a>
           ) : (
-            <p className="text-sm text-muted-foreground">No asset link — the file was shared outside the system.</p>
+            <p className="text-sm text-muted-foreground">{t('submissions.noAssetLink')}</p>
           )}
           {submission.notes ? <p className="text-sm text-foreground">{submission.notes}</p> : null}
 
@@ -226,7 +243,9 @@ function SubmissionReviewDialog({
             <div className="space-y-2 rounded-lg border border-border bg-surface-muted p-3">
               {submission.comments.map((c) => (
                 <div key={c.id} className="text-xs">
-                  <span className="font-medium text-foreground">{c.authorName ?? 'Someone'}</span>{' '}
+                  <span className="font-medium text-foreground">
+                    {c.authorName ? <BidiText>{c.authorName}</BidiText> : t('submissions.someoneFallback')}
+                  </span>{' '}
                   <span className="text-muted-foreground">{relativeTime(c.createdAt)}</span>
                   <p className="mt-0.5 text-foreground">{c.body}</p>
                 </div>
@@ -238,7 +257,7 @@ function SubmissionReviewDialog({
             <Textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Add a comment…"
+              placeholder={t('submissions.addCommentPlaceholder')}
               rows={2}
               className="flex-1"
             />
@@ -249,31 +268,31 @@ function SubmissionReviewDialog({
               disabled={!comment.trim() || addComment.isPending}
               onClick={() => addComment.mutate()}
             >
-              {addComment.isPending ? '…' : 'Post'}
+              {addComment.isPending ? '…' : t('submissions.postButton')}
             </Button>
           </div>
 
           <Textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Decision note (optional)…"
+            placeholder={t('submissions.decisionNotePlaceholder')}
             rows={2}
           />
         </div>
 
         <DialogFooter className="flex-wrap gap-2 sm:justify-between">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Close
+            {tCommon('close')}
           </Button>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="danger" disabled={decide.isPending} onClick={() => decide.mutate('REJECT')}>
-              Reject
+              {t('submissions.rejectButton')}
             </Button>
             <Button type="button" variant="secondary" disabled={decide.isPending} onClick={() => decide.mutate('REQUEST_CHANGES')}>
-              Request changes
+              {t('submissions.requestChangesButton')}
             </Button>
             <Button type="button" disabled={decide.isPending} onClick={() => decide.mutate('APPROVE')}>
-              Approve
+              {t('submissions.approveButton')}
             </Button>
           </div>
         </DialogFooter>

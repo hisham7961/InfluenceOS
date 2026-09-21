@@ -3,17 +3,20 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { PublishedContentDTO } from '@influenceos/contracts';
-import { contentAssociationStatus, CONTENT_ASSOCIATION_STATUS_LABELS, DELIVERABLE_TYPE_LABELS, type Tone } from '@influenceos/shared';
+import { contentAssociationStatus, type Tone } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
+import { enumLabel } from '@/lib/enum-labels';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { BidiText } from '@/components/common/bidi-text';
 
 const NONE = '__none__';
 
@@ -24,8 +27,8 @@ const STATUS_TONE: Record<ReturnType<typeof contentAssociationStatus>, Tone> = {
   UNASSIGNED: 'warning',
 };
 
-function errMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong.';
+function errMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
 }
 
 /**
@@ -40,6 +43,9 @@ function errMessage(e: unknown): string {
 export function ContentAssociationPanel({ content }: { content: PublishedContentDTO }) {
   const router = useRouter();
   const qc = useQueryClient();
+  const t = useTranslations('content');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const [editing, setEditing] = React.useState(false);
   const [influencerId, setInfluencerId] = React.useState(content.influencer?.id ?? '');
   const [campaignId, setCampaignId] = React.useState(content.campaign?.id ?? '');
@@ -67,12 +73,12 @@ export function ContentAssociationPanel({ content }: { content: PublishedContent
         campaignId: campaignId || null,
       }),
     onSuccess: () => {
-      toast.success('Associations updated.');
+      toast.success(t('associations.updateSuccess'));
       qc.invalidateQueries();
       router.refresh();
       setEditing(false);
     },
-    onError: (e) => toast.error(errMessage(e)),
+    onError: (e) => toast.error(errMessage(e, tCommon('somethingWentWrong'))),
   });
 
   function startEditing() {
@@ -85,56 +91,61 @@ export function ContentAssociationPanel({ content }: { content: PublishedContent
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
-          <CardTitle>Associations</CardTitle>
-          <Badge tone={STATUS_TONE[status]}>{CONTENT_ASSOCIATION_STATUS_LABELS[status]}</Badge>
+          <CardTitle>{t('associations.title')}</CardTitle>
+          <Badge tone={STATUS_TONE[status]}>{enumLabel(tEnums, 'contentAssociationStatus', status)}</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {!editing ? (
           <>
             <AssocRow
-              label="Influencer"
+              label={t('associations.fields.influencer')}
               value={content.influencer?.displayName}
               href={content.influencer ? `/influencers/${content.influencer.id}` : undefined}
+              bidi
             />
             <AssocRow
-              label="Campaign"
+              label={t('associations.fields.campaign')}
               value={content.campaign?.name}
               href={content.campaign ? `/campaigns/${content.campaign.id}` : undefined}
             />
-            <AssocRow label="Brand" value={content.brand?.name} href={content.brand ? `/brands/${content.brand.id}` : undefined} />
             <AssocRow
-              label="Deliverable"
-              value={content.deliverable ? DELIVERABLE_TYPE_LABELS[content.deliverable.type] : undefined}
+              label={t('associations.fields.brand')}
+              value={content.brand?.name}
+              href={content.brand ? `/brands/${content.brand.id}` : undefined}
+            />
+            <AssocRow
+              label={t('associations.fields.deliverable')}
+              value={content.deliverable ? enumLabel(tEnums, 'deliverableType', content.deliverable.type) : undefined}
             />
             <Button type="button" variant="outline" size="sm" onClick={startEditing}>
-              Edit associations
+              {t('associations.edit')}
             </Button>
           </>
         ) : (
           <>
-            <Field label="Influencer" hint="Clear to mark as unassigned">
+            <Field label={t('associations.fields.influencer')} hint={t('associations.influencerHint')}>
               <Select value={influencerId || NONE} onValueChange={(v) => setInfluencerId(v === NONE ? '' : v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Unassigned" />
+                  <SelectValue placeholder={enumLabel(tEnums, 'contentAssociationStatus', 'UNASSIGNED')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}>Unassigned</SelectItem>
+                  <SelectItem value={NONE}>{enumLabel(tEnums, 'contentAssociationStatus', 'UNASSIGNED')}</SelectItem>
                   {(influencerOptions.data?.data ?? []).map((inf) => (
                     <SelectItem key={inf.id} value={inf.id}>
-                      {inf.displayName}
+                      <BidiText>{inf.displayName}</BidiText>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Campaign" hint="Clear to make this independent content">
+            <Field label={t('associations.fields.campaign')} hint={t('associations.campaignHint')}>
               <Select value={campaignId || NONE} onValueChange={(v) => setCampaignId(v === NONE ? '' : v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="No campaign" />
+                  <SelectValue placeholder={t('associations.noCampaign')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}>No campaign</SelectItem>
+                  <SelectItem value={NONE}>{t('associations.noCampaignIndependent')}</SelectItem>
                   {(campaignOptions.data?.data ?? []).map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.brand.name} · {c.name}
@@ -143,17 +154,13 @@ export function ContentAssociationPanel({ content }: { content: PublishedContent
                 </SelectContent>
               </Select>
             </Field>
-            <p className="text-xs text-muted-foreground">
-              Validated on save — an influencer not on the chosen campaign&apos;s roster is rejected rather than saved
-              inconsistently. Saving this deliverable-linked content&apos;s campaign/influencer without changing the
-              deliverable keeps them in sync automatically.
-            </p>
+            <p className="text-xs text-muted-foreground">{t('associations.validationNote')}</p>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setEditing(false)}>
-                Cancel
+                {tCommon('cancel')}
               </Button>
               <Button type="button" size="sm" disabled={save.isPending} onClick={() => save.mutate()}>
-                {save.isPending ? 'Saving…' : 'Save'}
+                {save.isPending ? tCommon('saving') : tCommon('save')}
               </Button>
             </div>
           </>
@@ -163,16 +170,28 @@ export function ContentAssociationPanel({ content }: { content: PublishedContent
   );
 }
 
-function AssocRow({ label, value, href }: { label: string; value?: string; href?: string }) {
+function AssocRow({
+  label,
+  value,
+  href,
+  bidi,
+}: {
+  label: string;
+  value?: string;
+  href?: string;
+  /** Wrap the value in BidiText — for user/database display names that may mix Arabic and Latin script. */
+  bidi?: boolean;
+}) {
+  const rendered = bidi && value ? <BidiText>{value}</BidiText> : value;
   return (
     <div className="flex items-center justify-between gap-4 text-sm">
       <span className="text-muted-foreground">{label}</span>
       {value && href ? (
         <Link href={href} className="font-medium text-brand hover:underline">
-          {value}
+          {rendered}
         </Link>
       ) : (
-        <span className="font-medium text-foreground">{value ?? '—'}</span>
+        <span className="font-medium text-foreground">{rendered ?? '—'}</span>
       )}
     </div>
   );

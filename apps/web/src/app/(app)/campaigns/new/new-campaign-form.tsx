@@ -2,14 +2,13 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Building2, CalendarRange, Megaphone, Sparkles, Wallet } from 'lucide-react';
 import {
   CAMPAIGN_OBJECTIVES,
-  CAMPAIGN_OBJECTIVE_LABELS,
   CAMPAIGN_STATUSES,
-  CAMPAIGN_STATUS_LABELS,
   type CampaignObjective,
   type CampaignStatus,
 } from '@influenceos/shared';
@@ -25,6 +24,8 @@ import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { CampaignStatusBadge } from '@/components/ui/status-badges';
 import { Spinner } from '@/components/ui/spinner';
+import { enumLabel } from '@/lib/enum-labels';
+import { BidiText } from '@/components/common/bidi-text';
 
 /** Sentinel for the objective Select's "no objective" option (Radix forbids an empty-string item value). */
 const NO_OBJECTIVE = 'none';
@@ -61,14 +62,17 @@ const initialState: FormState = {
   brief: '',
 };
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
 }
 
 /** Multi-section "new campaign" form: brand + basics, timeline & budget, and brief — with a live preview aside. */
 export function NewCampaignForm({ brands }: NewCampaignFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
   const [form, setForm] = React.useState<FormState>(initialState);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -94,11 +98,11 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
       });
     },
     onSuccess: (campaign) => {
-      toast.success(`${campaign.name} was created.`);
+      toast.success(t('newForm.createdToast', { name: campaign.name }));
       queryClient.invalidateQueries();
       router.push(`/campaigns/${campaign.id}`);
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, t('errors.generic'))),
   });
 
   const selectedBrand = brands.find((b) => b.id === form.brandId) ?? null;
@@ -109,7 +113,7 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
     event.preventDefault();
     if (!canSubmit) return;
     if (dateRangeInvalid) {
-      toast.error('End date must be on or after the start date.');
+      toast.error(t('newForm.dateRangeError'));
       return;
     }
     createCampaign.mutate();
@@ -119,8 +123,8 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
     return (
       <EmptyState
         icon={Building2}
-        title="No brands yet"
-        description="Campaigns belong to a brand — set up a brand before you can create your first campaign."
+        title={t('newForm.noBrandsTitle')}
+        description={t('newForm.noBrandsDescription')}
       />
     );
   }
@@ -134,50 +138,50 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
                 1
               </span>
-              <CardTitle>Basics</CardTitle>
+              <CardTitle>{t('newForm.basicsTitle')}</CardTitle>
             </div>
-            <CardDescription>Which brand this campaign belongs to, and what it's called.</CardDescription>
+            <CardDescription>{t('newForm.basicsDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-x-6 gap-y-4 pt-5 sm:grid-cols-2">
-            <Field label="Brand">
+            <Field label={t('fields.brand')}>
               <Select value={form.brandId} onValueChange={(v) => set('brandId', v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a brand" />
+                  <SelectValue placeholder={t('newForm.selectBrandPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {brands.map((brand) => (
                     <SelectItem key={brand.id} value={brand.id}>
-                      {brand.name}
+                      <BidiText>{brand.name}</BidiText>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Campaign name">
+            <Field label={t('newForm.campaignNameLabel')}>
               <Input
                 value={form.name}
                 onChange={(e) => set('name', e.target.value)}
-                placeholder="e.g. Ramadan Glow Launch"
+                placeholder={t('newForm.campaignNamePlaceholder')}
                 required
               />
             </Field>
 
-            <Field label="Objective">
+            <Field label={t('fields.objective')}>
               <Select value={form.objective} onValueChange={(v) => set('objective', v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_OBJECTIVE}>No objective set</SelectItem>
+                  <SelectItem value={NO_OBJECTIVE}>{t('newForm.noObjectiveSet')}</SelectItem>
                   {CAMPAIGN_OBJECTIVES.map((o) => (
                     <SelectItem key={o} value={o}>
-                      {CAMPAIGN_OBJECTIVE_LABELS[o]}
+                      {enumLabel(tEnums, 'campaignObjective', o)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Status">
+            <Field label={t('fields.status')}>
               <Select value={form.status} onValueChange={(v) => set('status', v as CampaignStatus)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -185,7 +189,7 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
                 <SelectContent>
                   {CAMPAIGN_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {CAMPAIGN_STATUS_LABELS[s]}
+                      {enumLabel(tEnums, 'campaignStatus', s)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -200,27 +204,27 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
                 2
               </span>
-              <CardTitle>Timeline &amp; budget</CardTitle>
+              <CardTitle>{t('newForm.timelineBudgetTitle')}</CardTitle>
             </div>
-            <CardDescription>When it runs, where it targets, and what it's planned to cost.</CardDescription>
+            <CardDescription>{t('newForm.timelineBudgetDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-x-6 gap-y-4 pt-5 sm:grid-cols-2">
-            <Field label="Start date">
+            <Field label={t('fields.startDate')}>
               <Input type="date" value={form.startDate} onChange={(e) => set('startDate', e.target.value)} />
             </Field>
-            <Field label="End date" error={dateRangeInvalid ? 'Must be on or after the start date' : undefined}>
+            <Field label={t('fields.endDate')} error={dateRangeInvalid ? t('newForm.endDateError') : undefined}>
               <Input type="date" value={form.endDate} onChange={(e) => set('endDate', e.target.value)} />
             </Field>
 
-            <Field label="Currency">
+            <Field label={t('fields.currency')}>
               <Input
                 value={form.currency}
                 onChange={(e) => set('currency', e.target.value.toUpperCase())}
-                placeholder="KWD"
+                placeholder={t('newForm.currencyPlaceholder')}
                 maxLength={8}
               />
             </Field>
-            <Field label="Planned budget">
+            <Field label={t('fields.plannedBudget')}>
               <Input
                 type="number"
                 min={0}
@@ -232,11 +236,11 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
               />
             </Field>
 
-            <Field label="Target market" className="sm:col-span-2" hint="Country, region or audience this targets">
+            <Field label={t('fields.targetMarket')} className="sm:col-span-2" hint={t('newForm.targetMarketHint')}>
               <Input
                 value={form.targetMarket}
                 onChange={(e) => set('targetMarket', e.target.value)}
-                placeholder="Kuwait, GCC…"
+                placeholder={t('newForm.targetMarketPlaceholder')}
               />
             </Field>
           </CardContent>
@@ -248,24 +252,24 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
                 3
               </span>
-              <CardTitle>Description &amp; brief</CardTitle>
+              <CardTitle>{t('newForm.descriptionBriefTitle')}</CardTitle>
             </div>
-            <CardDescription>Give your team and creators context on what this campaign is about.</CardDescription>
+            <CardDescription>{t('newForm.descriptionBriefDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 pt-5">
-            <Field label="Description" hint="Internal summary — shown across dashboards and campaign cards">
+            <Field label={t('fields.description')} hint={t('newForm.descriptionHint')}>
               <Textarea
                 value={form.description}
                 onChange={(e) => set('description', e.target.value)}
-                placeholder="What this campaign is, and why it matters…"
+                placeholder={t('newForm.descriptionPlaceholder')}
                 rows={3}
               />
             </Field>
-            <Field label="Creative brief" hint="Guidance, messaging, dos and don'ts for creators and scripts">
+            <Field label={t('newForm.creativeBriefLabel')} hint={t('newForm.creativeBriefHint')}>
               <Textarea
                 value={form.brief}
                 onChange={(e) => set('brief', e.target.value)}
-                placeholder="Key messages, tone, mandatory mentions, content requirements…"
+                placeholder={t('newForm.creativeBriefPlaceholder')}
                 rows={5}
               />
             </Field>
@@ -277,11 +281,11 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
               onClick={() => router.push('/campaigns')}
               disabled={createCampaign.isPending}
             >
-              Cancel
+              {tCommon('cancel')}
             </Button>
             <Button type="submit" disabled={!canSubmit}>
               {createCampaign.isPending ? <Spinner className="text-current" /> : <Megaphone className="h-4 w-4" />}
-              {createCampaign.isPending ? 'Creating…' : 'Create campaign'}
+              {createCampaign.isPending ? t('newForm.creating') : t('newForm.createCampaign')}
             </Button>
           </CardFooter>
         </Card>
@@ -291,7 +295,7 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Preview
+              {t('newForm.previewTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 pt-0">
@@ -303,9 +307,11 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
                 {selectedBrand ? selectedBrand.name.slice(0, 1).toUpperCase() : <Sparkles className="h-5 w-5" />}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold leading-tight">{form.name.trim() || 'Untitled campaign'}</p>
+                <p className="truncate font-semibold leading-tight">
+                  <BidiText>{form.name.trim() || t('newForm.untitledCampaign')}</BidiText>
+                </p>
                 <p className="truncate text-sm text-muted-foreground">
-                  {selectedBrand ? selectedBrand.name : 'No brand selected'}
+                  {selectedBrand ? <BidiText>{selectedBrand.name}</BidiText> : t('newForm.noBrandSelected')}
                 </p>
               </div>
             </div>
@@ -313,35 +319,37 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
             <div className="flex flex-wrap items-center gap-1.5">
               <CampaignStatusBadge status={form.status} />
               {form.objective !== NO_OBJECTIVE ? (
-                <Badge tone="accent">{CAMPAIGN_OBJECTIVE_LABELS[form.objective as CampaignObjective]}</Badge>
+                <Badge tone="accent">
+                  {enumLabel(tEnums, 'campaignObjective', form.objective as CampaignObjective)}
+                </Badge>
               ) : null}
             </div>
 
             <div className="space-y-2 rounded-xl bg-surface-muted px-3 py-2.5 text-sm">
               <div className="flex items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                  <CalendarRange className="h-3.5 w-3.5" /> Timeline
+                  <CalendarRange className="h-3.5 w-3.5" /> {t('fields.timeline')}
                 </span>
                 <span className="text-right font-medium">
                   {form.startDate || form.endDate
                     ? `${form.startDate || '—'} → ${form.endDate || '—'}`
-                    : 'Not set'}
+                    : t('fields.notSet')}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                  <Wallet className="h-3.5 w-3.5" /> Budget
+                  <Wallet className="h-3.5 w-3.5" /> {t('fields.budget')}
                 </span>
                 <span className="font-medium">
                   {form.plannedBudget.trim()
                     ? formatCurrency(Number(form.plannedBudget), form.currency.trim() || 'KWD')
-                    : 'Not set'}
+                    : t('fields.notSet')}
                 </span>
               </div>
             </div>
 
             {!selectedBrand && !form.name ? (
-              <p className="text-xs text-muted-foreground">Fill in the form and this card will fill in as you go.</p>
+              <p className="text-xs text-muted-foreground">{t('newForm.previewHint')}</p>
             ) : null}
           </CardContent>
         </Card>

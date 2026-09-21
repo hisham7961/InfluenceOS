@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
   Activity,
@@ -42,10 +43,6 @@ import { Skeleton, SkeletonText } from '@/components/ui/skeleton';
 
 const API_DOCS_URL = `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '')}/api/docs`;
 
-function errorMessage(e: unknown): string {
-  return e instanceof ApiError ? e.message : 'Something went wrong. Please try again.';
-}
-
 const HEALTH_TONE: Record<HealthComponentDTO['status'], Tone> = {
   ok: 'success',
   degraded: 'warning',
@@ -60,33 +57,11 @@ const HEALTH_DOT: Record<HealthComponentDTO['status'], string> = {
   unknown: 'bg-muted-foreground',
 };
 
-const HEALTH_LABEL: Record<HealthComponentDTO['status'], string> = {
-  ok: 'Operational',
-  degraded: 'Degraded',
-  down: 'Down',
-  unknown: 'Unknown',
-};
-
-const FEATURE_CLASS_LABEL: Record<FeatureClass, string> = {
-  SHARED: 'Shared — Web + Mobile',
-  WEB_ONLY_BY_DESIGN: 'Web only, by design',
-  MOBILE_ONLY_BY_DESIGN: 'Mobile only, by design',
-  ADMIN_DESKTOP_ONLY: 'Admin desktop only',
-};
-
 const FEATURE_CLASS_TONE: Record<FeatureClass, Tone> = {
   SHARED: 'success',
   WEB_ONLY_BY_DESIGN: 'info',
   MOBILE_ONLY_BY_DESIGN: 'accent',
   ADMIN_DESKTOP_ONLY: 'warning',
-};
-
-const FEATURE_STATUS_LABEL: Record<FeatureStatus, string> = {
-  READY: 'Ready',
-  PARTIAL: 'Partial',
-  PLANNED: 'Planned',
-  ADMIN_SERVER_ONLY: 'Admin/server only',
-  NOT_EXPOSED: 'Not exposed',
 };
 
 const FEATURE_STATUS_TONE: Record<FeatureStatus, Tone> = {
@@ -129,14 +104,15 @@ export function PlatformClient({
   features: FeatureDTO[];
   endpoints: ApiEndpointDTO[];
 }) {
+  const t = useTranslations('settings');
   return (
     <Tabs defaultValue="overview">
       <TabsList>
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="modules">API Modules</TabsTrigger>
-        <TabsTrigger value="mobile">Mobile Readiness</TabsTrigger>
-        <TabsTrigger value="explorer">API Explorer</TabsTrigger>
-        <TabsTrigger value="flags">Feature Flags</TabsTrigger>
+        <TabsTrigger value="overview">{t('platform.tabs.overview')}</TabsTrigger>
+        <TabsTrigger value="modules">{t('platform.tabs.modules')}</TabsTrigger>
+        <TabsTrigger value="mobile">{t('platform.tabs.mobile')}</TabsTrigger>
+        <TabsTrigger value="explorer">{t('platform.tabs.explorer')}</TabsTrigger>
+        <TabsTrigger value="flags">{t('platform.tabs.flags')}</TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview">
@@ -162,7 +138,17 @@ export function PlatformClient({
 /* Overview                                                                  */
 /* ------------------------------------------------------------------------ */
 
-function ReadinessRing({ percent, size = 132, strokeWidth = 11 }: { percent: number; size?: number; strokeWidth?: number }) {
+function ReadinessRing({
+  percent,
+  readyLabel,
+  size = 132,
+  strokeWidth = 11,
+}: {
+  percent: number;
+  readyLabel: string;
+  size?: number;
+  strokeWidth?: number;
+}) {
   const clamped = Math.min(100, Math.max(0, percent));
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -186,7 +172,7 @@ function ReadinessRing({ percent, size = 132, strokeWidth = 11 }: { percent: num
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-2xl font-bold tracking-tight">{Math.round(clamped)}%</span>
-        <span className="text-[11px] text-muted-foreground">ready</span>
+        <span className="text-[11px] text-muted-foreground">{readyLabel}</span>
       </div>
     </div>
   );
@@ -247,6 +233,7 @@ function CoverageTile({
 }
 
 function OverviewTab({ status }: { status: PlatformStatusDTO }) {
+  const t = useTranslations('settings');
   const { coverage } = status;
 
   return (
@@ -255,36 +242,42 @@ function OverviewTab({ status }: { status: PlatformStatusDTO }) {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Server className="h-4 w-4 text-brand" /> System status
+              <Server className="h-4 w-4 text-brand" /> {t('platform.overview.systemStatus')}
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-5 pt-0 sm:grid-cols-4">
-            <InfoTile label="API version" value={status.apiVersion} />
-            <InfoTile label="Environment" value={status.environment} capitalize />
-            <InfoTile label="Backend version" value={status.backendVersion} />
-            <InfoTile label="Web version" value={status.webVersion} />
-            <InfoTile label="Git SHA" value={status.gitSha === 'unknown' ? '—' : status.gitSha.slice(0, 12)} />
-            <InfoTile label="Built" value={status.buildTime ? new Date(status.buildTime).toLocaleString() : '—'} />
-            <InfoTile label="Uptime" value={formatUptime(status.uptimeSec)} />
+            <InfoTile label={t('platform.overview.apiVersion')} value={status.apiVersion} />
+            <InfoTile label={t('platform.overview.environment')} value={status.environment} capitalize />
+            <InfoTile label={t('platform.overview.backendVersion')} value={status.backendVersion} />
+            <InfoTile label={t('platform.overview.webVersion')} value={status.webVersion} />
+            <InfoTile
+              label={t('platform.overview.gitSha')}
+              value={status.gitSha === 'unknown' ? '—' : status.gitSha.slice(0, 12)}
+            />
+            <InfoTile
+              label={t('platform.overview.built')}
+              value={status.buildTime ? new Date(status.buildTime).toLocaleString() : '—'}
+            />
+            <InfoTile label={t('platform.overview.uptime')} value={formatUptime(status.uptimeSec)} />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Smartphone className="h-4 w-4 text-brand" /> Mobile readiness
+              <Smartphone className="h-4 w-4 text-brand" /> {t('platform.overview.mobileReadiness')}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex items-center justify-center pt-0">
-            <ReadinessRing percent={status.mobileReadinessPercent} />
+            <ReadinessRing percent={status.mobileReadinessPercent} readyLabel={t('platform.overview.ready')} />
           </CardContent>
         </Card>
       </div>
 
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-foreground">Component health</h3>
+        <h3 className="mb-3 text-sm font-semibold text-foreground">{t('platform.overview.componentHealth')}</h3>
         {status.health.length === 0 ? (
-          <EmptyState icon={Activity} title="No health signals reported" className="py-10" />
+          <EmptyState icon={Activity} title={t('platform.overview.noHealthSignals')} className="py-10" />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {status.health.map((h) => (
@@ -295,7 +288,7 @@ function OverviewTab({ status }: { status: PlatformStatusDTO }) {
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-sm font-medium">{h.name}</p>
                       <Badge tone={HEALTH_TONE[h.status]} className="shrink-0">
-                        {HEALTH_LABEL[h.status]}
+                        {t(`platform.health.${h.status}`)}
                       </Badge>
                     </div>
                     {h.detail ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{h.detail}</p> : null}
@@ -308,13 +301,38 @@ function OverviewTab({ status }: { status: PlatformStatusDTO }) {
       </div>
 
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-foreground">Feature coverage</h3>
+        <h3 className="mb-3 text-sm font-semibold text-foreground">{t('platform.overview.featureCoverage')}</h3>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-          <CoverageTile label="Total features" value={coverage.totalFeatures} icon={Layers} tone="neutral" />
-          <CoverageTile label="API ready" value={coverage.apiReady} icon={Server} tone="info" />
-          <CoverageTile label="Web ready" value={coverage.webReady} icon={Globe} tone="accent" />
-          <CoverageTile label="Mobile ready" value={coverage.mobileReady} icon={Smartphone} tone="success" />
-          <CoverageTile label="Admin only" value={coverage.adminOnly} icon={ShieldCheck} tone="warning" />
+          <CoverageTile
+            label={t('platform.overview.coverage.totalFeatures')}
+            value={coverage.totalFeatures}
+            icon={Layers}
+            tone="neutral"
+          />
+          <CoverageTile
+            label={t('platform.overview.coverage.apiReady')}
+            value={coverage.apiReady}
+            icon={Server}
+            tone="info"
+          />
+          <CoverageTile
+            label={t('platform.overview.coverage.webReady')}
+            value={coverage.webReady}
+            icon={Globe}
+            tone="accent"
+          />
+          <CoverageTile
+            label={t('platform.overview.coverage.mobileReady')}
+            value={coverage.mobileReady}
+            icon={Smartphone}
+            tone="success"
+          />
+          <CoverageTile
+            label={t('platform.overview.coverage.adminOnly')}
+            value={coverage.adminOnly}
+            icon={ShieldCheck}
+            tone="warning"
+          />
         </div>
       </div>
     </div>
@@ -326,16 +344,18 @@ function OverviewTab({ status }: { status: PlatformStatusDTO }) {
 /* ------------------------------------------------------------------------ */
 
 function ReadyMark({ ok }: { ok: boolean }) {
+  const t = useTranslations('settings');
   return ok ? (
-    <CheckCircle2 className="h-4 w-4 text-success" aria-label="Ready" />
+    <CheckCircle2 className="h-4 w-4 text-success" aria-label={t('platform.modulesTab.ready')} />
   ) : (
-    <XCircle className="h-4 w-4 text-muted-foreground/40" aria-label="Not ready" />
+    <XCircle className="h-4 w-4 text-muted-foreground/40" aria-label={t('platform.modulesTab.notReady')} />
   );
 }
 
 function ModulesTab({ modules }: { modules: ApiModuleDTO[] }) {
+  const t = useTranslations('settings');
   if (modules.length === 0) {
-    return <EmptyState icon={Layers} title="No API modules registered" className="py-14" />;
+    return <EmptyState icon={Layers} title={t('platform.modulesTab.empty')} className="py-14" />;
   }
 
   return (
@@ -344,13 +364,13 @@ function ModulesTab({ modules }: { modules: ApiModuleDTO[] }) {
         <table className="w-full min-w-[760px] text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <th className="px-5 py-3">Module</th>
-              <th className="px-5 py-3 text-center">API ready</th>
-              <th className="px-5 py-3 text-center">Web integrated</th>
-              <th className="px-5 py-3 text-center">Mobile ready</th>
-              <th className="px-5 py-3">Version</th>
-              <th className="px-5 py-3 text-right">Endpoints</th>
-              <th className="px-5 py-3 text-right">Docs</th>
+              <th className="px-5 py-3">{t('platform.modulesTab.module')}</th>
+              <th className="px-5 py-3 text-center">{t('platform.modulesTab.apiReady')}</th>
+              <th className="px-5 py-3 text-center">{t('platform.modulesTab.webIntegrated')}</th>
+              <th className="px-5 py-3 text-center">{t('platform.modulesTab.mobileReady')}</th>
+              <th className="px-5 py-3">{t('platform.modulesTab.version')}</th>
+              <th className="px-5 py-3 text-right">{t('platform.modulesTab.endpoints')}</th>
+              <th className="px-5 py-3 text-right">{t('platform.modulesTab.docs')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -381,7 +401,7 @@ function ModulesTab({ modules }: { modules: ApiModuleDTO[] }) {
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
                   >
-                    Docs <ExternalLink className="h-3 w-3" />
+                    {t('platform.modulesTab.docs')} <ExternalLink className="h-3 w-3" />
                   </Link>
                 </td>
               </tr>
@@ -398,15 +418,17 @@ function ModulesTab({ modules }: { modules: ApiModuleDTO[] }) {
 /* ------------------------------------------------------------------------ */
 
 function FeatureStatusCell({ status }: { status: FeatureStatus }) {
-  if (status === 'READY') return <CheckCircle2 className="h-4 w-4 text-success" aria-label="Ready" />;
+  const t = useTranslations('settings');
+  if (status === 'READY') return <CheckCircle2 className="h-4 w-4 text-success" aria-label={t('platform.modulesTab.ready')} />;
   return (
     <Badge tone={FEATURE_STATUS_TONE[status]} className="whitespace-nowrap">
-      {FEATURE_STATUS_LABEL[status]}
+      {t(`platform.featureStatus.${status}`)}
     </Badge>
   );
 }
 
 function MobileReadinessTab({ features }: { features: FeatureDTO[] }) {
+  const t = useTranslations('settings');
   const groups = React.useMemo(() => {
     const map = new Map<FeatureClass, FeatureDTO[]>();
     for (const f of features) {
@@ -418,7 +440,7 @@ function MobileReadinessTab({ features }: { features: FeatureDTO[] }) {
   }, [features]);
 
   if (features.length === 0) {
-    return <EmptyState icon={Smartphone} title="No features registered" className="py-14" />;
+    return <EmptyState icon={Smartphone} title={t('platform.mobileTab.empty')} className="py-14" />;
   }
 
   return (
@@ -426,7 +448,7 @@ function MobileReadinessTab({ features }: { features: FeatureDTO[] }) {
       {groups.map(({ cls, items }) => (
         <div key={cls}>
           <div className="mb-3 flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-foreground">{FEATURE_CLASS_LABEL[cls]}</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t(`platform.featureClass.${cls}`)}</h3>
             <Badge tone={FEATURE_CLASS_TONE[cls]}>{items.length}</Badge>
           </div>
           <Card className="overflow-hidden">
@@ -434,10 +456,10 @@ function MobileReadinessTab({ features }: { features: FeatureDTO[] }) {
               <table className="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    <th className="px-5 py-3">Feature</th>
-                    <th className="px-5 py-3 text-center">API</th>
-                    <th className="px-5 py-3 text-center">Web</th>
-                    <th className="px-5 py-3 text-center">Mobile ready</th>
+                    <th className="px-5 py-3">{t('platform.mobileTab.feature')}</th>
+                    <th className="px-5 py-3 text-center">{t('platform.mobileTab.api')}</th>
+                    <th className="px-5 py-3 text-center">{t('platform.mobileTab.web')}</th>
+                    <th className="px-5 py-3 text-center">{t('platform.mobileTab.mobileReady')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -479,6 +501,7 @@ function MobileReadinessTab({ features }: { features: FeatureDTO[] }) {
 /* ------------------------------------------------------------------------ */
 
 function ExplorerTab({ endpoints }: { endpoints: ApiEndpointDTO[] }) {
+  const t = useTranslations('settings');
   const [q, setQ] = React.useState('');
 
   const filtered = React.useMemo(() => {
@@ -501,7 +524,7 @@ function ExplorerTab({ endpoints }: { endpoints: ApiEndpointDTO[] }) {
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search endpoints by path, module, or method…"
+            placeholder={t('platform.explorer.searchPlaceholder')}
             className="pl-9"
           />
         </div>
@@ -511,12 +534,17 @@ function ExplorerTab({ endpoints }: { endpoints: ApiEndpointDTO[] }) {
           rel="noreferrer"
           className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-brand hover:underline"
         >
-          <BookOpen className="h-4 w-4" /> Full API docs <ExternalLink className="h-3.5 w-3.5" />
+          <BookOpen className="h-4 w-4" /> {t('platform.explorer.fullDocs')} <ExternalLink className="h-3.5 w-3.5" />
         </Link>
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState icon={Search} title="No matching endpoints" description="Try a different search term." className="py-14" />
+        <EmptyState
+          icon={Search}
+          title={t('platform.explorer.emptyTitle')}
+          description={t('platform.explorer.emptyDescription')}
+          className="py-14"
+        />
       ) : (
         <Card className="divide-y divide-border overflow-hidden">
           {filtered.map((e) => (
@@ -533,7 +561,7 @@ function ExplorerTab({ endpoints }: { endpoints: ApiEndpointDTO[] }) {
               </div>
               <span className="shrink-0 text-xs text-muted-foreground">{e.module}</span>
               <Badge tone={AUTH_TONE[e.auth]} className="shrink-0">
-                {e.auth}
+                {t(`platform.explorer.auth.${e.auth}`)}
               </Badge>
             </div>
           ))}
@@ -541,7 +569,7 @@ function ExplorerTab({ endpoints }: { endpoints: ApiEndpointDTO[] }) {
       )}
 
       <p className="text-xs text-muted-foreground">
-        {filtered.length} of {endpoints.length} endpoints
+        {t('platform.explorer.countOfTotal', { filtered: filtered.length, total: endpoints.length })}
       </p>
     </div>
   );
@@ -554,6 +582,11 @@ function ExplorerTab({ endpoints }: { endpoints: ApiEndpointDTO[] }) {
 type PlatformFlag = { key: string; description: string | null; scope: string; enabled: boolean };
 
 function FlagsTab() {
+  const t = useTranslations('settings');
+  const errorMessage = React.useCallback(
+    (e: unknown) => (e instanceof ApiError ? e.message : t('platform.errorGeneric')),
+    [t],
+  );
   const queryClient = useQueryClient();
   const flagsQuery = useQuery({
     queryKey: ['platform-flags'],
@@ -575,7 +608,7 @@ function FlagsTab() {
       toast.error(errorMessage(e));
     },
     onSuccess: (_data, { key, enabled }) => {
-      toast.success(`${key} ${enabled ? 'enabled' : 'disabled'}.`);
+      toast.success(t(enabled ? 'platform.flags.toastEnabled' : 'platform.flags.toastDisabled', { key }));
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['platform-flags'] }),
   });
@@ -599,7 +632,7 @@ function FlagsTab() {
     return (
       <EmptyState
         icon={Flag}
-        title="Couldn't load feature flags"
+        title={t('platform.flags.loadErrorTitle')}
         description={errorMessage(flagsQuery.error)}
         className="py-14"
       />
@@ -609,7 +642,7 @@ function FlagsTab() {
   const flags = flagsQuery.data ?? [];
 
   if (flags.length === 0) {
-    return <EmptyState icon={Flag} title="No feature flags configured" className="py-14" />;
+    return <EmptyState icon={Flag} title={t('platform.flags.empty')} className="py-14" />;
   }
 
   return (
