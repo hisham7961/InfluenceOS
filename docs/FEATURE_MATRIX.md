@@ -6,7 +6,7 @@ Every major capability, its backend/API/web status, and whether it is **Mobile R
 (business logic server-side, documented API, server-side auth + permissions, stable
 contracts, media represented independently of the web UI — spec addendum §37).
 
-**Coverage:** 27 features · API ready 26 · Web ready 27 · Mobile ready 24 · Admin-desktop-only 3 · **Mobile readiness 100%** (of SHARED features).
+**Coverage:** 32 features · API ready 31 · Web ready 32 · Mobile ready 29 · Admin-desktop-only 3 · **Mobile readiness 100%** (of SHARED features).
 
 | Feature | Module | Class | API | Web | Mobile Ready | Roles | Flag |
 |---|---|---|---|---|:---:|---|---|
@@ -37,6 +37,11 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Provider Secrets | Settings | ADMIN_DESKTOP_ONLY | ADMIN_SERVER_ONLY | READY | — | ADMIN | — |
 | User Administration | Settings | ADMIN_DESKTOP_ONLY | READY | READY | — | ADMIN | — |
 | Content Monitoring | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Creator 360 | Influencers | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Campaign Operations Board | Campaigns | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Data Quality | Data Quality | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Workflow Integrity Guard | Data Quality | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Bulk Creator Actions | Influencers | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 
 ## API endpoints by feature
 
@@ -202,3 +207,27 @@ contracts, media represented independently of the web UI — spec addendum §37)
 ### Content Monitoring
 
 - `GET /api/v1/content/:id/monitoring`
+
+### Creator 360
+
+- `GET /api/v1/influencers/:id/snapshot`
+- `GET /api/v1/influencers/:id/reliability`
+- `GET /api/v1/influencers/:id/timeline`
+
+### Campaign Operations Board
+
+- `GET /api/v1/campaigns/:id/operations-board`
+
+### Data Quality
+
+- `GET /api/v1/data-quality/report`
+- `GET /api/v1/data-quality/duplicates`
+
+### Workflow Integrity Guard
+
+- `GET /api/v1/integrity/findings`
+
+### Bulk Creator Actions
+
+- `POST /api/v1/influencers/bulk/preview`
+- `POST /api/v1/influencers/bulk/execute`

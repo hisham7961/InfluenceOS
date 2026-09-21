@@ -35,6 +35,11 @@ only in the web app**. The API is the product core; the web is one client.
 | Client Config & Feature Flags | ✅ | ✅ | ✅ | — |
 | Storage Administration | ✅ | ✅ | ✅ | — |
 | Content Monitoring | ✅ | ✅ | ✅ | — |
+| Creator 360 | ✅ | ✅ | ✅ | /influencers/:id |
+| Campaign Operations Board | ✅ | ✅ | ✅ | /campaigns/:id |
+| Data Quality | ✅ | ✅ | ✅ | /data-quality |
+| Workflow Integrity Guard | ✅ | ✅ | ✅ | /data-quality |
+| Bulk Creator Actions | ✅ | ✅ | ✅ | /influencers |
 
 ## Admin / desktop-only by design
 
@@ -54,4 +59,4 @@ administration surface).
 6. Request/response contracts stable · 7. Media represented independently of web UI ·
 8. Filtering/pagination server-side · 9. API tests exist · 10. No web-only server behavior.
 
-Total documented endpoints: 82.
+Total documented endpoints: 91.
