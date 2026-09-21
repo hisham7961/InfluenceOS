@@ -13,6 +13,7 @@ import {
   type MoneyInput,
 } from '../lib/money';
 import { computeCampaignProgressBatch } from '../lib/progress';
+import { scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
 /**
  * Analytics reports (spec §29). Read-only aggregation across the domain —
@@ -53,11 +54,28 @@ function sumTotals(
 export function makeReportService(ctx: DomainContext) {
   const { prisma } = ctx;
 
-  /** Campaign scope shared by the campaign/spend/brand reports. */
-  function campaignWhere(filter: ReportFilter, overrideBrandId?: string): Prisma.CampaignWhereInput {
+  /**
+   * Campaign scope shared by the campaign/spend/brand reports.
+   *
+   * Security & Authorization Freeze Gate (aggregate-leak-audit, spec
+   * §49-55) — previously this composed ONLY the explicit `brandId`/
+   * `campaignId` query filters, never the actor's own brand scope, so
+   * `GET /reports?type=campaign` (or spend/brand) with no explicit brandId
+   * returned EVERY brand's campaigns/budget/spend to any authenticated
+   * brand-scoped actor. Mirrors campaign.service.ts's buildWhere() exactly:
+   * an out-of-scope explicit brandId matches nothing rather than silently
+   * widening; an unscoped actor (ADMIN, or no explicit UserBrandAccess rows)
+   * is untouched.
+   */
+  async function campaignWhere(filter: ReportFilter, overrideBrandId?: string): Promise<Prisma.CampaignWhereInput> {
     const and: Prisma.CampaignWhereInput[] = [];
     const brandId = overrideBrandId ?? filter.brandId;
-    if (brandId) and.push({ brandId });
+    const brandScope = await scopedBrandIds(ctx);
+    if (brandId) {
+      and.push({ brandId: brandScope && !brandScope.includes(brandId) ? { in: [] } : brandId });
+    } else if (brandScope) {
+      and.push({ brandId: { in: brandScope } });
+    }
     if (filter.campaignId) and.push({ id: filter.campaignId });
     if (filter.platform) {
       and.push({
@@ -72,11 +90,17 @@ export function makeReportService(ctx: DomainContext) {
     return and.length ? { AND: and } : {};
   }
 
-  /** PublishedContent scope shared by the content/brand reports. */
-  function contentWhere(filter: ReportFilter, overrideBrandId?: string): Prisma.PublishedContentWhereInput {
+  /** PublishedContent scope shared by the content/brand reports — same
+   *  brand-scope posture as campaignWhere() above (see its doc comment). */
+  async function contentWhere(filter: ReportFilter, overrideBrandId?: string): Promise<Prisma.PublishedContentWhereInput> {
     const and: Prisma.PublishedContentWhereInput[] = [];
     const brandId = overrideBrandId ?? filter.brandId;
-    if (brandId) and.push({ brandId });
+    const brandScope = await scopedBrandIds(ctx);
+    if (brandId) {
+      and.push({ brandId: brandScope && !brandScope.includes(brandId) ? { in: [] } : brandId });
+    } else if (brandScope) {
+      and.push({ brandId: { in: brandScope } });
+    }
     if (filter.campaignId) and.push({ campaignId: filter.campaignId });
     if (filter.platform) and.push({ platform: filter.platform });
     if (filter.from || filter.to) {
@@ -101,8 +125,9 @@ export function makeReportService(ctx: DomainContext) {
   }
 
   async function campaignReport(filter: ReportFilter): Promise<ReportDTO> {
+    const where = await campaignWhere(filter);
     const campaigns = await prisma.campaign.findMany({
-      where: campaignWhere(filter),
+      where,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: MAX_ROWS,
       select: {
@@ -148,16 +173,22 @@ export function makeReportService(ctx: DomainContext) {
       };
     });
 
-    const scope = await scopeCurrency(campaignWhere(filter));
+    const scope = await scopeCurrency(where);
     return { type: 'campaign', columns, rows, totals: sumTotals(columns, rows, scope.mixed), currency: scope.currency };
   }
 
   async function influencerReport(filter: ReportFilter): Promise<ReportDTO> {
-    const campaignAnd = campaignWhere(filter);
+    const campaignAnd = await campaignWhere(filter);
     const ciWhere: Prisma.CampaignInfluencerWhereInput = { campaign: campaignAnd };
 
     const where: Prisma.InfluencerWhereInput = { campaignInfluencers: { some: ciWhere } };
     if (filter.platform) where.socialAccounts = { some: { platform: filter.platform } };
+    // Country scope (aggregate-leak-audit) — this report's rows carry real
+    // creator names/paid amounts, not just a count; a country-scoped actor
+    // (e.g. KW-only) must never see a Saudi creator's row here just because
+    // that creator collaborated on an in-scope brand's campaign.
+    const countryScope = await scopedCountryCodes(ctx);
+    if (countryScope) where.countryCode = { in: countryScope };
 
     const influencers = await prisma.influencer.findMany({
       where,
@@ -224,7 +255,18 @@ export function makeReportService(ctx: DomainContext) {
   }
 
   async function brandReport(filter: ReportFilter): Promise<ReportDTO> {
-    const where: Prisma.BrandWhereInput = filter.brandId ? { id: filter.brandId } : {};
+    // Brand scope (aggregate-leak-audit) — previously `filter.brandId ? {
+    // id: filter.brandId } : {}`, so an unfiltered call listed EVERY brand
+    // in the org (name, campaign count, influencer count, content count,
+    // spend) to any authenticated brand-scoped actor. Same posture as every
+    // other buildWhere() here: an out-of-scope explicit brandId matches
+    // nothing rather than silently widening.
+    const brandScope = await scopedBrandIds(ctx);
+    const where: Prisma.BrandWhereInput = filter.brandId
+      ? { id: brandScope && !brandScope.includes(filter.brandId) ? { in: [] } : filter.brandId }
+      : brandScope
+        ? { id: { in: brandScope } }
+        : {};
     const brands = await prisma.brand.findMany({
       where,
       orderBy: [{ name: 'asc' }],
@@ -242,15 +284,24 @@ export function makeReportService(ctx: DomainContext) {
 
     const brandIds = brands.map((b) => b.id);
     if (brandIds.length === 0) {
-      const scope = await scopeCurrency(campaignWhere(filter));
+      const scope = await scopeCurrency(await campaignWhere(filter));
       return { type: 'brand', columns, rows: [], totals: sumTotals(columns, [], scope.mixed), currency: scope.currency };
     }
+
+    // Country scope — the "influencers"/"content" per-brand counts must
+    // exclude out-of-scope-country creators/content too (never just brand
+    // scope alone), same principle as data-quality.service.ts's report().
+    const countryScope = await scopedCountryCodes(ctx);
+    const influencerCountryWhere = countryScope ? { influencer: { countryCode: { in: countryScope } } } : {};
+    const contentCountryWhere: Prisma.PublishedContentWhereInput = countryScope
+      ? { OR: [{ influencerId: null }, { influencer: { countryCode: { in: countryScope } } }] }
+      : {};
 
     // Every per-brand aggregate in a fixed handful of queries (PERF-02 / W7-1) —
     // no per-brand fan-out. Campaign counts and spend fold from the in-scope
     // campaigns; brand-influencer and content counts are grouped in one query each.
     const scopedCampaigns = await prisma.campaign.findMany({
-      where: { AND: [campaignWhere(filter), { brandId: { in: brandIds } }] },
+      where: { AND: [await campaignWhere(filter), { brandId: { in: brandIds } }] },
       select: { id: true, brandId: true },
     });
     const campaignIds = scopedCampaigns.map((c) => c.id);
@@ -258,12 +309,12 @@ export function makeReportService(ctx: DomainContext) {
     const [biCounts, contentCounts, feeSums, expenseSums] = await Promise.all([
       prisma.brandInfluencer.groupBy({
         by: ['brandId'],
-        where: { brandId: { in: brandIds } },
+        where: { brandId: { in: brandIds }, ...influencerCountryWhere },
         _count: { _all: true },
       }),
       prisma.publishedContent.groupBy({
         by: ['brandId'],
-        where: { AND: [contentWhere(filter), { brandId: { in: brandIds } }] },
+        where: { AND: [await contentWhere(filter), { brandId: { in: brandIds } }, contentCountryWhere] },
         _count: { _all: true },
       }),
       campaignIds.length
@@ -305,13 +356,21 @@ export function makeReportService(ctx: DomainContext) {
       spend: moneyNumberOr0(sumMoney(spendPartsByBrand.get(b.id) ?? [])),
     }));
 
-    const scope = await scopeCurrency(campaignWhere(filter));
+    const scope = await scopeCurrency(await campaignWhere(filter));
     return { type: 'brand', columns, rows, totals: sumTotals(columns, rows, scope.mixed), currency: scope.currency };
   }
 
   async function contentReport(filter: ReportFilter): Promise<ReportDTO> {
+    // Country scope — a content row directly names the creator
+    // (`influencer.displayName`); content with no influencer stays visible
+    // (never a stored country to check), same posture as brandReport() above.
+    const countryScope = await scopedCountryCodes(ctx);
+    const baseContentWhere = await contentWhere(filter);
+    const where: Prisma.PublishedContentWhereInput = countryScope
+      ? { AND: [baseContentWhere, { OR: [{ influencerId: null }, { influencer: { countryCode: { in: countryScope } } }] }] }
+      : baseContentWhere;
     const items = await prisma.publishedContent.findMany({
-      where: contentWhere(filter),
+      where,
       orderBy: [{ detectedAt: 'desc' }, { id: 'desc' }],
       take: MAX_ROWS,
       select: {
@@ -372,13 +431,13 @@ export function makeReportService(ctx: DomainContext) {
       };
     });
 
-    const scope = await scopeCurrency(campaignWhere(filter));
+    const scope = await scopeCurrency(await campaignWhere(filter));
     return { type: 'content', columns, rows, totals: sumTotals(columns, rows, scope.mixed), currency: scope.currency };
   }
 
   async function spendReport(filter: ReportFilter): Promise<ReportDTO> {
     const campaigns = await prisma.campaign.findMany({
-      where: campaignWhere(filter),
+      where: await campaignWhere(filter),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: MAX_ROWS,
       select: { id: true, name: true, currency: true, plannedBudget: true, startDate: true, endDate: true },
