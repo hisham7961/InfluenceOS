@@ -259,21 +259,33 @@ function FulfilmentDetails({ shipment, onSaved }: { shipment: LogisticsRequestDT
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shipment.id, editing]);
 
+  // Diff-only PATCH: a role with LOGISTICS_MANAGE but not LOGISTICS_ADDRESS_EDIT
+  // (e.g. GENERAL_MANAGER, by design — see shipment.service.ts's update()) can
+  // still edit courier/tracking here. Sending every field unconditionally would
+  // trip the backend's address-field gate even when no address field actually
+  // changed, blocking a save the role is meant to be able to make. Only the
+  // fields the user actually touched are sent.
+  const original = {
+    recipientName: shipment.recipientName ?? '',
+    phone: shipment.phone ?? '',
+    addressLine1: shipment.addressLine1 ?? '',
+    addressLine2: shipment.addressLine2 ?? '',
+    city: shipment.city ?? '',
+    country: shipment.country ?? '',
+    postalCode: shipment.postalCode ?? '',
+    deliveryInstructions: shipment.deliveryInstructions ?? '',
+    courier: shipment.courier ?? '',
+    trackingNumber: shipment.trackingNumber ?? '',
+    trackingUrl: shipment.trackingUrl ?? '',
+  };
   const save = useMutation({
-    mutationFn: () =>
-      api.shipments.update(shipment.id, {
-        recipientName: form.recipientName || null,
-        phone: form.phone || null,
-        addressLine1: form.addressLine1 || null,
-        addressLine2: form.addressLine2 || null,
-        city: form.city || null,
-        country: form.country || null,
-        postalCode: form.postalCode || null,
-        deliveryInstructions: form.deliveryInstructions || null,
-        courier: form.courier || null,
-        trackingNumber: form.trackingNumber || null,
-        trackingUrl: form.trackingUrl || null,
-      }),
+    mutationFn: () => {
+      const changed: Record<string, string | null> = {};
+      for (const key of Object.keys(original) as (keyof typeof original)[]) {
+        if (form[key] !== original[key]) changed[key] = form[key] || null;
+      }
+      return api.shipments.update(shipment.id, changed);
+    },
     onSuccess: () => {
       toast.success('Shipment details saved.');
       setEditing(false);
