@@ -93,8 +93,10 @@ export function ImportCandidatesDialog({ campaignId }: { campaignId: string }) {
                 : (
                   <>
                     Paste a CSV with a header row. <code className="text-xs">displayName</code> (or{' '}
-                    <code className="text-xs">name</code>) is required; optional columns:{' '}
-                    <span className="text-xs">fullName, username/handle, platform, email, category, country, fitScore, notes</span>.
+                    <code className="text-xs">name</code>) is required, and{' '}
+                    <code className="text-xs">country</code> is required for any row that doesn&apos;t match an
+                    existing creator; optional columns:{' '}
+                    <span className="text-xs">fullName, username/handle, platform, email, category, fitScore, notes</span>.
                   </>
                 )}
           </DialogDescription>
