@@ -12,6 +12,31 @@ versions are fabricated. Dates are UTC.
 Pre-deployment platform-completion and freeze-candidate work on top of the
 validated baseline. No staging or production environment has been deployed.
 
+### Freeze candidate — release readiness gate (this pass)
+
+- **Influencer photo sync** — a "Sync photo" action on the Influencer 360
+  profile re-resolves the creator's avatar from their linked social account
+  (official API first, public og:image fallback); linking a new primary
+  social account now also best-effort backfills a missing photo at link time.
+- **Fixed 4 real bugs surfaced by the pre-existing Playwright E2E suite**:
+  `campaigns.json`'s `submissions`/`shipments`/`sourcing`/`operations` keys
+  were nested one level too deep, causing next-intl to render raw dotted key
+  paths instead of translated text across those campaign tabs; the Admin
+  Users edit-access sheet silently dropped the person's email from its
+  description (a `t.rich()`/plain-placeholder mismatch); the shared
+  `DropdownMenuContent` had no height cap, so a menu with enough items (many
+  saved views) could render entirely below the viewport with no way to
+  scroll to it; two E2E specs asserted stale pre-translation English/
+  always-plural copy against now-correctly-translated/pluralized UI.
+- **Dependency audit** — vitest 2.1.8 → 2.1.9 (devDependency only; closes a
+  critical RCE advisory, GHSA-9crc-q9x8-hgqq).
+- Full regression after all of the above: typecheck/lint clean, i18n parity
+  holds (21 namespaces, 2045 keys), 404 API + 33 domain + 78 shared unit/
+  integration tests green, full Playwright E2E suite (6 spec files, 15 test
+  cases, across content-command-center, content-association,
+  advanced-roles-logistics, operations-intelligence, dod, smoke) green, CI
+  green on the frozen SHA.
+
 ### Freeze candidate (maintenance cleanup)
 
 - **Controlled Next.js + dependency security upgrade** — next 15.1.6 → 15.5.25
