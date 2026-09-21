@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { CalendarClock, TrendingUp, Trophy } from 'lucide-react';
 import type { CreatorTier, Tone } from '@influenceos/contracts';
 import { getServerApi } from '@/lib/api-server';
@@ -31,7 +32,7 @@ export default async function ExecPage() {
       />
 
       {/* Spend vs budget */}
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard label="Planned budget" value={dash.spendVsBudget.plannedBudget} iconName="wallet" tone="neutral" formatted={money(dash.spendVsBudget.plannedBudget)} />
         <StatCard label="Total spend" value={dash.spendVsBudget.totalSpend} iconName="wallet" tone="info" formatted={money(dash.spendVsBudget.totalSpend)} />
         <StatCard label="Remaining" value={dash.spendVsBudget.remaining} iconName="wallet" tone={dash.spendVsBudget.remaining < 0 ? 'danger' : 'success'} formatted={money(dash.spendVsBudget.remaining)} />
@@ -41,6 +42,13 @@ export default async function ExecPage() {
           iconName="trending"
           tone={(dash.spendVsBudget.budgetUsedPercent ?? 0) > 100 ? 'danger' : 'accent'}
           formatted={dash.spendVsBudget.budgetUsedPercent == null ? 'N/A' : `${dash.spendVsBudget.budgetUsedPercent}%`}
+        />
+        <StatCard
+          label="Unpaid spend"
+          value={dash.spendVsBudget.unpaidSpend}
+          iconName="wallet"
+          tone={dash.spendVsBudget.unpaidSpend > 0 ? 'warning' : 'success'}
+          formatted={money(dash.spendVsBudget.unpaidSpend)}
         />
       </section>
       {dash.spendVsBudget.campaignsOverBudget > 0 ? (
@@ -57,10 +65,10 @@ export default async function ExecPage() {
             <CardTitle>Today</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
-            <Metric label="Content published" value={dash.today.contentPublished} />
-            <Metric label="Deliverables due" value={dash.today.deliverablesDue} />
-            <Metric label="Campaigns starting" value={dash.today.campaignsStarting} />
-            <Metric label="Campaigns ending" value={dash.today.campaignsEnding} />
+            <Metric label="Content published" value={dash.today.contentPublished} href="/content" />
+            <Metric label="Deliverables due" value={dash.today.deliverablesDue} href="/calendar" />
+            <Metric label="Campaigns starting" value={dash.today.campaignsStarting} href="/campaigns" />
+            <Metric label="Campaigns ending" value={dash.today.campaignsEnding} href="/campaigns" />
           </CardContent>
         </Card>
         <Card>
@@ -69,12 +77,20 @@ export default async function ExecPage() {
             <span className="text-xs text-muted-foreground">{relativeTime(dash.digest.since)}</span>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
-            <Metric label="Content published" value={dash.digest.contentPublished} />
-            <Metric label="Deliverables completed" value={dash.digest.deliverablesCompleted} />
-            <Metric label="Campaigns created" value={dash.digest.campaignsCreated} />
-            <Metric label="Campaigns completed" value={dash.digest.campaignsCompleted} />
-            <Metric label="Roster additions" value={dash.digest.rosterAdditions} />
-            <Metric label="Content removed" value={dash.digest.contentRemoved} tone={dash.digest.contentRemoved > 0 ? 'danger' : undefined} />
+            <Metric label="Content published" value={dash.digest.contentPublished} href="/content" />
+            <Metric label="Deliverables completed" value={dash.digest.deliverablesCompleted} href="/calendar" />
+            <Metric label="Campaigns created" value={dash.digest.campaignsCreated} href="/campaigns" />
+            <Metric label="Campaigns completed" value={dash.digest.campaignsCompleted} href="/campaigns" />
+            <Metric label="Roster additions" value={dash.digest.rosterAdditions} href="/influencers" />
+            <Metric label="Content removed" value={dash.digest.contentRemoved} tone={dash.digest.contentRemoved > 0 ? 'danger' : undefined} href="/content" />
+            <Metric label="Shipments delivered" value={dash.digest.shipmentsDelivered} href="/logistics?status=DELIVERED" />
+            <Metric
+              label="Shipments failed"
+              value={dash.digest.shipmentsFailed}
+              tone={dash.digest.shipmentsFailed > 0 ? 'danger' : undefined}
+              href="/logistics?status=FAILED"
+            />
+            <Metric label="UGC awaiting review" value={dash.digest.ugcAwaitingReview} tone={dash.digest.ugcAwaitingReview > 0 ? 'danger' : undefined} />
           </CardContent>
         </Card>
       </section>
@@ -178,11 +194,19 @@ export default async function ExecPage() {
   );
 }
 
-function Metric({ label, value, tone }: { label: string; value: number; tone?: 'danger' }) {
-  return (
-    <div>
+function Metric({ label, value, tone, href }: { label: string; value: number; tone?: 'danger'; href?: string }) {
+  const body = (
+    <>
       <p className={`text-2xl font-semibold tabular-nums ${tone === 'danger' ? 'text-danger' : 'text-foreground'}`}>{formatCompact(value)}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
-    </div>
+    </>
   );
+  if (href) {
+    return (
+      <Link href={href} className="-m-1.5 rounded-lg p-1.5 transition-colors hover:bg-surface-muted">
+        {body}
+      </Link>
+    );
+  }
+  return <div>{body}</div>;
 }

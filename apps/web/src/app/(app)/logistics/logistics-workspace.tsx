@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ExternalLink, Package } from 'lucide-react';
@@ -38,8 +38,12 @@ export function LogisticsWorkspace({
   initial: { data: LogisticsRequestDTO[]; hasMore: boolean; nextCursor: string | null };
   brands: BrandSummaryDTO[];
 }) {
-  const [status, setStatus] = React.useState('');
-  const [brandId, setBrandId] = React.useState('');
+  // Initial filter values come from the URL (?status=&brandId=) so the Exec
+  // Brief's "shipments delivered/failed" metrics can deep-link straight into
+  // a pre-filtered view instead of landing on an unfiltered page.
+  const searchParams = useSearchParams();
+  const [status, setStatus] = React.useState(() => searchParams.get('status') ?? '');
+  const [brandId, setBrandId] = React.useState(() => searchParams.get('brandId') ?? '');
   const isDefault = !status && !brandId;
 
   const query = useInfiniteQuery({
