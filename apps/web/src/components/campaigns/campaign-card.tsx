@@ -1,11 +1,13 @@
+'use client';
+
 import Link from 'next/link';
-import { getTranslations } from 'next-intl/server';
+import { useTranslations } from 'next-intl';
 import { CalendarClock, Users } from 'lucide-react';
 import type { CampaignSummaryDTO } from '@influenceos/contracts';
 import { CampaignStatusBadge } from '@/components/ui/status-badges';
 import { ProgressBar } from '@/components/ui/progress';
 import { formatCurrency } from '@/lib/format';
-import { BidiText } from '@/components/common/bidi-text';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 
 export function CampaignCover({
   name,
@@ -37,8 +39,8 @@ export function CampaignCover({
   );
 }
 
-export async function CampaignCard({ campaign }: { campaign: CampaignSummaryDTO }) {
-  const t = await getTranslations('campaigns');
+export function CampaignCard({ campaign }: { campaign: CampaignSummaryDTO }) {
+  const t = useTranslations('campaigns');
   const p = campaign.progress;
   return (
     <Link
@@ -78,7 +80,7 @@ export async function CampaignCard({ campaign }: { campaign: CampaignSummaryDTO 
           <span className="flex items-center gap-1">
             <Users className="h-3.5 w-3.5" /> {p.influencersTotal}
           </span>
-          <span>{formatCurrency(p.spend, campaign.currency)}{p.plannedBudget ? ` / ${formatCurrency(p.plannedBudget, campaign.currency)}` : ''}</span>
+          <LtrText as="span">{formatCurrency(p.spend, campaign.currency)}{p.plannedBudget ? ` / ${formatCurrency(p.plannedBudget, campaign.currency)}` : ''}</LtrText>
           {p.daysRemaining != null && p.daysRemaining >= 0 ? (
             <span className="flex items-center gap-1">
               <CalendarClock className="h-3.5 w-3.5" /> {t('card.daysRemaining', { days: p.daysRemaining })}

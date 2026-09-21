@@ -16,7 +16,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { AttachmentChip, Composer } from '@/components/collaboration/comment-thread';
 import { BidiText } from '@/components/common/bidi-text';
-import { relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
 /** Internal notes thread for an influencer — pin, add, and remove, with optimistic list updates.
@@ -25,6 +25,7 @@ export function NotesPanel({ influencerId, notes }: { influencerId: string; note
   const router = useRouter();
   const t = useTranslations('influencers');
   const tc = useTranslations('common');
+  const { relativeTime } = useLocalizedFormat();
   const queryClient = useQueryClient();
   const [items, setItems] = React.useState(notes);
 

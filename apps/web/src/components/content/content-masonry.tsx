@@ -4,12 +4,12 @@ import { useTranslations } from 'next-intl';
 import { Eye, Heart, MessageCircle, Play } from 'lucide-react';
 import type { PublishedContentDTO } from '@influenceos/contracts';
 import { cn } from '@/lib/cn';
-import { formatCompact, relativeTime } from '@/lib/format';
+import { formatCompact, useLocalizedFormat } from '@/lib/format';
 import { enumLabel } from '@/lib/enum-labels';
 import { Avatar } from '@/components/ui/avatar';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
-import { BidiText } from '@/components/common/bidi-text';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { ContentViewer } from './content-viewer';
 
 /**
@@ -48,6 +48,7 @@ const FALLBACK_ASPECTS = ['aspect-square', 'aspect-[4/5]', 'aspect-[3/4]', 'aspe
 function MasonryCard({ content, onOpen }: { content: PublishedContentDTO; onOpen: () => void }) {
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
+  const { relativeTime } = useLocalizedFormat();
   const m = content.metrics;
   const fallback = FALLBACK_ASPECTS[hashId(content.id) % FALLBACK_ASPECTS.length];
 
@@ -123,7 +124,7 @@ function Metric({
   return (
     <span className={cn('flex items-center gap-1', value == null && 'opacity-50')}>
       <Icon className="h-3.5 w-3.5" />
-      {value == null ? na : formatCompact(value)}
+      {value == null ? na : <LtrText>{formatCompact(value)}</LtrText>}
     </span>
   );
 }

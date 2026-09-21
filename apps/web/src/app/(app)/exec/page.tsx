@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
+import type { Locale } from '@/i18n/request';
 import { CalendarClock, TrendingUp, Trophy } from 'lucide-react';
 import type { CreatorTier, Tone } from '@influenceos/contracts';
 import { getServerApi } from '@/lib/api-server';
@@ -23,6 +24,7 @@ const TIER_TONE: Record<CreatorTier, Tone> = { GOLD: 'warning', SILVER: 'info', 
 export default async function ExecPage() {
   const t = await getTranslations('reports');
   const tCommon = await getTranslations('common');
+  const locale = (await getLocale()) as Locale;
   const api = getServerApi();
   const [dash, board] = await Promise.all([api.reports.execDashboard(), api.reports.leaderboard({ limit: 10 })]);
   const c = dash.currency;
@@ -93,7 +95,7 @@ export default async function ExecPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>{t('exec.sinceYesterday.title')}</CardTitle>
-            <span className="text-xs text-muted-foreground">{relativeTime(dash.digest.since)}</span>
+            <span className="text-xs text-muted-foreground">{relativeTime(dash.digest.since, locale)}</span>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
             <Metric label={t('exec.sinceYesterday.contentPublished')} value={dash.digest.contentPublished} href="/content" />
@@ -157,8 +159,8 @@ export default async function ExecPage() {
                         ) : null}
                       </TableCell>
                       <TableCell align="end">{b.activeCampaigns}</TableCell>
-                      <TableCell align="end">{money(b.totalSpend)}</TableCell>
-                      <TableCell align="end">{money(b.plannedBudget)}</TableCell>
+                      <TableCell align="end"><LtrText>{money(b.totalSpend)}</LtrText></TableCell>
+                      <TableCell align="end"><LtrText>{money(b.plannedBudget)}</LtrText></TableCell>
                       <TableCell align="end">{b.budgetUsedPercent == null ? '—' : `${b.budgetUsedPercent}%`}</TableCell>
                       <TableCell align="end">{b.overdueDeliverables}</TableCell>
                       <TableCell align="end">{b.contentAlerts}</TableCell>
@@ -215,8 +217,12 @@ export default async function ExecPage() {
                         </div>
                       </TableCell>
                       <TableCell align="end">{e.campaigns}</TableCell>
-                      <TableCell align="end">{formatCompact(e.deliverablesPublished)}</TableCell>
-                      <TableCell align="end">{e.completionRate == null ? '—' : formatPercent(e.completionRate * 100)}</TableCell>
+                      <TableCell align="end">
+                        <LtrText>{formatCompact(e.deliverablesPublished)}</LtrText>
+                      </TableCell>
+                      <TableCell align="end">
+                        {e.completionRate == null ? '—' : <LtrText>{formatPercent(e.completionRate * 100)}</LtrText>}
+                      </TableCell>
                       <TableCell align="end">
                         <Badge tone={TIER_TONE[e.tier]}>{t(`exec.leaderboard.tier.${e.tier}`)}</Badge>
                       </TableCell>
@@ -232,7 +238,7 @@ export default async function ExecPage() {
         )}
       </section>
 
-      <p className="text-xs text-muted-foreground">{t('exec.generatedAt', { time: relativeTime(dash.generatedAt) })}</p>
+      <p className="text-xs text-muted-foreground">{t('exec.generatedAt', { time: relativeTime(dash.generatedAt, locale) })}</p>
     </div>
   );
 }
@@ -240,7 +246,9 @@ export default async function ExecPage() {
 function Metric({ label, value, tone, href }: { label: string; value: number; tone?: 'danger'; href?: string }) {
   const body = (
     <>
-      <p className={`text-2xl font-semibold tabular-nums ${tone === 'danger' ? 'text-danger' : 'text-foreground'}`}>{formatCompact(value)}</p>
+      <p className={`text-2xl font-semibold tabular-nums ${tone === 'danger' ? 'text-danger' : 'text-foreground'}`}>
+        <LtrText>{formatCompact(value)}</LtrText>
+      </p>
       <p className="text-xs text-muted-foreground">{label}</p>
     </>
   );

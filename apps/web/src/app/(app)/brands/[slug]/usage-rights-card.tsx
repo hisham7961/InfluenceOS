@@ -1,4 +1,5 @@
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
+import type { Locale } from '@/i18n/request';
 import { ShieldCheck } from 'lucide-react';
 import type { UsageRightDTO } from '@influenceos/contracts';
 import { USAGE_RIGHT_EFFECTIVE_STATUS_TONE } from '@influenceos/shared';
@@ -17,6 +18,7 @@ export async function UsageRightsCard({ rights }: { rights: UsageRightDTO[] }) {
   const t = await getTranslations('brands');
   const tc = await getTranslations('common');
   const tEnums = await getTranslations('enums');
+  const locale = (await getLocale()) as Locale;
   const expiring = rights.filter((r) => r.effectiveStatus === 'EXPIRING_SOON').length;
 
   return (
@@ -57,7 +59,7 @@ export async function UsageRightsCard({ rights }: { rights: UsageRightDTO[] }) {
                     <BidiText>{r.influencerName ?? '—'}</BidiText>
                   </TableCell>
                   <TableCell>
-                    {r.expiresAt ? shortDate(r.expiresAt) : t('usageRights.noExpiry')}
+                    {r.expiresAt ? shortDate(r.expiresAt, locale) : t('usageRights.noExpiry')}
                     {r.daysUntilExpiry != null && r.daysUntilExpiry >= 0 ? (
                       <span className="ms-1 text-xs text-muted-foreground">
                         {t('usageRights.daysRemaining', { count: r.daysUntilExpiry })}

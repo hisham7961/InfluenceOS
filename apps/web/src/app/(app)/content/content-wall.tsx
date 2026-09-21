@@ -32,7 +32,7 @@ import { ApiError } from '@influenceos/api-client';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-browser';
 import { cn } from '@/lib/cn';
-import { formatCompact, relativeTime } from '@/lib/format';
+import { formatCompact, useLocalizedFormat } from '@/lib/format';
 import { enumLabel } from '@/lib/enum-labels';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -44,7 +44,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { PlatformBadge } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { DataSourceBadge } from '@/components/ui/provenance';
-import { BidiText } from '@/components/common/bidi-text';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { ContentGrid } from '@/components/content/content-grid';
 import { ContentMasonry } from '@/components/content/content-masonry';
 import { ContentTimeline } from '@/components/content/content-timeline';
@@ -691,6 +691,7 @@ function FeedLayout({ items }: { items: PublishedContentDTO[] }) {
 function FeedCard({ content }: { content: PublishedContentDTO }) {
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
+  const { relativeTime } = useLocalizedFormat();
   const m = content.metrics;
 
   return (
@@ -758,7 +759,7 @@ function FeedMetric({
   return (
     <span className={cn('flex items-center gap-1.5', value == null && 'opacity-50')}>
       <Icon className="h-4 w-4" />
-      {value == null ? tCommon('na') : formatCompact(value)}
+      {value == null ? tCommon('na') : <LtrText>{formatCompact(value)}</LtrText>}
     </span>
   );
 }

@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { EmptyState } from '@/components/ui/empty-state';
-import { relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { useApp } from '@/components/shell/app-context';
 import { CommentThread } from '@/components/collaboration/comment-thread';
@@ -168,6 +168,7 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
 function InspirationCard({ item, onOpen }: { item: InspirationItemDTO; onOpen: () => void }) {
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
+  const { relativeTime } = useLocalizedFormat();
   return (
     <Card
       role="button"
@@ -273,6 +274,7 @@ function InspirationDetail({ item, onClose }: { item: InspirationItemDTO; onClos
   const t = useTranslations('inspiration');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
+  const { relativeTime } = useLocalizedFormat();
 
   const togglePin = useMutation({
     mutationFn: () => api.inspiration.update(item.id, { pinned: !item.pinned }),

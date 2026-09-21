@@ -270,7 +270,7 @@ function SocialAccountCard({
       <div className="flex items-end justify-between">
         <div>
           <p className="text-2xl font-semibold tracking-tight">
-            {account.followers != null ? formatCompact(account.followers) : '—'}
+            {account.followers != null ? <LtrText>{formatCompact(account.followers)}</LtrText> : '—'}
           </p>
           <p className="text-xs text-muted-foreground">{t('detail.socialAccounts.followersLabel')}</p>
         </div>
@@ -278,7 +278,7 @@ function SocialAccountCard({
           <span className={cn('inline-flex items-center gap-0.5 text-xs font-medium', deltaTone)}>
             <DeltaIcon className="h-3.5 w-3.5" />
             {delta > 0 ? '+' : ''}
-            {formatCompact(delta)} · {t('detail.socialAccounts.sevenDaySuffix')}
+            <LtrText>{formatCompact(delta)}</LtrText> · {t('detail.socialAccounts.sevenDaySuffix')}
           </span>
         ) : null}
       </div>

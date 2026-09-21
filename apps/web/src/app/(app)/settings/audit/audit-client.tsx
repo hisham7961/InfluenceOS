@@ -16,7 +16,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Avatar } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
-import { dateTime, relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 
 const ALL = 'all';
 
@@ -52,6 +52,7 @@ export function AuditLogClient({
 }) {
   const t = useTranslations('settings');
   const tCommon = useTranslations('common');
+  const { dateTime, relativeTime } = useLocalizedFormat();
   const [filters, setFilters] = React.useState<Filters>(EMPTY);
   const [searchInput, setSearchInput] = React.useState('');
   const [selected, setSelected] = React.useState<AuditEntryDTO | null>(null);
@@ -198,6 +199,7 @@ export function AuditLogClient({
 
 function AuditDetailDrawer({ entry, onClose }: { entry: AuditEntryDTO | null; onClose: () => void }) {
   const t = useTranslations('settings');
+  const { dateTime } = useLocalizedFormat();
   return (
     <Sheet open={Boolean(entry)} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right" className="w-full sm:max-w-md">

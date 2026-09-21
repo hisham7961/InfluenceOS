@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
 import { BidiText } from '@/components/common/bidi-text';
+import { AttentionItemTitle, AttentionItemDescription } from '@/components/dashboard/attention-item-text';
 import { cn } from '@/lib/cn';
 
 const STATE_ICON: Record<CampaignOperationsStageDTO['state'], React.ComponentType<{ className?: string }>> = {
@@ -147,8 +148,8 @@ export function OperationsBoardTab({ campaignId }: { campaignId: string }) {
                 <AlertTriangle className="h-3.5 w-3.5" />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-medium leading-snug">{item.title}</p>
-                <p className="text-xs text-muted-foreground">{item.description}</p>
+                <p className="text-sm font-medium leading-snug"><AttentionItemTitle item={item} /></p>
+                <p className="text-xs text-muted-foreground"><AttentionItemDescription item={item} /></p>
               </div>
             </Link>
           ))}

@@ -30,7 +30,7 @@ import { CommentThread } from '@/components/collaboration/comment-thread';
 import { ActivityFeed } from '@/components/common/activity-feed';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { useApp } from '@/components/shell/app-context';
-import { relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
 function errorMessage(e: unknown, fallback: string): string {
@@ -56,6 +56,7 @@ export function ShipmentDetailSheet({
   const t = useTranslations('logistics');
   const tc = useTranslations('common');
   const te = useTranslations('enums');
+  const { relativeTime } = useLocalizedFormat();
 
   function invalidateAll() {
     queryClient.invalidateQueries({ queryKey: ['logistics'] });
@@ -415,6 +416,7 @@ function IssueSection({ shipment, onChanged }: { shipment: LogisticsRequestDTO; 
   const t = useTranslations('logistics');
   const tc = useTranslations('common');
   const te = useTranslations('enums');
+  const { relativeTime } = useLocalizedFormat();
   const queryClient = useQueryClient();
   const [requesting, setRequesting] = React.useState(false);
   const [issueType, setIssueType] = React.useState<(typeof LOGISTICS_ISSUE_TYPES)[number]>('MISSING_ADDRESS');

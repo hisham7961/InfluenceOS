@@ -158,7 +158,9 @@ export function AddInfluencerDialog({
                       </p>
                     </div>
                     {inf.totalFollowers != null ? (
-                      <span className="shrink-0 text-xs text-muted-foreground">{formatCompact(inf.totalFollowers)}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        <LtrText>{formatCompact(inf.totalFollowers)}</LtrText>
+                      </span>
                     ) : null}
                   </button>
                 ))

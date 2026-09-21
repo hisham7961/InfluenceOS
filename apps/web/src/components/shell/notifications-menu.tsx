@@ -8,12 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { EmptyState } from '@/components/ui/empty-state';
-import { relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 
 export function NotificationsMenu() {
   const queryClient = useQueryClient();
   const t = useTranslations('common');
   const tNav = useTranslations('nav');
+  const { relativeTime } = useLocalizedFormat();
   const { data: count } = useQuery({
     queryKey: ['notifications', 'unread'],
     queryFn: () => api.notifications.unreadCount(),

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { LtrText } from '@/components/common/bidi-text';
 
 const ANIMATION_DURATION_MS = 600;
 
@@ -76,5 +77,5 @@ export function AnimatedNumber({ value, format = defaultFormat }: AnimatedNumber
     return <span>{t('na')}</span>;
   }
 
-  return <span>{format(display)}</span>;
+  return <LtrText>{format(display)}</LtrText>;
 }

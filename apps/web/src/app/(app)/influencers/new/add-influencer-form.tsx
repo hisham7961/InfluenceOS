@@ -431,7 +431,12 @@ export function AddInfluencerForm() {
                       <LtrText>@{resolved.username}</LtrText>
                     </span>
                     {resolved.followers != null ? (
-                      <span>{t('form.findCreator.followersSuffix', { count: formatCompact(resolved.followers) })}</span>
+                      <span>
+                        {t.rich('form.findCreator.followersSuffix', {
+                          count: formatCompact(resolved.followers),
+                          ltr: (chunks) => <LtrText>{chunks}</LtrText>,
+                        })}
+                      </span>
                     ) : null}
                     {resolved.isVerified ? (
                       <span className="inline-flex items-center gap-1 text-brand">
@@ -619,7 +624,10 @@ export function AddInfluencerForm() {
             </div>
             {resolved?.followers != null ? (
               <div className="w-full rounded-xl bg-surface-muted px-3 py-2 text-sm">
-                {t('form.preview.followersCount', { count: formatCompact(resolved.followers) })}
+                {t.rich('form.preview.followersCount', {
+                  count: formatCompact(resolved.followers),
+                  ltr: (chunks) => <LtrText>{chunks}</LtrText>,
+                })}
               </div>
             ) : null}
             {!resolved && !displayName ? (

@@ -1,11 +1,13 @@
 import Link from 'next/link';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
+import type { Locale } from '@/i18n/request';
 import { AlertTriangle, Building2, CalendarClock, Clock, Coins, MapPin, PackageCheck, ShieldCheck, Truck, UserCog } from 'lucide-react';
 import type { CreatorReliabilityDTO, CreatorSnapshotDTO } from '@influenceos/contracts';
 import { countryName, SHIPMENT_STATUS_TONE } from '@influenceos/shared';
 import { enumLabel } from '@/lib/enum-labels';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { LtrText } from '@/components/common/bidi-text';
 import { formatCurrency, relativeTime } from '@/lib/format';
 
 // Below this many completed deliverables, a colored on-time percentage would
@@ -46,6 +48,7 @@ export async function CreatorSnapshot({
   const t = await getTranslations('influencers');
   const tc = await getTranslations('common');
   const te = await getTranslations('enums');
+  const locale = (await getLocale()) as Locale;
   const onTimeRate = reliability.sampleSize > 0 ? Math.round((reliability.onTime / reliability.sampleSize) * 100) : null;
   const logisticsHref = `/logistics?influencerId=${influencerId}&hasOpenIssue=true`;
 
@@ -82,28 +85,32 @@ export async function CreatorSnapshot({
           <Stat
             icon={CalendarClock}
             label={t('detail.snapshot.lastCollaboration')}
-            value={snapshot.lastCollaborationAt ? relativeTime(snapshot.lastCollaborationAt) : t('detail.snapshot.never')}
+            value={snapshot.lastCollaborationAt ? relativeTime(snapshot.lastCollaborationAt, locale) : t('detail.snapshot.never')}
           />
           <Stat
             icon={Clock}
             label={t('detail.snapshot.lastContact')}
-            value={snapshot.lastContactAt ? relativeTime(snapshot.lastContactAt) : t('detail.snapshot.noRecord')}
+            value={snapshot.lastContactAt ? relativeTime(snapshot.lastContactAt, locale) : t('detail.snapshot.noRecord')}
           />
           <Stat
             icon={Coins}
             label={t('detail.snapshot.rateRange')}
             value={
-              snapshot.rateRange
-                ? snapshot.rateRange.min === snapshot.rateRange.max
-                  ? formatCurrency(snapshot.rateRange.min, snapshot.rateRange.currency)
-                  : `${formatCurrency(snapshot.rateRange.min, snapshot.rateRange.currency)} – ${formatCurrency(snapshot.rateRange.max, snapshot.rateRange.currency)}`
-                : t('detail.snapshot.noPaidDealsYet')
+              snapshot.rateRange ? (
+                <LtrText>
+                  {snapshot.rateRange.min === snapshot.rateRange.max
+                    ? formatCurrency(snapshot.rateRange.min, snapshot.rateRange.currency)
+                    : `${formatCurrency(snapshot.rateRange.min, snapshot.rateRange.currency)} – ${formatCurrency(snapshot.rateRange.max, snapshot.rateRange.currency)}`}
+                </LtrText>
+              ) : (
+                t('detail.snapshot.noPaidDealsYet')
+              )
             }
           />
           <Stat
             icon={Coins}
             label={t('detail.snapshot.outstandingPayment')}
-            value={formatCurrency(snapshot.outstandingPayment, snapshot.currency)}
+            value={<LtrText>{formatCurrency(snapshot.outstandingPayment, snapshot.currency)}</LtrText>}
             hint={snapshot.outstandingPayment > 0 ? t('detail.snapshot.awaitingPayment') : undefined}
           />
           <Stat icon={PackageCheck} label={t('detail.snapshot.activeDeliverables')} value={snapshot.activeDeliverables} />

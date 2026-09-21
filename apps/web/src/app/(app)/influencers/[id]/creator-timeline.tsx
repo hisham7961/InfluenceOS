@@ -10,7 +10,7 @@ import { api } from '@/lib/api-browser';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
-import { relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
 type Bucket = CreatorTimelineItemDTO['bucket'];
@@ -41,6 +41,7 @@ const BUCKET_ICON: Record<Bucket, React.ComponentType<{ className?: string }>> =
 export function CreatorTimeline({ influencerId }: { influencerId: string }) {
   const t = useTranslations('influencers');
   const tc = useTranslations('common');
+  const { relativeTime } = useLocalizedFormat();
   const [bucket, setBucket] = React.useState<Bucket | typeof BUCKET_ALL>(BUCKET_ALL);
   const [cursor, setCursor] = React.useState<string | undefined>(undefined);
   const [items, setItems] = React.useState<CreatorTimelineItemDTO[]>([]);

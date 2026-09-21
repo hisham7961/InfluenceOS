@@ -146,7 +146,7 @@ function ListRow({ inf, onPreview }: { inf: InfluencerSummaryDTO; onPreview: () 
         {inf.followersByPlatform.slice(0, 3).map((f) => (
           <span key={f.platform} className="flex items-center gap-1 text-xs text-muted-foreground">
             <PlatformIcon platform={f.platform} className="h-3.5 w-3.5" />
-            {f.followers != null ? formatCompact(f.followers) : '—'}
+            {f.followers != null ? <LtrText>{formatCompact(f.followers)}</LtrText> : '—'}
           </span>
         ))}
       </div>
@@ -154,7 +154,7 @@ function ListRow({ inf, onPreview }: { inf: InfluencerSummaryDTO; onPreview: () 
       <AudienceHealthBadge status={inf.audienceHealth} />
       {inf.totalFollowers != null ? (
         <Badge tone="neutral" className="hidden lg:inline-flex">
-          {formatCompact(inf.totalFollowers)}
+          <LtrText>{formatCompact(inf.totalFollowers)}</LtrText>
         </Badge>
       ) : null}
       <Button
@@ -242,7 +242,7 @@ function DirectoryTable({
                 <AudienceHealthBadge status={inf.audienceHealth} />
               </td>
               <td className="px-4 py-3 text-right tabular-nums">
-                {inf.totalFollowers != null ? formatCompact(inf.totalFollowers) : '—'}
+                {inf.totalFollowers != null ? <LtrText>{formatCompact(inf.totalFollowers)}</LtrText> : '—'}
               </td>
               <td className="px-4 py-3 text-right tabular-nums">{inf.activeCampaigns}</td>
               <td className="px-4 py-3 text-right">
@@ -309,7 +309,7 @@ function PreviewDrawer({ influencerId, onClose }: { influencerId: string | null;
             <div className="grid grid-cols-2 gap-3">
               <Stat
                 label={t('directory.results.preview.totalFollowers')}
-                value={data.totalFollowers != null ? formatCompact(data.totalFollowers) : '—'}
+                value={data.totalFollowers != null ? <LtrText>{formatCompact(data.totalFollowers)}</LtrText> : '—'}
               />
               <Stat label={t('directory.results.preview.activeCampaigns')} value={String(data.activeCampaigns)} />
               <Stat
@@ -327,7 +327,7 @@ function PreviewDrawer({ influencerId, onClose }: { influencerId: string | null;
                 {data.followersByPlatform.map((f) => (
                   <span key={f.platform} className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs">
                     <PlatformIcon platform={f.platform} className="h-4 w-4" />
-                    {f.followers != null ? formatCompact(f.followers) : '—'}
+                    {f.followers != null ? <LtrText>{formatCompact(f.followers)}</LtrText> : '—'}
                   </span>
                 ))}
               </div>
@@ -343,7 +343,7 @@ function PreviewDrawer({ influencerId, onClose }: { influencerId: string | null;
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-border bg-surface-muted/40 p-3">
       <p className="text-xs text-muted-foreground">{label}</p>

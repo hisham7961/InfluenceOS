@@ -3,13 +3,12 @@ import { useTranslations } from 'next-intl';
 import { Check, Heart, MessageCircle, Play, Eye } from 'lucide-react';
 import type { PublishedContentDTO } from '@influenceos/contracts';
 import { contentReviewStatus } from '@influenceos/shared';
-import { formatCompact } from '@/lib/format';
+import { formatCompact, useLocalizedFormat } from '@/lib/format';
 import { enumLabel } from '@/lib/enum-labels';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { Avatar } from '@/components/ui/avatar';
-import { BidiText } from '@/components/common/bidi-text';
-import { relativeTime } from '@/lib/format';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { cn } from '@/lib/cn';
 
 export const ALERT_STATUSES = new Set(['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BROKEN_LINK']);
@@ -23,6 +22,7 @@ export const ALERT_STATUSES = new Set(['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BRO
 export function ContentCard({ content, onOpen }: { content: PublishedContentDTO; onOpen: () => void }) {
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
+  const { relativeTime } = useLocalizedFormat();
   const m = content.metrics;
   const reviewStatus = contentReviewStatus(content.viewerState);
   const isAlert = ALERT_STATUSES.has(content.availabilityStatus);
@@ -121,7 +121,7 @@ function Metric({
   return (
     <span className={cn('flex items-center gap-1', value == null && 'opacity-50')}>
       <Icon className="h-3.5 w-3.5" />
-      {value == null ? na : formatCompact(value)}
+      {value == null ? na : <LtrText>{formatCompact(value)}</LtrText>}
     </span>
   );
 }

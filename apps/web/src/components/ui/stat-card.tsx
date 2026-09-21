@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from './card';
 import { AnimatedNumber } from './animated-number';
+import { LtrText } from '@/components/common/bidi-text';
 import { cn } from '@/lib/cn';
 
 export type StatCardTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'accent';
@@ -111,7 +112,7 @@ export function StatCard({
         </div>
 
         <div className="text-3xl font-semibold tracking-tight text-foreground">
-          {formatted != null ? formatted : <AnimatedNumber value={value} format={format} />}
+          {formatted != null ? <LtrText>{formatted}</LtrText> : <AnimatedNumber value={value} format={format} />}
         </div>
 
         {hint || trend ? (

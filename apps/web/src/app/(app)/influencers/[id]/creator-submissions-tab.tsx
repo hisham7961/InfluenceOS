@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
-import { relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 
 /**
  * Creator 360 UGC tab (gap #11) — every DeliverableSubmission (draft/review)
@@ -28,6 +28,7 @@ import { relativeTime } from '@/lib/format';
 export function CreatorSubmissionsTab({ influencerId }: { influencerId: string }) {
   const t = useTranslations('influencers');
   const te = useTranslations('enums');
+  const { relativeTime } = useLocalizedFormat();
   const { data, isLoading, isError } = useQuery({
     queryKey: ['creator-submissions', influencerId],
     queryFn: () => api.influencers.submissions(influencerId),

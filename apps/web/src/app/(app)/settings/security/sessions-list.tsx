@@ -16,7 +16,7 @@ import {
 import type { DeviceSessionDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
-import { dateTime, relativeTime, shortDate } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -54,6 +54,7 @@ function sessionLabel(session: DeviceSessionDTO): string {
 export function SessionsList() {
   const t = useTranslations('settings');
   const tCommon = useTranslations('common');
+  const { dateTime, relativeTime, shortDate } = useLocalizedFormat();
   const errorMessage = React.useCallback(
     (e: unknown) => (e instanceof ApiError ? e.message : t('security.sessions.errorGeneric')),
     [t],

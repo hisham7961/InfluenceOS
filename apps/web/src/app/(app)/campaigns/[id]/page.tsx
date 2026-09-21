@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
+import type { Locale } from '@/i18n/request';
 import { ArrowLeft, CalendarClock, Target, Wallet } from 'lucide-react';
 import type { CampaignDetailDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
@@ -12,7 +13,7 @@ import { ProgressBar } from '@/components/ui/progress';
 import { StatCard } from '@/components/ui/stat-card';
 import { Avatar } from '@/components/ui/avatar';
 import { formatCurrency, shortDate } from '@/lib/format';
-import { BidiText } from '@/components/common/bidi-text';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { Workspace } from './workspace';
 import { CampaignActions } from './campaign-actions';
 
@@ -22,6 +23,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const { id } = await params;
   const api = getServerApi();
   const t = await getTranslations('campaigns');
+  const locale = (await getLocale()) as Locale;
 
   let campaign: CampaignDetailDTO;
   try {
@@ -90,8 +92,8 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             <CampaignActions campaign={campaign} />
             <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
               <CalendarClock className="h-4 w-4 text-muted-foreground" />
-              {campaign.startDate ? shortDate(campaign.startDate) : t('workspace.hero.noStartDate')} –{' '}
-              {campaign.endDate ? shortDate(campaign.endDate) : t('workspace.hero.ongoing')}
+              {campaign.startDate ? shortDate(campaign.startDate, locale) : t('workspace.hero.noStartDate')} –{' '}
+              {campaign.endDate ? shortDate(campaign.endDate, locale) : t('workspace.hero.ongoing')}
             </span>
             {p.daysRemaining != null && p.daysRemaining >= 0 ? (
               <span className="text-xs text-muted-foreground">
@@ -134,13 +136,16 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
               </span>
             </div>
             <p className="text-3xl font-semibold tracking-tight text-foreground">
-              {formatCurrency(p.spend, campaign.currency)}
+              <LtrText>{formatCurrency(p.spend, campaign.currency)}</LtrText>
             </p>
             {p.plannedBudget != null ? (
               <>
                 <ProgressBar value={p.budgetUsedPercent ?? 0} tone={budgetOverspent ? 'danger' : 'warning'} showLabel />
                 <p className="text-xs text-muted-foreground">
-                  {t('workspace.stats.ofPlanned', { budget: formatCurrency(p.plannedBudget, campaign.currency) })}
+                  {t.rich('workspace.stats.ofPlanned', {
+                    budget: formatCurrency(p.plannedBudget, campaign.currency),
+                    ltr: (chunks) => <LtrText>{chunks}</LtrText>,
+                  })}
                 </p>
               </>
             ) : (

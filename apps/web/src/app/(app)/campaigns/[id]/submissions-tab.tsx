@@ -21,7 +21,7 @@ import { PlatformBadge } from '@/components/ui/platform-badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
-import { relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 
 function errorMessage(e: unknown, fallback: string): string {
   return e instanceof ApiError ? e.message : fallback;
@@ -37,6 +37,7 @@ export function SubmissionsTab({ campaignId, influencers }: { campaignId: string
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
+  const { relativeTime } = useLocalizedFormat();
   const { data, isLoading, isError } = useQuery({
     queryKey: ['campaign-submissions', campaignId],
     queryFn: () => api.campaigns.submissions(campaignId),
@@ -171,6 +172,7 @@ function SubmissionReviewDialog({
 }) {
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
+  const { relativeTime } = useLocalizedFormat();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [note, setNote] = React.useState('');

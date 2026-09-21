@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BidiText } from '@/components/common/bidi-text';
-import { relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 
 /**
  * ONE activity/operational-timeline renderer, reused everywhere a scoped
@@ -41,6 +41,7 @@ export function ActivityFeed({
   emptyDescription?: string;
 }) {
   const t = useTranslations('common');
+  const { relativeTime } = useLocalizedFormat();
   const { data, isLoading, isError } = useQuery({
     queryKey,
     queryFn: () => api.activity.feed(filter),

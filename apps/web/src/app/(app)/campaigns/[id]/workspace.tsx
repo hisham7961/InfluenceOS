@@ -89,7 +89,7 @@ import { SourcingTab } from './sourcing-tab';
 import { ShipmentsTab } from './shipments-tab';
 import { SubmissionsTab } from './submissions-tab';
 import { OperationsBoardTab } from './operations-board-tab';
-import { formatCompact, formatCurrency, formatPercent, relativeTime, shortDate } from '@/lib/format';
+import { formatCompact, formatCurrency, formatPercent, useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import {
   Dialog,
@@ -349,6 +349,7 @@ function DetailRow({ label, value }: { label: string; value?: React.ReactNode })
 function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
   const t = useTranslations('campaigns');
   const tEnums = useTranslations('enums');
+  const { shortDate } = useLocalizedFormat();
   const p = campaign.progress;
 
   return (
@@ -588,15 +589,16 @@ function InfluencerRow({
           </div>
           <p className="text-lg font-semibold text-foreground">
             {ci.agreedCost != null
-              ? formatCurrency(ci.agreedCost, ci.currency ?? undefined)
+              ? <LtrText>{formatCurrency(ci.agreedCost, ci.currency ?? undefined)}</LtrText>
               : ci.dealType === 'GIFTED_PRODUCT'
                 ? t('workspace.influencers.gifted')
                 : '—'}
           </p>
           {ci.giftedProductValue != null ? (
             <p className="text-xs text-muted-foreground">
-              {t('workspace.influencers.giftValue', {
+              {t.rich('workspace.influencers.giftValue', {
                 value: formatCurrency(ci.giftedProductValue, ci.currency ?? undefined),
+                ltr: (chunks) => <LtrText>{chunks}</LtrText>,
               })}
             </p>
           ) : null}
@@ -813,6 +815,7 @@ function DeliverableRow({
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
+  const { shortDate } = useLocalizedFormat();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [removeOpen, setRemoveOpen] = React.useState(false);
@@ -1336,6 +1339,7 @@ function TagList({ label, items, tone }: { label: string; items: string[]; tone:
 
 function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: ScriptDTO[] }) {
   const t = useTranslations('campaigns');
+  const { relativeTime } = useLocalizedFormat();
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
   const [newOpen, setNewOpen] = React.useState(false);
   const [addVersionFor, setAddVersionFor] = React.useState<ScriptDTO | null>(null);
@@ -1742,6 +1746,7 @@ function ExpenseRow({ expense }: { expense: ExpenseDTO }) {
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
+  const { shortDate } = useLocalizedFormat();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = React.useState(false);
@@ -1775,7 +1780,7 @@ function ExpenseRow({ expense }: { expense: ExpenseDTO }) {
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className="text-sm font-semibold text-foreground">{formatCurrency(expense.amount, expense.currency)}</span>
+        <LtrText as="span" className="text-sm font-semibold text-foreground">{formatCurrency(expense.amount, expense.currency)}</LtrText>
         <PaymentStatusBadge status={expense.paymentStatus} />
       </div>
       <div className="flex shrink-0 items-center gap-1">
@@ -2198,7 +2203,7 @@ function MetricTile({
   tooltip,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   icon: React.ComponentType<{ className?: string }>;
   tooltip: string;
 }) {
@@ -2228,6 +2233,7 @@ function MetricTile({
 function MetricsFreshnessBanner({ efficiency }: { efficiency: CampaignEfficiencyDTO }) {
   const t = useTranslations('campaigns');
   const tEnums = useTranslations('enums');
+  const { relativeTime } = useLocalizedFormat();
   const synced = efficiency.metricsLastSyncedAt;
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-border bg-surface-muted/40 px-4 py-3 text-sm">
@@ -2269,6 +2275,7 @@ function MetricsFreshnessBanner({ efficiency }: { efficiency: CampaignEfficiency
 function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; contentFeed: PublishedContentDTO[] }) {
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
+  const { relativeTime } = useLocalizedFormat();
   // Efficiency (CPV/CPM/CPE + rollups + freshness) is computed server-side
   // (W6-1 / ARCH-01) — the browser renders these numbers, it never derives them.
   const { data, isLoading, isError } = useQuery({
@@ -2327,31 +2334,31 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
         />
         <MetricTile
           label={t('workspace.performance.avgEngagementRate')}
-          value={data.avgEngagementRate != null ? formatPercent(data.avgEngagementRate) : tCommon('na')}
+          value={<LtrText>{data.avgEngagementRate != null ? formatPercent(data.avgEngagementRate) : tCommon('na')}</LtrText>}
           icon={PercentIcon}
           tooltip={t('workspace.performance.avgEngagementRateTooltip')}
         />
         <MetricTile
           label={t('workspace.performance.costPerContent')}
-          value={data.costPerContent != null ? formatCurrency(data.costPerContent, currency) : tCommon('na')}
+          value={<LtrText>{data.costPerContent != null ? formatCurrency(data.costPerContent, currency) : tCommon('na')}</LtrText>}
           icon={DollarSign}
           tooltip={t('workspace.performance.costPerContentTooltip')}
         />
         <MetricTile
           label={t('workspace.performance.cpvLabel')}
-          value={data.costPerView != null ? formatCurrency(data.costPerView, currency) : tCommon('na')}
+          value={<LtrText>{data.costPerView != null ? formatCurrency(data.costPerView, currency) : tCommon('na')}</LtrText>}
           icon={Eye}
           tooltip={t('workspace.performance.cpvTooltip')}
         />
         <MetricTile
           label={t('workspace.performance.cpmLabel')}
-          value={data.costPerMille != null ? formatCurrency(data.costPerMille, currency) : tCommon('na')}
+          value={<LtrText>{data.costPerMille != null ? formatCurrency(data.costPerMille, currency) : tCommon('na')}</LtrText>}
           icon={TrendingUp}
           tooltip={t('workspace.performance.cpmTooltip')}
         />
         <MetricTile
           label={t('workspace.performance.cpeLabel')}
-          value={data.costPerEngagement != null ? formatCurrency(data.costPerEngagement, currency) : tCommon('na')}
+          value={<LtrText>{data.costPerEngagement != null ? formatCurrency(data.costPerEngagement, currency) : tCommon('na')}</LtrText>}
           icon={Heart}
           tooltip={t('workspace.performance.cpeTooltip')}
         />
@@ -2401,15 +2408,15 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
                     <td className="px-5 py-3">
                       <PlatformBadge platform={c.platform} size="sm" />
                     </td>
-                    <td className="px-5 py-3 tabular-nums">{eff?.views != null ? formatCompact(eff.views) : tCommon('na')}</td>
+                    <td className="px-5 py-3 tabular-nums"><LtrText>{eff?.views != null ? formatCompact(eff.views) : tCommon('na')}</LtrText></td>
                     <td className="px-5 py-3 tabular-nums">
-                      {eff?.totalEngagement != null ? formatCompact(eff.totalEngagement) : tCommon('na')}
+                      <LtrText>{eff?.totalEngagement != null ? formatCompact(eff.totalEngagement) : tCommon('na')}</LtrText>
                     </td>
                     <td className="px-5 py-3 tabular-nums">
-                      {eff?.engagementRate != null ? formatPercent(eff.engagementRate) : tCommon('na')}
+                      <LtrText>{eff?.engagementRate != null ? formatPercent(eff.engagementRate) : tCommon('na')}</LtrText>
                     </td>
                     <td className="px-5 py-3 tabular-nums">
-                      {eff?.costPerView != null ? formatCurrency(eff.costPerView, currency) : tCommon('na')}
+                      <LtrText>{eff?.costPerView != null ? formatCurrency(eff.costPerView, currency) : tCommon('na')}</LtrText>
                     </td>
                   </tr>
                 );

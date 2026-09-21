@@ -20,6 +20,7 @@ import permissions from './permissions.json';
 import reports from './reports.json';
 import settings from './settings.json';
 import users from './users.json';
+import attention from './attention.json';
 
 export default {
   nav,
@@ -42,4 +43,5 @@ export default {
   reports,
   settings,
   users,
+  attention,
 };

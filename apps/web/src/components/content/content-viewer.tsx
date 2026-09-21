@@ -29,8 +29,8 @@ import { Avatar } from '@/components/ui/avatar';
 import { SocialContentPlayer } from './social-content-player';
 import { CommentThread } from '@/components/collaboration/comment-thread';
 import { ActivityFeed } from '@/components/common/activity-feed';
-import { BidiText } from '@/components/common/bidi-text';
-import { dateTime, formatCompact, relativeTime } from '@/lib/format';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
+import { formatCompact, useLocalizedFormat } from '@/lib/format';
 
 const EMPTY_STATE: ContentViewerStateDTO = { firstSeenAt: null, lastOpenedAt: null, reviewedAt: null, savedForLaterAt: null };
 
@@ -297,6 +297,7 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
   const t = useTranslations('content');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
+  const { dateTime, relativeTime } = useLocalizedFormat();
   const monitoring = useQuery({
     queryKey: ['content', content.id, 'monitoring'],
     queryFn: () => api.content.monitoring(content.id),
@@ -442,7 +443,7 @@ function RefreshButton({ id }: { id: string }) {
 function Stat({ label, value, na }: { label: string; value: number | null | undefined; na: string }) {
   return (
     <div className="rounded-lg border border-border bg-surface-muted px-3 py-2">
-      <p className="text-lg font-semibold">{value == null ? na : formatCompact(value)}</p>
+      <p className="text-lg font-semibold">{value == null ? na : <LtrText>{formatCompact(value)}</LtrText>}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );

@@ -56,7 +56,7 @@
         "campaigns": "الحملات"
       },
       "previewAriaLabel": "معاينة {name}",
-      "totalFollowersBadge": "{count} إجمالاً",
+      "totalFollowersBadge": "<ltr>{count}</ltr> إجمالاً",
       "preview": {
         "totalFollowers": "إجمالي المتابعين",
         "activeCampaigns": "الحملات النشطة",
@@ -98,7 +98,7 @@
       "resolve": "جلب البيانات",
       "resolving": "جارٍ الجلب…",
       "verified": "موثّق",
-      "followersSuffix": "{count} متابع",
+      "followersSuffix": "<ltr>{count}</ltr> متابع",
       "couldNotResolve": "تعذّر استخراج بيانات هذا الملف الشخصي. يمكنك إدخال التفاصيل يدويًا أدناه.",
       "skipHint": "اختياري — يمكنك تخطي هذه الخطوة وإدخال كل التفاصيل يدويًا.",
       "pasteFirstToast": "الصق رابط الملف الشخصي أو @اسم المستخدم أولاً.",
@@ -178,7 +178,7 @@
       "title": "معاينة",
       "fallbackName": "مؤثر جديد",
       "priorityBadge": "أولوية {priority}",
-      "followersCount": "{count} متابع",
+      "followersCount": "<ltr>{count}</ltr> متابع",
       "fillFormHint": "عبِّئ النموذج وستُستكمل هذه البطاقة تلقائيًا أثناء الكتابة."
     },
     "edit": {

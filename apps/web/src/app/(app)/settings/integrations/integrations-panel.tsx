@@ -18,7 +18,7 @@ import { ApiError } from '@influenceos/api-client';
 import type { CapabilityLevel } from '@influenceos/shared';
 import { PLATFORMS } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
-import { dateTime, relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -127,6 +127,7 @@ export function IntegrationsPanel({ initial }: { initial: IntegrationDTO[] }) {
 
 function IntegrationCard({ integration }: { integration: IntegrationDTO }) {
   const t = useTranslations('settings');
+  const { dateTime, relativeTime } = useLocalizedFormat();
   const errorMessage = React.useCallback(
     (e: unknown) => (e instanceof ApiError ? e.message : t('integrations.errorGeneric')),
     [t],

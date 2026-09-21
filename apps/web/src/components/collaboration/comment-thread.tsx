@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/input';
 import { Avatar } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
-import { relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { useApp } from '@/components/shell/app-context';
 import { BidiText } from '@/components/common/bidi-text';
@@ -254,6 +254,7 @@ function MessageRow({
   const [editing, setEditing] = React.useState(false);
   const t = useTranslations('collaboration');
   const tCommon = useTranslations('common');
+  const { relativeTime } = useLocalizedFormat();
 
   function onError(e: unknown) {
     toast.error(e instanceof ApiError ? e.message : tCommon('somethingWentWrong'));

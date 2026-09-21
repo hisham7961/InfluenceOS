@@ -23,8 +23,8 @@ import { AudienceHealthBadge, RelationshipStatusBadge } from '@/components/ui/st
 import { StatCard } from '@/components/ui/stat-card';
 import { ContentGrid } from '@/components/content/content-grid';
 import { AddContentFlow } from '@/components/content/add-content-flow';
-import { BidiText } from '@/components/common/bidi-text';
-import { formatCurrency, relativeTime, shortDate } from '@/lib/format';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
+import { formatCurrency, useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { NotesPanel } from './notes-panel';
 import { SocialAccountsPanel } from './social-accounts-panel';
@@ -84,6 +84,7 @@ export function ProfileTabs({
   brandRelationships: BrandInfluencerDTO[];
 }) {
   const t = useTranslations('influencers');
+  const { shortDate, relativeTime } = useLocalizedFormat();
   const h = influencer.history;
 
   return (
@@ -337,7 +338,7 @@ export function ProfileTabs({
                   <div>
                     <p className="uppercase tracking-wide">{t('detail.brands.defaultRate')}</p>
                     <p className="mt-0.5 text-sm font-medium text-foreground">
-                      {rel.defaultRate != null ? formatCurrency(rel.defaultRate, rel.currency ?? undefined) : '—'}
+                      {rel.defaultRate != null ? <LtrText>{formatCurrency(rel.defaultRate, rel.currency ?? undefined)}</LtrText> : '—'}
                     </p>
                   </div>
                 </div>

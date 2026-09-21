@@ -7,7 +7,7 @@ import { Download, FileBarChart, Printer, X } from 'lucide-react';
 import type { BrandSummaryDTO, ReportColumnDTO, ReportDTO } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
 import { cn } from '@/lib/cn';
-import { dateTime, formatCurrency, formatNumber, formatPercent, shortDate } from '@/lib/format';
+import { formatCurrency, formatNumber, formatPercent, useLocalizedFormat } from '@/lib/format';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Spinner } from '@/components/ui/spinner';
-import { BidiText } from '@/components/common/bidi-text';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { REPORT_TYPES, type ReportType } from './reports-types';
 
 /** Sentinel value for Radix Select's "no filter" option (Select forbids an empty-string item value). */
@@ -52,6 +52,7 @@ const REPORT_TAB_ORDER: ReportType[] = ['campaign', 'influencer', 'brand', 'cont
 export function ReportsView({ initial, brands, type, brandId, from, to }: ReportsViewProps) {
   const t = useTranslations('reports');
   const tCommon = useTranslations('common');
+  const { shortDate, dateTime } = useLocalizedFormat();
   const router = useRouter();
   const [isPending, startTransition] = React.useTransition();
 
@@ -187,7 +188,12 @@ function isNumericColumn(colType: ReportColumnDTO['type']): boolean {
   return colType === 'number' || colType === 'currency' || colType === 'percent';
 }
 
-function formatCell(value: string | number | null, colType: ReportColumnDTO['type'], currency: string): string {
+function formatCell(
+  value: string | number | null,
+  colType: ReportColumnDTO['type'],
+  currency: string,
+  shortDate: (input: string | Date | null | undefined) => string,
+): string {
   if (value == null || value === '') return '—';
   const n = typeof value === 'number' ? value : Number(value);
   switch (colType) {
@@ -206,6 +212,7 @@ function formatCell(value: string | number | null, colType: ReportColumnDTO['typ
 
 function ReportTable({ report, isPending }: { report: ReportDTO; isPending: boolean }) {
   const t = useTranslations('reports');
+  const { shortDate } = useLocalizedFormat();
 
   if (report.rows.length === 0) {
     return <EmptyState icon={FileBarChart} title={t('table.emptyTitle')} description={t('table.emptyDescription')} />;
@@ -236,15 +243,15 @@ function ReportTable({ report, isPending }: { report: ReportDTO; isPending: bool
             {report.rows.map((row, ri) => (
               <TableRow key={ri}>
                 {report.columns.map((col, i) => {
-                  const formatted = formatCell(row[col.key] ?? null, col.type, report.currency);
+                  const formatted = formatCell(row[col.key] ?? null, col.type, report.currency, shortDate);
                   return (
                     <TableCell
                       key={col.key}
                       align={isNumericColumn(col.type) ? 'end' : 'start'}
                       className={cn(i === 0 && 'ps-5 font-medium')}
                     >
-                      {/* String columns hold report data (creator/campaign/brand names, etc.) that may be Arabic, English or mixed — isolate their direction so they never scramble inside the RTL table. */}
-                      {col.type === 'string' ? <BidiText>{formatted}</BidiText> : formatted}
+                      {/* String columns hold report data (creator/campaign/brand names, etc.) that may be Arabic, English or mixed — isolate their direction so they never scramble inside the RTL table. Numeric/currency/percent/date columns are always LTR content. */}
+                      {col.type === 'string' ? <BidiText>{formatted}</BidiText> : <LtrText>{formatted}</LtrText>}
                     </TableCell>
                   );
                 })}
@@ -260,7 +267,7 @@ function ReportTable({ report, isPending }: { report: ReportDTO; isPending: bool
                     align={isNumericColumn(col.type) ? 'end' : 'start'}
                     className={cn(i === 0 && 'ps-5')}
                   >
-                    {i === 0 ? t('table.total') : formatCell(report.totals?.[col.key] ?? null, col.type, report.currency)}
+                    {i === 0 ? t('table.total') : <LtrText>{formatCell(report.totals?.[col.key] ?? null, col.type, report.currency, shortDate)}</LtrText>}
                   </TableCell>
                 ))}
               </TableRow>

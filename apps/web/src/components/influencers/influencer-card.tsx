@@ -33,7 +33,7 @@ export function InfluencerCard({ influencer }: { influencer: InfluencerSummaryDT
             {influencer.followersByPlatform.slice(0, 4).map((f) => (
               <span key={f.platform} className="flex items-center gap-1 text-xs text-muted-foreground">
                 <PlatformIcon platform={f.platform} className="h-3.5 w-3.5" />
-                {f.followers != null ? formatCompact(f.followers) : '—'}
+                {f.followers != null ? <LtrText>{formatCompact(f.followers)}</LtrText> : '—'}
               </span>
             ))}
           </div>
@@ -57,7 +57,10 @@ export function InfluencerCard({ influencer }: { influencer: InfluencerSummaryDT
         </span>
         {influencer.totalFollowers != null ? (
           <Badge tone="neutral">
-            {t('directory.results.totalFollowersBadge', { count: formatCompact(influencer.totalFollowers) })}
+            {t.rich('directory.results.totalFollowersBadge', {
+              count: formatCompact(influencer.totalFollowers),
+              ltr: (chunks) => <LtrText>{chunks}</LtrText>,
+            })}
           </Badge>
         ) : null}
       </div>

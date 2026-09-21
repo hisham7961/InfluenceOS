@@ -25,7 +25,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { CampaignStatusBadge } from '@/components/ui/status-badges';
 import { Spinner } from '@/components/ui/spinner';
 import { enumLabel } from '@/lib/enum-labels';
-import { BidiText } from '@/components/common/bidi-text';
+import { BidiText, LtrText } from '@/components/common/bidi-text';
 
 /** Sentinel for the objective Select's "no objective" option (Radix forbids an empty-string item value). */
 const NO_OBJECTIVE = 'none';
@@ -342,7 +342,7 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
                 </span>
                 <span className="font-medium">
                   {form.plannedBudget.trim()
-                    ? formatCurrency(Number(form.plannedBudget), form.currency.trim() || 'KWD')
+                    ? <LtrText>{formatCurrency(Number(form.plannedBudget), form.currency.trim() || 'KWD')}</LtrText>
                     : t('fields.notSet')}
                 </span>
               </div>

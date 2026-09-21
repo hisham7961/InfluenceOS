@@ -56,7 +56,7 @@
         "campaigns": "Campaigns"
       },
       "previewAriaLabel": "Preview {name}",
-      "totalFollowersBadge": "{count} total",
+      "totalFollowersBadge": "<ltr>{count}</ltr> total",
       "preview": {
         "totalFollowers": "Total followers",
         "activeCampaigns": "Active campaigns",
@@ -98,7 +98,7 @@
       "resolve": "Resolve",
       "resolving": "Resolving…",
       "verified": "Verified",
-      "followersSuffix": "{count} followers",
+      "followersSuffix": "<ltr>{count}</ltr> followers",
       "couldNotResolve": "Couldn't resolve that profile. You can still fill in the details manually below.",
       "skipHint": "Optional — you can skip this and add every detail by hand instead.",
       "pasteFirstToast": "Paste a profile URL or @handle first.",
@@ -178,7 +178,7 @@
       "title": "Preview",
       "fallbackName": "New creator",
       "priorityBadge": "{priority} priority",
-      "followersCount": "{count} followers",
+      "followersCount": "<ltr>{count}</ltr> followers",
       "fillFormHint": "Fill in the form and this card will fill in as you go."
     },
     "edit": {

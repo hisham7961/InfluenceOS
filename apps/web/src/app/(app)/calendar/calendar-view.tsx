@@ -17,7 +17,6 @@ import {
   subMonths,
   subWeeks,
 } from 'date-fns';
-import { arSA, enUS } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
 import { useLocale, useTranslations } from 'next-intl';
 import {
@@ -38,7 +37,9 @@ import {
 import type { CalendarEventDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import { toast } from 'sonner';
+import type { Locale } from '@/i18n/request';
 import { api } from '@/lib/api-browser';
+import { dateFnsLocale } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,12 +56,11 @@ type CalendarViewMode = 'month' | 'week' | 'agenda';
 
 const MAX_VISIBLE_PER_DAY = 3;
 
-/** Resolves the date-fns locale object for the active app locale, so every
- * `format()` call below (weekday/month names) renders in the right language
- * instead of always defaulting to English. */
-function useDateFnsLocale() {
-  const locale = useLocale();
-  return locale === 'ar' ? arSA : enUS;
+/** Thin wrapper around the ONE canonical locale → date-fns-locale mapping
+ * (`dateFnsLocale()` in lib/format.ts) — this just adapts next-intl's
+ * `useLocale()` (typed as plain `string`) to that helper's `Locale` param. */
+function useDfLocale() {
+  return dateFnsLocale(useLocale() as Locale);
 }
 
 const KIND_META: Record<CalendarEventDTO['kind'], { icon: LucideIcon; dot: string; tint: string }> = {
@@ -90,7 +90,7 @@ function rangeFor(anchor: Date, view: CalendarViewMode): { from: Date; to: Date 
  */
 export function CalendarView() {
   const t = useTranslations('reports');
-  const dfLocale = useDateFnsLocale();
+  const dfLocale = useDfLocale();
   const [anchor, setAnchor] = React.useState<Date>(() => new Date());
   const [view, setView] = React.useState<CalendarViewMode>('month');
   const [selected, setSelected] = React.useState<CalendarEventDTO | null>(null);
@@ -237,7 +237,7 @@ function MonthGrid({
   eventsByDay: Map<string, CalendarEventDTO[]>;
   onSelect: (event: CalendarEventDTO) => void;
 }) {
-  const dfLocale = useDateFnsLocale();
+  const dfLocale = useDfLocale();
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
   const gridEnd = endOfWeek(endOfMonth(monthStart), { weekStartsOn: 0 });
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
@@ -308,7 +308,7 @@ function WeekView({
   eventsByDay: Map<string, CalendarEventDTO[]>;
   onSelect: (event: CalendarEventDTO) => void;
 }) {
-  const dfLocale = useDateFnsLocale();
+  const dfLocale = useDfLocale();
   const days = eachDayOfInterval({ start: weekStart, end: endOfWeek(weekStart, { weekStartsOn: 0 }) });
   const today = new Date();
 
@@ -423,7 +423,7 @@ function DayOverflow({
   onSelect: (event: CalendarEventDTO) => void;
 }) {
   const t = useTranslations('reports');
-  const dfLocale = useDateFnsLocale();
+  const dfLocale = useDfLocale();
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -455,7 +455,7 @@ function AgendaList({
 }) {
   const t = useTranslations('reports');
   const tCommon = useTranslations('common');
-  const dfLocale = useDateFnsLocale();
+  const dfLocale = useDfLocale();
   const sortedKeys = React.useMemo(() => [...eventsByDay.keys()].sort(), [eventsByDay]);
 
   if (sortedKeys.length === 0) {
@@ -496,7 +496,7 @@ function AgendaList({
 
 function AgendaRow({ event, onSelect }: { event: CalendarEventDTO; onSelect: (event: CalendarEventDTO) => void }) {
   const t = useTranslations('reports');
-  const dfLocale = useDateFnsLocale();
+  const dfLocale = useDfLocale();
   const meta = KIND_META[event.kind];
   const Icon = meta.icon;
   const kindLabel = t(`calendar.kinds.${event.kind}`);
@@ -541,7 +541,7 @@ function AgendaRow({ event, onSelect }: { event: CalendarEventDTO; onSelect: (ev
 
 function EventDrawer({ event, onClose }: { event: CalendarEventDTO | null; onClose: () => void }) {
   const t = useTranslations('reports');
-  const dfLocale = useDateFnsLocale();
+  const dfLocale = useDfLocale();
   const meta = event ? KIND_META[event.kind] : null;
   const Icon = meta?.icon;
   return (

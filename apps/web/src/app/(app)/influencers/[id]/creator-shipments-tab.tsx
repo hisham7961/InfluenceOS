@@ -15,7 +15,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
 import { LtrText } from '@/components/common/bidi-text';
-import { relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 
 // Tracking URLs are scheme-guarded on write (mirrors shipments-tab.tsx); still gate the anchor to http(s).
 const isHttpUrl = (u: string | null): u is string => !!u && /^https?:\/\//i.test(u);
@@ -35,6 +35,7 @@ const isHttpUrl = (u: string | null): u is string => !!u && /^https?:\/\//i.test
 export function CreatorShipmentsTab({ influencerId }: { influencerId: string }) {
   const t = useTranslations('influencers');
   const te = useTranslations('enums');
+  const { relativeTime } = useLocalizedFormat();
   const { data, isLoading, isError } = useQuery({
     queryKey: ['creator-shipments', influencerId],
     queryFn: () => api.shipments.list({ influencerId, limit: 50 }),

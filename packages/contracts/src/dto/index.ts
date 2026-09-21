@@ -1144,6 +1144,16 @@ export interface AttentionItemDTO {
   influencerId: string | null;
   /** Short imperative label for the primary action ("Resolve", "Assign owner", "Review draft"). */
   actionLabel: string | null;
+  /**
+   * Structured interpolation data for `kind` (Arabic Localization pass) —
+   * lets the UI build a fully localized title/description/action from the
+   * message catalog instead of rendering `title`/`description`/`actionLabel`
+   * verbatim, which are always English. Additive only: those three fields
+   * are kept for any consumer that hasn't adopted `params` yet (mobile
+   * clients, CSV/plaintext exports). Present on every item; empty object
+   * when a kind needs no interpolation data.
+   */
+  params: Record<string, string | number>;
 }
 
 export interface WhatsNewItemDTO {

@@ -29,7 +29,7 @@ import type { NotificationCategory, NotificationDTO, Tone } from '@influenceos/c
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { cn } from '@/lib/cn';
-import { relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -249,6 +249,7 @@ function NotificationRow({
   onClick: (notification: NotificationDTO) => void;
 }) {
   const t = useTranslations('notifications');
+  const { relativeTime } = useLocalizedFormat();
   const Icon = CATEGORY_ICON[notification.category];
   const tone = CATEGORY_TONE[notification.category];
 

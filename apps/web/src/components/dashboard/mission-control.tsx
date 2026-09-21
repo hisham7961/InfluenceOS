@@ -26,12 +26,14 @@ import { SectionHeader } from '@/components/common/page-header';
 import { ReviewNewContentButton } from '@/components/content/review-new-content-button';
 import { CampaignCard } from '@/components/campaigns/campaign-card';
 import { BidiText } from '@/components/common/bidi-text';
-import { formatCurrency, relativeTime } from '@/lib/format';
+import { formatCurrency, useLocalizedFormat } from '@/lib/format';
+import { AttentionItemTitle, AttentionItemDescription } from '@/components/dashboard/attention-item-text';
 
 export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; brandId?: string }) {
   const t = useTranslations('dashboard');
   const tCommon = useTranslations('common');
   const tEmpty = useTranslations('empty');
+  const { relativeTime } = useLocalizedFormat();
   const p = data.pulse;
   const ws = data.whatsNewSummary;
   // On a brand-scoped dashboard (item 41 "Review N New <Brand> Videos"), the
@@ -139,8 +141,8 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
                     <AlertTriangle className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium leading-snug">{item.title}</p>
-                    <p className="text-xs text-muted-foreground">{item.description}</p>
+                    <p className="text-sm font-medium leading-snug"><AttentionItemTitle item={item} /></p>
+                    <p className="text-xs text-muted-foreground"><AttentionItemDescription item={item} /></p>
                   </div>
                 </Link>
               ))

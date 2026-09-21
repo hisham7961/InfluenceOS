@@ -14,7 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ProgressBar } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
-import { relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 import { BidiText } from '@/components/common/bidi-text';
 
 /** `fallback` is the caller's already-resolved `common.somethingWentWrong` — kept
@@ -199,6 +199,7 @@ function AttachmentRow({
   removing: boolean;
 }) {
   const t = useTranslations('common');
+  const { relativeTime } = useLocalizedFormat();
   const href = toBrowserUrl(attachment.downloadUrl);
   return (
     <div className="group flex items-center gap-3 rounded-xl border border-border bg-card p-3">

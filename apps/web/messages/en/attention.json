@@ -1,0 +1,61 @@
+{
+  "deliverableOverdue": {
+    "title": "Deliverable overdue — <name>{influencerName}</name>",
+    "description": "A {type} for <name>{campaignName}</name> passed its due date."
+  },
+  "contentRemoved": {
+    "title": "Content removed",
+    "descriptionWithInfluencer": "A {platform} post by <name>{influencerName}</name> is removed.",
+    "descriptionNoInfluencer": "A {platform} post is removed."
+  },
+  "contentUnavailable": {
+    "title": "Content unavailable",
+    "descriptionWithInfluencer": "A {platform} post by <name>{influencerName}</name> is unavailable.",
+    "descriptionNoInfluencer": "A {platform} post is unavailable."
+  },
+  "campaignEnding": {
+    "title": "<name>{campaignName}</name> ends soon",
+    "description": "This campaign ends on <ltr>{endDate}</ltr>."
+  },
+  "shipmentFailed": {
+    "title": "Shipment failed — <name>{influencerName}</name>",
+    "description": "A shipment for <name>{campaignName}</name> was marked failed."
+  },
+  "shipmentReturned": {
+    "title": "Shipment returned — <name>{influencerName}</name>",
+    "description": "A shipment for <name>{campaignName}</name> was returned."
+  },
+  "logisticsAddressIssue": {
+    "title": "Address clarification needed — <name>{influencerName}</name>",
+    "description": "{issueType} on a shipment for <name>{campaignName}</name>."
+  },
+  "usageRightExpiring": {
+    "title": "Usage right expiring — <name>{brandName}</name>",
+    "description": "A {usageType} usage right expires on <ltr>{expiresAt}</ltr>."
+  },
+  "ugcAwaitingReview": {
+    "title": "Draft awaiting review — <name>{influencerName}</name>",
+    "description": "A submission for <name>{campaignName}</name> has been waiting for review."
+  },
+  "unassignedContent": {
+    "title": "{count, plural, one {# unassigned content item} other {# unassigned content items}}",
+    "description": "Published content with no campaign or influencer linked yet — resolve it from the content wall."
+  },
+  "campaignMissingOwner": {
+    "title": "{count, plural, one {# campaign missing an owner} other {# campaigns missing an owner}}",
+    "description": "Active or planning campaigns with no assigned owner."
+  },
+  "action": {
+    "DELIVERABLE_OVERDUE": "Open deliverable",
+    "CONTENT_REMOVED": "Review content",
+    "CONTENT_UNAVAILABLE": "Review content",
+    "CAMPAIGN_ENDING": "Open campaign",
+    "SHIPMENT_FAILED": "Resolve shipment",
+    "SHIPMENT_RETURNED": "Resolve shipment",
+    "LOGISTICS_ADDRESS_ISSUE": "Resolve in Logistics",
+    "USAGE_RIGHT_EXPIRING": "Review usage right",
+    "UGC_AWAITING_REVIEW": "Review draft",
+    "UNASSIGNED_CONTENT": "Resolve content",
+    "CAMPAIGN_MISSING_OWNER": "Assign owner"
+  }
+}

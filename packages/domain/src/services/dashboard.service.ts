@@ -410,6 +410,7 @@ export function makeDashboardService(ctx: DomainContext) {
         campaignId: d.campaignInfluencer.campaignId,
         influencerId: null,
         actionLabel: 'Open deliverable',
+        params: { influencerName: d.campaignInfluencer.influencer.displayName, type: d.type, campaignName: d.campaignInfluencer.campaign.name },
       });
     }
     for (const c of removed) {
@@ -425,6 +426,12 @@ export function makeDashboardService(ctx: DomainContext) {
         campaignId: c.campaignId,
         influencerId: c.influencerId,
         actionLabel: 'Review content',
+        params: {
+          platform: c.platform,
+          availabilityStatus: c.availabilityStatus,
+          hasInfluencer: c.influencer ? 1 : 0,
+          influencerName: c.influencer?.displayName ?? '',
+        },
       });
     }
     for (const c of endingSoon) {
@@ -440,6 +447,7 @@ export function makeDashboardService(ctx: DomainContext) {
         campaignId: c.id,
         influencerId: null,
         actionLabel: 'Open campaign',
+        params: { campaignName: c.name, endDate: c.endDate?.toISOString().slice(0, 10) ?? '' },
       });
     }
     for (const s of shipmentIssues) {
@@ -456,6 +464,7 @@ export function makeDashboardService(ctx: DomainContext) {
         campaignId: s.campaignInfluencer.campaignId,
         influencerId: null,
         actionLabel: 'Resolve shipment',
+        params: { influencerName: s.campaignInfluencer.influencer.displayName, campaignName: s.campaignInfluencer.campaign.name },
       });
     }
     for (const i of logisticsIssues) {
@@ -476,6 +485,7 @@ export function makeDashboardService(ctx: DomainContext) {
         campaignId: ci.campaignId,
         influencerId: null,
         actionLabel: 'Resolve in Logistics',
+        params: { influencerName: ci.influencer.displayName, campaignName: ci.campaign.name, issueType: i.type },
       });
     }
     for (const r of expiringRights) {
@@ -491,6 +501,7 @@ export function makeDashboardService(ctx: DomainContext) {
         campaignId: r.campaignId,
         influencerId: r.influencerId,
         actionLabel: 'Review usage right',
+        params: { brandName: r.brand.name, usageType: r.usageType, expiresAt: r.expiresAt?.toISOString().slice(0, 10) ?? '' },
       });
     }
     for (const s of ugcAwaiting) {
@@ -507,6 +518,7 @@ export function makeDashboardService(ctx: DomainContext) {
         campaignId: ci.campaignId,
         influencerId: null,
         actionLabel: 'Review draft',
+        params: { influencerName: ci.influencer.displayName, campaignName: ci.campaign.name },
       });
     }
 
@@ -523,6 +535,7 @@ export function makeDashboardService(ctx: DomainContext) {
         campaignId: null,
         influencerId: null,
         actionLabel: 'Resolve content',
+        params: { count: unassignedCount },
       });
     }
     if (ownerlessCount > 0) {
@@ -538,6 +551,7 @@ export function makeDashboardService(ctx: DomainContext) {
         campaignId: null,
         influencerId: null,
         actionLabel: 'Assign owner',
+        params: { count: ownerlessCount },
       });
     }
 

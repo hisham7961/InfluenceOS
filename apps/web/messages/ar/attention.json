@@ -1,0 +1,61 @@
+{
+  "deliverableOverdue": {
+    "title": "تأخر المحتوى المطلوب — <name>{influencerName}</name>",
+    "description": "فات الموعد النهائي لـ{type} ضمن حملة <name>{campaignName}</name>."
+  },
+  "contentRemoved": {
+    "title": "تمت إزالة المحتوى",
+    "descriptionWithInfluencer": "تمت إزالة منشور على {platform} بواسطة <name>{influencerName}</name>.",
+    "descriptionNoInfluencer": "تمت إزالة منشور على {platform}."
+  },
+  "contentUnavailable": {
+    "title": "المحتوى غير متاح",
+    "descriptionWithInfluencer": "منشور على {platform} بواسطة <name>{influencerName}</name> غير متاح حاليًا.",
+    "descriptionNoInfluencer": "منشور على {platform} غير متاح حاليًا."
+  },
+  "campaignEnding": {
+    "title": "<name>{campaignName}</name> تنتهي قريبًا",
+    "description": "تنتهي هذه الحملة في <ltr>{endDate}</ltr>."
+  },
+  "shipmentFailed": {
+    "title": "تعذر تسليم الشحنة — <name>{influencerName}</name>",
+    "description": "تعذر تسليم شحنة تابعة لحملة <name>{campaignName}</name>."
+  },
+  "shipmentReturned": {
+    "title": "تم إرجاع الشحنة — <name>{influencerName}</name>",
+    "description": "تم إرجاع شحنة تابعة لحملة <name>{campaignName}</name>."
+  },
+  "logisticsAddressIssue": {
+    "title": "مطلوب توضيح العنوان — <name>{influencerName}</name>",
+    "description": "{issueType} في شحنة تابعة لحملة <name>{campaignName}</name>."
+  },
+  "usageRightExpiring": {
+    "title": "اقتراب انتهاء حق الاستخدام — <name>{brandName}</name>",
+    "description": "ينتهي حق استخدام من نوع {usageType} في <ltr>{expiresAt}</ltr>."
+  },
+  "ugcAwaitingReview": {
+    "title": "مسودة بانتظار المراجعة — <name>{influencerName}</name>",
+    "description": "تسليم لحملة <name>{campaignName}</name> بانتظار المراجعة منذ فترة."
+  },
+  "unassignedContent": {
+    "title": "{count, plural, one {عنصر محتوى واحد غير مرتبط} other {# عناصر محتوى غير مرتبطة}}",
+    "description": "محتوى منشور بلا حملة أو مؤثر مرتبط به حتى الآن — يمكن حل ذلك من صفحة المحتوى."
+  },
+  "campaignMissingOwner": {
+    "title": "{count, plural, one {حملة واحدة بلا مالك} other {# حملات بلا مالك}}",
+    "description": "حملات نشطة أو قيد التخطيط بلا مالك محدد."
+  },
+  "action": {
+    "DELIVERABLE_OVERDUE": "فتح المحتوى المطلوب",
+    "CONTENT_REMOVED": "مراجعة المحتوى",
+    "CONTENT_UNAVAILABLE": "مراجعة المحتوى",
+    "CAMPAIGN_ENDING": "فتح الحملة",
+    "SHIPMENT_FAILED": "معالجة الشحنة",
+    "SHIPMENT_RETURNED": "معالجة الشحنة",
+    "LOGISTICS_ADDRESS_ISSUE": "معالجة في الخدمات اللوجستية",
+    "USAGE_RIGHT_EXPIRING": "مراجعة حق الاستخدام",
+    "UGC_AWAITING_REVIEW": "مراجعة المسودة",
+    "UNASSIGNED_CONTENT": "معالجة المحتوى",
+    "CAMPAIGN_MISSING_OWNER": "تعيين مالك"
+  }
+}

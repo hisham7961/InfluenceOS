@@ -13,7 +13,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { relativeTime } from '@/lib/format';
+import { useLocalizedFormat } from '@/lib/format';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
 
 const ALL = '__all__';
@@ -140,6 +140,7 @@ export function DataQualityWorkspace({
 }) {
   const t = useTranslations('dataQuality');
   const tCommon = useTranslations('common');
+  const { relativeTime } = useLocalizedFormat();
   const [brandId, setBrandId] = React.useState('');
 
   const reportQuery = useQuery({
