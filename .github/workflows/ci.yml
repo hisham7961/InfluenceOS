@@ -315,6 +315,15 @@ jobs:
       # Matches the app's own default cadence.
       MONITOR_CRON: '*/30 * * * *'
       CI: 'true'
+      # This job runs several full multi-scenario Playwright specs back to
+      # back from one shared IP (many logins, page loads, and React Query's
+      # own staleTime/refetchOnWindowFocus background refetches). That
+      # legitimately generates more requests/minute than a single real user
+      # session ever would, and can cross the production-tuned default
+      # (300/min) partway through a long spec — confirmed via a real 429 on
+      # GET /shipments during the advanced-roles-logistics spec. Raised only
+      # for this CI job, never for the production/staging env defaults.
+      RATE_LIMIT_MAX: '3000'
       # Real MinIO for the object-storage round-trip (verifies storage in-stack).
       S3_TEST_ENDPOINT: http://localhost:9000
       S3_ACCESS_KEY_ID: minioadmin

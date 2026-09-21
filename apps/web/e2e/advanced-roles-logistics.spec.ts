@@ -261,15 +261,20 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   await shipmentSheet.getByRole('combobox').nth(1).click();
   await page.getByRole('option', { name: 'Missing Phone' }).click();
   await shipmentSheet.getByPlaceholder(/building number is missing/i).fill('Phone number is unreachable — please confirm.');
-  // Wait on the actual mutation response, not just the eventual UI update —
-  // a CI-only failure here reads as a vague UI timeout even when the real
-  // cause (e.g. a non-2xx response) is immediately visible on the network.
-  const [issueResp] = await Promise.all([
+  // Wait on the actual network responses, not just the eventual UI update —
+  // the badge reads from the invalidated shipments-list refetch, not the
+  // POST response itself, so both waits are registered up front (before the
+  // click) so neither can race past a response that lands before we'd
+  // otherwise start listening. A non-2xx on either shows up as a precise
+  // failure here instead of a vague "badge never appeared" UI timeout.
+  const [issueResp, listResp] = await Promise.all([
     page.waitForResponse((r) => /\/shipments\/[^/]+\/issues$/.test(new URL(r.url()).pathname) && r.request().method() === 'POST'),
+    page.waitForResponse((r) => new URL(r.url()).pathname.endsWith('/api/v1/shipments') && r.request().method() === 'GET', { timeout: 30_000 }),
     shipmentSheet.getByRole('button', { name: 'Send request' }).click(),
   ]);
   expect(issueResp.ok(), `POST .../issues failed: ${issueResp.status()} ${await issueResp.text().catch(() => '<no body>')}`).toBeTruthy();
-  await expect(shipmentSheet.getByText('Clarification Requested')).toBeVisible({ timeout: 25_000 });
+  expect(listResp.ok(), `GET .../shipments (list refetch) failed: ${listResp.status()}`).toBeTruthy();
+  await expect(shipmentSheet.getByText('Clarification Requested')).toBeVisible({ timeout: 10_000 });
   await expect(shipmentSheet.getByText('Phone number is unreachable')).toBeVisible();
 
   // Close the sheet before touching anything behind its overlay — the
