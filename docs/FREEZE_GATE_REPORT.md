@@ -224,12 +224,24 @@ INFLUENCEOS_FREEZE_SHA=bedff907565f4f7846139da29d7cd8e4116b17fb
 
 ### 3.5 Tag
 
-Repository had no pre-existing release-tag convention (`git tag -l` — empty).
-Following the spec's own suggested pattern:
+Repository had no pre-existing release-tag convention (`git tag -l` — empty
+before this pass). Following the spec's own suggested pattern:
 
 ```
 influenceos-freeze-2026-09-21 → bedff907565f4f7846139da29d7cd8e4116b17fb
 ```
+
+🟡 **Created locally, not yet on the remote.** `git push origin
+influenceos-freeze-2026-09-21` was attempted twice and both times failed
+with `HTTP 403` from this session's git credentials (the branch push itself
+succeeds normally, so this looks like a push-token scope limited to the
+one branch ref rather than a transient network issue — the agent proxy
+reports no relay failures). The tag object exists in this session's local
+clone; someone with tag-push rights on this repository should run
+`git push origin influenceos-freeze-2026-09-21` (or create the same tag on
+GitHub directly, pointed at `bedff907565f4f7846139da29d7cd8e4116b17fb`) to
+publish it. This does not affect the freeze SHA itself, which is fully
+pushed and CI-validated on the branch.
 
 ---
 
