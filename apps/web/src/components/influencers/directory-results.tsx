@@ -7,6 +7,7 @@ import { Eye, LayoutGrid, List as ListIcon, MapPin, Table as TableIcon } from 'l
 import type { InfluencerSummaryDTO } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
 import { InfluencerCard } from '@/components/influencers/influencer-card';
+import { BulkActionBar } from '@/components/influencers/bulk-action-bar';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { PlatformIcon } from '@/components/ui/platform-badge';
@@ -40,6 +41,16 @@ const VIEWS: { mode: ViewMode; label: string; icon: React.ComponentType<{ classN
 export function DirectoryResults({ influencers }: { influencers: InfluencerSummaryDTO[] }) {
   const [view, setView] = React.useState<ViewMode>('cards');
   const [previewId, setPreviewId] = React.useState<string | null>(null);
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   React.useEffect(() => {
     try {
@@ -94,8 +105,12 @@ export function DirectoryResults({ influencers }: { influencers: InfluencerSumma
           ))}
         </div>
       ) : (
-        <DirectoryTable influencers={influencers} onPreview={setPreviewId} />
+        <DirectoryTable influencers={influencers} onPreview={setPreviewId} selected={selected} onToggle={toggle} />
       )}
+
+      {view === 'table' ? (
+        <BulkActionBar selected={Array.from(selected)} onClear={() => setSelected(new Set())} />
+      ) : null}
 
       <PreviewDrawer influencerId={previewId} onClose={() => setPreviewId(null)} />
     </div>
@@ -144,15 +159,29 @@ function ListRow({ inf, onPreview }: { inf: InfluencerSummaryDTO; onPreview: () 
 function DirectoryTable({
   influencers,
   onPreview,
+  selected,
+  onToggle,
 }: {
   influencers: InfluencerSummaryDTO[];
   onPreview: (id: string) => void;
+  selected: Set<string>;
+  onToggle: (id: string) => void;
 }) {
+  const allSelected = influencers.length > 0 && influencers.every((inf) => selected.has(inf.id));
   return (
     <div className="overflow-x-auto rounded-2xl border border-border bg-card">
       <table className="w-full min-w-[760px] text-sm">
         <thead>
           <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <th className="w-10 px-4 py-3">
+              <input
+                type="checkbox"
+                className="h-4 w-4 cursor-pointer rounded border-border accent-brand"
+                checked={allSelected}
+                onChange={() => influencers.forEach((inf) => (allSelected ? selected.has(inf.id) && onToggle(inf.id) : !selected.has(inf.id) && onToggle(inf.id)))}
+                aria-label="Select all"
+              />
+            </th>
             <th className="px-4 py-3 font-medium">Influencer</th>
             <th className="px-4 py-3 font-medium">Platform</th>
             <th className="px-4 py-3 font-medium">Country</th>
@@ -165,7 +194,16 @@ function DirectoryTable({
         </thead>
         <tbody className="divide-y divide-border">
           {influencers.map((inf) => (
-            <tr key={inf.id} className="hover:bg-surface-muted/50">
+            <tr key={inf.id} className={cn('hover:bg-surface-muted/50', selected.has(inf.id) && 'bg-accent/5')}>
+              <td className="px-4 py-3">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 cursor-pointer rounded border-border accent-brand"
+                  checked={selected.has(inf.id)}
+                  onChange={() => onToggle(inf.id)}
+                  aria-label={`Select ${inf.displayName}`}
+                />
+              </td>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2.5">
                   <Avatar name={inf.displayName} src={inf.avatarUrl} size="xs" />

@@ -10,6 +10,7 @@ import type {
   BrandDetailDTO,
   BrandInfluencerDTO,
   BrandSummaryDTO,
+  BulkPreviewDTO,
   BulkResultDTO,
   CalendarEventDTO,
   CampaignCandidateDTO,
@@ -167,6 +168,12 @@ export function createClient(config: ClientConfig) {
       reliability: (id: string) => http.get<CreatorReliabilityDTO>(`${V}/influencers/${id}/reliability`),
       timeline: (id: string, params?: QueryParams) =>
         http.get<CursorPage<CreatorTimelineItemDTO>>(`${V}/influencers/${id}/timeline`, { query: params }),
+      // Bulk directory-wide actions (Operations Intelligence pass) — preview
+      // is always a dry run; execute is admin-only.
+      bulkPreview: (body: In<typeof requests.bulkInfluencerRequestSchema>) =>
+        http.post<BulkPreviewDTO>(`${V}/influencers/bulk/preview`, body),
+      bulkExecute: (body: In<typeof requests.bulkInfluencerRequestSchema>) =>
+        http.post<BulkResultDTO>(`${V}/influencers/bulk/execute`, body),
     },
 
     socialAccounts: {

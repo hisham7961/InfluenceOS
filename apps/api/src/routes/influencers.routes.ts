@@ -91,6 +91,32 @@ export async function influencerRoutes(app: FastifyInstance): Promise<void> {
   );
 
   r.post(
+    '/influencers/bulk/preview',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Influencers'],
+        summary: 'Dry-run preview of a bulk influencer-directory action (Operations Intelligence)',
+        body: requests.bulkInfluencerRequestSchema,
+      },
+    },
+    async (req) => servicesFor(req).bulkInfluencers.preview(req.body),
+  );
+
+  r.post(
+    '/influencers/bulk/execute',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Influencers'],
+        summary: 'Apply a bulk influencer-directory action (admin only)',
+        body: requests.bulkInfluencerRequestSchema,
+      },
+    },
+    async (req) => servicesFor(req).bulkInfluencers.execute(req.body),
+  );
+
+  r.post(
     '/influencers/resolve',
     {
       preHandler: [requireAuth],
