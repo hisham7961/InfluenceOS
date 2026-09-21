@@ -36,6 +36,7 @@ describe('Influencer data export (CSV/JSON)', () => {
           displayName: alphaName,
           fullName: 'Alpha Full',
           country: 'Kuwait',
+          countryCode: 'KW',
           category: 'Lifestyle',
           relationshipStatus: 'ACTIVE',
           email: 'alpha@example.test',
@@ -57,7 +58,7 @@ describe('Influencer data export (CSV/JSON)', () => {
         method: 'POST',
         url: '/api/v1/influencers',
         headers: auth,
-        payload: { displayName: betaName, relationshipStatus: 'PROSPECT' },
+        payload: { displayName: betaName, relationshipStatus: 'PROSPECT', countryCode: 'KW' },
       }),
     );
   });

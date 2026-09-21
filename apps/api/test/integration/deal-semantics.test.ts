@@ -49,7 +49,7 @@ describe('deal money semantics — PAID / FREE / GIFTED / PAID_PLUS_GIFTED', () 
   });
 
   async function makeInfluencer(name: string): Promise<string> {
-    const res = await post('/api/v1/influencers', { displayName: name });
+    const res = await post('/api/v1/influencers', { displayName: name, countryCode: 'KW' });
     return (res.json() as { id: string }).id;
   }
 

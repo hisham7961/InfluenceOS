@@ -5,7 +5,7 @@ import {
   type DeliverableTemplateResultDTO,
 } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
-import { PLATFORMS, parseCsvRecords, type Platform } from '@influenceos/shared';
+import { normalizeCountryToCode, PLATFORMS, parseCsvRecords, type Platform } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor } from '../lib/authz';
@@ -191,6 +191,24 @@ export function makeBulkService(ctx: DomainContext) {
           });
         }
         if (!influencer) {
+          // countryCode is required on every new influencer (drives country
+          // scoping and the directory's country filter) — same rule
+          // influencerCreateSchema enforces for the single-add form, so a CSV
+          // import can never create an unfilterable creator either.
+          const countryRaw = pick(rec, 'country', 'countrycode');
+          const countryCodeResolved = normalizeCountryToCode(countryRaw);
+          if (!countryCodeResolved) {
+            results.push({
+              influencerId: null,
+              label,
+              status: 'failed',
+              id: null,
+              message: countryRaw
+                ? `Country "${countryRaw}" was not recognized — use a country name or ISO code (e.g. Kuwait or KW).`
+                : 'A Country column is required to add a new creator.',
+            });
+            continue;
+          }
           const email = pick(rec, 'email');
           influencer = await prisma.influencer.create({
             data: {
@@ -200,7 +218,8 @@ export function makeBulkService(ctx: DomainContext) {
               primaryPlatform: platform,
               email: email || null,
               category: pick(rec, 'category') || null,
-              country: pick(rec, 'country') || null,
+              country: countryRaw || null,
+              countryCode: countryCodeResolved,
             },
             select: { id: true },
           });

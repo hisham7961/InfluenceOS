@@ -41,9 +41,9 @@ describe('W3-3 — sourcing/shortlist candidate pipeline', () => {
     userId = a.userId;
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Src Brand ${Date.now()}` } }));
     campaignId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Src Camp ${Date.now()}` } }));
-    infA = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Cand A ${Date.now()}` } }));
-    infB = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Cand B ${Date.now()}` } }));
-    infC = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Cand C ${Date.now()}` } }));
+    infA = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Cand A ${Date.now()}`, countryCode: 'KW' } }));
+    infB = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Cand B ${Date.now()}`, countryCode: 'KW' } }));
+    infC = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Cand C ${Date.now()}`, countryCode: 'KW' } }));
   });
 
   afterAll(async () => {

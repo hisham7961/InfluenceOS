@@ -27,7 +27,7 @@ describe('files — signed-download authorization', () => {
       method: 'POST',
       url: '/api/v1/influencers',
       headers: auth,
-      payload: { displayName: `FileAuthz ${Date.now()}` },
+      payload: { displayName: `FileAuthz ${Date.now()}`, countryCode: 'KW' },
     });
     influencerId = (inf.json() as { id: string }).id;
   });

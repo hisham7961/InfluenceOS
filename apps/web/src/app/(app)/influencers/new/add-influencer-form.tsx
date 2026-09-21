@@ -7,6 +7,7 @@ import { AlertTriangle, Check, Search, Sparkles } from 'lucide-react';
 import { ApiError } from '@influenceos/api-client';
 import type { ResolveProfileResultDTO } from '@influenceos/contracts';
 import {
+  COUNTRIES,
   PLATFORMS,
   PLATFORM_META,
   PRIORITIES,
@@ -65,6 +66,7 @@ export function AddInfluencerForm() {
   const [fullName, setFullName] = React.useState('');
   const [category, setCategory] = React.useState('');
   const [country, setCountry] = React.useState('');
+  const [countryCode, setCountryCode] = React.useState('');
   const [city, setCity] = React.useState('');
   const [languages, setLanguages] = React.useState('');
   const [email, setEmail] = React.useState('');
@@ -112,6 +114,10 @@ export function AddInfluencerForm() {
       toast.error('Display name is required.');
       return;
     }
+    if (!countryCode) {
+      toast.error('Country is required — it drives country-based filtering and scoping.');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -120,6 +126,7 @@ export function AddInfluencerForm() {
         fullName: fullName.trim() || undefined,
         category: category.trim() || undefined,
         country: country.trim() || undefined,
+        countryCode,
         city: city.trim() || undefined,
         languages: splitList(languages),
         email: email.trim() || undefined,
@@ -316,8 +323,25 @@ export function AddInfluencerForm() {
               </Select>
             </Field>
 
-            <Field label="Country">
-              <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Kuwait" />
+            <Field label="Country" hint="Required — drives country-based filtering and scoping.">
+              <Select
+                value={countryCode}
+                onValueChange={(v) => {
+                  setCountryCode(v);
+                  setCountry(COUNTRIES.find((c) => c.code === v)?.name ?? country);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a country" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {COUNTRIES.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             <Field label="City">
               <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Kuwait City" />

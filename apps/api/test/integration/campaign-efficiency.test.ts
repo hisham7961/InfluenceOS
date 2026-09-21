@@ -35,7 +35,7 @@ describe('W6-1 — server-computed campaign efficiency', () => {
 
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Eff Brand ${stamp}` } }));
     campaignId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Eff Camp ${stamp}`, plannedBudget: 1000, currency: 'KWD' } }));
-    const inf = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Eff Inf ${stamp}` } }));
+    const inf = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Eff Inf ${stamp}`, countryCode: 'KW' } }));
     // One PAID fee of 500 → campaign spend is exactly 500.
     await app.inject({ method: 'POST', url: `/api/v1/campaigns/${campaignId}/influencers`, headers: auth, payload: { influencerId: inf, dealType: 'PAID', agreedCost: 500, currency: 'KWD', paymentStatus: 'PAID' } });
 

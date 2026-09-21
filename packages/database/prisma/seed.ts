@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 import { hash } from '@node-rs/argon2';
 import { PrismaClient, type Platform } from '@prisma/client';
+import { normalizeCountryToCode } from '@influenceos/shared';
 
 const prisma = new PrismaClient();
 
@@ -210,6 +211,7 @@ async function main() {
         primaryPlatform: spec.primaryPlatform,
         category: spec.category,
         country: spec.country,
+        countryCode: normalizeCountryToCode(spec.country),
         city: spec.city,
         languages: spec.languages,
         relationshipStatus: spec.relationship as never,

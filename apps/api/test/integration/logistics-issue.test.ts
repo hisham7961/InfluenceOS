@@ -74,7 +74,7 @@ describe('Advanced Roles — Address Clarification workflow', () => {
         method: 'POST',
         url: '/api/v1/influencers',
         headers: admin,
-        payload: { displayName: `LogIssue Creator ${Date.now()}` },
+        payload: { displayName: `LogIssue Creator ${Date.now()}`, countryCode: 'KW' },
       }),
     );
     ciId = idOf(

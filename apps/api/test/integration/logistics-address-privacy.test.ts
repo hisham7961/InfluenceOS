@@ -58,7 +58,7 @@ describe('Advanced Roles — Operations Manager sees address issues exist, never
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: admin, payload: { name: `Privacy Brand ${Date.now()}` } }));
     const campaignId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: admin, payload: { brandId, name: `Privacy Camp ${Date.now()}` } }));
     const influencerId = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `Privacy Creator ${Date.now()}` } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `Privacy Creator ${Date.now()}`, countryCode: 'KW' } }),
     );
     const ciId = idOf(
       await app.inject({

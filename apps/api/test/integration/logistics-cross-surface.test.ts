@@ -31,7 +31,7 @@ describe('Advanced Roles — cross-surface logistics issue visibility', () => {
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: admin, payload: { name: `CrossSurface Brand ${Date.now()}` } }));
     campaignId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: admin, payload: { brandId, name: `CrossSurface Camp ${Date.now()}` } }));
     influencerId = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `CrossSurface Creator ${Date.now()}` } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `CrossSurface Creator ${Date.now()}`, countryCode: 'KW' } }),
     );
     const ciId = idOf(
       await app.inject({

@@ -38,7 +38,7 @@ describe('OI-8 — Needs Attention canonical service', () => {
       }),
     );
     const influencerId = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Attention Creator ${Date.now()}` } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Attention Creator ${Date.now()}`, countryCode: 'KW' } }),
     );
     const ciId = idOf(
       await app.inject({
@@ -121,7 +121,7 @@ describe('OI-8 — Needs Attention canonical service', () => {
       }),
     );
     const influencerId2 = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Attention Creator 2 ${Date.now()}` } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Attention Creator 2 ${Date.now()}`, countryCode: 'KW' } }),
     );
     const ciId2 = idOf(
       await app.inject({

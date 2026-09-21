@@ -26,8 +26,8 @@ describe('W7-1 — batched campaign-list progress equals per-campaign detail', (
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Batch Brand ${Date.now()}` } }));
     campaignId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Batch Camp ${Date.now()}`, plannedBudget: 1000, currency: 'KWD' } }));
 
-    const infA = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Batch A ${Date.now()}` } }));
-    const infB = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Batch B ${Date.now()}` } }));
+    const infA = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Batch A ${Date.now()}`, countryCode: 'KW' } }));
+    const infB = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Batch B ${Date.now()}`, countryCode: 'KW' } }));
 
     // A PAID, partially-paid participation (exercises the money split) marked COMPLETED.
     const ciA = idOf(await app.inject({ method: 'POST', url: `/api/v1/campaigns/${campaignId}/influencers`, headers: auth, payload: { influencerId: infA, dealType: 'PAID', agreedCost: 300, currency: 'KWD', paymentStatus: 'PARTIALLY_PAID', paidAmount: 100 } }));

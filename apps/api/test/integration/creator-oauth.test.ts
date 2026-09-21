@@ -22,7 +22,7 @@ describe('INT-3 — creator-OAuth connections (foundation)', () => {
     const a = await loginFresh(app);
     auth = a.auth;
     userId = a.userId;
-    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `OAuth Inf ${Date.now()}` } }));
+    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `OAuth Inf ${Date.now()}`, countryCode: 'KW' } }));
   });
 
   afterAll(async () => {

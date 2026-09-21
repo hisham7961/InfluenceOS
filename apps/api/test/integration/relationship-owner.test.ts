@@ -43,7 +43,7 @@ describe('W4-5 — relationship owner + reminder routing', () => {
   it('assigns and reads back an influencer owner', async () => {
     const created = idOf(await app.inject({
       method: 'POST', url: '/api/v1/influencers', headers: auth,
-      payload: { displayName: `Owned Creator ${Date.now()}`, ownerId },
+      payload: { displayName: `Owned Creator ${Date.now()}`, ownerId, countryCode: 'KW' },
     }));
     const detail = (await app.inject({ method: 'GET', url: `/api/v1/influencers/${created}`, headers: auth })).json() as InfluencerDetailDTO;
     expect(detail.ownerId).toBe(ownerId);
@@ -56,7 +56,7 @@ describe('W4-5 — relationship owner + reminder routing', () => {
 
   it('routes a deliverable reminder to the campaign owner', async () => {
     // A campaign owned by our user, with a deliverable due within 48h.
-    const influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Owned Creator R ${Date.now()}` } }));
+    const influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Owned Creator R ${Date.now()}`, countryCode: 'KW' } }));
     const campaign = await prisma.campaign.create({
       data: { brandId, name: `Owned Camp ${Date.now()}`, slug: `owned-${Date.now()}`, ownerId },
       select: { id: true },

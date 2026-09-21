@@ -25,7 +25,7 @@ describe('W3-1 — campaign submission review queue', () => {
     userId = a.userId;
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Sub Brand ${Date.now()}` } }));
     campaignId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Sub Camp ${Date.now()}` } }));
-    const inf = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Sub Inf ${Date.now()}` } }));
+    const inf = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Sub Inf ${Date.now()}`, countryCode: 'KW' } }));
     const ci = idOf(await app.inject({ method: 'POST', url: `/api/v1/campaigns/${campaignId}/influencers`, headers: auth, payload: { influencerId: inf, dealType: 'FREE' } }));
     deliverableId = idOf(await app.inject({ method: 'POST', url: `/api/v1/campaign-influencers/${ci}/deliverables`, headers: auth, payload: { platform: 'INSTAGRAM', type: 'REEL' } }));
     await app.inject({ method: 'POST', url: `/api/v1/deliverables/${deliverableId}/submissions`, headers: auth, payload: { notes: 'First draft', assetUrl: 'https://drive.example.com/asset1' } });

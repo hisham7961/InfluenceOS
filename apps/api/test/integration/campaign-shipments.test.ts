@@ -25,7 +25,7 @@ describe('W3-5 — campaign roster shipments', () => {
     userId = a.userId;
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Ship Brand ${Date.now()}` } }));
     campaignId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Ship Camp ${Date.now()}` } }));
-    const inf = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Ship Inf ${Date.now()}` } }));
+    const inf = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Ship Inf ${Date.now()}`, countryCode: 'KW' } }));
     ciId = idOf(await app.inject({ method: 'POST', url: `/api/v1/campaigns/${campaignId}/influencers`, headers: auth, payload: { influencerId: inf, dealType: 'FREE' } }));
     // A gift shipment marked SHIPPED — reaching SHIPPED auto-stamps shippedAt.
     await app.inject({

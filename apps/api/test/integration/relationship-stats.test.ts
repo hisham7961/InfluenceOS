@@ -38,7 +38,7 @@ describe('DB-10 — relationship stats derive from committed participations', ()
     adminId = a.userId;
     const brand = await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Rel Brand ${Date.now()}` } });
     brandId = (brand.json() as { id: string }).id;
-    const inf = await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Rel Inf ${Date.now()}` } });
+    const inf = await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Rel Inf ${Date.now()}`, countryCode: 'KW' } });
     influencerId = (inf.json() as { id: string }).id;
     const camp = await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Rel Camp ${Date.now()}` } });
     campaignId = (camp.json() as { id: string }).id;

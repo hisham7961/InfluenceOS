@@ -32,7 +32,7 @@ describe('W3-2 — usage-rights ledger + expiry derivation', () => {
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Rights Brand ${Date.now()}` } }));
     otherBrandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Other Brand ${Date.now()}` } }));
     campaignId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Rights Camp ${Date.now()}` } }));
-    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Rights Inf ${Date.now()}` } }));
+    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Rights Inf ${Date.now()}`, countryCode: 'KW' } }));
   });
 
   afterAll(async () => {

@@ -54,7 +54,7 @@ describe('Advanced Roles — logistics summary + needsAttention + Logistics Team
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: admin, payload: { name: `LogSummary Brand ${Date.now()}` } }));
     campaignId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: admin, payload: { brandId, name: `LogSummary Camp ${Date.now()}` } }));
     const influencerId = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `LogSummary Creator ${Date.now()}` } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `LogSummary Creator ${Date.now()}`, countryCode: 'KW' } }),
     );
     ciId = idOf(
       await app.inject({

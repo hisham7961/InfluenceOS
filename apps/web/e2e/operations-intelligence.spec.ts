@@ -77,6 +77,8 @@ test('operator drives Comments, Mentions, Campaign/Team Chat, Trends, Creator 36
   await openQuickAdd(page, 'Influencer');
   const infDialog = page.getByRole('dialog');
   await infDialog.getByPlaceholder('Full or display name').fill(INFLUENCER);
+  await infDialog.getByRole('combobox').click();
+  await page.getByRole('option', { name: 'Kuwait', exact: true }).click();
   await infDialog.getByRole('button', { name: 'Add influencer' }).click();
   await page.waitForURL(/\/influencers\//);
   const influencerUrl = page.url();

@@ -44,7 +44,7 @@ describe('W7-2 — stable cursor pagination', () => {
     userId = a.userId;
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Cursor Brand ${token}` } }));
     for (let i = 0; i < N; i += 1) {
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Cursor ${token} ${i}` } });
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Cursor ${token} ${i}`, countryCode: 'KW' } });
       await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Cursor Camp ${token} ${i}` } });
     }
   });

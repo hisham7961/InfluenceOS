@@ -28,14 +28,14 @@ describe('Advanced Roles — Influencer directory country scope', () => {
     adminId = a.userId;
 
     kwInfluencerId = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `KW Creator ${Date.now()}` } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `KW Creator ${Date.now()}`, countryCode: 'KW' } }),
     );
-    await app.inject({ method: 'PATCH', url: `/api/v1/influencers/${kwInfluencerId}`, headers: admin, payload: { countryCode: 'KW', city: 'Kuwait City' } });
+    await app.inject({ method: 'PATCH', url: `/api/v1/influencers/${kwInfluencerId}`, headers: admin, payload: { city: 'Kuwait City' } });
 
     aeInfluencerId = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `AE Creator ${Date.now()}` } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `AE Creator ${Date.now()}`, countryCode: 'AE' } }),
     );
-    await app.inject({ method: 'PATCH', url: `/api/v1/influencers/${aeInfluencerId}`, headers: admin, payload: { countryCode: 'AE', city: 'Dubai' } });
+    await app.inject({ method: 'PATCH', url: `/api/v1/influencers/${aeInfluencerId}`, headers: admin, payload: { city: 'Dubai' } });
 
     const { PrismaClient } = await import('@influenceos/database');
     const { hash } = await import('@node-rs/argon2');

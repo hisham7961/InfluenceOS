@@ -27,7 +27,7 @@ describe('W3-1 — deliverable submission review/approval + UGC completion', () 
     auth = a.auth;
     userId = a.userId;
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `UGC Brand ${Date.now()}` } }));
-    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `UGC Inf ${Date.now()}` } }));
+    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `UGC Inf ${Date.now()}`, countryCode: 'KW' } }));
     campaignId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `UGC Camp ${Date.now()}` } }));
     ciId = idOf(await app.inject({ method: 'POST', url: `/api/v1/campaigns/${campaignId}/influencers`, headers: auth, payload: { influencerId, dealType: 'FREE' } }));
     // A UGC deliverable: an owned asset with no public post.

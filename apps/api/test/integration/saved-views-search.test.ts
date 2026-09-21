@@ -39,10 +39,10 @@ describe('W3-6 — saved views + ranked search page', () => {
     userId = a.userId;
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `SV Brand ${tag}` } }));
     // An influencer whose NAME does not contain the token, but a NOTE does — proves note indexing.
-    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Plain Creator ${tag}` } }));
+    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Plain Creator ${tag}`, countryCode: 'KW' } }));
     await app.inject({ method: 'POST', url: '/api/v1/notes', headers: auth, payload: { influencerId, body: `secret keyword ${uniq} in a note` } });
     // A second influencer whose display name contains the token directly (should outrank the note match).
-    await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `${uniq} Star` } });
+    await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `${uniq} Star`, countryCode: 'KW' } });
   });
 
   afterAll(async () => {

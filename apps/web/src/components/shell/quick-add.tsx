@@ -3,7 +3,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { PLATFORMS } from '@influenceos/shared';
+import { COUNTRIES, PLATFORMS } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { ApiError } from '@influenceos/api-client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -85,6 +85,7 @@ function AddInfluencer({ close }: { close: () => void }) {
   const qc = useQueryClient();
   const [input, setInput] = React.useState('');
   const [displayName, setName] = React.useState('');
+  const [countryCode, setCountryCode] = React.useState('');
   const [resolving, setResolving] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [resolved, setResolved] = React.useState<{ platform: string; username: string; source: string; message: string | null } | null>(null);
@@ -107,9 +108,13 @@ function AddInfluencer({ close }: { close: () => void }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!countryCode) {
+      toast.error('Country is required — it drives country-based filtering and scoping.');
+      return;
+    }
     setLoading(true);
     try {
-      const inf = await api.influencers.create({ displayName: displayName || resolved?.username || input });
+      const inf = await api.influencers.create({ displayName: displayName || resolved?.username || input, countryCode });
       if (resolved) {
         await api.influencers.addSocialAccount(inf.id, {
           platform: resolved.platform as (typeof PLATFORMS)[number],
@@ -146,6 +151,16 @@ function AddInfluencer({ close }: { close: () => void }) {
       )}
       <Field label="Display name">
         <Input value={displayName} onChange={(e) => setName(e.target.value)} placeholder="Full or display name" required />
+      </Field>
+      <Field label="Country" hint="Required — drives country-based filtering and scoping.">
+        <Select value={countryCode} onValueChange={setCountryCode}>
+          <SelectTrigger><SelectValue placeholder="Select a country" /></SelectTrigger>
+          <SelectContent className="max-h-72">
+            {COUNTRIES.map((c) => (
+              <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </Field>
       <Button type="submit" disabled={loading}>{loading ? 'Saving…' : 'Add influencer'}</Button>
     </form>

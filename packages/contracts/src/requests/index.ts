@@ -240,8 +240,12 @@ export const influencerCreateSchema = z.object({
   bio: optionalString,
   country: optionalString,
   /** Canonical country code (Advanced Roles & Logistics Operations pass) —
-   *  distinct from the free-text `country` above; drives country scoping. */
-  countryCode: countryCode.optional().nullable(),
+   *  distinct from the free-text `country` above; drives country scoping and
+   *  the Influencer directory's country filter. REQUIRED on creation so every
+   *  new creator is filterable by country from day one; `influencerUpdateSchema`
+   *  (a `.partial()` of this) stays optional so an unrelated field edit never
+   *  forces re-supplying it. */
+  countryCode: countryCode,
   city: optionalString,
   /** The creator's DEFAULT shipping address — a new shipment starts from
    *  this but always copies it into its own columns, so editing it here

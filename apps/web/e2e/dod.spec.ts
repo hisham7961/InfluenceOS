@@ -50,6 +50,8 @@ test('operator can run a campaign end-to-end through the browser', async ({ page
   const infDialog = page.getByRole('dialog');
   await infDialog.getByPlaceholder('https://instagram.com/creator').fill(`https://www.youtube.com/@dod${STAMP}`);
   await infDialog.getByPlaceholder('Full or display name').fill(INFLUENCER);
+  await infDialog.getByRole('combobox').click();
+  await page.getByRole('option', { name: 'Kuwait', exact: true }).click();
   await infDialog.getByRole('button', { name: /add influencer/i }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
 

@@ -24,7 +24,7 @@ describe('finance — partial payment splits paid/unpaid correctly', () => {
     auth = a.auth;
     adminId = a.userId;
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Pay Brand ${Date.now()}` } }));
-    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Pay Inf ${Date.now()}` } }));
+    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Pay Inf ${Date.now()}`, countryCode: 'KW' } }));
     campaignId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Pay Camp ${Date.now()}`, currency: 'KWD' } }));
   });
 

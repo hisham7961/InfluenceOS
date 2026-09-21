@@ -35,8 +35,8 @@ describe('W6-3 — executive dashboard rollups', () => {
     userId = a.userId;
 
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Exec Brand ${Date.now()}` } }));
-    const inf1 = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Exec A ${Date.now()}` } }));
-    const inf2 = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Exec B ${Date.now()}` } }));
+    const inf1 = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Exec A ${Date.now()}`, countryCode: 'KW' } }));
+    const inf2 = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Exec B ${Date.now()}`, countryCode: 'KW' } }));
 
     // C1 — ACTIVE, budget 1000, starts and ends today, one PAID fee of 300.
     const c1 = idOf(await app.inject({

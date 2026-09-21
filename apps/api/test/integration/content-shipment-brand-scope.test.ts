@@ -48,7 +48,7 @@ describe('Permissions/privacy — content + logistics respect brand scope', () =
     brandB = (await app.inject({ method: 'POST', url: '/api/v1/brands', headers: adminAuth, payload: { name: `${tag} B` } })).json() as { id: string };
     campaignA = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: adminAuth, payload: { brandId: brandA.id, name: `${tag} Camp A` } }));
     campaignB = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: adminAuth, payload: { brandId: brandB.id, name: `${tag} Camp B` } }));
-    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: adminAuth, payload: { displayName: `${tag} Sara` } }));
+    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: adminAuth, payload: { displayName: `${tag} Sara`, countryCode: 'KW' } }));
     ciA = idOf(await app.inject({ method: 'POST', url: `/api/v1/campaigns/${campaignA}/influencers`, headers: adminAuth, payload: { influencerId, dealType: 'FREE' } }));
     ciB = idOf(await app.inject({ method: 'POST', url: `/api/v1/campaigns/${campaignB}/influencers`, headers: adminAuth, payload: { influencerId, dealType: 'FREE' } }));
 

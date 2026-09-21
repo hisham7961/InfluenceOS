@@ -26,7 +26,7 @@ describe('W3-4 — bulk roster add + deliverable template', () => {
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Bulk Brand ${Date.now()}` } }));
     campaignId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Bulk Camp ${Date.now()}` } }));
     for (let i = 0; i < 4; i++) {
-      ids.push(idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Bulk Inf ${i} ${Date.now()}` } })));
+      ids.push(idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Bulk Inf ${i} ${Date.now()}`, countryCode: 'KW' } })));
     }
   });
 

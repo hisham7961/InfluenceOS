@@ -1,4 +1,5 @@
 import { RELATIONSHIP_STATUSES, type RelationshipStatus } from '../constants/enums';
+import { normalizeCountryToCode } from '../constants/countries';
 
 /**
  * Deterministic fixture generators for the W7-3 load/scale seed. Pure (no DB, no
@@ -18,6 +19,7 @@ export interface LoadInfluencerRow {
   fullName: string;
   primaryUsername: string;
   country: string;
+  countryCode: string;
   category: string;
   relationshipStatus: RelationshipStatus;
   internalNotes: string;
@@ -28,11 +30,13 @@ export function buildLoadInfluencers(count: number, startIndex = 0): LoadInfluen
   const rows: LoadInfluencerRow[] = [];
   for (let k = 0; k < count; k += 1) {
     const i = startIndex + k;
+    const country = COUNTRIES[i % COUNTRIES.length]!;
     rows.push({
       displayName: `Load Creator ${i}`,
       fullName: `Load Creator Full Name ${i}`,
       primaryUsername: `load_creator_${i}`,
-      country: COUNTRIES[i % COUNTRIES.length]!,
+      country,
+      countryCode: normalizeCountryToCode(country)!,
       category: CATEGORIES[i % CATEGORIES.length]!,
       relationshipStatus: RELATIONSHIP_STATUSES[i % RELATIONSHIP_STATUSES.length]!,
       internalNotes: LOAD_SEED_MARKER,

@@ -59,7 +59,7 @@ describe('DoD — full campaign lifecycle through the API', () => {
     expect(resolved.platform).toBe('YOUTUBE');
 
     // ...and create the influencer + primary social account
-    const inf = await call('POST', '/api/v1/influencers', { displayName: 'DoD Creator', category: 'Tech', country: 'Kuwait' });
+    const inf = await call('POST', '/api/v1/influencers', { displayName: 'DoD Creator', category: 'Tech', country: 'Kuwait', countryCode: 'KW' });
     created.influencerIds.push(inf.id);
     await call('POST', `/api/v1/influencers/${inf.id}/social-accounts`, {
       platform: resolved.platform,
@@ -68,7 +68,7 @@ describe('DoD — full campaign lifecycle through the API', () => {
       isPrimary: true,
     });
 
-    const freeInf = await call('POST', '/api/v1/influencers', { displayName: 'DoD Gifted Creator', category: 'Lifestyle' });
+    const freeInf = await call('POST', '/api/v1/influencers', { displayName: 'DoD Gifted Creator', category: 'Lifestyle', countryCode: 'KW' });
     created.influencerIds.push(freeInf.id);
 
     // 3. Campaign

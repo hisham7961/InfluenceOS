@@ -133,6 +133,8 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
     const infDialog = page.getByRole('dialog');
     await infDialog.getByPlaceholder('https://instagram.com/creator').fill(`https://www.youtube.com/@${handle}`);
     await infDialog.getByPlaceholder('Full or display name').fill(name);
+    await infDialog.getByRole('combobox').click();
+    await page.getByRole('option', { name: 'Kuwait', exact: true }).click();
     await infDialog.getByRole('button', { name: /add influencer/i }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
   }

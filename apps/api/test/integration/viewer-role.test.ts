@@ -56,7 +56,7 @@ describe('W4-4 — read-only VIEWER role', () => {
   });
 
   it('is refused 403 on every write (POST/PATCH/DELETE), whatever the target', async () => {
-    const post = await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: viewer.auth, payload: { displayName: 'Nope' } });
+    const post = await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: viewer.auth, payload: { displayName: 'Nope', countryCode: 'KW' } });
     expect(post.statusCode).toBe(403);
     expect((post.json() as { error: { code: string } }).error.code).toBe('FORBIDDEN');
 

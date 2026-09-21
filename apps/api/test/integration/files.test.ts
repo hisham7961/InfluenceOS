@@ -29,7 +29,7 @@ describe('files — two-phase signed uploads (local driver)', () => {
       method: 'POST',
       url: '/api/v1/influencers',
       headers: auth,
-      payload: { displayName: `File Target ${Date.now()}` },
+      payload: { displayName: `File Target ${Date.now()}`, countryCode: 'KW' },
     });
     influencerId = (inf.json() as { id: string }).id;
   });

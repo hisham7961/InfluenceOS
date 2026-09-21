@@ -23,7 +23,7 @@ describe('files — idempotent completion', () => {
     auth = s.auth;
     userId = s.userId;
     influencerId = (
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Idem ${Date.now()}` } })
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Idem ${Date.now()}`, countryCode: 'KW' } })
     ).json().id as string;
   });
 

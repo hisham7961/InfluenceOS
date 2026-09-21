@@ -49,7 +49,7 @@ describe('SEC-04 — owner-or-admin delete gate', () => {
       method: 'POST',
       url: '/api/v1/influencers',
       headers: admin,
-      payload: { displayName: `OwnerAuthz ${Date.now()}` },
+      payload: { displayName: `OwnerAuthz ${Date.now()}`, countryCode: 'KW' },
     });
     influencerId = (inf.json() as { id: string }).id;
   });

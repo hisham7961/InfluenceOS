@@ -405,7 +405,10 @@ function IssueSection({ shipment, onChanged }: { shipment: LogisticsRequestDTO; 
             addressLine2: shipment.addressLine2,
             city: shipment.city,
             country: shipment.country,
-            countryCode: shipment.destinationCountryCode,
+            // countryCode is required on the influencer profile — only send it
+            // when the shipment actually has one, never clear an existing
+            // profile country just because this particular shipment lacks one.
+            countryCode: shipment.destinationCountryCode ?? undefined,
             postalCode: shipment.postalCode,
             deliveryInstructions: shipment.deliveryInstructions,
             mobile: shipment.phone ?? undefined,

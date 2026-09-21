@@ -32,7 +32,7 @@ describe('OI-4 — Creator 360', () => {
       await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `C360 Camp ${Date.now()}`, currency: 'KWD' } }),
     );
     influencerId = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `C360 Creator ${Date.now()}` } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `C360 Creator ${Date.now()}`, countryCode: 'KW' } }),
     );
     ciId = idOf(
       await app.inject({

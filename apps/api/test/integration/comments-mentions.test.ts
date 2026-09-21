@@ -44,7 +44,7 @@ describe('OI-2 — Collaboration Layer: mentions, notifications, pin authorizati
     admin = a.auth;
     adminId = a.userId;
     influencerId = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `Comments Creator ${Date.now()}` } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `Comments Creator ${Date.now()}`, countryCode: 'KW' } }),
     );
   });
 

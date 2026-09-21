@@ -26,7 +26,7 @@ describe('attachments — abandoned-upload cleanup', () => {
       method: 'POST',
       url: '/api/v1/influencers',
       headers: auth,
-      payload: { displayName: `Cleanup Target ${Date.now()}` },
+      payload: { displayName: `Cleanup Target ${Date.now()}`, countryCode: 'KW' },
     });
     influencerId = (inf.json() as { id: string }).id;
   });

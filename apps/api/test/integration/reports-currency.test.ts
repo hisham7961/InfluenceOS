@@ -26,7 +26,7 @@ describe('DB-03 — reports do not sum across currencies', () => {
 
     const idOf = (r: { json: () => unknown }) => (r.json() as { id: string }).id;
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Ccy Brand ${Date.now()}` } }));
-    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Ccy Inf ${Date.now()}` } }));
+    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Ccy Inf ${Date.now()}`, countryCode: 'KW' } }));
 
     campaignKwdId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `KWD Camp ${Date.now()}`, currency: 'KWD' } }));
     campaignUsdId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `USD Camp ${Date.now()}`, currency: 'USD' } }));

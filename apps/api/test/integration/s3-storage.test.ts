@@ -45,7 +45,7 @@ describe.skipIf(!ENDPOINT)('files — real MinIO/S3 round-trip (s3 driver)', () 
       method: 'POST',
       url: '/api/v1/influencers',
       headers: auth,
-      payload: { displayName: `S3 Target ${Date.now()}` },
+      payload: { displayName: `S3 Target ${Date.now()}`, countryCode: 'KW' },
     });
     influencerId = (inf.json() as { id: string }).id;
   });

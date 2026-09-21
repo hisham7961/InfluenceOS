@@ -50,7 +50,7 @@ describe('OI-9 — Workflow Integrity Guard', () => {
       await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Overpaid Camp ${Date.now()}` } }),
     );
     const influencerId = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Overpaid Inf ${Date.now()}` } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Overpaid Inf ${Date.now()}`, countryCode: 'KW' } }),
     );
     const ciId = idOf(
       await app.inject({
@@ -84,7 +84,7 @@ describe('OI-9 — Workflow Integrity Guard', () => {
       await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Stale Complete Camp ${Date.now()}` } }),
     );
     const influencerId = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Stale Complete Inf ${Date.now()}` } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Stale Complete Inf ${Date.now()}`, countryCode: 'KW' } }),
     );
     const ciId = idOf(
       await app.inject({ method: 'POST', url: `/api/v1/campaigns/${campaignId}/influencers`, headers: auth, payload: { influencerId } }),

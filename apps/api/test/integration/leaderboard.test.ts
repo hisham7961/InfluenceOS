@@ -36,9 +36,9 @@ describe('W6-2 — creator performance leaderboard', () => {
     auth = a.auth;
     userId = a.userId;
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `LB Brand ${Date.now()}` } }));
-    strong = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Strong ${Date.now()}` } }));
-    weak = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Weak ${Date.now()}` } }));
-    invitedOnly = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Invited ${Date.now()}` } }));
+    strong = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Strong ${Date.now()}`, countryCode: 'KW' } }));
+    weak = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Weak ${Date.now()}`, countryCode: 'KW' } }));
+    invitedOnly = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Invited ${Date.now()}`, countryCode: 'KW' } }));
 
     // Two committed campaigns for the strong creator, each with published work.
     const c1 = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `LB C1 ${Date.now()}` } }));

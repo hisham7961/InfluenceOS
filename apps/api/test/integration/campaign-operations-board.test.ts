@@ -31,7 +31,7 @@ describe('OI-5 — Campaign Operations Board', () => {
       await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Board Camp ${Date.now()}` } }),
     );
     const influencerId = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Board Creator ${Date.now()}` } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Board Creator ${Date.now()}`, countryCode: 'KW' } }),
     );
     ciId = idOf(
       await app.inject({ method: 'POST', url: `/api/v1/campaigns/${campaignId}/influencers`, headers: auth, payload: { influencerId, dealType: 'GIFTED_PRODUCT' } }),

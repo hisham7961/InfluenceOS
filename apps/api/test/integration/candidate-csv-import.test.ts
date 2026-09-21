@@ -30,7 +30,7 @@ describe('W3-4 — candidate CSV import', () => {
     // An existing creator that the CSV should MATCH (by handle+platform), not duplicate.
     existingId = idOf(await app.inject({
       method: 'POST', url: '/api/v1/influencers', headers: auth,
-      payload: { displayName: `Existing ${tag}`, primaryUsername: `existing_${tag}`, primaryPlatform: 'INSTAGRAM' },
+      payload: { displayName: `Existing ${tag}`, primaryUsername: `existing_${tag}`, primaryPlatform: 'INSTAGRAM', countryCode: 'KW' },
     }));
   });
 
@@ -48,10 +48,10 @@ describe('W3-4 — candidate CSV import', () => {
 
   it('imports a CSV: matches an existing creator, creates new ones, and reports a bad row', async () => {
     const csv = [
-      'Display Name,username,platform,fitScore,notes',
+      'Display Name,username,platform,fitScore,notes,country',
       `Existing ${tag},existing_${tag},INSTAGRAM,70,known face`, // matches existing → added candidate (no new influencer)
-      `"New, One ${tag}",new_one_${tag},TIKTOK,85,"strong, on-brand"`, // created
-      `New Two ${tag},,,,,`, // created (no handle) — trailing extra cell ignored
+      `"New, One ${tag}",new_one_${tag},TIKTOK,85,"strong, on-brand",Kuwait`, // created
+      `New Two ${tag},,,,,Kuwait,`, // created (no handle) — trailing extra cell ignored
       ',,,,', // no name/username → failed
     ].join('\n');
 

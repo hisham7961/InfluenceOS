@@ -38,7 +38,7 @@ describe('OI-6 — Data Quality + Duplicate Detection', () => {
     // check for: no social accounts, no contact info, no category, a PAID
     // deal with no agreedCost, and a deliverable with no dueDate.
     const influencerId = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `DQ Creator ${Date.now()}` } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `DQ Creator ${Date.now()}`, countryCode: 'KW' } }),
     );
     const ciId = idOf(
       await app.inject({
@@ -86,10 +86,10 @@ describe('OI-6 — Data Quality + Duplicate Detection', () => {
   it('duplicates() surfaces a real exact match on a shared email, with the matching field/value shown', async () => {
     const email = `dup-${Date.now()}@example.com`;
     const id1 = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: 'Dup Creator One', email } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: 'Dup Creator One', email, countryCode: 'KW' } }),
     );
     const id2 = idOf(
-      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: 'Dup Creator Two', email } }),
+      await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: 'Dup Creator Two', email, countryCode: 'KW' } }),
     );
     // Both must join this brand's roster to be in the brand-scoped result.
     await app.inject({

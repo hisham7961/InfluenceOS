@@ -99,7 +99,11 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
         primaryUsername: primaryUsername.trim() || null,
         category: category.trim() || null,
         country: country.trim() || null,
-        countryCode: countryCode === NO_COUNTRY ? null : countryCode,
+        // countryCode is required (mandatory since creation) — once set, it
+        // can be changed to a different country but never cleared back to
+        // "none", so an untouched NO_COUNTRY selection is simply omitted
+        // (leaves an existing legacy country-less row as-is) rather than sent as null.
+        countryCode: countryCode === NO_COUNTRY ? undefined : countryCode,
         city: city.trim() || null,
         languages: splitList(languages),
         email: email.trim() || null,

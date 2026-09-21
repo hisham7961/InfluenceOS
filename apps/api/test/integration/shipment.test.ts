@@ -27,7 +27,7 @@ describe('Logistics — shipment tracking (evolved W3-5)', () => {
     auth = a.auth;
     userId = a.userId;
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Ship Brand ${Date.now()}` } }));
-    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Ship Inf ${Date.now()}` } }));
+    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Ship Inf ${Date.now()}`, countryCode: 'KW' } }));
     campaignId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Ship Camp ${Date.now()}` } }));
     ciId = idOf(await app.inject({ method: 'POST', url: `/api/v1/campaigns/${campaignId}/influencers`, headers: auth, payload: { influencerId, dealType: 'GIFTED_PRODUCT', giftedProductValue: 40, currency: 'KWD' } }));
     deliverableId = idOf(
@@ -97,7 +97,7 @@ describe('Logistics — shipment tracking (evolved W3-5)', () => {
   });
 
   it('rejects a deliverableId that belongs to a different campaign-influencer', async () => {
-    const otherInf = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Ship Other ${Date.now()}` } }));
+    const otherInf = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Ship Other ${Date.now()}`, countryCode: 'KW' } }));
     const otherCi = idOf(await app.inject({ method: 'POST', url: `/api/v1/campaigns/${campaignId}/influencers`, headers: auth, payload: { influencerId: otherInf, dealType: 'FREE' } }));
     const otherDeliverable = idOf(
       await app.inject({ method: 'POST', url: `/api/v1/campaign-influencers/${otherCi}/deliverables`, headers: auth, payload: { platform: 'INSTAGRAM', type: 'UGC' } }),

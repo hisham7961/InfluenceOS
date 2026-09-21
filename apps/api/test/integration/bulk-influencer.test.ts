@@ -53,8 +53,8 @@ describe('OI-7 — Bulk influencer-directory actions', () => {
     ownerId = ownerUser.id;
     await prisma.$disconnect();
 
-    idA = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `Bulk Creator A ${Date.now()}` } }));
-    idB = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `Bulk Creator B ${Date.now()}` } }));
+    idA = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `Bulk Creator A ${Date.now()}`, countryCode: 'KW' } }));
+    idB = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: admin, payload: { displayName: `Bulk Creator B ${Date.now()}`, countryCode: 'KW' } }));
   });
 
   afterAll(async () => {
