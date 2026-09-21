@@ -261,7 +261,14 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   await shipmentSheet.getByRole('combobox').nth(1).click();
   await page.getByRole('option', { name: 'Missing Phone' }).click();
   await shipmentSheet.getByPlaceholder(/building number is missing/i).fill('Phone number is unreachable — please confirm.');
-  await shipmentSheet.getByRole('button', { name: 'Send request' }).click();
+  // Wait on the actual mutation response, not just the eventual UI update —
+  // a CI-only failure here reads as a vague UI timeout even when the real
+  // cause (e.g. a non-2xx response) is immediately visible on the network.
+  const [issueResp] = await Promise.all([
+    page.waitForResponse((r) => /\/shipments\/[^/]+\/issues$/.test(new URL(r.url()).pathname) && r.request().method() === 'POST'),
+    shipmentSheet.getByRole('button', { name: 'Send request' }).click(),
+  ]);
+  expect(issueResp.ok(), `POST .../issues failed: ${issueResp.status()} ${await issueResp.text().catch(() => '<no body>')}`).toBeTruthy();
   await expect(shipmentSheet.getByText('Clarification Requested')).toBeVisible({ timeout: 25_000 });
   await expect(shipmentSheet.getByText('Phone number is unreachable')).toBeVisible();
 
