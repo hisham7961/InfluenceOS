@@ -16,6 +16,7 @@ import { formatCompact, formatCurrency } from '@/lib/format';
 import { ProfileTabs } from './profile-tabs';
 import { CreatorConnections } from './creator-connections';
 import { InfluencerEditDialog } from './influencer-edit-dialog';
+import { SyncAvatarButton } from './sync-avatar-button';
 import { CreatorSnapshot } from './creator-snapshot';
 
 export const dynamic = 'force-dynamic';
@@ -113,6 +114,7 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
 
           <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col">
             <InfluencerEditDialog influencer={influencer} />
+            <SyncAvatarButton influencer={influencer} />
             {contact.whatsapp ? (
               <Button asChild variant="secondary" size="sm">
                 <a href={waHref(contact.whatsapp)} target="_blank" rel="noreferrer">

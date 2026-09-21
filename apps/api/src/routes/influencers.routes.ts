@@ -154,6 +154,19 @@ export async function influencerRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).influencers.update(req.params.id, req.body),
   );
 
+  r.post(
+    '/influencers/:id/sync-avatar',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Influencers'],
+        summary: 'Re-resolve the profile photo from the linked primary social account',
+        params: idParam,
+      },
+    },
+    async (req) => servicesFor(req).influencers.syncAvatar(req.params.id),
+  );
+
   r.get(
     '/influencers/:id/social-accounts',
     { preHandler: [requireAuth], schema: { tags: ['Influencers'], summary: 'Influencer social accounts', params: idParam } },

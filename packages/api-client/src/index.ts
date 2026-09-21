@@ -185,6 +185,10 @@ export function createClient(config: ClientConfig) {
         http.patch<InfluencerDetailDTO>(`${V}/influencers/${id}`, body),
       resolve: (body: In<typeof requests.resolveProfileSchema>) =>
         http.post<ResolveProfileResultDTO>(`${V}/influencers/resolve`, body),
+      syncAvatar: (id: string) =>
+        http.post<{ influencer: InfluencerDetailDTO; synced: boolean; message: string }>(
+          `${V}/influencers/${id}/sync-avatar`,
+        ),
       socialAccounts: (id: string) => http.get<SocialAccountDTO[]>(`${V}/influencers/${id}/social-accounts`),
       // Creator-OAuth connections (INT-3; inert until platform app review).
       creatorConnections: (id: string) =>

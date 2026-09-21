@@ -1,4 +1,5 @@
 import { getAdapter, profileUrl as buildProfileUrl } from '@influenceos/shared';
+import { resolveAvatarUrl } from '../lib/avatar';
 import { requests, type SocialAccountDTO, type DataSource } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
@@ -100,12 +101,20 @@ export function makeSocialAccountService(ctx: DomainContext) {
     });
 
     if (input.isPrimary || !influencer.primaryPlatform) {
+      // Manual "add social account" entry rarely carries a photo (no resolve
+      // step in that form) — if the creator still has no photo of their own,
+      // best-effort fetch one from the platform now, same as the profile
+      // page's "Sync photo" action, so linking an account is enough on its
+      // own to get a real avatar instead of leaving initials.
+      const avatarUrl =
+        input.avatarUrl ??
+        (influencer.resolvedAvatarUrl ? null : await resolveAvatarUrl(input.platform, input.username, ctx.credentials).catch(() => null));
       await prisma.influencer.update({
         where: { id: influencer.id },
         data: {
           primaryPlatform: influencer.primaryPlatform ?? input.platform,
           primaryUsername: influencer.primaryUsername ?? input.username,
-          resolvedAvatarUrl: influencer.resolvedAvatarUrl ?? input.avatarUrl ?? undefined,
+          resolvedAvatarUrl: influencer.resolvedAvatarUrl ?? avatarUrl ?? undefined,
         },
       });
     }

@@ -16,6 +16,7 @@ import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireCapability } from '../lib/authz';
 import { buildCursorPage } from '../lib/cursor';
+import { resolveAvatarUrl } from '../lib/avatar';
 import { iso, logActivity } from '../lib/helpers';
 import { sumMoney, toDecimal } from '../lib/money';
 import { toInfluencerSummary, toSocialAccountDTO } from '../lib/mappers';
@@ -574,6 +575,50 @@ export function makeInfluencerService(ctx: DomainContext) {
     return detail(id);
   }
 
+  /**
+   * Re-resolve the creator's profile photo from their linked primary social
+   * account and backfill `resolvedAvatarUrl` — for a creator who was added
+   * without a successful "Find Creator" lookup (manual entry, import, or the
+   * lookup found no photo at the time) and still shows the initials
+   * placeholder. Never fabricates a photo: on failure it reports why.
+   */
+  async function syncAvatar(id: string): Promise<{ influencer: InfluencerDetailDTO; synced: boolean; message: string }> {
+    await requireCapability(ctx, 'INFLUENCERS_MANAGE');
+    const existing = await prisma.influencer.findUnique({ where: { id } });
+    if (!existing) throw AppError.notFound('Influencer');
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, existing.countryCode)) throw AppError.notFound('Influencer');
+    if (await isInfluencerBrandOutOfScope(id)) throw AppError.notFound('Influencer');
+
+    if (!existing.primaryPlatform || !existing.primaryUsername) {
+      return { influencer: await detail(id), synced: false, message: 'No linked social profile to sync a photo from yet — link one first.' };
+    }
+
+    const avatarUrl = await resolveAvatarUrl(existing.primaryPlatform, existing.primaryUsername, ctx.credentials);
+    if (!avatarUrl) {
+      return { influencer: await detail(id), synced: false, message: 'No profile photo could be found for this creator right now.' };
+    }
+
+    await prisma.influencer.update({ where: { id }, data: { resolvedAvatarUrl: avatarUrl } });
+
+    // Keep the linked primary social account's own avatar in step, if one exists.
+    const primaryAccount = await prisma.socialAccount.findUnique({
+      where: { platform_username: { platform: existing.primaryPlatform, username: existing.primaryUsername } },
+      select: { id: true, influencerId: true },
+    });
+    if (primaryAccount && primaryAccount.influencerId === id) {
+      await prisma.socialAccount.update({ where: { id: primaryAccount.id }, data: { avatarUrl, lastSyncedAt: new Date() } });
+    }
+
+    await logActivity(ctx, {
+      type: 'INFLUENCER_UPDATED',
+      message: `${ctx.actor?.name ?? 'Someone'} synced ${existing.displayName}'s profile photo from ${existing.primaryPlatform}.`,
+      influencerId: id,
+    });
+
+    return { influencer: await detail(id), synced: true, message: 'Profile photo synced.' };
+  }
+
   async function setTags(influencerId: string, tagNames: string[]) {
     const names = Array.from(new Set(tagNames.map((t) => t.trim()).filter(Boolean)));
     const tags = await Promise.all(
@@ -622,7 +667,7 @@ export function makeInfluencerService(ctx: DomainContext) {
     );
   }
 
-  return { list, listCursor, countrySummary, exportRows, detail, create, update, socialAccountsFor, audienceFor, followerSeries };
+  return { list, listCursor, countrySummary, exportRows, detail, create, update, syncAvatar, socialAccountsFor, audienceFor, followerSeries };
 }
 
 export type InfluencerService = ReturnType<typeof makeInfluencerService>;

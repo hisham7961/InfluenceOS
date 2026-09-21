@@ -192,6 +192,7 @@
     "backToInfluencers": "Back to Influencers",
     "managedBy": "Managed by {name}",
     "noContactInfo": "No contact info on file",
+    "syncPhotoButton": "Sync photo",
     "whatsappButton": "WhatsApp",
     "emailButton": "Email",
     "callButton": "Call",
