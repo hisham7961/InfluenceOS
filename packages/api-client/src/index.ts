@@ -23,6 +23,9 @@ import type {
   ContentViewerStateDTO,
   CostSummaryDTO,
   CreatorLeaderboardDTO,
+  CreatorReliabilityDTO,
+  CreatorSnapshotDTO,
+  CreatorTimelineItemDTO,
   CursorPage,
   DeliverableDTO,
   DeliverableSubmissionDTO,
@@ -156,6 +159,11 @@ export function createClient(config: ClientConfig) {
         http.post<SocialAccountDTO>(`${V}/influencers/${id}/social-accounts`, { ...body, influencerId: id }),
       notes: (id: string) => http.get<NoteDTO[]>(`${V}/influencers/${id}/notes`),
       brandRelationships: (id: string) => http.get<BrandInfluencerDTO[]>(`${V}/influencers/${id}/brands`),
+      // Creator 360 (Operations Intelligence pass).
+      snapshot: (id: string) => http.get<CreatorSnapshotDTO>(`${V}/influencers/${id}/snapshot`),
+      reliability: (id: string) => http.get<CreatorReliabilityDTO>(`${V}/influencers/${id}/reliability`),
+      timeline: (id: string, params?: QueryParams) =>
+        http.get<CursorPage<CreatorTimelineItemDTO>>(`${V}/influencers/${id}/timeline`, { query: params }),
     },
 
     socialAccounts: {

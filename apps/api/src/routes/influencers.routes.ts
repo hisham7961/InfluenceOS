@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { requests, z, type InfluencerExportRowDTO } from '@influenceos/contracts';
+import { cursorQuerySchema, requests, z, type InfluencerExportRowDTO } from '@influenceos/contracts';
 import { requireAuth, rowsToCsv, sendCsv, servicesFor } from '../http';
 
 const idParam = z.object({ id: z.string() });
@@ -154,6 +154,28 @@ export async function influencerRoutes(app: FastifyInstance): Promise<void> {
     '/influencers/:id/notes',
     { preHandler: [requireAuth], schema: { tags: ['Influencers'], summary: 'Internal notes for an influencer', params: idParam } },
     async (req) => servicesFor(req).notes.listForInfluencer(req.params.id),
+  );
+
+  // --- Creator 360 (Operations Intelligence pass) ---
+  r.get(
+    '/influencers/:id/snapshot',
+    { preHandler: [requireAuth], schema: { tags: ['Influencers'], summary: 'Creator 360 snapshot', params: idParam } },
+    async (req) => servicesFor(req).creator360.snapshot(req.params.id),
+  );
+
+  r.get(
+    '/influencers/:id/reliability',
+    { preHandler: [requireAuth], schema: { tags: ['Influencers'], summary: 'Deliverable-timeliness evidence', params: idParam } },
+    async (req) => servicesFor(req).creator360.reliability(req.params.id),
+  );
+
+  r.get(
+    '/influencers/:id/timeline',
+    {
+      preHandler: [requireAuth],
+      schema: { tags: ['Influencers'], summary: 'Creator master timeline', params: idParam, querystring: cursorQuerySchema },
+    },
+    async (req) => servicesFor(req).creator360.timeline(req.params.id, req.query),
   );
 
   r.get(

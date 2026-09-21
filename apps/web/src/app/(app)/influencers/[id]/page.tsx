@@ -14,6 +14,7 @@ import { formatCompact, formatCurrency } from '@/lib/format';
 import { ProfileTabs } from './profile-tabs';
 import { CreatorConnections } from './creator-connections';
 import { InfluencerEditDialog } from './influencer-edit-dialog';
+import { CreatorSnapshot } from './creator-snapshot';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,10 +36,12 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
     throw e;
   }
 
-  const [contentFeed, notes, brandRelationships] = await Promise.all([
+  const [contentFeed, notes, brandRelationships, snapshot, reliability] = await Promise.all([
     api.content.feed({ influencerId: id, limit: 12 }),
     api.influencers.notes(id),
     api.influencers.brandRelationships(id),
+    api.influencers.snapshot(id),
+    api.influencers.reliability(id),
   ]);
 
   const contact = influencer.contact;
@@ -151,6 +154,8 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
           hint={`of ${history.deliverablesTotal} total`}
         />
       </div>
+
+      <CreatorSnapshot snapshot={snapshot} reliability={reliability} />
 
       <CreatorConnections influencerId={influencer.id} />
 

@@ -22,11 +22,11 @@ import { AudienceHealthBadge, RelationshipStatusBadge } from '@/components/ui/st
 import { StatCard } from '@/components/ui/stat-card';
 import { ContentGrid } from '@/components/content/content-grid';
 import { AddContentFlow } from '@/components/content/add-content-flow';
-import { ActivityFeed } from '@/components/common/activity-feed';
 import { formatCurrency, relativeTime, shortDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { NotesPanel } from './notes-panel';
 import { SocialAccountsPanel } from './social-accounts-panel';
+import { CreatorTimeline } from './creator-timeline';
 
 /** "Add Content" preselecting this influencer — Critical Business Question 3. */
 function AddContentButton({ influencerId, influencerName }: { influencerId: string; influencerName: string }) {
@@ -229,15 +229,12 @@ export function ProfileTabs({
         </Card>
       </TabsContent>
 
-      {/* Timeline — campaign joins, deliverables, shipments, content, costs;
-          sourced from ActivityLog (the same feed the Campaign page's Activity
-          tab reads), never a duplicate history table. */}
+      {/* Creator Master Timeline (Operations Intelligence pass, PART 29-30) —
+          a unified, filterable chronology distinct from Chat/Notes: reuses
+          ActivityLog, top-level Notes and DeliverableSubmission rows, never
+          a duplicate history table. */}
       <TabsContent value="timeline">
-        <ActivityFeed
-          filter={{ influencerId: influencer.id }}
-          queryKey={['influencer-activity', influencer.id]}
-          emptyDescription={`Campaign joins, deliverables, shipments, content and payments for ${influencer.displayName} will show up here.`}
-        />
+        <CreatorTimeline influencerId={influencer.id} />
       </TabsContent>
 
       {/* Content */}
