@@ -28,9 +28,11 @@ import type {
   CreatorSnapshotDTO,
   CreatorTimelineItemDTO,
   CursorPage,
+  DataQualityReportDTO,
   DeliverableDTO,
   DeliverableSubmissionDTO,
   DeviceSessionDTO,
+  DuplicateCandidateDTO,
   ExecDashboardDTO,
   ExpenseDTO,
   FeatureDTO,
@@ -342,6 +344,11 @@ export function createClient(config: ClientConfig) {
       // this when the person opens/dismisses the What's New panel, never on
       // a passive GET (item 57).
       whatsNewAck: () => http.post<{ lastWhatsNewViewedAt: string }>(`${V}/dashboard/whats-new/ack`),
+    },
+
+    dataQuality: {
+      report: (brandId?: string) => http.get<DataQualityReportDTO>(`${V}/data-quality/report`, { query: { brandId } }),
+      duplicates: (brandId?: string) => http.get<DuplicateCandidateDTO[]>(`${V}/data-quality/duplicates`, { query: { brandId } }),
     },
 
     calendar: {

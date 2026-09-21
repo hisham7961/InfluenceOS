@@ -9,6 +9,7 @@ import {
   Package,
   PlaySquare,
   Settings,
+  ShieldAlert,
   Sparkles,
   Store,
   Users,
@@ -52,6 +53,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/exec', label: 'Executive', icon: Gauge },
       { href: '/reports', label: 'Reports', icon: Sparkles },
+      { href: '/data-quality', label: 'Data Quality', icon: ShieldAlert },
     ],
   },
   {

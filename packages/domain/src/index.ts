@@ -20,6 +20,7 @@ import { makeCredentialService } from './services/credential.service';
 import { makeCreatorOAuthService } from './services/creator-oauth.service';
 import { makeCreator360Service } from './services/creator360.service';
 import { makeDashboardService } from './services/dashboard.service';
+import { makeDataQualityService } from './services/data-quality.service';
 import { makeDeliverableService } from './services/deliverable.service';
 import { makeExpenseService } from './services/expense.service';
 import { makeInfluencerService } from './services/influencer.service';
@@ -47,6 +48,7 @@ export function createServices(ctx: DomainContext) {
     brandInfluencers: makeBrandInfluencerService(ctx),
     influencers: makeInfluencerService(ctx),
     creator360: makeCreator360Service(ctx),
+    dataQuality: makeDataQualityService(ctx),
     inspiration: makeInspirationService(ctx),
     socialAccounts: makeSocialAccountService(ctx),
     providers: makeProviderService(ctx),
