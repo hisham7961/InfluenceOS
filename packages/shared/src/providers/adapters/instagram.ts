@@ -7,7 +7,12 @@ import type {
   ResolvedProfile,
 } from '../types';
 
-const GRAPH = 'https://graph.facebook.com/v21.0';
+/**
+ * v21.0 reaches end of life on 2027-01-21, after which Meta silently downgrades
+ * calls to the next usable version. v25.0 is what Meta's current Business
+ * Discovery examples use and runs until 2028-07-29.
+ */
+const GRAPH = 'https://graph.facebook.com/v25.0';
 
 /**
  * How many recent media to scan when matching a post. Business Discovery only
@@ -100,11 +105,15 @@ export class InstagramAdapter extends BaseAdapter {
    *
    * Deliberately partial, and the limits are platform ceilings we cannot code
    * around:
-   *  - **No view/play counts.** Business Discovery never exposes them; plays are
-   *    an insights metric readable only on an account that authorized us. We
-   *    leave `views` null rather than substituting a lookalike number.
    *  - **Recent media only.** The edge returns the target's newest posts, so an
-   *    older post yields NOT_FOUND and stays manual.
+   *    older post yields NOT_FOUND and stays manual. There is no endpoint that
+   *    resolves a post URL to a media id, and a media id returned here cannot be
+   *    fetched directly ("performing a GET on any returned IG Media will fail
+   *    due to insufficient permissions"), so everything must come back through
+   *    field expansion on this one call.
+   *  - **`like_count` is omitted when the owner hides like counts** — Meta drops
+   *    the field under field expansion rather than erroring, so it reads as null.
+   *  - **`view_count` covers Reels only** and mixes paid with organic reach.
    *  - **Professional accounts only**, same eligibility rule as resolveProfile.
    *
    * An Instagram post URL carries no username, so the caller supplies the owning
@@ -124,7 +133,7 @@ export class InstagramAdapter extends BaseAdapter {
         'business_discovery.username(' +
         encodeURIComponent(owner) +
         `){media.limit(${MEDIA_WINDOW})` +
-        '{id,permalink,like_count,comments_count,media_type,timestamp}}';
+        '{id,permalink,like_count,comments_count,view_count,media_type,timestamp}}';
       const res = await this.fetchFn(
         `${GRAPH}/${this.igUserId}?fields=${fields}&access_token=${this.accessToken}`,
       );
@@ -137,7 +146,12 @@ export class InstagramAdapter extends BaseAdapter {
       const items = data.business_discovery?.media?.data;
       if (!Array.isArray(items)) return this.manualFallback('ACCOUNT_NOT_ELIGIBLE');
       const match = items.find(
-        (m): m is { permalink?: string; like_count?: number; comments_count?: number } =>
+        (m): m is {
+          permalink?: string;
+          like_count?: number;
+          comments_count?: number;
+          view_count?: number;
+        } =>
           !!m &&
           typeof m === 'object' &&
           typeof (m as { permalink?: unknown }).permalink === 'string' &&
@@ -150,8 +164,10 @@ export class InstagramAdapter extends BaseAdapter {
         ok: true,
         source: 'OFFICIAL_API',
         data: {
-          // Never available via Business Discovery — see the doc comment.
-          views: null,
+          // Reels only, and absent on other media types — null, never zero, so a
+          // missing field is not recorded as a real count of zero.
+          views: match.view_count ?? null,
+          // Absent when the owner hides like counts; same reasoning as above.
           likes: match.like_count ?? null,
           comments: match.comments_count ?? null,
           shares: null,

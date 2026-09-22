@@ -425,14 +425,14 @@
       },
       "INSTAGRAM": {
         "headline": "Profile + post likes/comments — Business/Creator accounts only",
-        "unlocks": "Auto-fetch profile (name, avatar, bio, followers) and per-post likes & comments for Professional target accounts' recent posts, via Business Discovery.",
+        "unlocks": "Auto-fetch profile (name, avatar, bio, followers) plus per-post likes, comments and Reel views for Professional target accounts' recent posts, via Business Discovery.",
         "steps": [
           "Connect an Instagram Business/Creator account to a Facebook Page you own.",
-          "Meta for Developers → create an app → add “Instagram Graph API”.",
-          "Generate a long-lived access token (instagram_basic, pages_read_engagement, Business Discovery).",
+          "Meta for Developers → create an app → Instagram → “API setup with Facebook login” (NOT Instagram login).",
+          "Generate a long-lived token with instagram_basic, instagram_manage_insights, pages_read_engagement and pages_show_list — extend it to long-lived BEFORE calling /me/accounts, or the Page token inherits the short expiry.",
           "Find your connected IG Business account id. BOTH values are required — with only one, it stays inactive."
         ],
-        "limitation": "No view/play counts — Business Discovery never exposes them, so views stay manual. Older posts and personal accounts are manual too. Full post metrics need Creator connections (below)."
+        "limitation": "Use the “API setup with Facebook login” path — Business Discovery does not exist on the Instagram login path. Only recent posts of Professional accounts resolve; older posts and personal accounts stay manual. Views cover Reels only."
       },
       "TIKTOK": {
         "headline": "Embed + availability only",
