@@ -1114,6 +1114,13 @@ model PublishedContent {
   checkFailureCount    Int           @default(0)
   dataSource           DataSource    @default(MANUAL)
   rawMetadata          Json?
+  /// True for a Story screenshot/recording uploaded directly, never a link
+  /// to a live post (Stories expire so there's nothing stable to link to).
+  /// originalUrl is a synthetic, non-fetchable story://<uuid> placeholder in
+  /// this case; the real media is the Attachment(s) targeting this row's id.
+  /// Never enrolled in the availability-monitoring loop (nextCheckAt stays
+  /// null) since there is no live URL to check.
+  isStory              Boolean       @default(false)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
@@ -1129,6 +1136,7 @@ model PublishedContent {
   usageRights        UsageRight[]
   viewerStates       UserContentState[]
   notes              Note[]
+  attachments        Attachment[]
 
   @@unique([platform, originalUrl])
   @@index([campaignId])
@@ -1215,31 +1223,34 @@ model CampaignExpense {
 // ===========================================================================
 
 model Attachment {
-  id                String   @id @default(cuid())
-  fileName          String
-  mimeType          String
-  sizeBytes         Int
-  storageKey        String   @unique
-  url               String?
-  kind              String?
-  influencerId      String?
-  campaignId        String?
-  deliverableId     String?
-  scriptReferenceId String?
-  noteId            String?
-  uploadedById      String?
-  createdAt         DateTime @default(now())
+  id                 String   @id @default(cuid())
+  fileName           String
+  mimeType           String
+  sizeBytes          Int
+  storageKey         String   @unique
+  url                String?
+  kind               String?
+  influencerId       String?
+  campaignId         String?
+  deliverableId      String?
+  scriptReferenceId  String?
+  noteId             String?
+  publishedContentId String?
+  uploadedById       String?
+  createdAt          DateTime @default(now())
 
-  campaign        Campaign?        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  influencer      Influencer?      @relation(fields: [influencerId], references: [id], onDelete: Cascade)
-  deliverable     Deliverable?     @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
-  scriptReference ScriptReference? @relation(fields: [scriptReferenceId], references: [id], onDelete: Cascade)
-  note            Note?            @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  uploadedBy      User?            @relation(fields: [uploadedById], references: [id])
+  campaign         Campaign?         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  influencer       Influencer?       @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  deliverable      Deliverable?      @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  scriptReference  ScriptReference?  @relation(fields: [scriptReferenceId], references: [id], onDelete: Cascade)
+  note             Note?             @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  publishedContent PublishedContent? @relation(fields: [publishedContentId], references: [id], onDelete: Cascade)
+  uploadedBy       User?             @relation(fields: [uploadedById], references: [id])
 
   @@index([influencerId])
   @@index([campaignId])
   @@index([deliverableId])
+  @@index([publishedContentId])
 }
 
 model Tag {
@@ -1601,6 +1612,12 @@ model ActivityLog {
   influencer       Influencer?       @relation(fields: [influencerId], references: [id])
   deliverable      Deliverable?      @relation(fields: [deliverableId], references: [id])
   publishedContent PublishedContent? @relation(fields: [publishedContentId], references: [id])
+  // NOTE: the sibling `meta.shipmentId` JSONB-path filter is deliberately
+  // NOT indexed here — Prisma's schema DSL cannot express the functional
+  // (expression) btree index it needs. See this migration's raw-SQL section
+  // for the index and the measured justification (EXPLAIN ANALYZE showed a
+  // full-table scan even for a 3-row result once this table passed ~16.7k
+  // rows).
 
   @@index([createdAt])
   @@index([brandId])
@@ -1612,12 +1629,6 @@ model ActivityLog {
   // `shipmentId` below) — mirrors the existing brandId/campaignId/
   // influencerId indexes on this same model exactly.
   @@index([publishedContentId])
-  // NOTE: the sibling `meta.shipmentId` JSONB-path filter is deliberately
-  // NOT indexed here — Prisma's schema DSL cannot express the functional
-  // (expression) btree index it needs. See this migration's raw-SQL section
-  // for the index and the measured justification (EXPLAIN ANALYZE showed a
-  // full-table scan even for a 3-row result once this table passed ~16.7k
-  // rows).
 }
 
 /// Central provider integration state for the Admin Integrations screen and

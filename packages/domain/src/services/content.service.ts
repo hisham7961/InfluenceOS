@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   buildEmbed,
   contentReviewStatus,
@@ -25,6 +26,7 @@ import { requireActor, requireCapability } from '../lib/authz';
 import { resolveContentAssociation } from '../lib/content-association';
 import { createNotification, iso, logActivity } from '../lib/helpers';
 import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
+import { resolveAttachmentDownloadUrl } from '../lib/storage';
 import {
   toBrandSummary,
   toContentMetricsDTO,
@@ -33,6 +35,7 @@ import {
 } from '../lib/mappers';
 
 type ContentCreate = z.infer<typeof requests.publishedContentCreateSchema>;
+type StoryCreate = z.infer<typeof requests.publishedContentStoryCreateSchema>;
 type ContentUpdate = z.infer<typeof requests.publishedContentUpdateSchema>;
 type ContentFilter = z.infer<typeof requests.contentFilterSchema>;
 type ManualMetrics = z.infer<typeof requests.contentMetricSchema>;
@@ -79,6 +82,14 @@ function relIncludeFor(userId: string | undefined) {
     // top-level only, excludes soft-deleted notes, distinct from the
     // platform's own public engagement comment count (metrics.comments).
     _count: { select: { notes: { where: { parentId: null, deletedAt: null } } } },
+    // A Story's media — the screenshot/recording uploaded right after
+    // createStory() returns the row id. Regular (link) content never has
+    // one; take 1 in case a re-upload ever adds a second attachment.
+    attachments: {
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+      select: { id: true, storageKey: true, fileName: true, mimeType: true, kind: true },
+    },
   } satisfies Prisma.PublishedContentInclude;
 }
 
@@ -92,12 +103,21 @@ function youtubeThumb(platform: Platform, externalId: string | null): string | n
 export function makeContentService(ctx: DomainContext) {
   const { prisma } = ctx;
 
-  function mapRow(pc: Prisma.PublishedContentGetPayload<{ include: ReturnType<typeof relIncludeFor> }>): PublishedContentDTO {
+  async function mapRow(pc: Prisma.PublishedContentGetPayload<{ include: ReturnType<typeof relIncludeFor> }>): Promise<PublishedContentDTO> {
     const latest = pc.metricSnapshots[0] ?? null;
     const vs = pc.viewerStates[0] ?? null;
     const viewerState: ContentViewerStateDTO | null = vs
       ? { firstSeenAt: iso(vs.firstSeenAt), lastOpenedAt: iso(vs.lastOpenedAt), reviewedAt: iso(vs.reviewedAt), savedForLaterAt: iso(vs.savedForLaterAt) }
       : null;
+    const attachment = pc.attachments[0] ?? null;
+    const storyMedia =
+      pc.isStory && attachment
+        ? {
+            url: await resolveAttachmentDownloadUrl(attachment.id, attachment.storageKey, attachment.fileName),
+            kind: attachment.kind === 'video' ? ('video' as const) : ('image' as const),
+            mimeType: attachment.mimeType,
+          }
+        : null;
     return toPublishedContentDTO(pc, {
       influencer: pc.influencer ? toInfluencerSummary(pc.influencer) : null,
       brand: pc.brand ? toBrandSummary(pc.brand) : null,
@@ -106,6 +126,7 @@ export function makeContentService(ctx: DomainContext) {
       metrics: toContentMetricsDTO(latest),
       viewerState,
       commentCount: pc._count.notes,
+      storyMedia,
     });
   }
 
@@ -141,7 +162,7 @@ export function makeContentService(ctx: DomainContext) {
     const pc = await prisma.publishedContent.findUnique({ where: { id }, include: relIncludeFor(ctx.actor?.id) });
     if (!pc) throw AppError.notFound('Content');
     await assertContentInScope({ brandId: pc.brandId, influencerId: pc.influencerId });
-    return mapRow(pc);
+    return await mapRow(pc);
   }
 
   async function create(input: ContentCreate): Promise<PublishedContentDTO> {
@@ -258,7 +279,110 @@ export function makeContentService(ctx: DomainContext) {
       return created;
     });
 
-    return mapRow(pc);
+    return await mapRow(pc);
+  }
+
+  /**
+   * A Story screenshot/recording — no live post to link (Stories expire, so
+   * there's no fetchable URL), a required `platform` in place of one, and no
+   * embed/thumbnail/dedup logic (all of that keys off a real originalUrl,
+   * which a Story doesn't have). `originalUrl` still stores a synthetic,
+   * globally-unique `story://<uuid>` placeholder so the existing
+   * `@@unique([platform, originalUrl])` constraint and every caller that
+   * treats `originalUrl` as a non-null string keep working unchanged. The
+   * actual media is a follow-up attachment upload (POST /files/initiate with
+   * target.publishedContentId = this row's id), surfaced back on the DTO as
+   * `storyMedia` once mapRow() picks it up.
+   */
+  async function createStory(input: StoryCreate): Promise<PublishedContentDTO> {
+    await requireCapability(ctx, 'CONTENT_MANAGE');
+
+    const scope = await scopedBrandIds(ctx);
+    const { campaignId, brandId, influencerId, campaignInfluencerId, deliverableId } =
+      await resolveContentAssociation(
+        prisma,
+        {
+          brandId: input.brandId,
+          campaignId: input.campaignId,
+          influencerId: input.influencerId,
+          campaignInfluencerId: input.campaignInfluencerId,
+          deliverableId: input.deliverableId,
+        },
+        scope,
+      );
+
+    const originalUrl = `story://${randomUUID()}`;
+
+    const pc = await prisma.$transaction(async (tx) => {
+      const created = await tx.publishedContent.create({
+        data: {
+          platform: input.platform,
+          externalId: null,
+          originalUrl,
+          embedUrl: null,
+          thumbnailUrl: null,
+          caption: input.caption ?? null,
+          publishedAt: input.publishedAt ?? null,
+          brandId,
+          campaignId,
+          influencerId,
+          campaignInfluencerId,
+          deliverableId,
+          availabilityStatus: 'LIVE',
+          dataSource: 'MANUAL',
+          nextCheckAt: null,
+          isStory: true,
+        },
+        include: relIncludeFor(ctx.actor?.id),
+      });
+
+      // Link the deliverable — advances campaign progress automatically (§55, DoD),
+      // same as create()'s own link step above.
+      if (deliverableId) {
+        const deliverable = await tx.deliverable.findUnique({ where: { id: deliverableId } });
+        if (deliverable && deliverable.status !== 'VERIFIED') {
+          await tx.deliverable.update({
+            where: { id: deliverableId },
+            data: {
+              status: 'PUBLISHED',
+              publishedUrl: originalUrl,
+              publishedAt: input.publishedAt ?? new Date(),
+            },
+          });
+        }
+      }
+
+      await logActivity(
+        ctx,
+        {
+          type: 'CONTENT_PUBLISHED',
+          message: `${ctx.actor?.name ?? 'Someone'} added a ${input.platform} Story.`,
+          brandId,
+          campaignId,
+          influencerId,
+          publishedContentId: created.id,
+        },
+        tx,
+      );
+      await createNotification(
+        ctx,
+        {
+          category: 'NEW_CONTENT',
+          title: 'New Story added',
+          body: `A new ${input.platform} Story was added to the live content wall.`,
+          targetUrl: `/content/${created.id}`,
+          brandId,
+          campaignId,
+          influencerId,
+          publishedContentId: created.id,
+        },
+        tx,
+      );
+
+      return created;
+    });
+
+    return await mapRow(pc);
   }
 
   async function feed(filter: ContentFilter): Promise<CursorPage<PublishedContentDTO>> {
@@ -348,7 +472,7 @@ export function makeContentService(ctx: DomainContext) {
     });
 
     const hasMore = rows.length > filter.limit;
-    const data = rows.slice(0, filter.limit).map((r) => mapRow(r));
+    const data = await Promise.all(rows.slice(0, filter.limit).map((r) => mapRow(r)));
     return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore };
   }
 
@@ -818,6 +942,7 @@ export function makeContentService(ctx: DomainContext) {
 
   return {
     create,
+    createStory,
     feed,
     detail,
     update,

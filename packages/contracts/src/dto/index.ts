@@ -706,6 +706,15 @@ export interface PublishedContentDTO {
   /** Internal team Note/comment count (top-level, not soft-deleted) — distinct
    *  from metrics.comments, which is the platform's own public engagement count. */
   commentCount: number;
+  /** True for a Story screenshot/recording uploaded directly — no live post
+   *  to link to (Stories expire). originalUrl is a synthetic placeholder in
+   *  this case; storyMedia below is the real, playable media. */
+  isStory: boolean;
+  /** The Story's own uploaded media. Null only if isStory is true but the
+   *  attachment upload hasn't completed yet (a brief window right after
+   *  creating the row, before the two-phase upload finishes). Always null
+   *  when isStory is false. */
+  storyMedia: { url: string; kind: 'image' | 'video'; mimeType: string } | null;
 }
 
 // --- Content Command Center (per-user summary + brand aggregation) ---------

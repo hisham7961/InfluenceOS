@@ -8,6 +8,7 @@ import { PlatformIcon } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
+import { toBrowserUrl } from '@/lib/upload';
 
 /**
  * The fields SocialContentPlayer actually reads — a strict subset of
@@ -25,6 +26,10 @@ export interface SocialPlayableContent {
   caption: string | null;
   originalUrl: string;
   availabilityStatus?: ContentStatus;
+  /** A Story's own screenshot/recording — when set, the player renders this
+   *  native <img>/<video> directly instead of any iframe embed (a Story's
+   *  `embed` is always null; see mappers.ts's toPublishedContentDTO). */
+  storyMedia?: { url: string; kind: 'image' | 'video'; mimeType: string } | null;
 }
 
 /**
@@ -47,7 +52,7 @@ export function SocialContentPlayer({
   const [playing, setPlaying] = React.useState(autoPlay);
   const embed = content.embed;
   const canEmbed = !!embed && embed.kind === 'iframe' && !!embed.iframeSrc && isAllowedIframeOrigin(embed.iframeSrc);
-  const aspect = embed?.aspectRatio ?? 16 / 9;
+  const aspect = content.storyMedia ? 9 / 16 : (embed?.aspectRatio ?? 16 / 9);
   // embed.platform is always set whenever embed.kind === 'iframe' (buildEmbed
   // never produces one without a resolved platform) — prefer it over
   // content.platform so the play-button copy is correct even when the
@@ -59,7 +64,9 @@ export function SocialContentPlayer({
       className={cn('relative w-full overflow-hidden rounded-xl bg-black', className)}
       style={{ aspectRatio: aspect }}
     >
-      {canEmbed && playing ? (
+      {content.storyMedia ? (
+        <StoryMedia media={content.storyMedia} caption={content.caption} />
+      ) : canEmbed && playing ? (
         <iframe
           src={embed!.iframeSrc}
           title={content.caption ?? t('player.embeddedContentTitle')}
@@ -73,6 +80,30 @@ export function SocialContentPlayer({
         <Fallback content={content} platform={platform} canEmbed={canEmbed} onPlay={() => setPlaying(true)} />
       )}
     </div>
+  );
+}
+
+/** A Story's own media, played natively — never through the iframe/embed
+ *  path above, since there's no provider to embed from (see storyMedia doc
+ *  on SocialPlayableContent). */
+function StoryMedia({
+  media,
+  caption,
+}: {
+  media: NonNullable<SocialPlayableContent['storyMedia']>;
+  caption: string | null;
+}) {
+  const src = toBrowserUrl(media.url);
+  return media.kind === 'video' ? (
+    <video
+      src={src}
+      controls
+      playsInline
+      className="absolute inset-0 h-full w-full object-contain"
+    />
+  ) : (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt={caption ?? ''} className="absolute inset-0 h-full w-full object-contain" />
   );
 }
 

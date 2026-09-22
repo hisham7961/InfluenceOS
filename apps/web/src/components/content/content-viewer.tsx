@@ -338,6 +338,7 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
 
       <div className="flex flex-wrap items-center gap-2">
         <PlatformBadge platform={content.platform} withLabel />
+        {content.isStory ? <Badge tone="accent">{t('grid.storyBadge')}</Badge> : null}
         <ContentStatusBadge status={content.availabilityStatus} />
         {content.deliverable ? (
           content.campaign ? (
@@ -382,14 +383,16 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
         </div>
       ) : null}
 
-      <div className="flex gap-2">
-        <Button asChild variant="secondary" size="sm" className="flex-1">
-          <a href={content.originalUrl} target="_blank" rel="noopener noreferrer">
-            {tCommon('openOriginal')} <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        </Button>
-        <RefreshButton id={content.id} />
-      </div>
+      {!content.isStory ? (
+        <div className="flex gap-2">
+          <Button asChild variant="secondary" size="sm" className="flex-1">
+            <a href={content.originalUrl} target="_blank" rel="noopener noreferrer">
+              {tCommon('openOriginal')} <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </Button>
+          <RefreshButton id={content.id} />
+        </div>
+      ) : null}
 
       {/* Factual system history (ActivityLog) — reuses the SAME ActivityFeed the
           Campaign workspace's Activity tab shows, scoped to this content's own

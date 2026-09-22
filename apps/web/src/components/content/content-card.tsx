@@ -1,10 +1,11 @@
 'use client';
 import { useTranslations } from 'next-intl';
-import { Check, Heart, MessageCircle, MessageSquare, Play, Eye } from 'lucide-react';
+import { Check, Film, Heart, MessageCircle, MessageSquare, Play, Eye } from 'lucide-react';
 import type { PublishedContentDTO } from '@influenceos/contracts';
 import { contentReviewStatus } from '@influenceos/shared';
 import { formatCompact, useLocalizedFormat } from '@/lib/format';
 import { enumLabel } from '@/lib/enum-labels';
+import { toBrowserUrl } from '@/lib/upload';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { Avatar } from '@/components/ui/avatar';
@@ -27,6 +28,13 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
   const m = content.metrics;
   const reviewStatus = contentReviewStatus(content.viewerState);
   const isAlert = ALERT_STATUSES.has(content.availabilityStatus);
+  // A Story never has a public thumbnailUrl (no provider to derive one from)
+  // — an uploaded screenshot shows its own image directly; an uploaded video
+  // falls back to the same platform-icon placeholder as any content without
+  // a thumbnail, since there's no cheap way to derive a video's first frame.
+  const storyImageSrc =
+    content.isStory && content.storyMedia?.kind === 'image' ? toBrowserUrl(content.storyMedia.url) : null;
+  const showPlayOverlay = content.embeddable || (content.isStory && content.storyMedia?.kind === 'video');
 
   return (
     <button
@@ -37,10 +45,10 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
       )}
     >
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-gradient-to-br from-neutral-800 to-neutral-900">
-        {content.thumbnailUrl ? (
+        {storyImageSrc || content.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={content.thumbnailUrl}
+            src={storyImageSrc ?? content.thumbnailUrl!}
             alt=""
             loading="lazy"
             decoding="async"
@@ -51,7 +59,11 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <PlatformIcon platform={content.platform} className="h-12 w-12 text-white/30" />
+            {content.isStory ? (
+              <Film className="h-12 w-12 text-white/30" />
+            ) : (
+              <PlatformIcon platform={content.platform} className="h-12 w-12 text-white/30" />
+            )}
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
@@ -59,6 +71,11 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 backdrop-blur">
             <PlatformIcon platform={content.platform} className="h-3.5 w-3.5 text-white" />
           </span>
+          {content.isStory ? (
+            <span className="rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur">
+              {t('grid.storyBadge')}
+            </span>
+          ) : null}
           {reviewStatus === 'NEW' ? (
             <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-foreground shadow-sm">
               {enumLabel(tEnums, 'contentReviewStatus', 'NEW')}
@@ -85,7 +102,7 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
           ) : null}
           {isAlert ? <ContentStatusBadge status={content.availabilityStatus} /> : null}
         </div>
-        {content.embeddable && (
+        {showPlayOverlay && (
           <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-black shadow-pop">
               <Play className="h-5 w-5 fill-current" />

@@ -37,6 +37,28 @@ export async function contentRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // A Story screenshot/recording — no live URL to link (Stories expire), so
+  // this creates the PublishedContent row up front; the caller then uploads
+  // the actual media as an Attachment targeting the returned id (two-phase
+  // upload via POST /files/initiate + /files/complete, same as every other
+  // attachment). Placed before /content/:id so "story" is never captured as
+  // an :id param.
+  r.post(
+    '/content/story',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Content'],
+        summary: 'Add a Story (screenshot/recording) — creates the content row; upload the media as a follow-up attachment',
+        body: requests.publishedContentStoryCreateSchema,
+      },
+    },
+    async (req, reply) => {
+      reply.status(201);
+      return servicesFor(req).content.createStory(req.body);
+    },
+  );
+
   // Content Command Center pass — one efficient call for the top filter
   // chips, the daily summary panel and the By Brand overview. Placed before
   // /content/:id so "summary" is never captured as an :id param.

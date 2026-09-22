@@ -1,11 +1,12 @@
 'use client';
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { Eye, Heart, MessageCircle, MessageSquare, Play } from 'lucide-react';
+import { Eye, Film, Heart, MessageCircle, MessageSquare, Play } from 'lucide-react';
 import type { PublishedContentDTO } from '@influenceos/contracts';
 import { cn } from '@/lib/cn';
 import { formatCompact, useLocalizedFormat } from '@/lib/format';
 import { enumLabel } from '@/lib/enum-labels';
+import { toBrowserUrl } from '@/lib/upload';
 import { Avatar } from '@/components/ui/avatar';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
@@ -52,6 +53,9 @@ function MasonryCard({ content, onOpen }: { content: PublishedContentDTO; onOpen
   const { relativeTime } = useLocalizedFormat();
   const m = content.metrics;
   const fallback = FALLBACK_ASPECTS[hashId(content.id) % FALLBACK_ASPECTS.length];
+  const storyImageSrc =
+    content.isStory && content.storyMedia?.kind === 'image' ? toBrowserUrl(content.storyMedia.url) : null;
+  const showPlayOverlay = content.embeddable || (content.isStory && content.storyMedia?.kind === 'video');
 
   return (
     <button
@@ -59,21 +63,32 @@ function MasonryCard({ content, onOpen }: { content: PublishedContentDTO; onOpen
       className="group mb-4 flex w-full break-inside-avoid flex-col overflow-hidden rounded-2xl border border-border bg-card text-start shadow-card transition-all hover:-translate-y-0.5 hover:shadow-pop"
     >
       <div className="relative w-full overflow-hidden bg-gradient-to-br from-neutral-800 to-neutral-900">
-        {content.thumbnailUrl ? (
+        {storyImageSrc || content.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={content.thumbnailUrl}
+            src={storyImageSrc ?? content.thumbnailUrl!}
             alt=""
             loading="lazy"
             className="w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <div className={cn('flex w-full items-center justify-center', fallback)}>
-            <PlatformIcon platform={content.platform} className="h-12 w-12 text-white/30" />
+            {content.isStory ? (
+              <Film className="h-12 w-12 text-white/30" />
+            ) : (
+              <PlatformIcon platform={content.platform} className="h-12 w-12 text-white/30" />
+            )}
           </div>
         )}
-        <div className="absolute start-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/40 backdrop-blur">
-          <PlatformIcon platform={content.platform} className="h-3.5 w-3.5 text-white" />
+        <div className="absolute start-3 top-3 flex items-center gap-1.5">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 backdrop-blur">
+            <PlatformIcon platform={content.platform} className="h-3.5 w-3.5 text-white" />
+          </span>
+          {content.isStory ? (
+            <span className="rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur">
+              {t('grid.storyBadge')}
+            </span>
+          ) : null}
         </div>
         <div className="absolute end-3 top-3 flex items-center gap-1.5">
           {content.commentCount > 0 ? (
@@ -88,7 +103,7 @@ function MasonryCard({ content, onOpen }: { content: PublishedContentDTO; onOpen
           ) : null}
           <ContentStatusBadge status={content.availabilityStatus} />
         </div>
-        {content.embeddable ? (
+        {showPlayOverlay ? (
           <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-black shadow-pop">
               <Play className="h-5 w-5 fill-current" />

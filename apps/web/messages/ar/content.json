@@ -60,7 +60,8 @@
   "grid": {
     "emptyTitle": "لا يوجد محتوى بعد",
     "emptyDescription": "سيظهر هنا محتوى الحملة المنشور.",
-    "hasCommentsAriaLabel": "يحتوي على تعليقات الفريق"
+    "hasCommentsAriaLabel": "يحتوي على تعليقات الفريق",
+    "storyBadge": "ستوري"
   },
   "player": {
     "embeddedContentTitle": "محتوى مضمّن",
@@ -140,6 +141,18 @@
     "deliverableFieldHint": "عند تحديد محتوى مطلوب معيّن، تُشتق بقية البيانات تلقائيًا",
     "noDeliverable": "غير مرتبط بمحتوى مطلوب محدد",
     "adding": "جارٍ الإضافة…",
-    "addContent": "إضافة محتوى"
+    "addContent": "إضافة محتوى",
+    "modeLink": "رابط",
+    "modeLinkHint": "منشور مباشر يمكن ربطه برابط",
+    "modeStory": "ستوري",
+    "modeStoryHint": "لقطة شاشة أو تسجيل — الستوري ينتهي بعد فترة، فلا يوجد رابط لحفظه",
+    "storyPlatformLabel": "المنصة",
+    "storyFileLabel": "لقطة الشاشة أو التسجيل",
+    "storyFileHint": "ارفع لقطة الشاشة أو تسجيل الشاشة الذي التقطته",
+    "storyFileChoose": "اختيار ملف",
+    "storyFileRequired": "أضف لقطة شاشة أو تسجيلًا للمتابعة",
+    "storyUploadFailed": "تمت إضافة الستوري، لكن رفع الملف فشل.",
+    "retryUpload": "إعادة محاولة الرفع",
+    "addStory": "إضافة ستوري"
   }
 }

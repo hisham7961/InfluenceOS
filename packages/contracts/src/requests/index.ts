@@ -713,6 +713,19 @@ export const publishedContentCreateSchema = z.object({
   caption: optionalString,
   publishedAt: isoDate,
 });
+/** A Story screenshot/recording — no live post URL to link (Stories expire),
+ *  so `platform` is required in its place and the actual media is a
+ *  follow-up attachment upload targeting the created row's id. */
+export const publishedContentStoryCreateSchema = z.object({
+  platform: platformEnum,
+  campaignId: cuid.optional().nullable(),
+  brandId: cuid.optional().nullable(),
+  influencerId: cuid.optional().nullable(),
+  campaignInfluencerId: cuid.optional().nullable(),
+  deliverableId: cuid.optional().nullable(),
+  caption: optionalString,
+  publishedAt: isoDate,
+});
 export const publishedContentUpdateSchema = z.object({
   caption: optionalString,
   campaignId: cuid.optional().nullable(),
@@ -802,6 +815,7 @@ export const attachmentTargetSchema = z.object({
   scriptReferenceId: cuid.optional().nullable(),
   influencerId: cuid.optional().nullable(),
   noteId: cuid.optional().nullable(),
+  publishedContentId: cuid.optional().nullable(),
 });
 export const attachmentListQuerySchema = attachmentTargetSchema;
 export type AttachmentTarget = z.infer<typeof attachmentTargetSchema>;

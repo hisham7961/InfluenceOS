@@ -10,6 +10,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { signDownloadTicket } from './tokens';
 
 /**
  * Storage abstraction with two interchangeable drivers:
@@ -255,4 +256,21 @@ export function sanitizeFileName(name: string): string {
 export function buildStorageKey(scope: string, fileName: string): string {
   const safe = sanitizeFileName(fileName).toLowerCase().replace(/[^a-z0-9.\-_]+/g, '-');
   return `attachments/${scope}/${randomUUID()}-${safe}`.slice(0, 300);
+}
+
+/** Build an expiring, capability-scoped download URL for an Attachment (never
+ *  a public URL) — shared by attachment.service.ts's own AttachmentDTO
+ *  mapping and content.service.ts's Story media resolution, so both derive
+ *  it the exact same way instead of two parallel signing implementations. */
+export async function resolveAttachmentDownloadUrl(
+  id: string,
+  storageKey: string,
+  fileName: string,
+  ttlSeconds = 600,
+): Promise<string> {
+  const storage = getStorage();
+  const presigned = await storage.presignGet(storageKey, fileName, ttlSeconds);
+  if (presigned) return presigned; // absolute presigned S3 GET
+  const token = await signDownloadTicket(id, ttlSeconds);
+  return `/api/v1/files/${id}/blob?token=${encodeURIComponent(token)}`;
 }

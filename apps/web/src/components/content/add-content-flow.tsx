@@ -4,14 +4,18 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { Camera, Link2, Upload } from 'lucide-react';
 import type { CampaignInfluencerDTO, DeliverableDTO, PublishedContentDTO } from '@influenceos/contracts';
+import { PLATFORMS, PLATFORM_META, type Platform } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
+import { uploadAttachment } from '@/lib/upload';
 import { Field, Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BidiText } from '@/components/common/bidi-text';
+import { cn } from '@/lib/cn';
 
 const NO_INFLUENCER = '__none__';
 const NO_CAMPAIGN = '__none__';
@@ -66,11 +70,23 @@ export function AddContentFlow({
   const t = useTranslations('content');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
+  const [mode, setMode] = React.useState<'link' | 'story'>('link');
   const [url, setUrl] = React.useState('');
   const [influencerId, setInfluencerId] = React.useState(lockInfluencerId ?? '');
   const [campaignId, setCampaignId] = React.useState(lockCampaignId ?? '');
   const [deliverableId, setDeliverableId] = React.useState(lockDeliverableId ?? '');
   const [loading, setLoading] = React.useState(false);
+
+  // Story mode — a screenshot/recording, not a link (see AddContentFlowProps
+  // doc comment). storyContentId remembers the row created by createStory()
+  // so a failed attachment upload can be retried without creating a
+  // duplicate PublishedContent row.
+  const [storyPlatform, setStoryPlatform] = React.useState<Platform | ''>('');
+  const [storyFile, setStoryFile] = React.useState<File | null>(null);
+  const [storyFileMissing, setStoryFileMissing] = React.useState(false);
+  const [storyContentId, setStoryContentId] = React.useState<string | null>(null);
+  const [storyUploadFailed, setStoryUploadFailed] = React.useState(false);
+  const storyFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const deliverableLocked = Boolean(lockDeliverableId);
   const campaignLocked = Boolean(lockCampaignId);
@@ -100,6 +116,7 @@ export function AddContentFlow({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (mode === 'story') return submitStory();
     if (!url.trim()) return;
     setLoading(true);
     try {
@@ -118,17 +135,135 @@ export function AddContentFlow({
     }
   }
 
+  /**
+   * Two steps — create the row, then upload the media targeting it (same
+   * two-phase signed upload every other attachment uses). If step one
+   * succeeds but the upload fails, storyContentId is kept so re-submitting
+   * retries only the upload instead of creating a second content row.
+   */
+  async function submitStory() {
+    if (!storyPlatform) return;
+    if (!storyFile) {
+      setStoryFileMissing(true);
+      return;
+    }
+    setLoading(true);
+    try {
+      let contentId = storyContentId;
+      if (!contentId) {
+        const created = await api.content.createStory({
+          platform: storyPlatform,
+          influencerId: deliverableLocked ? undefined : influencerId || undefined,
+          campaignId: deliverableLocked ? undefined : campaignId || undefined,
+          deliverableId: deliverableLocked ? lockDeliverableId : deliverableId || undefined,
+        });
+        contentId = created.id;
+        setStoryContentId(contentId);
+      }
+      await uploadAttachment(storyFile, { publishedContentId: contentId });
+      const finalContent = await api.content.get(contentId);
+      toast.success(t('addFlow.successToast'));
+      onSuccess(finalContent);
+    } catch (err) {
+      if (storyContentId) {
+        setStoryUploadFailed(true);
+        toast.error(t('addFlow.storyUploadFailed'));
+      } else {
+        toast.error(errMessage(err, tCommon('somethingWentWrong')));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <Field label={t('addFlow.contentUrlLabel')} hint={t('addFlow.contentUrlHint')}>
-        <Input
-          placeholder="https://www.youtube.com/watch?v=…"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          required
-          autoFocus
-        />
-      </Field>
+      <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-surface-muted p-1">
+        <button
+          type="button"
+          onClick={() => setMode('link')}
+          className={cn(
+            'flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+            mode === 'link' ? 'bg-card text-foreground shadow-soft' : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <Link2 className="h-3.5 w-3.5" /> {t('addFlow.modeLink')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('story')}
+          className={cn(
+            'flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+            mode === 'story' ? 'bg-card text-foreground shadow-soft' : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <Camera className="h-3.5 w-3.5" /> {t('addFlow.modeStory')}
+        </button>
+      </div>
+      <p className="-mt-2 text-xs text-muted-foreground">
+        {mode === 'link' ? t('addFlow.modeLinkHint') : t('addFlow.modeStoryHint')}
+      </p>
+
+      {mode === 'link' ? (
+        <Field label={t('addFlow.contentUrlLabel')} hint={t('addFlow.contentUrlHint')}>
+          <Input
+            placeholder="https://www.youtube.com/watch?v=…"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            required
+            autoFocus
+          />
+        </Field>
+      ) : (
+        <>
+          <Field label={t('addFlow.storyPlatformLabel')}>
+            <Select value={storyPlatform || undefined} onValueChange={(v) => setStoryPlatform(v as Platform)}>
+              <SelectTrigger>
+                <SelectValue placeholder={t('addFlow.storyPlatformLabel')} />
+              </SelectTrigger>
+              <SelectContent>
+                {PLATFORMS.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {PLATFORM_META[p].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field
+            label={t('addFlow.storyFileLabel')}
+            hint={storyFile ? undefined : t('addFlow.storyFileHint')}
+            error={storyFileMissing && !storyFile ? t('addFlow.storyFileRequired') : undefined}
+          >
+            <input
+              ref={storyFileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                setStoryFile(f);
+                if (f) setStoryFileMissing(false);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => storyFileInputRef.current?.click()}
+              className={cn(
+                'flex w-full items-center gap-2 rounded-lg border border-dashed border-border bg-surface-muted/40 px-3 py-2.5 text-sm transition-colors hover:border-brand/50 hover:bg-surface-muted',
+                storyFileMissing && !storyFile && 'border-danger/60',
+              )}
+            >
+              <Upload className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <BidiText as="span" className="truncate text-start">
+                {storyFile ? storyFile.name : t('addFlow.storyFileChoose')}
+              </BidiText>
+            </button>
+          </Field>
+
+        </>
+      )}
 
       {deliverableLocked ? (
         <div className="rounded-lg border border-border bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
@@ -223,7 +358,13 @@ export function AddContentFlow({
           </Button>
         ) : null}
         <Button type="submit" disabled={loading}>
-          {loading ? t('addFlow.adding') : t('addFlow.addContent')}
+          {loading
+            ? t('addFlow.adding')
+            : mode === 'story'
+              ? storyUploadFailed
+                ? t('addFlow.retryUpload')
+                : t('addFlow.addStory')
+              : t('addFlow.addContent')}
         </Button>
       </div>
     </form>

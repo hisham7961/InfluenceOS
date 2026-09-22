@@ -60,7 +60,8 @@
   "grid": {
     "emptyTitle": "No content yet",
     "emptyDescription": "Published campaign content will appear here.",
-    "hasCommentsAriaLabel": "Has team comments"
+    "hasCommentsAriaLabel": "Has team comments",
+    "storyBadge": "Story"
   },
   "player": {
     "embeddedContentTitle": "Embedded content",
@@ -140,6 +141,18 @@
     "deliverableFieldHint": "Fulfilling a specific deliverable derives everything automatically",
     "noDeliverable": "Not tied to a specific deliverable",
     "adding": "Adding…",
-    "addContent": "Add content"
+    "addContent": "Add content",
+    "modeLink": "Link",
+    "modeLinkHint": "A live post you can link to",
+    "modeStory": "Story",
+    "modeStoryHint": "A screenshot or recording — Stories expire, so there's no link to save",
+    "storyPlatformLabel": "Platform",
+    "storyFileLabel": "Screenshot or recording",
+    "storyFileHint": "Upload the screenshot or screen recording you captured",
+    "storyFileChoose": "Choose file",
+    "storyFileRequired": "Add a screenshot or recording to continue",
+    "storyUploadFailed": "The Story was created, but the file upload failed.",
+    "retryUpload": "Retry upload",
+    "addStory": "Add Story"
   }
 }

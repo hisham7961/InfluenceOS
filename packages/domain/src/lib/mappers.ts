@@ -278,6 +278,7 @@ interface PublishedContentLike {
   lastCheckedAt: Date | null;
   lastMetricsSyncAt: Date | null;
   dataSource: DataSource;
+  isStory: boolean;
 }
 
 export function toPublishedContentDTO(
@@ -291,9 +292,12 @@ export function toPublishedContentDTO(
     provenanceUpdatedByName?: string | null;
     viewerState?: ContentViewerStateDTO | null;
     commentCount?: number;
+    storyMedia?: PublishedContentDTO['storyMedia'];
   } = {},
 ): PublishedContentDTO {
-  const embed = buildEmbed(pc.originalUrl, pc.platform);
+  // A Story's originalUrl is a synthetic story://<uuid> placeholder, never a
+  // real post — there's nothing for buildEmbed to resolve against.
+  const embed = pc.isStory ? null : buildEmbed(pc.originalUrl, pc.platform);
   const provenance: ProvenanceDTO = {
     source: pc.dataSource,
     updatedAt: iso(pc.lastMetricsSyncAt ?? pc.lastCheckedAt),
@@ -322,5 +326,7 @@ export function toPublishedContentDTO(
     metrics: rel.metrics ?? null,
     viewerState: rel.viewerState ?? null,
     commentCount: rel.commentCount ?? 0,
+    isStory: pc.isStory,
+    storyMedia: rel.storyMedia ?? null,
   };
 }

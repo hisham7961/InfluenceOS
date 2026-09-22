@@ -734,14 +734,16 @@ function FeedCard({ content }: { content: PublishedContentDTO }) {
 
         <div className="flex items-center justify-between border-t border-border pt-3">
           <DataSourceBadge source={m?.source ?? content.provenance.source} />
-          <a
-            href={content.originalUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {tCommon('openOriginal')} <ExternalLink className="h-3.5 w-3.5" />
-          </a>
+          {!content.isStory ? (
+            <a
+              href={content.originalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {tCommon('openOriginal')} <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          ) : null}
         </div>
       </div>
     </article>

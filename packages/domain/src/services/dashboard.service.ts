@@ -183,18 +183,20 @@ export function makeDashboardService(ctx: DomainContext) {
       orderBy: [{ detectedAt: 'desc' }],
       take: limit,
     });
-    const items: WhatsNewItemDTO[] = recentContent.map((pc) => {
-      const dto = content.mapRow(pc);
-      return {
-        id: `content-${pc.id}`,
-        kind: 'CONTENT_PUBLISHED',
-        at: dto.detectedAt,
-        content: dto,
-        title: dto.influencer?.displayName ?? `${pc.platform} content`,
-        subtitle: dto.campaign?.name ?? null,
-        link: `/content/${pc.id}`,
-      };
-    });
+    const items: WhatsNewItemDTO[] = await Promise.all(
+      recentContent.map(async (pc) => {
+        const dto = await content.mapRow(pc);
+        return {
+          id: `content-${pc.id}`,
+          kind: 'CONTENT_PUBLISHED' as const,
+          at: dto.detectedAt,
+          content: dto,
+          title: dto.influencer?.displayName ?? `${pc.platform} content`,
+          subtitle: dto.campaign?.name ?? null,
+          link: `/content/${pc.id}`,
+        };
+      }),
+    );
     return items.sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, limit);
   }
 

@@ -5,14 +5,9 @@ import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor, requireAnyCapability, requireCapability, requireOwnerOrAdmin } from '../lib/authz';
 import { logActivity } from '../lib/helpers';
-import { isCountryOutOfScope, scopedCountryCodes } from '../lib/scope';
-import { buildStorageKey, getStorage, sanitizeFileName } from '../lib/storage';
-import {
-  signDownloadTicket,
-  signUploadTicket,
-  verifyDownloadTicket,
-  verifyUploadTicket,
-} from '../lib/tokens';
+import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
+import { buildStorageKey, getStorage, resolveAttachmentDownloadUrl, sanitizeFileName } from '../lib/storage';
+import { signUploadTicket, verifyDownloadTicket, verifyUploadTicket } from '../lib/tokens';
 import { makeCampaignService } from './campaign.service';
 
 type Target = z.infer<typeof requests.attachmentTargetSchema>;
@@ -63,14 +58,6 @@ export function makeAttachmentService(ctx: DomainContext) {
   const { prisma } = ctx;
   const storage = getStorage(process.env);
 
-  /** Build an expiring, capability-scoped download URL (never a public URL). */
-  async function downloadUrlFor(id: string, storageKey: string, fileName: string): Promise<string> {
-    const presigned = await storage.presignGet(storageKey, fileName, SIGNED_URL_TTL);
-    if (presigned) return presigned; // absolute presigned S3 GET
-    const token = await signDownloadTicket(id, SIGNED_URL_TTL);
-    return `/api/v1/files/${id}/blob?token=${encodeURIComponent(token)}`;
-  }
-
   async function toDTO(row: Row): Promise<AttachmentDTO> {
     const kind = (row.kind ?? 'other') as AttachmentKind;
     return {
@@ -79,7 +66,7 @@ export function makeAttachmentService(ctx: DomainContext) {
       mimeType: row.mimeType,
       sizeBytes: row.sizeBytes,
       kind,
-      downloadUrl: await downloadUrlFor(row.id, row.storageKey, row.fileName),
+      downloadUrl: await resolveAttachmentDownloadUrl(row.id, row.storageKey, row.fileName, SIGNED_URL_TTL),
       isImage: kind === 'image',
       uploadedByName: row.uploadedBy?.name ?? null,
       createdAt: row.createdAt.toISOString(),
@@ -92,7 +79,8 @@ export function makeAttachmentService(ctx: DomainContext) {
     if (target.scriptReferenceId) return { scope: `script/${target.scriptReferenceId}`, where: { scriptReferenceId: target.scriptReferenceId } };
     if (target.influencerId) return { scope: `influencer/${target.influencerId}`, where: { influencerId: target.influencerId } };
     if (target.noteId) return { scope: `note/${target.noteId}`, where: { noteId: target.noteId } };
-    throw AppError.badRequest('An attachment must be linked to a campaign, deliverable, script, influencer or note.');
+    if (target.publishedContentId) return { scope: `content/${target.publishedContentId}`, where: { publishedContentId: target.publishedContentId } };
+    throw AppError.badRequest('An attachment must be linked to a campaign, deliverable, script, influencer, note, or content item.');
   }
 
   async function assertTargetExists(target: Target): Promise<void> {
@@ -101,6 +89,8 @@ export function makeAttachmentService(ctx: DomainContext) {
     if (target.scriptReferenceId && !(await prisma.scriptReference.count({ where: { id: target.scriptReferenceId } }))) throw AppError.notFound('Script');
     if (target.influencerId && !(await prisma.influencer.count({ where: { id: target.influencerId } }))) throw AppError.notFound('Influencer');
     if (target.noteId && !(await prisma.note.count({ where: { id: target.noteId } }))) throw AppError.notFound('Note');
+    if (target.publishedContentId && !(await prisma.publishedContent.count({ where: { id: target.publishedContentId } })))
+      throw AppError.notFound('Content');
   }
 
   /**
@@ -206,29 +196,60 @@ export function makeAttachmentService(ctx: DomainContext) {
     // every other campaign-child mutation (campaign-influencer.service.ts,
     // expense.service.ts) and influencer mutation (influencer.service.ts)
     // already enforces.
-    const { campaignId, influencerId } = await resolveTargetContext(input.target);
-    if (campaignId) {
-      // Capability grants WHAT; brand scope grants WHERE — both required.
-      await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
-      await makeCampaignService(ctx).assertInScope(campaignId);
-    } else if (influencerId) {
-      await requireCapability(ctx, 'INFLUENCERS_MANAGE');
-      const influencer = await prisma.influencer.findUnique({
-        where: { id: influencerId },
-        select: { countryCode: true },
+    if (input.target.publishedContentId) {
+      // A Story upload attaches directly to the PublishedContent row it
+      // belongs to — the SAME CONTENT_MANAGE + brand/creator-country scope
+      // posture content.service.ts's own assertContentInScope enforces for
+      // creating/reading that row, not the generic campaign/influencer
+      // branches below (a piece of content need carry neither).
+      await requireCapability(ctx, 'CONTENT_MANAGE');
+      // Story media is a screenshot or screen recording only — never a PDF
+      // or document, both otherwise-allowed kinds elsewhere in this
+      // function. content.service.ts's mapRow() renders storyMedia as
+      // either <img> or <video> based on this same kind, so an unsupported
+      // kind here would otherwise silently render as a broken image.
+      if (kind !== 'image' && kind !== 'video') {
+        throw AppError.badRequest('A Story can only be a screenshot (image) or a screen recording (video).');
+      }
+      const pc = await prisma.publishedContent.findUnique({
+        where: { id: input.target.publishedContentId },
+        select: { brandId: true, influencerId: true },
       });
-      const countryScope = await scopedCountryCodes(ctx);
-      if (!influencer || isCountryOutOfScope(countryScope, influencer.countryCode)) {
-        throw AppError.notFound('Influencer');
+      if (!pc) throw AppError.notFound('Content');
+      const brandScope = await scopedBrandIds(ctx);
+      if (pc.brandId && isBrandOutOfScope(brandScope, pc.brandId)) throw AppError.notFound('Content');
+      if (pc.influencerId) {
+        const countryScope = await scopedCountryCodes(ctx);
+        if (countryScope) {
+          const influencer = await prisma.influencer.findUnique({ where: { id: pc.influencerId }, select: { countryCode: true } });
+          if (isCountryOutOfScope(countryScope, influencer?.countryCode ?? null)) throw AppError.notFound('Content');
+        }
       }
     } else {
-      // Residual target types this service can't cleanly resolve to a
-      // campaign or influencer (see resolveTargetContext's doc comment) —
-      // least-surprising fix: still require SOME manage capability rather
-      // than leave this open to every logged-in actor, without guessing at
-      // note.service.ts's own brand/country/channel authorization rules for
-      // those contexts.
-      await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
+      const { campaignId, influencerId } = await resolveTargetContext(input.target);
+      if (campaignId) {
+        // Capability grants WHAT; brand scope grants WHERE — both required.
+        await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
+        await makeCampaignService(ctx).assertInScope(campaignId);
+      } else if (influencerId) {
+        await requireCapability(ctx, 'INFLUENCERS_MANAGE');
+        const influencer = await prisma.influencer.findUnique({
+          where: { id: influencerId },
+          select: { countryCode: true },
+        });
+        const countryScope = await scopedCountryCodes(ctx);
+        if (!influencer || isCountryOutOfScope(countryScope, influencer.countryCode)) {
+          throw AppError.notFound('Influencer');
+        }
+      } else {
+        // Residual target types this service can't cleanly resolve to a
+        // campaign or influencer (see resolveTargetContext's doc comment) —
+        // least-surprising fix: still require SOME manage capability rather
+        // than leave this open to every logged-in actor, without guessing at
+        // note.service.ts's own brand/country/channel authorization rules for
+        // those contexts.
+        await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
+      }
     }
 
     const storageKey = buildStorageKey(scope, fileName);
@@ -245,6 +266,7 @@ export function makeAttachmentService(ctx: DomainContext) {
         scriptReferenceId: input.target.scriptReferenceId ?? null,
         influencerId: input.target.influencerId ?? null,
         noteId: input.target.noteId ?? null,
+        publishedContentId: input.target.publishedContentId ?? null,
       },
     });
 
@@ -305,6 +327,7 @@ export function makeAttachmentService(ctx: DomainContext) {
           scriptReferenceId: ticket.target.scriptReferenceId ?? null,
           influencerId: ticket.target.influencerId ?? null,
           noteId: ticket.target.noteId ?? null,
+          publishedContentId: ticket.target.publishedContentId ?? null,
           uploadedById: ticket.actorId,
         },
         select: selectRow,

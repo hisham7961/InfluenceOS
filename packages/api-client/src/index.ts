@@ -391,6 +391,12 @@ export function createClient(config: ClientConfig) {
       get: (id: string) => http.get<PublishedContentDTO>(`${V}/content/${id}`),
       create: (body: In<typeof requests.publishedContentCreateSchema>) =>
         http.post<PublishedContentDTO>(`${V}/content`, body),
+      // A Story screenshot/recording — creates the content row up front; the
+      // caller then uploads the media as a follow-up attachment targeting
+      // the returned id (files.initiate/files.complete with
+      // target.publishedContentId).
+      createStory: (body: In<typeof requests.publishedContentStoryCreateSchema>) =>
+        http.post<PublishedContentDTO>(`${V}/content/story`, body),
       update: (id: string, body: In<typeof requests.publishedContentUpdateSchema>) =>
         http.patch<PublishedContentDTO>(`${V}/content/${id}`, body),
       metrics: (id: string) => http.get<ContentMetricsDTO[]>(`${V}/content/${id}/metrics`),
