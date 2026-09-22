@@ -186,7 +186,7 @@ export function createClient(config: ClientConfig) {
       resolve: (body: In<typeof requests.resolveProfileSchema>) =>
         http.post<ResolveProfileResultDTO>(`${V}/influencers/resolve`, body),
       syncAvatar: (id: string) =>
-        http.post<{ influencer: InfluencerDetailDTO; synced: boolean; message: string }>(
+        http.post<{ influencer: InfluencerDetailDTO; synced: boolean; reason: 'NO_LINKED_ACCOUNT' | 'NOT_FOUND' | 'SYNCED' }>(
           `${V}/influencers/${id}/sync-avatar`,
         ),
       socialAccounts: (id: string) => http.get<SocialAccountDTO[]>(`${V}/influencers/${id}/social-accounts`),

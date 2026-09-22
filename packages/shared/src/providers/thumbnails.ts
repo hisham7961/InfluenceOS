@@ -59,6 +59,30 @@ export function parseOgImage(html: string): string | null {
 }
 
 /**
+ * True when a fetch that started at `requestedUrl` ended up somewhere that
+ * is clearly not the profile page itself (a login/auth wall, most often —
+ * Instagram in particular redirects unauthenticated/bot-flagged requests to
+ * `/accounts/login/?next=...`) rather than a real 404 or the profile page.
+ * Those interstitial pages have their own generic, platform-branded
+ * `og:image` (e.g. Instagram's logo) which would otherwise be silently
+ * parsed and stored as if it were the creator's real photo. Checked by path
+ * prefix rather than a per-platform login-URL allowlist so it also catches
+ * other platforms' equivalent interstitials (checkpoints, consent walls).
+ */
+function landedOnDifferentPage(requestedUrl: string, finalUrl: string): boolean {
+  try {
+    const requested = new URL(requestedUrl);
+    const final = new URL(finalUrl);
+    if (final.hostname !== requested.hostname) return true;
+    const reqPath = requested.pathname.replace(/\/+$/, '');
+    const finalPath = final.pathname.replace(/\/+$/, '');
+    return finalPath !== reqPath;
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Resolve a public profile picture (avatar) for an influencer from their
  * profile URL — WITHOUT any API credentials — via the page's og:image /
  * twitter:image (which, on a profile page, is the avatar/header). Best-effort
@@ -77,6 +101,10 @@ export async function resolveProfileAvatar(
     headers: { accept: 'text/html', 'user-agent': 'Mozilla/5.0 (compatible; InfluenceOSBot/1.0)' },
   });
   if (page?.ok) {
+    // A redirect that landed off the requested profile page (typically an
+    // auth wall) never carries the real photo — its own og:image would be a
+    // generic platform logo, worse than reporting "not found".
+    if (landedOnDifferentPage(profileUrl, page.url)) return null;
     try {
       const html = await page.text();
       return parseOgImage(html.slice(0, 200_000));

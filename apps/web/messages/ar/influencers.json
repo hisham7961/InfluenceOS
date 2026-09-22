@@ -162,6 +162,9 @@
       "primaryUsername": "اسم المستخدم الأساسي",
       "primaryUsernameHint": "بدون علامة @",
       "primaryUsernamePlaceholder": "creator",
+      "avatarUrl": "رابط الصورة",
+      "avatarUrlHint": "اختياري — يحل محل الصورة المكتشفة تلقائيًا",
+      "avatarUrlPlaceholder": "https://…",
       "active": "نشط",
       "activeHint": "يتم إخفاء المؤثرين غير النشطين من القوائم النشطة."
     },
@@ -193,6 +196,11 @@
     "managedBy": "يتابعه {name}",
     "noContactInfo": "لا توجد بيانات تواصل مسجّلة",
     "syncPhotoButton": "مزامنة الصورة",
+    "syncPhoto": {
+      "synced": "تمت مزامنة الصورة.",
+      "noLinkedAccount": "لا يوجد حساب تواصل اجتماعي مرتبط لمزامنة الصورة منه بعد — يُرجى ربط حساب أولاً.",
+      "notFound": "تعذّر العثور تلقائيًا على صورة لهذا المؤثر. يمكنك إضافة رابط الصورة يدويًا من تعديل المؤثر ← رابط الصورة."
+    },
     "whatsappButton": "واتساب",
     "emailButton": "البريد الإلكتروني",
     "callButton": "اتصال",

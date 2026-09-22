@@ -580,9 +580,13 @@ export function makeInfluencerService(ctx: DomainContext) {
    * account and backfill `resolvedAvatarUrl` — for a creator who was added
    * without a successful "Find Creator" lookup (manual entry, import, or the
    * lookup found no photo at the time) and still shows the initials
-   * placeholder. Never fabricates a photo: on failure it reports why.
+   * placeholder. Never fabricates a photo: on failure it reports why via a
+   * `reason` code (not a hardcoded English string) so the web client can
+   * render it localized.
    */
-  async function syncAvatar(id: string): Promise<{ influencer: InfluencerDetailDTO; synced: boolean; message: string }> {
+  async function syncAvatar(
+    id: string,
+  ): Promise<{ influencer: InfluencerDetailDTO; synced: boolean; reason: 'NO_LINKED_ACCOUNT' | 'NOT_FOUND' | 'SYNCED' }> {
     await requireCapability(ctx, 'INFLUENCERS_MANAGE');
     const existing = await prisma.influencer.findUnique({ where: { id } });
     if (!existing) throw AppError.notFound('Influencer');
@@ -591,12 +595,12 @@ export function makeInfluencerService(ctx: DomainContext) {
     if (await isInfluencerBrandOutOfScope(id)) throw AppError.notFound('Influencer');
 
     if (!existing.primaryPlatform || !existing.primaryUsername) {
-      return { influencer: await detail(id), synced: false, message: 'No linked social profile to sync a photo from yet — link one first.' };
+      return { influencer: await detail(id), synced: false, reason: 'NO_LINKED_ACCOUNT' };
     }
 
     const avatarUrl = await resolveAvatarUrl(existing.primaryPlatform, existing.primaryUsername, ctx.credentials);
     if (!avatarUrl) {
-      return { influencer: await detail(id), synced: false, message: 'No profile photo could be found for this creator right now.' };
+      return { influencer: await detail(id), synced: false, reason: 'NOT_FOUND' };
     }
 
     await prisma.influencer.update({ where: { id }, data: { resolvedAvatarUrl: avatarUrl } });
@@ -616,7 +620,7 @@ export function makeInfluencerService(ctx: DomainContext) {
       influencerId: id,
     });
 
-    return { influencer: await detail(id), synced: true, message: 'Profile photo synced.' };
+    return { influencer: await detail(id), synced: true, reason: 'SYNCED' };
   }
 
   async function setTags(influencerId: string, tagNames: string[]) {

@@ -162,6 +162,9 @@
       "primaryUsername": "Primary username",
       "primaryUsernameHint": "Without the @",
       "primaryUsernamePlaceholder": "creator",
+      "avatarUrl": "Avatar URL",
+      "avatarUrlHint": "Optional — overrides the auto-detected photo",
+      "avatarUrlPlaceholder": "https://…",
       "active": "Active",
       "activeHint": "Inactive creators are hidden from active rosters."
     },
@@ -193,6 +196,11 @@
     "managedBy": "Managed by {name}",
     "noContactInfo": "No contact info on file",
     "syncPhotoButton": "Sync photo",
+    "syncPhoto": {
+      "synced": "Profile photo synced.",
+      "noLinkedAccount": "No linked social profile to sync a photo from yet — link one first.",
+      "notFound": "Couldn't automatically find a profile photo for this creator. You can paste a photo link directly in Edit → Avatar URL."
+    },
     "whatsappButton": "WhatsApp",
     "emailButton": "Email",
     "callButton": "Call",

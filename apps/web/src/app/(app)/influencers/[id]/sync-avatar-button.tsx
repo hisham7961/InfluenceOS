@@ -24,7 +24,13 @@ export function SyncAvatarButton({ influencer }: { influencer: InfluencerDetailD
   const sync = useMutation({
     mutationFn: () => api.influencers.syncAvatar(influencer.id),
     onSuccess: (res) => {
-      toast[res.synced ? 'success' : 'info'](res.message);
+      const message =
+        res.reason === 'SYNCED'
+          ? t('detail.syncPhoto.synced')
+          : res.reason === 'NO_LINKED_ACCOUNT'
+            ? t('detail.syncPhoto.noLinkedAccount')
+            : t('detail.syncPhoto.notFound');
+      toast[res.synced ? 'success' : 'info'](message);
       if (res.synced) {
         queryClient.invalidateQueries();
         router.refresh();

@@ -57,6 +57,12 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
   const [displayName, setDisplayName] = React.useState(influencer.displayName);
   const [fullName, setFullName] = React.useState(influencer.contact.fullName ?? '');
   const [primaryUsername, setPrimaryUsername] = React.useState(influencer.primaryUsername ?? '');
+  // Prefilled with whatever photo is currently showing (auto-detected or an
+  // existing override) purely for display — only sent back as an
+  // `avatarOverrideUrl` write if the user actually changes it, so simply
+  // opening and saving the dialog never freezes the auto-detected photo as
+  // a permanent manual override.
+  const [avatarUrl, setAvatarUrl] = React.useState(influencer.avatarUrl ?? '');
   const [category, setCategory] = React.useState(influencer.category ?? '');
   const [country, setCountry] = React.useState(influencer.country ?? '');
   const [countryCode, setCountryCode] = React.useState(influencer.countryCode ?? NO_COUNTRY);
@@ -79,6 +85,7 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
     setDisplayName(influencer.displayName);
     setFullName(influencer.contact.fullName ?? '');
     setPrimaryUsername(influencer.primaryUsername ?? '');
+    setAvatarUrl(influencer.avatarUrl ?? '');
     setCategory(influencer.category ?? '');
     setCountry(influencer.country ?? '');
     setCountryCode(influencer.countryCode ?? NO_COUNTRY);
@@ -100,6 +107,11 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
         displayName: displayName.trim(),
         fullName: fullName.trim() || null,
         primaryUsername: primaryUsername.trim() || null,
+        // Only send avatarOverrideUrl when it actually changed from what was
+        // showing when the dialog opened — otherwise saving unrelated fields
+        // would silently freeze the auto-detected photo as a permanent
+        // manual override (undefined = leave the override as-is server-side).
+        avatarOverrideUrl: avatarUrl.trim() === (influencer.avatarUrl ?? '').trim() ? undefined : avatarUrl.trim() || null,
         category: category.trim() || null,
         country: country.trim() || null,
         // countryCode is required (mandatory since creation) — once set, it
@@ -151,6 +163,10 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
           <Field label={t('form.fields.primaryUsername')} hint={t('form.fields.primaryUsernameHint')}>
             <Input value={primaryUsername} onChange={(e) => setPrimaryUsername(e.target.value)} placeholder={t('form.fields.primaryUsernamePlaceholder')} />
           </Field>
+          <Field label={t('form.fields.avatarUrl')} hint={t('form.fields.avatarUrlHint')}>
+            <Input value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder={t('form.fields.avatarUrlPlaceholder')} />
+          </Field>
+
           <Field label={t('form.fields.category')}>
             <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder={t('form.fields.categoryPlaceholder')} />
           </Field>
