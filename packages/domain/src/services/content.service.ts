@@ -75,6 +75,10 @@ function relIncludeFor(userId: string | undefined) {
     deliverable: { select: { id: true, type: true, platform: true } },
     metricSnapshots: { orderBy: { capturedAt: 'desc' }, take: 1 },
     viewerStates: { where: { userId: userId ?? NO_ACTOR }, take: 1 },
+    // Internal team comment count for the ContentCard "has comments" badge —
+    // top-level only, excludes soft-deleted notes, distinct from the
+    // platform's own public engagement comment count (metrics.comments).
+    _count: { select: { notes: { where: { parentId: null, deletedAt: null } } } },
   } satisfies Prisma.PublishedContentInclude;
 }
 
@@ -101,6 +105,7 @@ export function makeContentService(ctx: DomainContext) {
       deliverable: pc.deliverable ? { id: pc.deliverable.id, type: pc.deliverable.type, platform: pc.deliverable.platform } : null,
       metrics: toContentMetricsDTO(latest),
       viewerState,
+      commentCount: pc._count.notes,
     });
   }
 

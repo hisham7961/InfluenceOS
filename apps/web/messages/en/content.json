@@ -59,7 +59,8 @@
   },
   "grid": {
     "emptyTitle": "No content yet",
-    "emptyDescription": "Published campaign content will appear here."
+    "emptyDescription": "Published campaign content will appear here.",
+    "hasCommentsAriaLabel": "Has team comments"
   },
   "player": {
     "embeddedContentTitle": "Embedded content",

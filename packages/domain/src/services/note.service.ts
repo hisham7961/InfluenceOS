@@ -247,13 +247,20 @@ export function makeNoteService(ctx: DomainContext) {
     return topLevel.map((n) => toNoteDTO(n, byParent.get(n.id) ?? []));
   }
 
-  /** Generic context list — Deliverable/Shipment/Inspiration comments and Campaign/General chat, each with one level of replies inlined. */
+  /** Generic context list — Content/Influencer/Brand/Deliverable/Shipment/Inspiration comments and Campaign/General chat, each with one level of replies inlined.
+   *  Every NoteContext field the row can carry MUST have an arm here — a
+   *  missing one collapses `where` toward `{ parentId: null }` alone, which
+   *  matches every top-level Note in the whole table (a real data-leak bug
+   *  this exact list once had for publishedContentId/brandId/influencerId). */
   async function list(context: NoteContext, query: { cursor?: string; limit?: number } = {}): Promise<{ data: NoteDTO[]; nextCursor: string | null; hasMore: boolean }> {
     const resolved = await resolveContext(context);
     await assertInScope(resolved.brandId, resolved.countryCode);
     const limit = query.limit ?? 30;
     const where: Prisma.NoteWhereInput = {
       parentId: null,
+      ...(context.influencerId ? { influencerId: context.influencerId } : {}),
+      ...(context.brandId ? { brandId: context.brandId } : {}),
+      ...(context.publishedContentId ? { publishedContentId: context.publishedContentId } : {}),
       ...(context.campaignId ? { campaignId: context.campaignId } : {}),
       ...(context.deliverableId ? { deliverableId: context.deliverableId } : {}),
       ...(context.shipmentId ? { shipmentId: context.shipmentId } : {}),

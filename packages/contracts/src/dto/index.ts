@@ -703,6 +703,9 @@ export interface PublishedContentDTO {
   metrics: ContentMetricsDTO | null;
   /** null only when the request has no authenticated actor (never in practice — every content route requires auth). */
   viewerState: ContentViewerStateDTO | null;
+  /** Internal team Note/comment count (top-level, not soft-deleted) — distinct
+   *  from metrics.comments, which is the platform's own public engagement count. */
+  commentCount: number;
 }
 
 // --- Content Command Center (per-user summary + brand aggregation) ---------
@@ -965,6 +968,12 @@ export interface InspirationItemDTO {
   id: string;
   url: string;
   platform: Platform | null;
+  /** Iframe embed descriptor, derived from url/platform — reuses the same
+   *  mechanism a piece of published content renders with (SocialContentPlayer).
+   *  Null when the platform can't be detected or the id can't be extracted;
+   *  the card/detail view fall back to a plain link in that case. */
+  embed: EmbedDescriptor | null;
+  embeddable: boolean;
   thumbnailUrl: string | null;
   title: string | null;
   note: string | null;

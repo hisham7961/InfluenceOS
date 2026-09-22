@@ -1,7 +1,7 @@
 'use client';
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { Eye, Heart, MessageCircle, Play } from 'lucide-react';
+import { Eye, Heart, MessageCircle, MessageSquare, Play } from 'lucide-react';
 import type { PublishedContentDTO } from '@influenceos/contracts';
 import { cn } from '@/lib/cn';
 import { formatCompact, useLocalizedFormat } from '@/lib/format';
@@ -46,6 +46,7 @@ export function ContentMasonry({ items }: { items: PublishedContentDTO[] }) {
 const FALLBACK_ASPECTS = ['aspect-square', 'aspect-[4/5]', 'aspect-[3/4]', 'aspect-video'];
 
 function MasonryCard({ content, onOpen }: { content: PublishedContentDTO; onOpen: () => void }) {
+  const t = useTranslations('content');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
   const { relativeTime } = useLocalizedFormat();
@@ -74,7 +75,17 @@ function MasonryCard({ content, onOpen }: { content: PublishedContentDTO; onOpen
         <div className="absolute start-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/40 backdrop-blur">
           <PlatformIcon platform={content.platform} className="h-3.5 w-3.5 text-white" />
         </div>
-        <div className="absolute end-3 top-3">
+        <div className="absolute end-3 top-3 flex items-center gap-1.5">
+          {content.commentCount > 0 ? (
+            <span
+              className="flex h-6 items-center gap-1 rounded-full bg-black/40 px-2 text-[11px] font-medium text-white backdrop-blur"
+              aria-label={t('grid.hasCommentsAriaLabel')}
+              title={t('grid.hasCommentsAriaLabel')}
+            >
+              <MessageSquare className="h-3 w-3" />
+              {content.commentCount}
+            </span>
+          ) : null}
           <ContentStatusBadge status={content.availabilityStatus} />
         </div>
         {content.embeddable ? (

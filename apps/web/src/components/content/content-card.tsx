@@ -1,6 +1,6 @@
 'use client';
 import { useTranslations } from 'next-intl';
-import { Check, Heart, MessageCircle, Play, Eye } from 'lucide-react';
+import { Check, Heart, MessageCircle, MessageSquare, Play, Eye } from 'lucide-react';
 import type { PublishedContentDTO } from '@influenceos/contracts';
 import { contentReviewStatus } from '@influenceos/shared';
 import { formatCompact, useLocalizedFormat } from '@/lib/format';
@@ -20,6 +20,7 @@ export const ALERT_STATUSES = new Set(['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BRO
  * summary — never a separate per-card computation.
  */
 export function ContentCard({ content, onOpen }: { content: PublishedContentDTO; onOpen: () => void }) {
+  const t = useTranslations('content');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
   const { relativeTime } = useLocalizedFormat();
@@ -71,7 +72,17 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
             </span>
           ) : null}
         </div>
-        <div className="absolute end-3 top-3">
+        <div className="absolute end-3 top-3 flex items-center gap-1.5">
+          {content.commentCount > 0 ? (
+            <span
+              className="flex h-6 items-center gap-1 rounded-full bg-black/40 px-2 text-[11px] font-medium text-white backdrop-blur"
+              aria-label={t('grid.hasCommentsAriaLabel')}
+              title={t('grid.hasCommentsAriaLabel')}
+            >
+              <MessageSquare className="h-3 w-3" />
+              {content.commentCount}
+            </span>
+          ) : null}
           {isAlert ? <ContentStatusBadge status={content.availabilityStatus} /> : null}
         </div>
         {content.embeddable && (

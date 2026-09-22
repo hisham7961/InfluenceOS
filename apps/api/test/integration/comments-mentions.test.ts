@@ -219,6 +219,63 @@ describe('OI-2 — Collaboration Layer: mentions, notifications, pin authorizati
     }
   });
 
+  // Regression — note.service.ts's list() where-builder once omitted
+  // influencerId/brandId/publishedContentId entirely, so GET /notes with any
+  // one of those three contexts collapsed to `{ parentId: null }` and
+  // returned every top-level Note in the whole table (campaign chat,
+  // logistics chat, other creators' notes — everything). Assert the three
+  // fixed contexts each return ONLY their own thread.
+  describe('list() scoping — content/brand/influencer threads never leak into each other', () => {
+    it('a content comment thread never includes an influencer note, a brand note, or general chat', async () => {
+      const author = await createStaff(app, 'scope-leak');
+      try {
+        const contentId = idOf(
+          await app.inject({
+            method: 'POST',
+            url: '/api/v1/content',
+            headers: admin,
+            payload: { url: `https://instagram.com/p/scope-leak-${Date.now()}`, influencerId },
+          }),
+        );
+        const brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: admin, payload: { name: `Scope Leak Brand ${Date.now()}` } }));
+
+        // Bypass createNote() here — it always merges in the outer suite's
+        // influencerId, which would make this note resolve as an influencer
+        // context (checked first in resolveContext()) instead of content.
+        const contentNoteRes = await app.inject({
+          method: 'POST',
+          url: '/api/v1/notes',
+          headers: author.auth,
+          payload: { publishedContentId: contentId, body: `Content-only ${Date.now()}` },
+        });
+        expect(contentNoteRes.statusCode).toBe(201);
+        const contentNote = contentNoteRes.json() as NoteDTO;
+        await createNote(author.auth, { body: `Influencer-only ${Date.now()}` });
+        await app.inject({ method: 'POST', url: '/api/v1/notes', headers: author.auth, payload: { brandId, body: `Brand-only ${Date.now()}` } });
+        await app.inject({ method: 'POST', url: '/api/v1/notes', headers: author.auth, payload: { channel: 'general', body: `General chat ${Date.now()}` } });
+
+        const contentList = await app.inject({ method: 'GET', url: `/api/v1/notes?publishedContentId=${contentId}`, headers: author.auth });
+        expect(contentList.statusCode).toBe(200);
+        const contentIds = (contentList.json() as { data: NoteDTO[] }).data.map((n) => n.id);
+        expect(contentIds).toEqual([contentNote.id]);
+
+        const brandList = await app.inject({ method: 'GET', url: `/api/v1/notes?brandId=${brandId}`, headers: author.auth });
+        expect(brandList.statusCode).toBe(200);
+        expect((brandList.json() as { data: NoteDTO[] }).data.every((n) => n.brandId === brandId)).toBe(true);
+        expect((brandList.json() as { data: NoteDTO[] }).data.some((n) => n.id === contentNote.id)).toBe(false);
+
+        const { PrismaClient } = await import('@influenceos/database');
+        const prisma = new PrismaClient();
+        await prisma.note.deleteMany({ where: { authorId: author.userId } }).catch(() => undefined);
+        await prisma.publishedContent.delete({ where: { id: contentId } }).catch(() => undefined);
+        await prisma.brand.deleteMany({ where: { id: brandId } }).catch(() => undefined);
+        await prisma.$disconnect();
+      } finally {
+        await deleteUser(author.userId);
+      }
+    });
+  });
+
   describe('pin authorization', () => {
     let brandId: string;
     let campaignId: string;

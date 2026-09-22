@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { ExternalLink, FileText, Lightbulb, Pin, Plus, Trash2, X } from 'lucide-react';
+import { ExternalLink, FileText, Lightbulb, Pin, Play, Plus, Trash2, X } from 'lucide-react';
 import type { BrandSummaryDTO, InspirationItemDTO } from '@influenceos/contracts';
 import { INSPIRATION_CATEGORIES, type InspirationCategory } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
@@ -22,6 +22,8 @@ import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { useApp } from '@/components/shell/app-context';
 import { CommentThread } from '@/components/collaboration/comment-thread';
+import { SocialContentPlayer } from '@/components/content/social-content-player';
+import { PlatformIcon } from '@/components/ui/platform-badge';
 import { enumLabel } from '@/lib/enum-labels';
 import { BidiText } from '@/components/common/bidi-text';
 
@@ -175,8 +177,26 @@ function InspirationCard({ item, onOpen }: { item: InspirationItemDTO; onOpen: (
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => e.key === 'Enter' && onOpen()}
-      className="flex cursor-pointer flex-col gap-2 p-4 transition-shadow hover:shadow-pop"
+      className="flex cursor-pointer flex-col gap-2 overflow-hidden p-4 transition-shadow hover:shadow-pop"
     >
+      {item.thumbnailUrl ? (
+        <div className="relative -mx-4 -mt-4 aspect-video overflow-hidden bg-gradient-to-br from-neutral-800 to-neutral-900">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={item.thumbnailUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+          {(item.platform ?? item.embed?.platform) ? (
+            <div className="absolute start-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 backdrop-blur">
+              <PlatformIcon platform={(item.platform ?? item.embed?.platform)!} className="h-3 w-3 text-white" />
+            </div>
+          ) : null}
+          {item.embeddable ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-black shadow-pop">
+                <Play className="h-4 w-4 fill-current" />
+              </span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div className="flex items-start justify-between gap-2">
         <Badge tone="accent">{enumLabel(tEnums, 'inspirationCategory', item.category)}</Badge>
         {item.pinned && <Pin className="h-4 w-4 shrink-0 text-brand" />}
@@ -320,6 +340,18 @@ function InspirationDetail({ item, onClose }: { item: InspirationItemDTO; onClos
           )}
         </div>
       </div>
+
+      {item.embeddable ? (
+        <SocialContentPlayer
+          content={{
+            platform: item.platform,
+            embed: item.embed,
+            thumbnailUrl: item.thumbnailUrl,
+            caption: item.title,
+            originalUrl: item.url,
+          }}
+        />
+      ) : null}
 
       <Button asChild variant="secondary" size="sm">
         <a href={item.url} target="_blank" rel="noopener noreferrer">

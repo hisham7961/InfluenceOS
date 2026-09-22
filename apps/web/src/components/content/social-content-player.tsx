@@ -2,12 +2,30 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { ExternalLink, PlayCircle } from 'lucide-react';
-import { isAllowedIframeOrigin, type EmbedDescriptor } from '@influenceos/shared';
-import type { PublishedContentDTO } from '@influenceos/contracts';
+import { isAllowedIframeOrigin, type EmbedDescriptor, type Platform } from '@influenceos/shared';
+import type { ContentStatus } from '@influenceos/contracts';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
+
+/**
+ * The fields SocialContentPlayer actually reads — a strict subset of
+ * PublishedContentDTO, so it plays PublishedContentDTO as-is and also plays
+ * anything else with the same shape (e.g. an InspirationItemDTO, mapped to
+ * this shape by its own card/detail view) without a parallel player. platform
+ * may be null (a trend link whose platform couldn't be detected) — canEmbed
+ * is false in that case, so the fallback never needs it. availabilityStatus
+ * is omitted entirely for content with no monitoring concept (trend links).
+ */
+export interface SocialPlayableContent {
+  platform: Platform | null;
+  embed: EmbedDescriptor | null;
+  thumbnailUrl: string | null;
+  caption: string | null;
+  originalUrl: string;
+  availabilityStatus?: ContentStatus;
+}
 
 /**
  * Reusable social content player (spec §17). Renders the official, allowlisted
@@ -21,7 +39,7 @@ export function SocialContentPlayer({
   autoPlay = false,
   className,
 }: {
-  content: PublishedContentDTO;
+  content: SocialPlayableContent;
   autoPlay?: boolean;
   className?: string;
 }) {
@@ -30,6 +48,11 @@ export function SocialContentPlayer({
   const embed = content.embed;
   const canEmbed = !!embed && embed.kind === 'iframe' && !!embed.iframeSrc && isAllowedIframeOrigin(embed.iframeSrc);
   const aspect = embed?.aspectRatio ?? 16 / 9;
+  // embed.platform is always set whenever embed.kind === 'iframe' (buildEmbed
+  // never produces one without a resolved platform) — prefer it over
+  // content.platform so the play-button copy is correct even when the
+  // content's own platform field is null but its embed still resolved one.
+  const platform = embed?.platform ?? content.platform;
 
   return (
     <div
@@ -47,7 +70,7 @@ export function SocialContentPlayer({
           sandbox="allow-scripts allow-same-origin allow-popups allow-presentation"
         />
       ) : (
-        <Fallback content={content} canEmbed={canEmbed} onPlay={() => setPlaying(true)} />
+        <Fallback content={content} platform={platform} canEmbed={canEmbed} onPlay={() => setPlaying(true)} />
       )}
     </div>
   );
@@ -55,10 +78,12 @@ export function SocialContentPlayer({
 
 function Fallback({
   content,
+  platform,
   canEmbed,
   onPlay,
 }: {
-  content: PublishedContentDTO;
+  content: SocialPlayableContent;
+  platform: Platform | null;
   canEmbed: boolean;
   onPlay: () => void;
 }) {
@@ -75,20 +100,24 @@ function Fallback({
         />
       ) : null}
       <div className="absolute start-3 top-3 flex items-center gap-2">
-        <span className="flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 text-xs backdrop-blur">
-          <PlatformIcon platform={content.platform} className="h-3.5 w-3.5" />
-        </span>
-        <span className="rounded-full bg-black/50 px-2 py-1 text-[11px] backdrop-blur">
-          <ContentStatusBadge status={content.availabilityStatus} />
-        </span>
+        {platform ? (
+          <span className="flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 text-xs backdrop-blur">
+            <PlatformIcon platform={platform} className="h-3.5 w-3.5" />
+          </span>
+        ) : null}
+        {content.availabilityStatus ? (
+          <span className="rounded-full bg-black/50 px-2 py-1 text-[11px] backdrop-blur">
+            <ContentStatusBadge status={content.availabilityStatus} />
+          </span>
+        ) : null}
       </div>
 
       <div className="relative z-10 flex flex-col items-center gap-2 text-center">
-        {canEmbed ? (
+        {canEmbed && platform ? (
           <button onClick={onPlay} className="group flex flex-col items-center gap-2" aria-label={t('player.play')}>
             <PlayCircle className="h-16 w-16 drop-shadow transition-transform group-hover:scale-110" />
             <span className="text-sm font-medium">
-              {t('player.playPlatformContent', { platform: content.platform.toLowerCase() })}
+              {t('player.playPlatformContent', { platform: platform.toLowerCase() })}
             </span>
           </button>
         ) : (

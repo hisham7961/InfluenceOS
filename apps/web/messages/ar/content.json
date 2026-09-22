@@ -59,7 +59,8 @@
   },
   "grid": {
     "emptyTitle": "لا يوجد محتوى بعد",
-    "emptyDescription": "سيظهر هنا محتوى الحملة المنشور."
+    "emptyDescription": "سيظهر هنا محتوى الحملة المنشور.",
+    "hasCommentsAriaLabel": "يحتوي على تعليقات الفريق"
   },
   "player": {
     "embeddedContentTitle": "محتوى مضمّن",

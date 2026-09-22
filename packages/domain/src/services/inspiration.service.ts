@@ -1,6 +1,7 @@
 import { requests, type InspirationItemDTO } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
+import { buildEmbed, detectPlatform, resolveContentThumbnail } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor, requireCapability, requireOwnerOrAdmin } from '../lib/authz';
@@ -21,10 +22,13 @@ const inspirationInclude = {
 type InspirationRow = Prisma.InspirationItemGetPayload<{ include: typeof inspirationInclude }>;
 
 function toDTO(row: InspirationRow): InspirationItemDTO {
+  const embed = buildEmbed(row.url, row.platform);
   return {
     id: row.id,
     url: row.url,
     platform: row.platform,
+    embed,
+    embeddable: !!embed && embed.kind !== 'link-only',
     thumbnailUrl: row.thumbnailUrl,
     title: row.title,
     note: row.note,
@@ -110,10 +114,27 @@ export function makeInspirationService(ctx: DomainContext) {
     // (WHERE) is already enforced below via assertInScope.
     const actor = await requireCapability(ctx, 'CONTENT_MANAGE');
     if (input.brandId) await assertInScope(input.brandId);
+
+    // A trend link isn't required to be a known social platform (a blog post
+    // or article is a legitimate reference too) — detect one only to power
+    // the embed/thumbnail below, never to reject the link the way content.
+    // service.ts's create() does for the brand's own PublishedContent.
+    const platform = input.platform ?? detectPlatform(input.url);
+    const embed = platform ? buildEmbed(input.url, platform) : null;
+    // Best-effort cover image, same pattern as content.service.ts::create() —
+    // time-boxed, never blocks on a slow/broken source page.
+    const thumbnailUrl =
+      embed && embed.kind !== 'link-only' && platform
+        ? await resolveContentThumbnail({ platform, canonicalUrl: embed.canonicalUrl, externalId: embed.externalId, timeoutMs: 3500 }).catch(
+            () => null,
+          )
+        : null;
+
     const row = await prisma.inspirationItem.create({
       data: {
         url: input.url,
-        platform: input.platform ?? null,
+        platform: platform ?? null,
+        thumbnailUrl,
         title: input.title ?? null,
         note: input.note ?? null,
         category: input.category,

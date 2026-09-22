@@ -290,6 +290,7 @@ export function toPublishedContentDTO(
     metrics?: ContentMetricsDTO | null;
     provenanceUpdatedByName?: string | null;
     viewerState?: ContentViewerStateDTO | null;
+    commentCount?: number;
   } = {},
 ): PublishedContentDTO {
   const embed = buildEmbed(pc.originalUrl, pc.platform);
@@ -320,5 +321,6 @@ export function toPublishedContentDTO(
     deliverable: rel.deliverable ?? null,
     metrics: rel.metrics ?? null,
     viewerState: rel.viewerState ?? null,
+    commentCount: rel.commentCount ?? 0,
   };
 }
