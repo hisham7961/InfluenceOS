@@ -67,6 +67,12 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
   const [country, setCountry] = React.useState(influencer.country ?? '');
   const [countryCode, setCountryCode] = React.useState(influencer.countryCode ?? NO_COUNTRY);
   const [city, setCity] = React.useState(influencer.city ?? '');
+  // Default shipping address (W3-5) — a new shipment for this creator starts
+  // from these fields.
+  const [addressLine1, setAddressLine1] = React.useState(influencer.addressLine1 ?? '');
+  const [addressLine2, setAddressLine2] = React.useState(influencer.addressLine2 ?? '');
+  const [postalCode, setPostalCode] = React.useState(influencer.postalCode ?? '');
+  const [deliveryInstructions, setDeliveryInstructions] = React.useState(influencer.deliveryInstructions ?? '');
   const [languages, setLanguages] = React.useState(influencer.languages.join(', '));
   const [email, setEmail] = React.useState(influencer.contact.email ?? '');
   const [mobile, setMobile] = React.useState(influencer.contact.mobile ?? '');
@@ -90,6 +96,10 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
     setCountry(influencer.country ?? '');
     setCountryCode(influencer.countryCode ?? NO_COUNTRY);
     setCity(influencer.city ?? '');
+    setAddressLine1(influencer.addressLine1 ?? '');
+    setAddressLine2(influencer.addressLine2 ?? '');
+    setPostalCode(influencer.postalCode ?? '');
+    setDeliveryInstructions(influencer.deliveryInstructions ?? '');
     setLanguages(influencer.languages.join(', '));
     setEmail(influencer.contact.email ?? '');
     setMobile(influencer.contact.mobile ?? '');
@@ -120,6 +130,10 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
         // (leaves an existing legacy country-less row as-is) rather than sent as null.
         countryCode: countryCode === NO_COUNTRY ? undefined : countryCode,
         city: city.trim() || null,
+        addressLine1: addressLine1.trim() || null,
+        addressLine2: addressLine2.trim() || null,
+        postalCode: postalCode.trim() || null,
+        deliveryInstructions: deliveryInstructions.trim() || null,
         languages: splitList(languages),
         email: email.trim() || null,
         mobile: mobile.trim() || null,
@@ -194,6 +208,24 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
           </Field>
           <Field label={t('form.fields.city')}>
             <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder={t('form.fields.cityPlaceholder')} />
+          </Field>
+
+          <Field label={t('form.fields.addressLine1')} className="sm:col-span-2">
+            <Input value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} placeholder={t('form.fields.addressLine1Placeholder')} />
+          </Field>
+          <Field label={t('form.fields.addressLine2')} className="sm:col-span-2">
+            <Input value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} placeholder={t('form.fields.addressLine2Placeholder')} />
+          </Field>
+          <Field label={t('form.fields.postalCode')}>
+            <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder={t('form.fields.postalCodePlaceholder')} />
+          </Field>
+          <Field label={t('form.fields.deliveryInstructions')} className="sm:col-span-2">
+            <Textarea
+              rows={2}
+              value={deliveryInstructions}
+              onChange={(e) => setDeliveryInstructions(e.target.value)}
+              placeholder={t('form.fields.deliveryInstructionsPlaceholder')}
+            />
           </Field>
 
           <Field label={t('form.fields.priority')}>

@@ -193,6 +193,13 @@ export function AddInfluencerForm() {
   const [country, setCountry] = React.useState('');
   const [countryCode, setCountryCode] = React.useState('');
   const [city, setCity] = React.useState('');
+  // Default shipping address (W3-5) — a new shipment for this creator starts
+  // from these, so capturing them here at creation makes shipment creation a
+  // one-click prefill instead of re-typing the address every time.
+  const [addressLine1, setAddressLine1] = React.useState('');
+  const [addressLine2, setAddressLine2] = React.useState('');
+  const [postalCode, setPostalCode] = React.useState('');
+  const [deliveryInstructions, setDeliveryInstructions] = React.useState('');
   const [languages, setLanguages] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [mobile, setMobile] = React.useState('');
@@ -304,6 +311,10 @@ export function AddInfluencerForm() {
         country: country.trim() || undefined,
         countryCode,
         city: city.trim() || undefined,
+        addressLine1: addressLine1.trim() || undefined,
+        addressLine2: addressLine2.trim() || undefined,
+        postalCode: postalCode.trim() || undefined,
+        deliveryInstructions: deliveryInstructions.trim() || undefined,
         languages: splitList(languages),
         email: email.trim() || undefined,
         mobile: mobile.trim() || undefined,
@@ -529,6 +540,24 @@ export function AddInfluencerForm() {
             </Field>
             <Field label={t('form.fields.city')}>
               <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder={t('form.fields.cityPlaceholder')} />
+            </Field>
+
+            <Field label={t('form.fields.addressLine1')} className="sm:col-span-2">
+              <Input value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} placeholder={t('form.fields.addressLine1Placeholder')} />
+            </Field>
+            <Field label={t('form.fields.addressLine2')} className="sm:col-span-2">
+              <Input value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} placeholder={t('form.fields.addressLine2Placeholder')} />
+            </Field>
+            <Field label={t('form.fields.postalCode')}>
+              <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder={t('form.fields.postalCodePlaceholder')} />
+            </Field>
+            <Field label={t('form.fields.deliveryInstructions')} className="sm:col-span-2">
+              <Textarea
+                rows={2}
+                value={deliveryInstructions}
+                onChange={(e) => setDeliveryInstructions(e.target.value)}
+                placeholder={t('form.fields.deliveryInstructionsPlaceholder')}
+              />
             </Field>
 
             <Field label={t('form.fields.relationshipStatus')}>

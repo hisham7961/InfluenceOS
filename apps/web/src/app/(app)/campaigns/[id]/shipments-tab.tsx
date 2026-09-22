@@ -250,8 +250,11 @@ function CreateShipmentDialog({
   const [recipientName, setRecipientName] = React.useState('');
   const [phone, setPhone] = React.useState('');
   const [addressLine1, setAddressLine1] = React.useState('');
+  const [addressLine2, setAddressLine2] = React.useState('');
   const [city, setCity] = React.useState('');
   const [country, setCountry] = React.useState('');
+  const [postalCode, setPostalCode] = React.useState('');
+  const [deliveryInstructions, setDeliveryInstructions] = React.useState('');
   const [notes, setNotes] = React.useState('');
   const [items, setItems] = React.useState<ItemRow[]>([{ productName: '', sku: '', variant: '', quantity: '1' }]);
 
@@ -264,19 +267,44 @@ function CreateShipmentDialog({
     setRecipientName('');
     setPhone('');
     setAddressLine1('');
+    setAddressLine2('');
     setCity('');
     setCountry('');
+    setPostalCode('');
+    setDeliveryInstructions('');
     setNotes('');
     setItems([{ productName: '', sku: '', variant: '', quantity: '1' }]);
   }, [open]);
 
-  // Prefill recipient/phone from the selected creator's profile — still a
-  // one-time copy into this shipment's own fields, not a live reference.
+  // Prefill recipient name from the roster row we already have (W3-5).
   React.useEffect(() => {
     if (selectedCi) {
       setRecipientName((prev) => prev || selectedCi.influencer.displayName);
     }
   }, [selectedCi]);
+
+  // The roster row's InfluencerSummaryDTO doesn't carry the address/phone
+  // fields, so once a creator is selected, fetch their full profile to
+  // prefill the rest of the shipment's address from their own default
+  // shipping address — still a one-time copy into this shipment's own
+  // fields (see createDialogDescription below), never a live reference, so
+  // the user can freely override any of it before submitting.
+  const { data: selectedInfluencerDetail } = useQuery({
+    queryKey: ['influencer-detail-for-shipment', selectedCi?.influencer.id],
+    queryFn: () => api.influencers.get(selectedCi!.influencer.id),
+    enabled: !!selectedCi,
+  });
+
+  React.useEffect(() => {
+    if (!selectedInfluencerDetail) return;
+    setPhone((prev) => prev || selectedInfluencerDetail.contact.mobile || '');
+    setAddressLine1((prev) => prev || selectedInfluencerDetail.addressLine1 || '');
+    setAddressLine2((prev) => prev || selectedInfluencerDetail.addressLine2 || '');
+    setCity((prev) => prev || selectedInfluencerDetail.city || '');
+    setCountry((prev) => prev || selectedInfluencerDetail.country || '');
+    setPostalCode((prev) => prev || selectedInfluencerDetail.postalCode || '');
+    setDeliveryInstructions((prev) => prev || selectedInfluencerDetail.deliveryInstructions || '');
+  }, [selectedInfluencerDetail]);
 
   function updateItem(i: number, patch: Partial<ItemRow>) {
     setItems((prev) => prev.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
@@ -298,8 +326,11 @@ function CreateShipmentDialog({
         recipientName: recipientName.trim() || undefined,
         phone: phone.trim() || undefined,
         addressLine1: addressLine1.trim() || undefined,
+        addressLine2: addressLine2.trim() || undefined,
         city: city.trim() || undefined,
         country: country.trim() || undefined,
+        postalCode: postalCode.trim() || undefined,
+        deliveryInstructions: deliveryInstructions.trim() || undefined,
         notes: notes.trim() || undefined,
         items: cleanItems,
       });
@@ -375,13 +406,23 @@ function CreateShipmentDialog({
             <Field label={t('shipments.addressLabel')} className="col-span-2">
               <Input value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
             </Field>
+            <Field label={t('shipments.addressLine2Label')} hint={t('fields.optionalHint')} className="col-span-2">
+              <Input value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
+            </Field>
             <Field label={t('shipments.cityLabel')}>
               <Input value={city} onChange={(e) => setCity(e.target.value)} />
             </Field>
             <Field label={t('shipments.countryLabel')}>
               <Input value={country} onChange={(e) => setCountry(e.target.value)} />
             </Field>
+            <Field label={t('shipments.postalCodeLabel')} hint={t('fields.optionalHint')}>
+              <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
+            </Field>
           </div>
+
+          <Field label={t('shipments.deliveryInstructionsLabel')} hint={t('fields.optionalHint')}>
+            <Textarea value={deliveryInstructions} onChange={(e) => setDeliveryInstructions(e.target.value)} rows={2} />
+          </Field>
 
           <div>
             <div className="mb-2 flex items-center justify-between">
