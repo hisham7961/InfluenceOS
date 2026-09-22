@@ -59,7 +59,7 @@ export const CAPABILITY_MATRIX: Record<Platform, MatrixEntry> = {
     requiresCreatorAuthorization: false,
     requiresAppAuthorization: true,
     notes:
-      'Instagram Graph API only exposes data for eligible Professional (Business/Creator) accounts connected through Meta. Personal accounts are manual-only. Content uses the official Instagram embed.',
+      'Instagram Graph API only exposes data for eligible Professional (Business/Creator) accounts connected through Meta. Personal accounts are manual-only. Post likes & comments come from the Business Discovery media edge and cover the target account\'s recent posts; view/play counts are never exposed there and stay manual. Content uses the official Instagram embed.',
   },
   TIKTOK: {
     profileLookup: 'AUTHORIZATION_DEPENDENT',

@@ -81,6 +81,7 @@ export abstract class BaseAdapter implements SocialPlatformAdapter {
   async syncContentMetrics(_content: {
     externalId: string | null;
     originalUrl: string;
+    ownerUsername?: string | null;
   }): Promise<AdapterResult<ContentMetricsResult>> {
     return this.manualFallback('NOT_SUPPORTED_BY_PLATFORM');
   }
