@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
-import { ArrowLeft, Mail, MapPin, MessageCircle, Phone, Tag } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Mail, MapPin, MessageCircle, Phone, Tag } from 'lucide-react';
 import type { InfluencerDetailDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
+import { profileUrl } from '@influenceos/shared';
 import { getServerApi } from '@/lib/api-server';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -115,6 +116,13 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
           <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col">
             <InfluencerEditDialog influencer={influencer} />
             <SyncAvatarButton influencer={influencer} />
+            {influencer.primaryPlatform && influencer.primaryUsername ? (
+              <Button asChild variant="secondary" size="sm">
+                <a href={profileUrl(influencer.primaryPlatform, influencer.primaryUsername)} target="_blank" rel="noreferrer">
+                  <ExternalLink /> {t('detail.openProfileButton')}
+                </a>
+              </Button>
+            ) : null}
             {contact.whatsapp ? (
               <Button asChild variant="secondary" size="sm">
                 <a href={waHref(contact.whatsapp)} target="_blank" rel="noreferrer">

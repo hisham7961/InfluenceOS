@@ -196,6 +196,7 @@
     "managedBy": "يتابعه {name}",
     "noContactInfo": "لا توجد بيانات تواصل مسجّلة",
     "syncPhotoButton": "مزامنة الصورة",
+    "openProfileButton": "فتح الملف الشخصي",
     "syncPhoto": {
       "synced": "تمت مزامنة الصورة.",
       "noLinkedAccount": "لا يوجد حساب تواصل اجتماعي مرتبط لمزامنة الصورة منه بعد — يُرجى ربط حساب أولاً.",

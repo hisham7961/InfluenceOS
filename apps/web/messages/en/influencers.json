@@ -196,6 +196,7 @@
     "managedBy": "Managed by {name}",
     "noContactInfo": "No contact info on file",
     "syncPhotoButton": "Sync photo",
+    "openProfileButton": "Open profile",
     "syncPhoto": {
       "synced": "Profile photo synced.",
       "noLinkedAccount": "No linked social profile to sync a photo from yet — link one first.",
