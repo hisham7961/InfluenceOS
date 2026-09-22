@@ -220,11 +220,111 @@ describe('InstagramAdapter', () => {
     if (!r.ok) expect(r.reason).toBe('ACCOUNT_NOT_ELIGIBLE');
   });
 
-  it('does NOT auto-fetch post metrics (manual only, platform limitation)', async () => {
-    const ig = new InstagramAdapter(ctxWith({ INSTAGRAM_ACCESS_TOKEN: 'tok', INSTAGRAM_BUSINESS_ACCOUNT_ID: 'me' }, NEVER));
-    const r = await ig.syncContentMetrics({ externalId: 'x', originalUrl: 'https://instagram.com/p/x' });
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason).toBe('NOT_SUPPORTED_BY_PLATFORM');
+  describe('post metrics via the Business Discovery media edge', () => {
+    const CREDS = { INSTAGRAM_ACCESS_TOKEN: 'tok', INSTAGRAM_BUSINESS_ACCOUNT_ID: 'me' };
+    const media = (items: unknown[]) => ({ business_discovery: { media: { data: items } } });
+    const post = (shortcode: string, like_count: number, comments_count: number) => ({
+      id: `m_${shortcode}`,
+      permalink: `https://www.instagram.com/p/${shortcode}/`,
+      like_count,
+      comments_count,
+      media_type: 'IMAGE',
+    });
+
+    it('returns likes + comments for a matching recent post', async () => {
+      const ig = new InstagramAdapter(
+        ctxWith(CREDS, (url) => {
+          expect(url).toContain('business_discovery.username(natgeo)');
+          expect(url).toContain('like_count');
+          return res(200, media([post('OTHER', 1, 1), post('ABC123', 4200, 87)]));
+        }),
+      );
+      const r = await ig.syncContentMetrics({
+        externalId: 'ABC123',
+        originalUrl: 'https://www.instagram.com/p/ABC123/',
+        ownerUsername: 'natgeo',
+      });
+      expect(r.ok).toBe(true);
+      if (r.ok) {
+        expect(r.data.likes).toBe(4200);
+        expect(r.data.comments).toBe(87);
+        // Business Discovery never exposes plays — we must not invent one.
+        expect(r.data.views).toBeNull();
+      }
+    });
+
+    it('matches a reel permalink for the same shortcode', async () => {
+      const ig = new InstagramAdapter(
+        ctxWith(CREDS, () =>
+          res(200, media([{ ...post('R1', 10, 2), permalink: 'https://www.instagram.com/reel/R1/' }])),
+        ),
+      );
+      const r = await ig.syncContentMetrics({
+        externalId: 'R1',
+        originalUrl: 'https://www.instagram.com/reel/R1/',
+        ownerUsername: 'natgeo',
+      });
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.data.likes).toBe(10);
+    });
+
+    it('does not let a shortcode match a longer one that starts with it', async () => {
+      const ig = new InstagramAdapter(
+        ctxWith(CREDS, () => res(200, media([post('ABC123XY', 999, 999)]))),
+      );
+      const r = await ig.syncContentMetrics({
+        externalId: 'ABC123',
+        originalUrl: 'https://www.instagram.com/p/ABC123/',
+        ownerUsername: 'natgeo',
+      });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.reason).toBe('NOT_FOUND');
+    });
+
+    it('reports NOT_FOUND when the post is outside the recent-media window', async () => {
+      const ig = new InstagramAdapter(
+        ctxWith(CREDS, () => res(200, media([post('NEWER', 5, 5)]))),
+      );
+      const r = await ig.syncContentMetrics({
+        externalId: 'OLDPOST',
+        originalUrl: 'https://www.instagram.com/p/OLDPOST/',
+        ownerUsername: 'natgeo',
+      });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.reason).toBe('NOT_FOUND');
+    });
+
+    it('stays manual without the owning handle (an IG post URL has no username)', async () => {
+      const ig = new InstagramAdapter(ctxWith(CREDS, NEVER));
+      const r = await ig.syncContentMetrics({
+        externalId: 'ABC123',
+        originalUrl: 'https://www.instagram.com/p/ABC123/',
+      });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.reason).toBe('INVALID_INPUT');
+    });
+
+    it('stays manual when no credentials are configured', async () => {
+      const ig = new InstagramAdapter(ctxWith({}, NEVER));
+      const r = await ig.syncContentMetrics({
+        externalId: 'ABC123',
+        originalUrl: 'https://www.instagram.com/p/ABC123/',
+        ownerUsername: 'natgeo',
+      });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.reason).toBe('REQUIRES_APP_AUTHORIZATION');
+    });
+
+    it('maps a 400 to ACCOUNT_NOT_ELIGIBLE (personal / non-discoverable owner)', async () => {
+      const ig = new InstagramAdapter(ctxWith(CREDS, () => res(400, { error: {} })));
+      const r = await ig.syncContentMetrics({
+        externalId: 'ABC123',
+        originalUrl: 'https://www.instagram.com/p/ABC123/',
+        ownerUsername: 'someone',
+      });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.reason).toBe('ACCOUNT_NOT_ELIGIBLE');
+    });
   });
 });
 

@@ -183,6 +183,12 @@ export interface SocialPlatformAdapter {
   syncContentMetrics(content: {
     externalId: string | null;
     originalUrl: string;
+    /**
+     * Handle of the account that published this content, when known. Some
+     * platforms (Instagram) key content lookups off the owning account rather
+     * than the post id, because the post URL carries no username.
+     */
+    ownerUsername?: string | null;
   }): Promise<AdapterResult<ContentMetricsResult>>;
 
   /** Check whether content is still available. */
