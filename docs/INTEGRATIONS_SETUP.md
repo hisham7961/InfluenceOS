@@ -75,9 +75,30 @@ which runs through *your own* connected IG Business account.
 5. (App id/secret — `INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET` — are for the
    creator-OAuth foundation, not needed for Business Discovery.)
 
+> **Pick the right setup path.** Under the Instagram product Meta offers
+> *"API setup with Instagram login"* and *"API setup with Facebook login"*.
+> Business Discovery exists **only on the Facebook login path**
+> (`graph.facebook.com`); the Instagram login path (`graph.instagram.com`) has
+> no such edge, and no token or permission fixes that. Instagram Basic Display
+> API was shut down on 2024-12-04 — any guide built on it is dead.
+
+Token permissions: `instagram_basic`, `instagram_manage_insights`,
+`pages_read_engagement`, plus `pages_show_list` for the `/me/accounts` step
+(and `ads_management` or `ads_read` if the Page role came via Business Manager).
+
+**Order matters:** exchange the short-lived user token for a long-lived one
+*before* calling `/me/accounts`. A Page token derived from a short-lived user
+token inherits that short expiry and dies within the hour; one derived from a
+long-lived user token does not expire.
+
+No App Review or Business Verification is needed while the app serves only
+people who hold a role on it — the influencers being looked up never log in and
+do not affect the access level.
+
 **What this gives you:** auto profile lookup (name, avatar, bio, followers) for
-*Professional target accounts only*, plus **per-post likes and comments** for
-those accounts' **recent** posts, read from the Business Discovery `media` edge.
+*Professional target accounts only*, plus **per-post likes, comments and — for
+Reels — `view_count`** on those accounts' **recent** posts, read from the
+Business Discovery `media` edge.
 
 Post metrics resolve by matching the tracked post's shortcode against the
 owning account's recent `permalink`s, so they need the influencer to have a
@@ -87,16 +108,19 @@ media window returns `NOT_FOUND` and keeps whatever was entered manually.
 
 **What it does NOT give you:**
 
-- **View/play counts.** Business Discovery never exposes them; plays are an
-  insights metric readable only on an account that authorized your app. The
-  adapter returns `views: null` rather than substituting a lookalike number —
-  views stay manual.
 - **Anything at all for personal accounts.** They are not discoverable, so they
   stay fully manual.
-- **Older posts**, which fall outside the recent-media window.
+- **Older posts**, which fall outside the recent-media window. There is no
+  endpoint that resolves a post URL to a media id, and a media id returned by
+  Business Discovery cannot be fetched directly ("performing a `GET` on any
+  returned IG Media will fail due to insufficient permissions"), so every field
+  must come back through field expansion on the one Business Discovery call.
+- **`like_count` when the owner hides like counts** — under field expansion Meta
+  omits the field instead of erroring, so it reads as null.
+- **Views on anything but Reels.** `view_count` is Reels-only and mixes paid
+  with organic reach; `total_views_count` is explicitly unavailable here.
 
-Full post metrics (views included) and TikTok still require the creator
-authorizing your app — see Creator-OAuth below.
+TikTok still requires the creator authorizing your app — see Creator-OAuth below.
 
 ## TikTok — embed + availability only
 
