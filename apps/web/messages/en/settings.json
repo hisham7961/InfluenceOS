@@ -424,15 +424,15 @@
         "limitation": "The free tier is very limited; a 403 from X surfaces as “requires app authorization”."
       },
       "INSTAGRAM": {
-        "headline": "Profile lookup — Business/Creator accounts only",
-        "unlocks": "Auto-fetch profile (name, avatar, bio, followers) for Professional target accounts via Business Discovery.",
+        "headline": "Profile + post likes/comments — Business/Creator accounts only",
+        "unlocks": "Auto-fetch profile (name, avatar, bio, followers) and per-post likes & comments for Professional target accounts' recent posts, via Business Discovery.",
         "steps": [
           "Connect an Instagram Business/Creator account to a Facebook Page you own.",
           "Meta for Developers → create an app → add “Instagram Graph API”.",
           "Generate a long-lived access token (instagram_basic, pages_read_engagement, Business Discovery).",
           "Find your connected IG Business account id. BOTH values are required — with only one, it stays inactive."
         ],
-        "limitation": "Does NOT give likes/comments/views of an arbitrary creator's posts — that needs Creator connections (below)."
+        "limitation": "No view/play counts — Business Discovery never exposes them, so views stay manual. Older posts and personal accounts are manual too. Full post metrics need Creator connections (below)."
       },
       "TIKTOK": {
         "headline": "Embed + availability only",

@@ -58,7 +58,7 @@ retweets, quotes, impressions) **subject to your API access tier**.
 Note: the free tier is very limited; public metrics availability depends on the
 tier. A `403` from X surfaces as "requires app authorization" in the app.
 
-## Instagram — profile only (Meta app + Business account)
+## Instagram — profile + post likes/comments (Meta app + Business account)
 
 The Instagram Graph API exposes data **only for eligible Professional
 (Business/Creator) accounts**, reached through the **Business Discovery** edge,
@@ -76,12 +76,27 @@ which runs through *your own* connected IG Business account.
    creator-OAuth foundation, not needed for Business Discovery.)
 
 **What this gives you:** auto profile lookup (name, avatar, bio, followers) for
-*Professional target accounts only*. Personal accounts stay manual.
+*Professional target accounts only*, plus **per-post likes and comments** for
+those accounts' **recent** posts, read from the Business Discovery `media` edge.
 
-**What it does NOT give you:** likes/comments/views of an arbitrary creator's
-posts. Meta does not expose per-post metrics to a third party without the
-creator authorizing your app (see Creator-OAuth below). Instagram post numbers
-are entered manually until then.
+Post metrics resolve by matching the tracked post's shortcode against the
+owning account's recent `permalink`s, so they need the influencer to have a
+`SocialAccount` row for Instagram — that handle is what Business Discovery runs
+against (an Instagram post URL carries no username). A post older than the
+media window returns `NOT_FOUND` and keeps whatever was entered manually.
+
+**What it does NOT give you:**
+
+- **View/play counts.** Business Discovery never exposes them; plays are an
+  insights metric readable only on an account that authorized your app. The
+  adapter returns `views: null` rather than substituting a lookalike number —
+  views stay manual.
+- **Anything at all for personal accounts.** They are not discoverable, so they
+  stay fully manual.
+- **Older posts**, which fall outside the recent-media window.
+
+Full post metrics (views included) and TikTok still require the creator
+authorizing your app — see Creator-OAuth below.
 
 ## TikTok — embed + availability only
 

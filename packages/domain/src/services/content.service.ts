@@ -618,9 +618,25 @@ export function makeContentService(ctx: DomainContext) {
       });
     }
 
-    // Metrics (best-effort, official only)
+    // Metrics (best-effort, official only). Instagram keys its lookup off the
+    // owning handle rather than the post id (an IG post URL carries no
+    // username), so pass the influencer's account for this platform when we
+    // have one; adapters that don't need it ignore it.
     try {
-      const res = await adapter.syncContentMetrics({ externalId: pc.externalId, originalUrl: pc.originalUrl });
+      const ownerUsername = pc.influencerId
+        ? (
+            await prisma.socialAccount.findFirst({
+              where: { influencerId: pc.influencerId, platform: pc.platform },
+              orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+              select: { username: true },
+            })
+          )?.username ?? null
+        : null;
+      const res = await adapter.syncContentMetrics({
+        externalId: pc.externalId,
+        originalUrl: pc.originalUrl,
+        ownerUsername,
+      });
       if (res.ok) await recordMetrics(id, res.data, 'OFFICIAL_API');
     } catch {
       /* metrics are optional; ignore */
