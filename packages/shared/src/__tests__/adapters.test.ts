@@ -236,6 +236,7 @@ describe('InstagramAdapter', () => {
         ctxWith(CREDS, (url) => {
           expect(url).toContain('business_discovery.username(natgeo)');
           expect(url).toContain('like_count');
+          expect(url).toContain('view_count');
           return res(200, media([post('OTHER', 1, 1), post('ABC123', 4200, 87)]));
         }),
       );
@@ -248,8 +249,53 @@ describe('InstagramAdapter', () => {
       if (r.ok) {
         expect(r.data.likes).toBe(4200);
         expect(r.data.comments).toBe(87);
-        // Business Discovery never exposes plays — we must not invent one.
-        expect(r.data.views).toBeNull();
+      }
+    });
+
+    it('returns view_count for a reel (Business Discovery exposes it)', async () => {
+      const ig = new InstagramAdapter(
+        ctxWith(CREDS, () =>
+          res(200, media([{ ...post('R9', 300, 12), view_count: 91000 }])),
+        ),
+      );
+      const r = await ig.syncContentMetrics({
+        externalId: 'R9',
+        originalUrl: 'https://www.instagram.com/reel/R9/',
+        ownerUsername: 'natgeo',
+      });
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.data.views).toBe(91000);
+    });
+
+    it('leaves views null rather than zero when the field is absent', async () => {
+      const ig = new InstagramAdapter(
+        ctxWith(CREDS, () => res(200, media([post('IMG1', 5, 1)]))),
+      );
+      const r = await ig.syncContentMetrics({
+        externalId: 'IMG1',
+        originalUrl: 'https://www.instagram.com/p/IMG1/',
+        ownerUsername: 'natgeo',
+      });
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.data.views).toBeNull();
+    });
+
+    it('leaves likes null when the owner hides like counts', async () => {
+      // Meta omits like_count under field expansion rather than erroring.
+      const ig = new InstagramAdapter(
+        ctxWith(CREDS, () =>
+          res(200, media([{ id: 'm', permalink: 'https://www.instagram.com/p/HID/', comments_count: 9 }])),
+        ),
+      );
+      const r = await ig.syncContentMetrics({
+        externalId: 'HID',
+        originalUrl: 'https://www.instagram.com/p/HID/',
+        ownerUsername: 'natgeo',
+      });
+      expect(r.ok).toBe(true);
+      if (r.ok) {
+        expect(r.data.likes).toBeNull();
+        expect(r.data.comments).toBe(9);
       }
     });
 
