@@ -17,6 +17,7 @@ import {
   Eye,
   FileText,
   Heart,
+  Link2,
   ListChecks,
   MessageSquare,
   Package,
@@ -81,6 +82,7 @@ import { StatCard } from '@/components/ui/stat-card';
 import { ProgressBar } from '@/components/ui/progress';
 import { InfoTooltip } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
 import { ContentGrid } from '@/components/content/content-grid';
 import { AddContentFlow } from '@/components/content/add-content-flow';
 import { ActivityFeed } from '@/components/common/activity-feed';
@@ -531,6 +533,7 @@ function InfluencerRow({
   const dp = ci.deliverableProgress;
   const [editOpen, setEditOpen] = React.useState(false);
   const [removeOpen, setRemoveOpen] = React.useState(false);
+  const [linkOpen, setLinkOpen] = React.useState(false);
 
   const remove = useMutation({
     mutationFn: () => api.campaignInfluencers.remove(ci.id),
@@ -567,6 +570,16 @@ function InfluencerRow({
 
         <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
           <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t('workspace.influencers.linkContentAriaLabel', { name: ci.influencer.displayName })}
+              title={t('workspace.influencers.linkContentAriaLabel', { name: ci.influencer.displayName })}
+              onClick={() => setLinkOpen(true)}
+            >
+              <Link2 className="h-4 w-4" />
+            </Button>
             <Button
               type="button"
               variant="ghost"
@@ -609,6 +622,7 @@ function InfluencerRow({
       </div>
 
       <EditInfluencerDialog ci={ci} open={editOpen} onOpenChange={setEditOpen} />
+      <LinkExistingContentDialog ci={ci} campaign={campaign} open={linkOpen} onOpenChange={setLinkOpen} />
       <ConfirmDialog
         open={removeOpen}
         onOpenChange={setRemoveOpen}
@@ -639,6 +653,111 @@ function InfluencerRow({
         )}
       </div>
     </Card>
+  );
+}
+
+/**
+ * Links an already-published content row to this campaign, for the common
+ * case where content was added independently of this campaign (e.g. via
+ * Quick Add or from the influencer's own profile) before — or instead of —
+ * being added through this campaign's own "Add content" flow (which only
+ * ever creates a NEW row). Reuses the exact same PATCH /content/:id +
+ * resolveContentAssociation validation ContentAssociationPanel uses on a
+ * content item's own page — this is just a picker in front of the same call,
+ * scoped to one roster member so every candidate is guaranteed to satisfy
+ * the "influencer must already be on this campaign's roster" rule server-side.
+ */
+function LinkExistingContentDialog({
+  ci,
+  campaign,
+  open,
+  onOpenChange,
+}: {
+  ci: CampaignInfluencerDTO;
+  campaign: CampaignDetailDTO;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const contentQuery = useQuery({
+    queryKey: ['influencer-content-for-link', ci.influencer.id],
+    queryFn: () => api.content.feed({ influencerId: ci.influencer.id, limit: 50 }),
+    enabled: open,
+  });
+  const candidates = (contentQuery.data?.data ?? []).filter((c) => c.campaign?.id !== campaign.id);
+
+  const [linkingId, setLinkingId] = React.useState<string | null>(null);
+  const link = useMutation({
+    mutationFn: (contentId: string) => api.content.update(contentId, { campaignId: campaign.id }),
+    onMutate: (contentId) => setLinkingId(contentId),
+    onSuccess: () => {
+      toast.success(t('workspace.liveContent.linkedToast'));
+      queryClient.invalidateQueries();
+      router.refresh();
+      contentQuery.refetch();
+    },
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
+    onSettled: () => setLinkingId(null),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t('workspace.liveContent.linkDialogTitle')}</DialogTitle>
+          <DialogDescription>
+            {t('workspace.liveContent.linkDialogDescription', { name: ci.influencer.displayName, campaign: campaign.name })}
+          </DialogDescription>
+        </DialogHeader>
+
+        {contentQuery.isLoading ? (
+          <Spinner className="mx-auto" />
+        ) : candidates.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">{t('workspace.liveContent.noLinkCandidates')}</p>
+        ) : (
+          <div className="space-y-2">
+            {candidates.map((c) => (
+              <div key={c.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                {c.thumbnailUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={c.thumbnailUrl} alt="" className="h-12 w-12 shrink-0 rounded-md object-cover" />
+                ) : (
+                  <div className="h-12 w-12 shrink-0 rounded-md bg-surface-muted" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <PlatformBadge platform={c.platform} size="sm" />
+                    {c.campaign ? (
+                      <Badge tone="warning">{t('workspace.liveContent.linkedElsewhere', { campaign: c.campaign.name })}</Badge>
+                    ) : null}
+                  </div>
+                  {c.caption ? <p className="truncate text-sm text-foreground">{c.caption}</p> : null}
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={link.isPending && linkingId === c.id}
+                  onClick={() => link.mutate(c.id)}
+                >
+                  {link.isPending && linkingId === c.id ? <Spinner className="text-current" /> : t('workspace.liveContent.linkButton')}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {tCommon('close')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

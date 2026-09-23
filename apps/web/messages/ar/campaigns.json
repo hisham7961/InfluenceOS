@@ -144,7 +144,13 @@
       "addContent": "إضافة محتوى",
       "emptyDescription": "سيظهر هنا المحتوى المنشور لهذه الحملة بمجرد أن ينشر المؤثرون محتواهم.",
       "addDialogTitle": "إضافة محتوى منشور",
-      "addDialogDescription": "لحملة {name}. اختر من نشره، واختياريًا أي محتوى مطلوب يُنجزه."
+      "addDialogDescription": "لحملة {name}. اختر من نشره، واختياريًا أي محتوى مطلوب يُنجزه.",
+      "linkDialogTitle": "ربط محتوى موجود",
+      "linkDialogDescription": "اختر من المحتوى المضاف مسبقًا لـ{name} لربطه بحملة {campaign} — للمحتوى المضاف قبل هذه الحملة أو خارجها.",
+      "noLinkCandidates": "لا يوجد محتوى آخر لهذا المؤثر لربطه.",
+      "linkedElsewhere": "مرتبط حاليًا بحملة {campaign}",
+      "linkButton": "ربط",
+      "linkedToast": "تم ربط المحتوى بهذه الحملة."
     },
     "overview": {
       "noDescription": "لا يوجد وصف مسجَّل بعد.",
@@ -163,6 +169,7 @@
       "emptyDescription": "أضف صنّاع محتوى إلى هذه الحملة لتبدأ بمتابعة المحتوى المطلوب والمدفوعات والمحتوى.",
       "editAriaLabel": "تعديل {name}",
       "removeAriaLabel": "إزالة {name} من الحملة",
+      "linkContentAriaLabel": "ربط محتوى موجود لـ{name}",
       "gifted": "منتج مجاني",
       "giftValue": "+ <ltr>{value}</ltr> قيمة المنتج المجاني",
       "deliveredCount": "تم تسليم {published} من {total}",

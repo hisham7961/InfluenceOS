@@ -144,7 +144,13 @@
       "addContent": "Add content",
       "emptyDescription": "Published content for this campaign will show up here once influencers go live.",
       "addDialogTitle": "Add published content",
-      "addDialogDescription": "For {name}. Pick who published it, and optionally which deliverable it fulfills."
+      "addDialogDescription": "For {name}. Pick who published it, and optionally which deliverable it fulfills.",
+      "linkDialogTitle": "Link existing content",
+      "linkDialogDescription": "Pick from {name}'s already-added content to link to {campaign} — for content added before or outside this campaign.",
+      "noLinkCandidates": "No other content found for this creator to link.",
+      "linkedElsewhere": "Currently linked to {campaign}",
+      "linkButton": "Link",
+      "linkedToast": "Content linked to this campaign."
     },
     "overview": {
       "noDescription": "No description on file yet.",
@@ -163,6 +169,7 @@
       "emptyDescription": "Add creators to this campaign to start tracking deliverables, payments and content.",
       "editAriaLabel": "Edit {name}",
       "removeAriaLabel": "Remove {name} from campaign",
+      "linkContentAriaLabel": "Link existing content for {name}",
       "gifted": "Gifted",
       "giftValue": "+ <ltr>{value}</ltr> gift value",
       "deliveredCount": "{published}/{total} delivered",
