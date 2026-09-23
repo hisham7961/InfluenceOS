@@ -31,6 +31,15 @@ export function isAllowedIframeOrigin(src: string): boolean {
   }
 }
 
+export function isAllowedScriptOrigin(src: string): boolean {
+  try {
+    const origin = new URL(src).origin;
+    return (SCRIPT_ALLOWED_ORIGINS as readonly string[]).includes(origin);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Build a safe, strongly-typed embed descriptor from a content URL.
  * Returns null when the platform is unknown or the id cannot be extracted.
@@ -59,12 +68,19 @@ export function buildEmbed(url: string, platformHint?: Platform | null): EmbedDe
     }
     case 'INSTAGRAM': {
       if (!externalId) return linkOnly(platform, externalId, canonicalUrl);
-      const kind = /\/reel/i.test(url) ? 'reel' : /\/tv/i.test(url) ? 'tv' : 'p';
-      const iframeSrc = `https://www.instagram.com/${kind}/${encodeURIComponent(externalId)}/embed`;
+      // A direct iframe at instagram.com/.../embed is NOT used here — Meta
+      // increasingly serves an unauthenticated/bot-flagged cross-origin
+      // iframe request a blocking response (no X-Frame-Options grant), which
+      // Chrome surfaces as ERR_BLOCKED_BY_RESPONSE instead of ever painting
+      // the post (see thumbnails.test.ts's own note on this same real-world
+      // behavior for profile-page scraping). Their officially supported path
+      // is the blockquote + embed.js widget: Meta's own script builds the
+      // iframe client-side, which they do allow.
       return {
         platform,
-        kind: 'iframe',
-        iframeSrc,
+        kind: 'blockquote-script',
+        scriptSrc: 'https://www.instagram.com/embed.js',
+        embedHtmlUrl: canonicalUrl,
         allowedOrigin: 'https://www.instagram.com',
         externalId,
         canonicalUrl,

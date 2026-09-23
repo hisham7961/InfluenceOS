@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildEmbed, isAllowedIframeOrigin, IFRAME_ALLOWED_ORIGINS } from '../providers/embeds';
+import { buildEmbed, isAllowedIframeOrigin, isAllowedScriptOrigin, IFRAME_ALLOWED_ORIGINS } from '../providers/embeds';
 
 describe('buildEmbed', () => {
   it('builds a privacy-enhanced YouTube iframe on an allowlisted origin', () => {
@@ -7,6 +7,17 @@ describe('buildEmbed', () => {
     expect(e?.kind).toBe('iframe');
     expect(e?.iframeSrc).toContain('youtube-nocookie.com/embed/aqz-KE-bpKQ');
     expect(isAllowedIframeOrigin(e!.iframeSrc!)).toBe(true);
+  });
+
+  it('builds the official blockquote + embed.js widget for Instagram, never a raw iframe', () => {
+    // Meta blocks unauthenticated cross-origin iframes at instagram.com/.../embed
+    // (ERR_BLOCKED_BY_RESPONSE) — only their own embed.js-built iframe is
+    // allowed, so buildEmbed must never hand this platform an `iframe` kind.
+    const e = buildEmbed('https://www.instagram.com/p/C1uleWFxYQK/');
+    expect(e?.kind).toBe('blockquote-script');
+    expect(e?.scriptSrc).toBe('https://www.instagram.com/embed.js');
+    expect(e?.embedHtmlUrl).toContain('instagram.com/p/C1uleWFxYQK');
+    expect(isAllowedScriptOrigin(e!.scriptSrc!)).toBe(true);
   });
 
   it('builds the official tweet iframe for X', () => {

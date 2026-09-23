@@ -30,6 +30,7 @@ export {
   resolveProfileAvatar,
   parseOgImage,
   isAllowedIframeOrigin,
+  isAllowedScriptOrigin,
   IFRAME_ALLOWED_ORIGINS,
   SCRIPT_ALLOWED_ORIGINS,
   getAdapter,

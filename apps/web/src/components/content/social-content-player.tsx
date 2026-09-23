@@ -2,7 +2,7 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { ExternalLink, PlayCircle } from 'lucide-react';
-import { isAllowedIframeOrigin, type EmbedDescriptor, type Platform } from '@influenceos/shared';
+import { isAllowedIframeOrigin, isAllowedScriptOrigin, type EmbedDescriptor, type Platform } from '@influenceos/shared';
 import type { ContentStatus } from '@influenceos/contracts';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
@@ -51,11 +51,17 @@ export function SocialContentPlayer({
   const t = useTranslations('content');
   const [playing, setPlaying] = React.useState(autoPlay);
   const embed = content.embed;
-  const canEmbed = !!embed && embed.kind === 'iframe' && !!embed.iframeSrc && isAllowedIframeOrigin(embed.iframeSrc);
+  const canEmbedIframe = !!embed && embed.kind === 'iframe' && !!embed.iframeSrc && isAllowedIframeOrigin(embed.iframeSrc);
+  // Instagram (and any future platform whose site blocks a direct
+  // cross-origin iframe) uses its official blockquote + embed.js widget
+  // instead — see embeds.ts's INSTAGRAM case for why a raw iframe gets
+  // ERR_BLOCKED_BY_RESPONSE from Meta's own servers.
+  const canEmbedScript = !!embed && embed.kind === 'blockquote-script' && !!embed.scriptSrc && isAllowedScriptOrigin(embed.scriptSrc);
+  const canEmbed = canEmbedIframe || canEmbedScript;
   const aspect = content.storyMedia ? 9 / 16 : (embed?.aspectRatio ?? 16 / 9);
-  // embed.platform is always set whenever embed.kind === 'iframe' (buildEmbed
-  // never produces one without a resolved platform) — prefer it over
-  // content.platform so the play-button copy is correct even when the
+  // embed.platform is always set whenever embed.kind !== 'link-only'
+  // (buildEmbed never produces one without a resolved platform) — prefer it
+  // over content.platform so the play-button copy is correct even when the
   // content's own platform field is null but its embed still resolved one.
   const platform = embed?.platform ?? content.platform;
 
@@ -66,7 +72,7 @@ export function SocialContentPlayer({
     >
       {content.storyMedia ? (
         <StoryMedia media={content.storyMedia} caption={content.caption} />
-      ) : canEmbed && playing ? (
+      ) : canEmbedIframe && playing ? (
         <iframe
           src={embed!.iframeSrc}
           title={content.caption ?? t('player.embeddedContentTitle')}
@@ -76,9 +82,56 @@ export function SocialContentPlayer({
           referrerPolicy="strict-origin-when-cross-origin"
           sandbox="allow-scripts allow-same-origin allow-popups allow-presentation"
         />
+      ) : canEmbedScript && playing ? (
+        <BlockquoteEmbed embed={embed!} />
       ) : (
         <Fallback content={content} platform={platform} canEmbed={canEmbed} onPlay={() => setPlaying(true)} />
       )}
+    </div>
+  );
+}
+
+/**
+ * Meta's officially-supported Instagram embed: a `<blockquote
+ * class="instagram-media">` that their own `embed.js` script scans for and
+ * replaces with an iframe THEY build client-side. This is what every
+ * legitimate Instagram-embedding site does — a raw iframe straight at
+ * instagram.com/.../embed gets ERR_BLOCKED_BY_RESPONSE from Meta's own
+ * anti-scraping response for cross-origin/unauthenticated iframe requests.
+ */
+function BlockquoteEmbed({ embed }: { embed: EmbedDescriptor }) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const scriptSrc = embed.scriptSrc;
+    if (!scriptSrc) return;
+    const process = () => {
+      const instgrm = (window as unknown as { instgrm?: { Embeds?: { process?: () => void } } }).instgrm;
+      instgrm?.Embeds?.process?.();
+    };
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${scriptSrc}"]`);
+    if (existing) {
+      // Already loaded (or loading) from an earlier embed on this page —
+      // re-run process() so THIS card's freshly-mounted blockquote is
+      // picked up too; embed.js only auto-scans on its own initial load.
+      process();
+    } else {
+      const script = document.createElement('script');
+      script.src = scriptSrc;
+      script.async = true;
+      script.onload = process;
+      document.body.appendChild(script);
+    }
+  }, [embed.scriptSrc, embed.embedHtmlUrl]);
+
+  return (
+    <div ref={containerRef} className="absolute inset-0 overflow-auto bg-white">
+      <blockquote
+        className="instagram-media"
+        data-instgrm-permalink={embed.embedHtmlUrl ?? embed.canonicalUrl}
+        data-instgrm-version="14"
+        style={{ width: '100%', margin: 0 }}
+      />
     </div>
   );
 }
@@ -168,5 +221,8 @@ function Fallback({
 }
 
 export function isEmbeddable(embed: EmbedDescriptor | null): boolean {
-  return !!embed && embed.kind === 'iframe' && !!embed.iframeSrc && isAllowedIframeOrigin(embed.iframeSrc);
+  if (!embed) return false;
+  if (embed.kind === 'iframe') return !!embed.iframeSrc && isAllowedIframeOrigin(embed.iframeSrc);
+  if (embed.kind === 'blockquote-script') return !!embed.scriptSrc && isAllowedScriptOrigin(embed.scriptSrc);
+  return false;
 }
