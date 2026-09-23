@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { ExternalLink, FileText, Lightbulb, Pin, Play, Plus, Trash2, X } from 'lucide-react';
+import { ExternalLink, FileText, Lightbulb, MessageSquare, Pin, Play, Plus, Trash2, X } from 'lucide-react';
 import type { BrandSummaryDTO, InspirationItemDTO } from '@influenceos/contracts';
 import { INSPIRATION_CATEGORIES, type InspirationCategory } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
@@ -168,6 +168,7 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
 }
 
 function InspirationCard({ item, onOpen }: { item: InspirationItemDTO; onOpen: () => void }) {
+  const t = useTranslations('inspiration');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
   const { relativeTime } = useLocalizedFormat();
@@ -179,14 +180,26 @@ function InspirationCard({ item, onOpen }: { item: InspirationItemDTO; onOpen: (
       onKeyDown={(e) => e.key === 'Enter' && onOpen()}
       className="flex cursor-pointer flex-col gap-2 overflow-hidden p-4 transition-shadow hover:shadow-pop"
     >
-      {item.thumbnailUrl ? (
+      {item.thumbnailUrl || item.embeddable ? (
         <div className="relative -mx-4 -mt-4 aspect-video overflow-hidden bg-gradient-to-br from-neutral-800 to-neutral-900">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.thumbnailUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+          {item.thumbnailUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.thumbnailUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+          ) : null}
           {(item.platform ?? item.embed?.platform) ? (
             <div className="absolute start-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 backdrop-blur">
               <PlatformIcon platform={(item.platform ?? item.embed?.platform)!} className="h-3 w-3 text-white" />
             </div>
+          ) : null}
+          {item.commentCount > 0 ? (
+            <span
+              className="absolute end-2 top-2 flex h-6 items-center gap-1 rounded-full bg-black/40 px-2 text-[11px] font-medium text-white backdrop-blur"
+              aria-label={t('card.hasCommentsAriaLabel')}
+              title={t('card.hasCommentsAriaLabel')}
+            >
+              <MessageSquare className="h-3 w-3" />
+              {item.commentCount}
+            </span>
           ) : null}
           {item.embeddable ? (
             <div className="absolute inset-0 flex items-center justify-center bg-black/10">

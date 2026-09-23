@@ -6,6 +6,9 @@
     "allCategories": "جميع الفئات",
     "pinnedOnly": "مثبّت"
   },
+  "card": {
+    "hasCommentsAriaLabel": "يحتوي على تعليقات الفريق"
+  },
   "actions": {
     "saveTrend": "حفظ الترند"
   },

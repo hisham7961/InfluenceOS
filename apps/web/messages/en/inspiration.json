@@ -6,6 +6,9 @@
     "allCategories": "All categories",
     "pinnedOnly": "Pinned"
   },
+  "card": {
+    "hasCommentsAriaLabel": "Has team comments"
+  },
   "actions": {
     "saveTrend": "Save trend"
   },
