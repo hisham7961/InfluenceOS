@@ -18,6 +18,11 @@
       "status": "Status"
     },
     "editAccess": "Edit access",
+    "deleteUser": "Delete user",
+    "cannotDeleteSelf": "You can't delete your own account",
+    "deleteConfirmTitle": "Delete {name}?",
+    "deleteConfirmDescription": "This permanently removes their account and access to InfluenceOS. This can't be undone.",
+    "deletedToast": "User deleted.",
     "active": "Active",
     "inactive": "Inactive",
     "roleLabel": {

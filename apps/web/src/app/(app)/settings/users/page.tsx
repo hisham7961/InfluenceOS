@@ -31,11 +31,12 @@ export default async function UsersSettingsPage() {
     }
     throw e;
   }
+  const me = await api.auth.me();
 
   return (
     <div>
       <PageHeader title={t('list.title')} description={t('list.description')} />
-      <UsersClient initial={users} />
+      <UsersClient initial={users} currentUserId={me.id} />
     </div>
   );
 }

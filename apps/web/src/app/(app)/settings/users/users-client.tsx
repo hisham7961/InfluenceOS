@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Check, Mail, Plus, ShieldCheck, UserPlus } from 'lucide-react';
+import { Check, Mail, Plus, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import type { UserRole, UserDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import { USER_ROLES } from '@influenceos/shared';
@@ -15,6 +15,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Field, Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
@@ -31,8 +32,11 @@ import {
 } from '@/components/ui/dialog';
 import { UserEditSheet } from './user-edit-sheet';
 
-export function UsersClient({ initial }: { initial: UserDTO[] }) {
+export function UsersClient({ initial, currentUserId }: { initial: UserDTO[]; currentUserId: string }) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const t = useTranslations('users');
+  const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
   const usersQuery = useQuery({
     queryKey: ['users'],
@@ -42,6 +46,19 @@ export function UsersClient({ initial }: { initial: UserDTO[] }) {
 
   const users = usersQuery.data ?? [];
   const [editingUserId, setEditingUserId] = React.useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = React.useState<string | null>(null);
+  const deletingUser = users.find((u) => u.id === deletingUserId) ?? null;
+
+  const removeUser = useMutation({
+    mutationFn: (id: string) => api.users.remove(id),
+    onSuccess: () => {
+      toast.success(t('list.deletedToast'));
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      router.refresh();
+      setDeletingUserId(null);
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : t('list.errorGeneric')),
+  });
 
   return (
     <div className="space-y-5">
@@ -109,17 +126,32 @@ export function UsersClient({ initial }: { initial: UserDTO[] }) {
                       </Badge>
                     </td>
                     <td className="px-5 py-3.5 text-end">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingUserId(u.id);
-                        }}
-                      >
-                        {t('list.editAccess')}
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingUserId(u.id);
+                          }}
+                        >
+                          {t('list.editAccess')}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          title={u.id === currentUserId ? t('list.cannotDeleteSelf') : t('list.deleteUser')}
+                          disabled={u.id === currentUserId}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeletingUserId(u.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-danger" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -130,6 +162,16 @@ export function UsersClient({ initial }: { initial: UserDTO[] }) {
       )}
 
       <UserEditSheet userId={editingUserId} onOpenChange={(open) => !open && setEditingUserId(null)} />
+
+      <ConfirmDialog
+        open={!!deletingUserId}
+        onOpenChange={(open) => !open && setDeletingUserId(null)}
+        title={t('list.deleteConfirmTitle', { name: deletingUser?.name ?? '' })}
+        description={t('list.deleteConfirmDescription')}
+        confirmLabel={tCommon('delete')}
+        loading={removeUser.isPending}
+        onConfirm={() => deletingUserId && removeUser.mutate(deletingUserId)}
+      />
     </div>
   );
 }

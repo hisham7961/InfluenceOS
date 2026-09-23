@@ -18,6 +18,11 @@
       "status": "الحالة"
     },
     "editAccess": "تعديل الصلاحيات",
+    "deleteUser": "حذف المستخدم",
+    "cannotDeleteSelf": "لا يمكنك حذف حسابك الخاص",
+    "deleteConfirmTitle": "حذف {name}؟",
+    "deleteConfirmDescription": "سيؤدي هذا إلى إزالة حسابه ووصوله إلى InfluenceOS بشكل نهائي. لا يمكن التراجع عن هذا الإجراء.",
+    "deletedToast": "تم حذف المستخدم.",
     "active": "نشط",
     "inactive": "غير نشط",
     "roleLabel": {
