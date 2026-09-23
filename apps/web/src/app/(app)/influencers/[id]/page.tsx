@@ -17,6 +17,7 @@ import { formatCompact, formatCurrency } from '@/lib/format';
 import { ProfileTabs } from './profile-tabs';
 import { CreatorConnections } from './creator-connections';
 import { InfluencerEditDialog } from './influencer-edit-dialog';
+import { InfluencerDeleteButton } from './influencer-delete-button';
 import { SyncAvatarButton } from './sync-avatar-button';
 import { CreatorSnapshot } from './creator-snapshot';
 
@@ -116,6 +117,7 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
           <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col">
             <InfluencerEditDialog influencer={influencer} />
             <SyncAvatarButton influencer={influencer} />
+            <InfluencerDeleteButton influencer={influencer} />
             {influencer.primaryPlatform && influencer.primaryUsername ? (
               <Button asChild variant="secondary" size="sm">
                 <a href={profileUrl(influencer.primaryPlatform, influencer.primaryUsername)} target="_blank" rel="noreferrer">

@@ -564,6 +564,22 @@ export function makeContentService(ctx: DomainContext) {
     return loadDTO(id);
   }
 
+  /**
+   * Hard delete — the cascade is entirely self-owned satellite data (metric
+   * snapshots, monitoring events, per-user viewer state, notes, the Story's
+   * own attachment) or safely SET NULLs on rows that survive elsewhere
+   * (Notification/ActivityLog/UsageRight). A linked Deliverable is not
+   * reverted from PUBLISHED — the deliverable itself was actually fulfilled;
+   * only this detected/added content link is being removed.
+   */
+  async function remove(id: string): Promise<void> {
+    await requireCapability(ctx, 'CONTENT_MANAGE');
+    const existing = await prisma.publishedContent.findUnique({ where: { id } });
+    if (!existing) throw AppError.notFound('Content');
+    await assertContentInScope({ brandId: existing.brandId, influencerId: existing.influencerId });
+    await prisma.publishedContent.delete({ where: { id } });
+  }
+
   async function metricsHistory(id: string): Promise<ContentMetricsDTO[]> {
     // Direct-ID scope guard (Security & Authorization Freeze Gate, section 37
     // item 2) — a scoped actor can't read another brand/creator-country's
@@ -962,6 +978,7 @@ export function makeContentService(ctx: DomainContext) {
     feed,
     detail,
     update,
+    remove,
     metricsHistory,
     monitoring,
     addManualMetrics,

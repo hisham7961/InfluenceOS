@@ -576,6 +576,43 @@ export function makeInfluencerService(ctx: DomainContext) {
   }
 
   /**
+   * Delete an influencer. Mirrors note.service.ts's remove() — the only other
+   * conditional soft/hard delete in this codebase: a hard delete would
+   * cascade through CampaignInfluencer into that roster participation's own
+   * Deliverables, UGC submissions, shipments and logistics records (real
+   * operational/financial history, not directory metadata), so a creator with
+   * any campaign history is deactivated (isActive: false, the existing
+   * directory-filterable flag) instead of removed. Only a creator with zero
+   * campaign history — nothing to protect — is actually deleted.
+   */
+  async function remove(id: string): Promise<{ hardDeleted: boolean }> {
+    await requireCapability(ctx, 'INFLUENCERS_MANAGE');
+    const existing = await prisma.influencer.findUnique({ where: { id } });
+    if (!existing) throw AppError.notFound('Influencer');
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, existing.countryCode)) throw AppError.notFound('Influencer');
+    if (await isInfluencerBrandOutOfScope(id)) throw AppError.notFound('Influencer');
+
+    const campaignCount = await prisma.campaignInfluencer.count({ where: { influencerId: id } });
+    if (campaignCount === 0) {
+      await prisma.influencer.delete({ where: { id } });
+      await logActivity(ctx, {
+        type: 'GENERIC',
+        message: `${ctx.actor?.name ?? 'Someone'} deleted ${existing.displayName} from the influencer directory.`,
+      });
+      return { hardDeleted: true };
+    }
+
+    await prisma.influencer.update({ where: { id }, data: { isActive: false } });
+    await logActivity(ctx, {
+      type: 'INFLUENCER_UPDATED',
+      message: `${ctx.actor?.name ?? 'Someone'} deactivated ${existing.displayName} (campaign history preserved).`,
+      influencerId: id,
+    });
+    return { hardDeleted: false };
+  }
+
+  /**
    * Re-resolve the creator's profile photo from their linked primary social
    * account and backfill `resolvedAvatarUrl` — for a creator who was added
    * without a successful "Find Creator" lookup (manual entry, import, or the
@@ -671,7 +708,7 @@ export function makeInfluencerService(ctx: DomainContext) {
     );
   }
 
-  return { list, listCursor, countrySummary, exportRows, detail, create, update, syncAvatar, socialAccountsFor, audienceFor, followerSeries };
+  return { list, listCursor, countrySummary, exportRows, detail, create, update, remove, syncAvatar, socialAccountsFor, audienceFor, followerSeries };
 }
 
 export type InfluencerService = ReturnType<typeof makeInfluencerService>;

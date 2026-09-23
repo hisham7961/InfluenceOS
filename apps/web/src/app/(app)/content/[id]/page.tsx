@@ -10,6 +10,7 @@ import { SocialContentPlayer } from '@/components/content/social-content-player'
 import { ContentDetails } from '@/components/content/content-viewer';
 import { ContentAssociationPanel } from './association-panel';
 import { ContentReviewBar } from './review-bar';
+import { ContentActions } from './content-actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +49,10 @@ export default async function ContentDetailPage({ params }: { params: Promise<{ 
           <PlatformBadge platform={content.platform} withLabel />
           {content.caption ? <h1 className="truncate text-lg font-semibold text-foreground">{content.caption}</h1> : null}
         </div>
-        <ContentReviewBar content={content} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ContentReviewBar content={content} />
+          <ContentActions content={content} />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">

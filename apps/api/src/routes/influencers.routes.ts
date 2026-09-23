@@ -154,6 +154,19 @@ export async function influencerRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).influencers.update(req.params.id, req.body),
   );
 
+  r.delete(
+    '/influencers/:id',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Influencers'],
+        summary: 'Delete an influencer — hard delete if it has no campaign history, otherwise deactivate (isActive: false)',
+        params: idParam,
+      },
+    },
+    async (req) => servicesFor(req).influencers.remove(req.params.id),
+  );
+
   r.post(
     '/influencers/:id/sync-avatar',
     {

@@ -124,6 +124,16 @@
     "noCampaignIndependent": "No campaign — independent content",
     "validationNote": "Validated on save — an influencer not on the chosen campaign's roster is rejected rather than saved inconsistently. Saving this deliverable-linked content's campaign/influencer without changing the deliverable keeps them in sync automatically."
   },
+  "editContent": {
+    "edit": "Edit",
+    "dialogTitle": "Edit content",
+    "dialogDescription": "Update the caption shown for this post.",
+    "captionLabel": "Caption",
+    "updateSuccess": "Content updated.",
+    "deleteConfirmTitle": "Delete this content?",
+    "deleteConfirmDescription": "This removes the post from Live Content, along with its metrics, monitoring history and notes. This can't be undone.",
+    "deleteSuccess": "Content deleted."
+  },
   "addFlow": {
     "contentUrlLabel": "Content URL",
     "contentUrlHint": "Instagram, TikTok, YouTube, X or Snapchat",

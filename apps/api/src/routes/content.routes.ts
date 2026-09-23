@@ -103,6 +103,15 @@ export async function contentRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).content.update(req.params.id, req.body),
   );
 
+  r.delete(
+    '/content/:id',
+    { preHandler: [requireAuth], schema: { tags: ['Content'], summary: 'Delete published content', params: idParam } },
+    async (req, reply) => {
+      await servicesFor(req).content.remove(req.params.id);
+      reply.status(204).send();
+    },
+  );
+
   r.get(
     '/content/:id/metrics',
     { preHandler: [requireAuth], schema: { tags: ['Content'], summary: 'Metric snapshot history', params: idParam } },

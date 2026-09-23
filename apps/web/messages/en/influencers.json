@@ -213,6 +213,12 @@
     "whatsappButton": "WhatsApp",
     "emailButton": "Email",
     "callButton": "Call",
+    "delete": {
+      "confirmTitle": "Delete {name}?",
+      "confirmDescription": "If this creator has no campaign history, they're removed entirely. Otherwise they're deactivated instead — hidden from active rosters, with their history kept intact.",
+      "deletedToast": "Influencer deleted.",
+      "deactivatedToast": "This creator has campaign history, so they were deactivated instead of deleted — their history stays on record."
+    },
     "stats": {
       "totalFollowers": "Total Followers",
       "campaigns": "Campaigns",

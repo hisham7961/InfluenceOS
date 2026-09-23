@@ -183,6 +183,10 @@ export function createClient(config: ClientConfig) {
         http.post<InfluencerDetailDTO>(`${V}/influencers`, body),
       update: (id: string, body: In<typeof requests.influencerUpdateSchema>) =>
         http.patch<InfluencerDetailDTO>(`${V}/influencers/${id}`, body),
+      // Hard delete if the creator has no campaign history, otherwise
+      // deactivates (isActive: false) to preserve that history — see
+      // influencer.service.ts's remove().
+      remove: (id: string) => http.del<{ hardDeleted: boolean }>(`${V}/influencers/${id}`),
       resolve: (body: In<typeof requests.resolveProfileSchema>) =>
         http.post<ResolveProfileResultDTO>(`${V}/influencers/resolve`, body),
       syncAvatar: (id: string) =>
@@ -399,6 +403,7 @@ export function createClient(config: ClientConfig) {
         http.post<PublishedContentDTO>(`${V}/content/story`, body),
       update: (id: string, body: In<typeof requests.publishedContentUpdateSchema>) =>
         http.patch<PublishedContentDTO>(`${V}/content/${id}`, body),
+      remove: (id: string) => http.del<void>(`${V}/content/${id}`),
       metrics: (id: string) => http.get<ContentMetricsDTO[]>(`${V}/content/${id}/metrics`),
       monitoring: (id: string) => http.get<MonitoringEventDTO[]>(`${V}/content/${id}/monitoring`),
       addMetrics: (id: string, body: In<typeof requests.contentMetricSchema>) =>
