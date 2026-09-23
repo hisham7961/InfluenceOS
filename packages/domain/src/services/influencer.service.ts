@@ -170,22 +170,51 @@ export function makeInfluencerService(ctx: DomainContext) {
     return and.length ? { AND: and } : {};
   }
 
-  // Enrich a page of influencer rows with their active-campaign counts in one
-  // grouped query (shared by the offset and cursor list paths).
+  // Enrich a page of influencer rows with their active-campaign counts/names
+  // and total content count — three queries for the WHOLE page (never
+  // per-row/N+1), shared by the offset and cursor list paths. Directory-card
+  // quick context (item: "show campaign + video count on the outward card").
   async function toSummaries(
     rows: Prisma.InfluencerGetPayload<{ include: typeof summaryInclude }>[],
   ): Promise<InfluencerSummaryDTO[]> {
     const ids = rows.map((r) => r.id);
     const activeCounts = new Map<string, number>();
+    const activeCampaignNames = new Map<string, string[]>();
+    const contentCounts = new Map<string, number>();
     if (ids.length) {
-      const grouped = await prisma.campaignInfluencer.groupBy({
-        by: ['influencerId'],
-        where: { influencerId: { in: ids }, campaign: { status: 'ACTIVE' } },
-        _count: { _all: true },
-      });
+      const [grouped, activeRoster, contentGrouped] = await Promise.all([
+        prisma.campaignInfluencer.groupBy({
+          by: ['influencerId'],
+          where: { influencerId: { in: ids }, campaign: { status: 'ACTIVE' } },
+          _count: { _all: true },
+        }),
+        prisma.campaignInfluencer.findMany({
+          where: { influencerId: { in: ids }, campaign: { status: 'ACTIVE' } },
+          select: { influencerId: true, campaign: { select: { name: true } } },
+        }),
+        prisma.publishedContent.groupBy({
+          by: ['influencerId'],
+          where: { influencerId: { in: ids } },
+          _count: { _all: true },
+        }),
+      ]);
       for (const g of grouped) activeCounts.set(g.influencerId, g._count._all);
+      for (const row of activeRoster) {
+        const names = activeCampaignNames.get(row.influencerId) ?? [];
+        names.push(row.campaign.name);
+        activeCampaignNames.set(row.influencerId, names);
+      }
+      for (const g of contentGrouped) {
+        if (g.influencerId) contentCounts.set(g.influencerId, g._count._all);
+      }
     }
-    return rows.map((r) => toInfluencerSummary(r, { activeCampaigns: activeCounts.get(r.id) ?? 0 }));
+    return rows.map((r) =>
+      toInfluencerSummary(r, {
+        activeCampaigns: activeCounts.get(r.id) ?? 0,
+        activeCampaignNames: activeCampaignNames.get(r.id) ?? [],
+        contentCount: contentCounts.get(r.id) ?? 0,
+      }),
+    );
   }
 
   async function list(filter: InfluencerFilter): Promise<Paginated<InfluencerSummaryDTO>> {
@@ -368,7 +397,7 @@ export function makeInfluencerService(ctx: DomainContext) {
     if (isCountryOutOfScope(countryScope, inf.countryCode)) throw AppError.notFound('Influencer');
     if (await isInfluencerBrandOutOfScope(id)) throw AppError.notFound('Influencer');
 
-    const [socialAccounts, audience, cis] = await Promise.all([
+    const [socialAccounts, audience, cis, contentCount] = await Promise.all([
       socialAccountsFor(id),
       audienceFor(id),
       prisma.campaignInfluencer.findMany({
@@ -381,6 +410,7 @@ export function makeInfluencerService(ctx: DomainContext) {
           campaign: {
             select: {
               id: true,
+              name: true,
               startDate: true,
               status: true,
               brand: { select: { id: true, name: true } },
@@ -389,6 +419,7 @@ export function makeInfluencerService(ctx: DomainContext) {
           deliverables: { select: { status: true } },
         },
       }),
+      prisma.publishedContent.count({ where: { influencerId: id } }),
     ]);
 
     // Relationship history (spec §56)
@@ -400,13 +431,17 @@ export function makeInfluencerService(ctx: DomainContext) {
     let deliverablesTotal = 0;
     let deliverablesPublished = 0;
     let activeCampaigns = 0;
+    const activeCampaignNames: string[] = [];
 
     for (const ci of cis) {
       brandsMap.set(ci.campaign.brand.id, ci.campaign.brand.name);
       const at = ci.campaign.startDate ?? ci.createdAt;
       if (!firstAt || at < firstAt) firstAt = at;
       if (!lastAt || at > lastAt) lastAt = at;
-      if (ci.campaign.status === 'ACTIVE') activeCampaigns += 1;
+      if (ci.campaign.status === 'ACTIVE') {
+        activeCampaigns += 1;
+        activeCampaignNames.push(ci.campaign.name);
+      }
       const cost = toDecimal(ci.agreedCost);
       if (cost != null && (ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED')) {
         paidRates.push(cost);
@@ -425,7 +460,7 @@ export function makeInfluencerService(ctx: DomainContext) {
 
     const summary = toInfluencerSummary(
       { ...inf, audienceHealth: audience.label },
-      { activeCampaigns },
+      { activeCampaigns, activeCampaignNames, contentCount },
     );
 
     return {

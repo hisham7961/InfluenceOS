@@ -111,7 +111,7 @@ interface InfluencerSummaryLike {
 
 export function toInfluencerSummary(
   inf: InfluencerSummaryLike,
-  extra: { activeCampaigns?: number } = {},
+  extra: { activeCampaigns?: number; activeCampaignNames?: string[]; contentCount?: number } = {},
 ): InfluencerSummaryDTO {
   const perPlatform = new Map<Platform, number | null>();
   for (const acc of inf.socialAccounts) {
@@ -149,6 +149,8 @@ export function toInfluencerSummary(
     followersByPlatform,
     tags: inf.tags.map((t) => t.tag.name),
     activeCampaigns: extra.activeCampaigns ?? 0,
+    activeCampaignNames: extra.activeCampaignNames ?? [],
+    contentCount: extra.contentCount ?? 0,
     isActive: inf.isActive,
   };
 }

@@ -189,6 +189,11 @@ export interface InfluencerSummaryDTO {
   followersByPlatform: { platform: Platform; followers: number | null }[];
   tags: string[];
   activeCampaigns: number;
+  /** Names of the active campaigns counted by `activeCampaigns` — directory-card
+   *  quick context, never authoritative (a campaign's own record is). */
+  activeCampaignNames: string[];
+  /** Total published content (all platforms, all-time) linked to this influencer. */
+  contentCount: number;
   isActive: boolean;
 }
 

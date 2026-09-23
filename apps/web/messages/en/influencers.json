@@ -57,6 +57,7 @@
       },
       "previewAriaLabel": "Preview {name}",
       "totalFollowersBadge": "<ltr>{count}</ltr> total",
+      "contentCountBadge": "{count, plural, one {# video} other {# videos}}",
       "preview": {
         "totalFollowers": "Total followers",
         "activeCampaigns": "Active campaigns",

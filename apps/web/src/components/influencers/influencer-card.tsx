@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { MapPin } from 'lucide-react';
+import { Film, MapPin, Megaphone } from 'lucide-react';
 import type { InfluencerSummaryDTO } from '@influenceos/contracts';
 import { Avatar } from '@/components/ui/avatar';
 import { PlatformIcon } from '@/components/ui/platform-badge';
@@ -44,6 +44,34 @@ export function InfluencerCard({ influencer }: { influencer: InfluencerSummaryDT
         <RelationshipStatusBadge status={influencer.relationshipStatus} />
         <AudienceHealthBadge status={influencer.audienceHealth} />
       </div>
+
+      {influencer.contentCount > 0 || influencer.activeCampaignNames.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {influencer.contentCount > 0 ? (
+            <Badge tone="neutral" className="gap-1">
+              <Film className="h-3 w-3" />
+              {t('directory.results.contentCountBadge', { count: influencer.contentCount })}
+            </Badge>
+          ) : null}
+          {influencer.activeCampaignNames.slice(0, 2).map((name, i) => (
+            <span
+              // eslint-disable-next-line react/no-array-index-key -- campaign names aren't guaranteed unique
+              key={i}
+              className="inline-flex max-w-[120px] items-center gap-1 truncate rounded-lg border border-border px-2 py-0.5 text-xs text-muted-foreground"
+            >
+              <Megaphone className="h-3 w-3 shrink-0" />
+              <span className="truncate">
+                <BidiText>{name}</BidiText>
+              </span>
+            </span>
+          ))}
+          {influencer.activeCampaignNames.length > 2 ? (
+            <span className="text-xs text-muted-foreground">
+              +{influencer.activeCampaignNames.length - 2}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mt-auto flex items-center justify-between text-xs text-muted-foreground">
         <span className="flex items-center gap-1">

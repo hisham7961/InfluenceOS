@@ -57,6 +57,7 @@
       },
       "previewAriaLabel": "معاينة {name}",
       "totalFollowersBadge": "<ltr>{count}</ltr> إجمالاً",
+      "contentCountBadge": "{count, plural, zero {لا فيديوهات} one {فيديو واحد} two {فيديوهان} few {# فيديوهات} many {# فيديو} other {# فيديو}}",
       "preview": {
         "totalFollowers": "إجمالي المتابعين",
         "activeCampaigns": "الحملات النشطة",
