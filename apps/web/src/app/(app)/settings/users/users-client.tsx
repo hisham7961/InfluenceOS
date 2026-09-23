@@ -3,9 +3,9 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Check, Mail, Plus, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
+import { Check, KeyRound, Mail, Plus, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import type { UserRole, UserDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import { USER_ROLES } from '@influenceos/shared';
@@ -47,7 +47,9 @@ export function UsersClient({ initial, currentUserId }: { initial: UserDTO[]; cu
   const users = usersQuery.data ?? [];
   const [editingUserId, setEditingUserId] = React.useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = React.useState<string | null>(null);
+  const [resettingUserId, setResettingUserId] = React.useState<string | null>(null);
   const deletingUser = users.find((u) => u.id === deletingUserId) ?? null;
+  const resettingUser = users.find((u) => u.id === resettingUserId) ?? null;
 
   const removeUser = useMutation({
     mutationFn: (id: string) => api.users.remove(id),
@@ -142,6 +144,18 @@ export function UsersClient({ initial, currentUserId }: { initial: UserDTO[]; cu
                           type="button"
                           variant="ghost"
                           size="icon-sm"
+                          title={t('list.resetPassword')}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setResettingUserId(u.id);
+                          }}
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
                           title={u.id === currentUserId ? t('list.cannotDeleteSelf') : t('list.deleteUser')}
                           disabled={u.id === currentUserId}
                           onClick={(e) => {
@@ -163,6 +177,8 @@ export function UsersClient({ initial, currentUserId }: { initial: UserDTO[]; cu
 
       <UserEditSheet userId={editingUserId} onOpenChange={(open) => !open && setEditingUserId(null)} />
 
+      <ResetPasswordDialog user={resettingUser} onOpenChange={(open) => !open && setResettingUserId(null)} />
+
       <ConfirmDialog
         open={!!deletingUserId}
         onOpenChange={(open) => !open && setDeletingUserId(null)}
@@ -173,6 +189,114 @@ export function UsersClient({ initial, currentUserId }: { initial: UserDTO[]; cu
         onConfirm={() => deletingUserId && removeUser.mutate(deletingUserId)}
       />
     </div>
+  );
+}
+
+type PasswordIssueKey = 'length' | 'case' | 'number';
+
+function passwordStrengthIssues(pw: string): PasswordIssueKey[] {
+  const issues: PasswordIssueKey[] = [];
+  if (pw.length < 10) issues.push('length');
+  if (!/[a-z]/.test(pw) || !/[A-Z]/.test(pw)) issues.push('case');
+  if (!/[0-9]/.test(pw)) issues.push('number');
+  return issues;
+}
+
+function ResetPasswordDialog({
+  user,
+  onOpenChange,
+}: {
+  user: UserDTO | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useTranslations('users');
+  const tCommon = useTranslations('common');
+  const locale = useLocale();
+  const open = user != null;
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
+
+  function reset() {
+    setNewPassword('');
+    setConfirmPassword('');
+  }
+
+  const issues = passwordStrengthIssues(newPassword);
+  const mismatch = confirmPassword.length > 0 && newPassword !== confirmPassword;
+  const canSubmit = issues.length === 0 && newPassword === confirmPassword;
+
+  const resetPassword = useMutation({
+    mutationFn: () => {
+      if (!user) throw new Error('No user selected');
+      return api.users.resetPassword(user.id, { newPassword });
+    },
+    onSuccess: () => {
+      toast.success(t('list.resetPasswordDialog.successToast', { name: user?.name ?? '' }));
+      reset();
+      onOpenChange(false);
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : t('list.resetPasswordDialog.errorToast')),
+  });
+
+  const issuesHint =
+    newPassword.length > 0 && issues.length > 0
+      ? t('list.resetPasswordDialog.hintNeeds', {
+          list: new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format(
+            issues.map((k) => t(`list.resetPasswordDialog.issue.${k}`)),
+          ),
+        })
+      : t('list.resetPasswordDialog.hintDefault');
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) reset();
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('list.resetPasswordDialog.title', { name: user?.name ?? '' })}</DialogTitle>
+          <DialogDescription>{t('list.resetPasswordDialog.description')}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <Field label={t('list.resetPasswordDialog.newPassword')} hint={issuesHint}>
+            <Input
+              type="password"
+              autoFocus
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="••••••••"
+            />
+          </Field>
+          <Field
+            label={t('list.resetPasswordDialog.confirmNewPassword')}
+            hint={mismatch ? t('list.resetPasswordDialog.mismatch') : undefined}
+          >
+            <Input
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+            />
+          </Field>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {tCommon('cancel')}
+          </Button>
+          <Button type="button" disabled={!canSubmit || resetPassword.isPending} onClick={() => resetPassword.mutate()}>
+            {resetPassword.isPending ? <Spinner className="text-current" /> : <KeyRound className="h-4 w-4" />}
+            {resetPassword.isPending ? t('list.resetPasswordDialog.submitting') : t('list.resetPasswordDialog.submit')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

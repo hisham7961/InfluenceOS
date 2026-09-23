@@ -18,6 +18,25 @@
       "status": "Status"
     },
     "editAccess": "Edit access",
+    "resetPassword": "Reset password",
+    "resetPasswordDialog": {
+      "title": "Reset password for {name}",
+      "description": "Set a new password for this user. They'll be signed out of all devices and must sign in again with the new password.",
+      "newPassword": "New password",
+      "confirmNewPassword": "Confirm new password",
+      "hintDefault": "At least 10 chars, mixed case and a number.",
+      "hintNeeds": "Needs {list}.",
+      "issue": {
+        "length": "at least 10 characters",
+        "case": "upper- and lower-case letters",
+        "number": "a number"
+      },
+      "mismatch": "Passwords do not match.",
+      "submit": "Reset password",
+      "submitting": "Resetting…",
+      "successToast": "Password reset for {name}.",
+      "errorToast": "Could not reset the password."
+    },
     "deleteUser": "Delete user",
     "cannotDeleteSelf": "You can't delete your own account",
     "deleteConfirmTitle": "Delete {name}?",
