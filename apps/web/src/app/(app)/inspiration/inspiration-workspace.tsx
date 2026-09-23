@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { ExternalLink, FileText, Lightbulb, MessageSquare, Pin, Play, Plus, Trash2, X } from 'lucide-react';
+import { ExternalLink, FileText, Lightbulb, MessageSquare, Pin, Plus, Trash2, X } from 'lucide-react';
 import type { BrandSummaryDTO, InspirationItemDTO } from '@influenceos/contracts';
 import { INSPIRATION_CATEGORIES, type InspirationCategory } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
@@ -181,32 +181,44 @@ function InspirationCard({ item, onOpen }: { item: InspirationItemDTO; onOpen: (
       className="flex cursor-pointer flex-col gap-2 overflow-hidden p-4 transition-shadow hover:shadow-pop"
     >
       {item.thumbnailUrl || item.embeddable ? (
-        <div className="relative -mx-4 -mt-4 aspect-video overflow-hidden bg-gradient-to-br from-neutral-800 to-neutral-900">
-          {item.thumbnailUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.thumbnailUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
-          ) : null}
+        <div className="relative -mx-4 -mt-4 overflow-hidden" onClick={(e) => item.embeddable && e.stopPropagation()}>
+          {item.embeddable ? (
+            <SocialContentPlayer
+              content={{
+                platform: item.platform,
+                embed: item.embed,
+                thumbnailUrl: item.thumbnailUrl,
+                caption: item.title,
+                originalUrl: item.url,
+              }}
+              autoPlay
+              className="rounded-none"
+            />
+          ) : (
+            <div className="aspect-video bg-gradient-to-br from-neutral-800 to-neutral-900">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={item.thumbnailUrl!} alt="" loading="lazy" className="h-full w-full object-cover" />
+            </div>
+          )}
           {(item.platform ?? item.embed?.platform) ? (
-            <div className="absolute start-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 backdrop-blur">
+            <div className="pointer-events-none absolute start-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 backdrop-blur">
               <PlatformIcon platform={(item.platform ?? item.embed?.platform)!} className="h-3 w-3 text-white" />
             </div>
           ) : null}
           {item.commentCount > 0 ? (
-            <span
-              className="absolute end-2 top-2 flex h-6 items-center gap-1 rounded-full bg-black/40 px-2 text-[11px] font-medium text-white backdrop-blur"
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpen();
+              }}
+              className="absolute end-2 top-2 flex h-6 items-center gap-1 rounded-full bg-black/40 px-2 text-[11px] font-medium text-white backdrop-blur transition-colors hover:bg-black/60"
               aria-label={t('card.hasCommentsAriaLabel')}
               title={t('card.hasCommentsAriaLabel')}
             >
               <MessageSquare className="h-3 w-3" />
               {item.commentCount}
-            </span>
-          ) : null}
-          {item.embeddable ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-black shadow-pop">
-                <Play className="h-4 w-4 fill-current" />
-              </span>
-            </div>
+            </button>
           ) : null}
         </div>
       ) : null}
