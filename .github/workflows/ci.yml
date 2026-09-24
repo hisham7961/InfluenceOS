@@ -11,13 +11,18 @@ concurrency:
   cancel-in-progress: true
 
 # Single source of truth for the object-storage image used by every job that
-# starts MinIO (build-images, e2e, e2e-s3). Pinned to a CORS-capable release
-# (MINIO_API_CORS_ALLOW_ORIGIN is honoured) served from quay.io, which is not
-# subject to the Docker Hub anonymous-pull denial that broke `minio/minio`
-# pulls on the runners. The compose files carry the same pin as their default;
-# see .env.example for the legacy-CPU (no-AVX) override rationale.
+# starts MinIO (build-images, e2e, e2e-s3). The official `minio/minio` image
+# is no longer anonymously pullable from EITHER Docker Hub or quay.io (both
+# registries now gate the repository behind auth as of Sep 2026) — this uses
+# Bitnami's community-maintained MinIO build instead, which still honours the
+# same MINIO_ROOT_USER/MINIO_ROOT_PASSWORD/MINIO_API_CORS_ALLOW_ORIGIN env vars
+# and exposes the same port 9000 API / /minio/health/live endpoint, so no
+# other CI step needed to change. Its own entrypoint already starts the
+# server, so (unlike the old quay.io image) no `server /data` command suffix
+# is passed. The compose files still default to the old quay.io pin; see
+# .env.example for the legacy-CPU (no-AVX) override rationale.
 env:
-  MINIO_IMAGE: quay.io/minio/minio:RELEASE.2024-10-13T13-34-11Z
+  MINIO_IMAGE: bitnamilegacy/minio:2025.7.23-debian-12-r5
 
 jobs:
   security:
@@ -146,7 +151,7 @@ jobs:
         run: |
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-            ${{ env.MINIO_IMAGE }} server /data
+            ${{ env.MINIO_IMAGE }}
           for i in $(seq 1 30); do
             curl -sf http://localhost:9000/minio/health/live && break || sleep 1
           done
@@ -346,7 +351,7 @@ jobs:
         run: |
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-            ${{ env.MINIO_IMAGE }} server /data
+            ${{ env.MINIO_IMAGE }}
           for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break || sleep 1; done
           curl -sf http://localhost:9000/minio/health/live || { echo "MinIO failed"; docker logs minio; exit 1; }
 
@@ -487,7 +492,7 @@ jobs:
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
             -e MINIO_API_CORS_ALLOW_ORIGIN="*" \
-            ${{ env.MINIO_IMAGE }} server /data
+            ${{ env.MINIO_IMAGE }}
           for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break || sleep 1; done
           curl -sf http://localhost:9000/minio/health/live || { echo "MinIO failed"; docker logs minio; exit 1; }
 
