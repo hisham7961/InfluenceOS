@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
-import { ChevronLeft, ChevronRight, Plus, Users } from 'lucide-react';
+import { Plus, Users } from 'lucide-react';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Pagination } from '@/components/ui/pagination';
 import { DirectoryResults } from '@/components/influencers/directory-results';
 import { DirectoryFilters } from './directory-filters';
 import { ExportInfluencersButton } from './export-button';
@@ -123,30 +124,14 @@ export default async function InfluencersPage({
                   count: pagination.total,
                 })}
               </p>
-              <div className="flex items-center gap-2">
-                {page <= 1 ? (
-                  <Button variant="outline" size="sm" disabled>
-                    <ChevronLeft className="h-4 w-4" /> {tc('previous')}
-                  </Button>
-                ) : (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={buildHref(sp, { page: String(page - 1) })}>
-                      <ChevronLeft className="h-4 w-4" /> {tc('previous')}
-                    </Link>
-                  </Button>
-                )}
-                {page >= pagination.totalPages ? (
-                  <Button variant="outline" size="sm" disabled>
-                    {tc('next')} <ChevronRight className="h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={buildHref(sp, { page: String(page + 1) })}>
-                      {tc('next')} <ChevronRight className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                )}
-              </div>
+              <Pagination
+                page={page}
+                totalPages={pagination.totalPages}
+                buildHref={(p) => buildHref(sp, { page: String(p) })}
+                previousLabel={tc('previous')}
+                nextLabel={tc('next')}
+                pageAriaLabel={(p) => t('directory.pagination.goToPage', { page: p })}
+              />
             </div>
           ) : null}
         </>

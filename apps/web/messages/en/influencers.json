@@ -11,7 +11,8 @@
       "emptyDescription": "Add your first creator to start tracking relationships, campaigns and content."
     },
     "pagination": {
-      "summary": "Page {page} of {totalPages} · {count} {count, plural, one {influencer} other {influencers}}"
+      "summary": "Page {page} of {totalPages} · {count} {count, plural, one {influencer} other {influencers}}",
+      "goToPage": "Go to page {page}"
     },
     "filters": {
       "searchPlaceholder": "Search by name or @username…",

@@ -11,7 +11,8 @@
       "emptyDescription": "أضف أول مؤثر لبدء تتبع العلاقات والحملات والمحتوى."
     },
     "pagination": {
-      "summary": "الصفحة {page} من {totalPages} · عدد المؤثرين: {count}"
+      "summary": "الصفحة {page} من {totalPages} · عدد المؤثرين: {count}",
+      "goToPage": "الانتقال إلى الصفحة {page}"
     },
     "filters": {
       "searchPlaceholder": "ابحث بالاسم أو @اسم المستخدم…",
