@@ -188,7 +188,10 @@
       "giftValueLabel": "Gift value",
       "invalidAgreedCost": "Enter a valid agreed cost.",
       "invalidGiftValue": "Enter a valid gift value.",
-      "updatedToast": "Influencer updated"
+      "updatedToast": "Influencer updated",
+      "contentLinkedBadge": "{count, plural, one {# video linked} other {# videos linked}}",
+      "noContentBadge": "No video yet",
+      "pastCampaignsBadge": "{count, plural, one {# past campaign} other {# past campaigns}}"
     },
     "deliverables": {
       "addDeliverable": "Add deliverable",

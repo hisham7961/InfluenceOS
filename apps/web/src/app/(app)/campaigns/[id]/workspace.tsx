@@ -16,9 +16,11 @@ import {
   DollarSign,
   Eye,
   FileText,
+  Film,
   Heart,
   Link2,
   ListChecks,
+  Megaphone,
   MessageSquare,
   Package,
   Pencil,
@@ -633,6 +635,25 @@ function InfluencerRow({
               <DealTypeBadge status={ci.dealType} />
               <PaymentStatusBadge status={ci.paymentStatus} />
               <Badge tone="neutral">{enumLabel(tEnums, 'participationStatus', ci.participationStatus)}</Badge>
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {ci.contentCount > 0 ? (
+                <Badge tone="success" className="gap-1">
+                  <Film className="h-3 w-3" />
+                  {t('workspace.influencers.contentLinkedBadge', { count: ci.contentCount })}
+                </Badge>
+              ) : (
+                <Badge tone="warning" className="gap-1">
+                  <Film className="h-3 w-3" />
+                  {t('workspace.influencers.noContentBadge')}
+                </Badge>
+              )}
+              {ci.allTimeCampaignCount > 1 ? (
+                <Badge tone="neutral" className="gap-1">
+                  <Megaphone className="h-3 w-3" />
+                  {t('workspace.influencers.pastCampaignsBadge', { count: ci.allTimeCampaignCount - 1 })}
+                </Badge>
+              ) : null}
             </div>
           </div>
         </div>

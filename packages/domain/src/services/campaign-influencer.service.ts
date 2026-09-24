@@ -93,7 +93,7 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
     notes: string | null;
     influencer: Parameters<typeof toInfluencerSummary>[0];
     deliverables: Parameters<typeof toDeliverableDTO>[0][];
-  }): CampaignInfluencerDTO {
+  }, extra: { contentCount: number; allTimeCampaignCount: number }): CampaignInfluencerDTO {
     const deliverables = ci.deliverables.map((d) => toDeliverableDTO(d));
     const published = ci.deliverables.filter((d) =>
       (PUBLISHED as readonly string[]).includes(d.status),
@@ -115,7 +115,39 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
       notes: ci.notes,
       deliverables,
       deliverableProgress: { published, total: ci.deliverables.length },
+      contentCount: extra.contentCount,
+      allTimeCampaignCount: extra.allTimeCampaignCount,
     };
+  }
+
+  // Batched (N+1-safe) lookup of per-influencer content/history counts for a
+  // whole roster page — same shape as influencer.service.ts's toSummaries().
+  async function rosterExtras(
+    campaignId: string,
+    influencerIds: string[],
+  ): Promise<Map<string, { contentCount: number; allTimeCampaignCount: number }>> {
+    const extras = new Map<string, { contentCount: number; allTimeCampaignCount: number }>();
+    if (!influencerIds.length) return extras;
+    const [contentGrouped, campaignGrouped] = await Promise.all([
+      prisma.publishedContent.groupBy({
+        by: ['influencerId'],
+        where: { campaignId, influencerId: { in: influencerIds } },
+        _count: { _all: true },
+      }),
+      prisma.campaignInfluencer.groupBy({
+        by: ['influencerId'],
+        where: { influencerId: { in: influencerIds } },
+        _count: { _all: true },
+      }),
+    ]);
+    for (const id of influencerIds) extras.set(id, { contentCount: 0, allTimeCampaignCount: 0 });
+    for (const g of contentGrouped) {
+      if (g.influencerId) extras.set(g.influencerId, { ...extras.get(g.influencerId)!, contentCount: g._count._all });
+    }
+    for (const g of campaignGrouped) {
+      extras.set(g.influencerId, { ...extras.get(g.influencerId)!, allTimeCampaignCount: g._count._all });
+    }
+    return extras;
   }
 
   async function listForCampaign(campaignId: string): Promise<CampaignInfluencerDTO[]> {
@@ -130,9 +162,12 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
         influencer: { include: influencerSummaryInclude },
         deliverables: { orderBy: { createdAt: 'asc' } },
       },
-      orderBy: { createdAt: 'asc' },
+      // Newest-added first — a freshly-added influencer must surface at the
+      // top of the roster, not get buried behind everyone already on it.
+      orderBy: { createdAt: 'desc' },
     });
-    return rows.map((r) => toDTO(r));
+    const extras = await rosterExtras(campaignId, rows.map((r) => r.influencerId));
+    return rows.map((r) => toDTO(r, extras.get(r.influencerId) ?? { contentCount: 0, allTimeCampaignCount: 0 }));
   }
 
   async function get(id: string): Promise<CampaignInfluencerDTO> {
@@ -145,7 +180,8 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
     });
     if (!ci) throw AppError.notFound('Campaign influencer');
     await makeCampaignService(ctx).assertInScope(ci.campaignId);
-    return toDTO(ci);
+    const extras = await rosterExtras(ci.campaignId, [ci.influencerId]);
+    return toDTO(ci, extras.get(ci.influencerId) ?? { contentCount: 0, allTimeCampaignCount: 0 });
   }
 
   async function add(input: CIAdd): Promise<CampaignInfluencerDTO> {

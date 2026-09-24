@@ -445,6 +445,10 @@ export interface CampaignInfluencerDTO {
   notes: string | null;
   deliverables: DeliverableDTO[];
   deliverableProgress: { published: number; total: number };
+  /** PublishedContent rows linked to THIS campaign for this influencer — distinct from deliverableProgress, since content can be linked without a deliverable. */
+  contentCount: number;
+  /** All-time CampaignInfluencer rows for this influencer, across every campaign/status — same semantics as InfluencerRelationshipHistoryDTO.campaignCount. */
+  allTimeCampaignCount: number;
 }
 
 /**

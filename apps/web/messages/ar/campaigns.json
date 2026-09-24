@@ -188,7 +188,10 @@
       "giftValueLabel": "قيمة المنتج المجاني",
       "invalidAgreedCost": "أدخل تكلفة متفقًا عليها صحيحة.",
       "invalidGiftValue": "أدخل قيمة منتج مجاني صحيحة.",
-      "updatedToast": "تم تحديث بيانات المؤثر"
+      "updatedToast": "تم تحديث بيانات المؤثر",
+      "contentLinkedBadge": "{count, plural, zero {لا فيديو مرتبط} one {فيديو واحد مرتبط} two {فيديوهان مرتبطان} few {# فيديوهات مرتبطة} many {# فيديو مرتبط} other {# فيديو مرتبط}}",
+      "noContentBadge": "لا يوجد فيديو بعد",
+      "pastCampaignsBadge": "{count, plural, zero {لا حملات سابقة} one {حملة سابقة واحدة} two {حملتان سابقتان} few {# حملات سابقة} many {# حملة سابقة} other {# حملة سابقة}}"
     },
     "deliverables": {
       "addDeliverable": "إضافة محتوى مطلوب",
