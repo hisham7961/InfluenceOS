@@ -2,7 +2,8 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import {
   Activity as ActivityIcon,
   Bookmark,
@@ -14,14 +15,17 @@ import {
   Pin,
   RefreshCw,
   SkipForward,
+  Trash2,
   Undo2,
 } from 'lucide-react';
 import type { ContentViewerStateDTO, PublishedContentDTO } from '@influenceos/contracts';
 import { contentReviewStatus } from '@influenceos/shared';
+import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PlatformBadge } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +37,10 @@ import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { formatCompact, useLocalizedFormat } from '@/lib/format';
 
 const EMPTY_STATE: ContentViewerStateDTO = { firstSeenAt: null, lastOpenedAt: null, reviewedAt: null, savedForLaterAt: null };
+
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
+}
 
 function invalidateReviewQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({
@@ -84,6 +92,7 @@ export function ContentViewer({
   // (Mark Reviewed / Review Later) is in flight; the button stays disabled
   // until it resolves.
   const [busy, setBusy] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
   const raw = items[index];
   const content: PublishedContentDTO | undefined = raw
     ? { ...raw, viewerState: localState[raw.id] ?? raw.viewerState }
@@ -131,6 +140,20 @@ export function ContentViewer({
     },
     [queryClient],
   );
+
+  const remove = useMutation({
+    mutationFn: () => {
+      if (!content) throw new Error('No content selected');
+      return api.content.remove(content.id);
+    },
+    onSuccess: () => {
+      toast.success(t('editContent.deleteSuccess'));
+      setDeleteOpen(false);
+      onOpenChange(false);
+      queryClient.invalidateQueries();
+    },
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
+  });
 
   const effectiveState = React.useCallback(
     (c: PublishedContentDTO) => localState[c.id] ?? c.viewerState ?? null,
@@ -201,70 +224,85 @@ export function ContentViewer({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl gap-0 overflow-hidden p-0">
-        <div className="grid lg:grid-cols-[1.5fr_1fr]">
-          <div className="bg-black p-3 lg:p-4">
-            <SocialContentPlayer key={content.id} content={content} autoPlay />
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-5xl gap-0 overflow-hidden p-0">
+          <div className="grid lg:grid-cols-[1.5fr_1fr]">
+            <div className="bg-black p-3 lg:p-4">
+              <SocialContentPlayer key={content.id} content={content} autoPlay />
+            </div>
+            <ContentDetails content={content} />
           </div>
-          <ContentDetails content={content} />
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-2.5">
-          <Button
-            type="button"
-            variant={isReviewed ? 'secondary' : 'outline'}
-            size="sm"
-            onClick={handleMarkReviewed}
-            disabled={busy}
-            title={t('reviewMode.markReviewedShortcut')}
-          >
-            {isReviewed ? <Undo2 className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
-            {isReviewed ? t('reviewMode.markUnreviewed') : t('reviewMode.markReviewed')}
-          </Button>
-          <Button
-            type="button"
-            variant={isSavedForLater ? 'secondary' : 'outline'}
-            size="sm"
-            onClick={handleReviewLater}
-            disabled={busy}
-            title={t('reviewMode.reviewLaterShortcut')}
-          >
-            {isSavedForLater ? <BookmarkCheck className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
-            {isSavedForLater ? t('reviewMode.savedForLater') : t('reviewMode.reviewLater')}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-2.5">
+            <Button
+              type="button"
+              variant={isReviewed ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={handleMarkReviewed}
+              disabled={busy}
+              title={t('reviewMode.markReviewedShortcut')}
+            >
+              {isReviewed ? <Undo2 className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+              {isReviewed ? t('reviewMode.markUnreviewed') : t('reviewMode.markReviewed')}
+            </Button>
+            <Button
+              type="button"
+              variant={isSavedForLater ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={handleReviewLater}
+              disabled={busy}
+              title={t('reviewMode.reviewLaterShortcut')}
+            >
+              {isSavedForLater ? <BookmarkCheck className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
+              {isSavedForLater ? t('reviewMode.savedForLater') : t('reviewMode.reviewLater')}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setDeleteOpen(true)} disabled={remove.isPending}>
+              <Trash2 className="h-3.5 w-3.5 text-danger" /> {tCommon('delete')}
+            </Button>
 
-          {reviewMode ? (
-            <span className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
-              {t('reviewMode.progress', { done: progress.done, total: progress.total })}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={findNextUnreviewed(index) === -1}
-                onClick={() => {
-                  const next = findNextUnreviewed(index);
-                  if (next !== -1) onIndexChange(next);
-                }}
-              >
-                {t('reviewMode.nextUnreviewed')} <SkipForward className="h-3.5 w-3.5" />
-              </Button>
-            </span>
-          ) : (
-            <span className="ms-auto text-xs text-muted-foreground">
-              {t('viewer.indexOfTotal', { index: index + 1, total: items.length })}
-            </span>
-          )}
+            {reviewMode ? (
+              <span className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
+                {t('reviewMode.progress', { done: progress.done, total: progress.total })}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={findNextUnreviewed(index) === -1}
+                  onClick={() => {
+                    const next = findNextUnreviewed(index);
+                    if (next !== -1) onIndexChange(next);
+                  }}
+                >
+                  {t('reviewMode.nextUnreviewed')} <SkipForward className="h-3.5 w-3.5" />
+                </Button>
+              </span>
+            ) : (
+              <span className="ms-auto text-xs text-muted-foreground">
+                {t('viewer.indexOfTotal', { index: index + 1, total: items.length })}
+              </span>
+            )}
 
-          <Button variant="ghost" size="sm" disabled={index <= 0} onClick={() => onIndexChange(index - 1)}>
-            <ChevronLeft className="h-4 w-4" /> {tCommon('previous')}
-          </Button>
-          <Button variant="ghost" size="sm" disabled={index >= items.length - 1} onClick={() => onIndexChange(index + 1)}>
-            {tCommon('next')} <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+            <Button variant="ghost" size="sm" disabled={index <= 0} onClick={() => onIndexChange(index - 1)}>
+              <ChevronLeft className="h-4 w-4" /> {tCommon('previous')}
+            </Button>
+            <Button variant="ghost" size="sm" disabled={index >= items.length - 1} onClick={() => onIndexChange(index + 1)}>
+              {tCommon('next')} <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={t('editContent.deleteConfirmTitle')}
+        description={t('editContent.deleteConfirmDescription')}
+        confirmLabel={tCommon('delete')}
+        loading={remove.isPending}
+        onConfirm={() => remove.mutate()}
+      />
+    </>
   );
 }
 
