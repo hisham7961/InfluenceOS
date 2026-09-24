@@ -25,6 +25,7 @@ import {
   LOGISTICS_ISSUE_TYPES,
   COUNTRY_CODES,
 } from '@influenceos/shared';
+import { offsetQuerySchema } from '../pagination';
 
 /**
  * All request DTO schemas + server-side filter/pagination contracts
@@ -767,6 +768,17 @@ export const contentFilterSchema = z.object({
   alertsOnly: z.coerce.boolean().optional(),
 });
 export type ContentFilter = z.infer<typeof contentFilterSchema>;
+
+// A campaign's own Live Content tab (workflow pass follow-up) — offset
+// pagination with a real total, unlike the global feed() above, since a
+// single campaign's content is small/bounded (never the unbounded global
+// wall). `bucket` picks between content already linked to this campaign and
+// content belonging to its roster influencers that isn't linked to it yet —
+// the two buckets the tab shows as separate, independently-paginated lists.
+export const campaignContentQuerySchema = offsetQuerySchema.extend({
+  bucket: z.enum(['linked', 'unlinked']).default('linked'),
+});
+export type CampaignContentQuery = z.infer<typeof campaignContentQuerySchema>;
 
 // Mark seen / reviewed / review-later on one piece of content, scoped to the
 // calling user. `seen: true` is what the Viewer/detail page sends on open —

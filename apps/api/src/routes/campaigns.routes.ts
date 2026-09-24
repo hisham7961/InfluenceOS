@@ -166,6 +166,21 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).expenses.listForCampaign(req.params.id),
   );
 
+  r.get(
+    '/campaigns/:id/content',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary:
+          "Campaign's Live Content tab, offset-paginated — bucket=linked is content on this campaign, bucket=unlinked is this campaign's roster content not yet linked to it",
+        params: idParam,
+        querystring: requests.campaignContentQuerySchema,
+      },
+    },
+    async (req) => servicesFor(req).content.campaignContent(req.params.id, req.query),
+  );
+
   r.post(
     '/campaigns/:id/expenses',
     {

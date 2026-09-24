@@ -40,7 +40,8 @@
     "emptyDescription": "أطلق حملتك الأولى لتبدأ بمتابعة المؤثرين والمحتوى المطلوب والإنفاق.",
     "emptyFilteredTitle": "لا توجد حملات مطابقة لعوامل التصفية",
     "emptyFilteredDescription": "جرّب كلمة بحث مختلفة أو امسح عوامل التصفية لعرض كل الحملات.",
-    "paginationSummary": "الصفحة {page} من {totalPages} · {count, plural, zero {# حملة} one {حملة واحدة} two {حملتان} few {# حملات} many {# حملة} other {# حملة}}"
+    "paginationSummary": "الصفحة {page} من {totalPages} · {count, plural, zero {# حملة} one {حملة واحدة} two {حملتان} few {# حملات} many {# حملة} other {# حملة}}",
+    "goToPage": "الانتقال إلى الصفحة {page}"
   },
   "addInfluencerDialog": {
     "trigger": "إضافة مؤثر",
@@ -150,7 +151,11 @@
       "noLinkCandidates": "لا يوجد محتوى آخر لهذا المؤثر لربطه.",
       "linkedElsewhere": "مرتبط حاليًا بحملة {campaign}",
       "linkButton": "ربط",
-      "linkedToast": "تم ربط المحتوى بهذه الحملة."
+      "linkedToast": "تم ربط المحتوى بهذه الحملة.",
+      "linkedHeading": "مرتبط بهذه الحملة ({count})",
+      "unlinkedHeading": "من مشاهير هذه الحملة — غير مرتبط بعد ({count})",
+      "unlinkedEmptyDescription": "كل محتوى مشاهير هذه الحملة مرتبط بها هنا بالفعل.",
+      "goToPage": "الانتقال إلى الصفحة {page}"
     },
     "overview": {
       "noDescription": "لا يوجد وصف مسجَّل بعد.",

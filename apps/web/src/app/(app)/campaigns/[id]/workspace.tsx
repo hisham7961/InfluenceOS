@@ -83,6 +83,7 @@ import { ProgressBar } from '@/components/ui/progress';
 import { InfoTooltip } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
+import { Pagination } from '@/components/ui/pagination';
 import { ContentGrid } from '@/components/content/content-grid';
 import { AddContentFlow } from '@/components/content/add-content-flow';
 import { ActivityFeed } from '@/components/common/activity-feed';
@@ -232,7 +233,7 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
       </TabsContent>
 
       <TabsContent value="content">
-        <LiveContentTab campaign={campaign} influencers={influencers} contentFeed={contentFeed} />
+        <LiveContentTab campaign={campaign} influencers={influencers} />
       </TabsContent>
 
       <TabsContent value="shipments">
@@ -288,28 +289,96 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
 // page, filtered to this campaign (never a copy — see WORKFLOW_GAP_MATRIX.md).
 // ---------------------------------------------------------------------------
 
+const LIVE_CONTENT_PAGE_SIZE = 24;
+
 function LiveContentTab({
   campaign,
   influencers,
-  contentFeed,
 }: {
   campaign: CampaignDetailDTO;
   influencers: CampaignInfluencerDTO[];
-  contentFeed: PublishedContentDTO[];
 }) {
   const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
+  const [linkedPage, setLinkedPage] = React.useState(1);
+  const [unlinkedPage, setUnlinkedPage] = React.useState(1);
+
+  const linkedQuery = useQuery({
+    queryKey: ['campaign-content', campaign.id, 'linked', linkedPage],
+    queryFn: () => api.campaigns.content(campaign.id, { bucket: 'linked', page: linkedPage, pageSize: LIVE_CONTENT_PAGE_SIZE }),
+  });
+  // This campaign's own roster influencers' content that isn't linked to it
+  // yet — the gap the tab used to hide entirely (previously campaignId-only,
+  // hard-capped at 20 with no pagination at all).
+  const unlinkedQuery = useQuery({
+    queryKey: ['campaign-content', campaign.id, 'unlinked', unlinkedPage],
+    queryFn: () => api.campaigns.content(campaign.id, { bucket: 'unlinked', page: unlinkedPage, pageSize: LIVE_CONTENT_PAGE_SIZE }),
+    enabled: influencers.length > 0,
+  });
+
+  const linked = linkedQuery.data;
+  const unlinked = unlinkedQuery.data;
+  const goToPage = (p: number) => t('workspace.liveContent.goToPage', { page: p });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-end">
         <Button type="button" size="sm" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" /> {t('workspace.liveContent.addContent')}
         </Button>
       </div>
-      <ContentGrid items={contentFeed} emptyDescription={t('workspace.liveContent.emptyDescription')} />
+
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-foreground">
+          {t('workspace.liveContent.linkedHeading', { count: linked?.pagination.total ?? 0 })}
+        </h3>
+        {linkedQuery.isLoading ? (
+          <Skeleton className="h-40 w-full" />
+        ) : (
+          <>
+            <ContentGrid items={linked?.data ?? []} emptyDescription={t('workspace.liveContent.emptyDescription')} />
+            {linked ? (
+              <Pagination
+                page={linkedPage}
+                totalPages={linked.pagination.totalPages}
+                onPageChange={setLinkedPage}
+                previousLabel={tCommon('previous')}
+                nextLabel={tCommon('next')}
+                pageAriaLabel={goToPage}
+              />
+            ) : null}
+          </>
+        )}
+      </div>
+
+      {influencers.length > 0 ? (
+        <div className="space-y-3 border-t border-border pt-6">
+          <h3 className="text-sm font-semibold text-foreground">
+            {t('workspace.liveContent.unlinkedHeading', { count: unlinked?.pagination.total ?? 0 })}
+          </h3>
+          {unlinkedQuery.isLoading ? (
+            <Skeleton className="h-40 w-full" />
+          ) : (unlinked?.data.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('workspace.liveContent.unlinkedEmptyDescription')}</p>
+          ) : (
+            <>
+              <ContentGrid items={unlinked!.data} />
+              <Pagination
+                page={unlinkedPage}
+                totalPages={unlinked!.pagination.totalPages}
+                onPageChange={setUnlinkedPage}
+                previousLabel={tCommon('previous')}
+                nextLabel={tCommon('next')}
+                pageAriaLabel={goToPage}
+              />
+            </>
+          )}
+        </div>
+      ) : null}
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>

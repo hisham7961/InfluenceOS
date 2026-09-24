@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
-import { ChevronLeft, ChevronRight, Megaphone, Plus } from 'lucide-react';
+import { Megaphone, Plus } from 'lucide-react';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Pagination } from '@/components/ui/pagination';
 import { CampaignCard } from '@/components/campaigns/campaign-card';
 import { CampaignFilters } from './campaign-filters';
 
@@ -99,30 +100,14 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
                   count: pagination.total,
                 })}
               </p>
-              <div className="flex items-center gap-2">
-                {page <= 1 ? (
-                  <Button variant="outline" size="sm" disabled>
-                    <ChevronLeft className="h-4 w-4" /> {tCommon('previous')}
-                  </Button>
-                ) : (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={buildHref(sp, { page: String(page - 1) })}>
-                      <ChevronLeft className="h-4 w-4" /> {tCommon('previous')}
-                    </Link>
-                  </Button>
-                )}
-                {page >= pagination.totalPages ? (
-                  <Button variant="outline" size="sm" disabled>
-                    {tCommon('next')} <ChevronRight className="h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={buildHref(sp, { page: String(page + 1) })}>
-                      {tCommon('next')} <ChevronRight className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                )}
-              </div>
+              <Pagination
+                page={page}
+                totalPages={pagination.totalPages}
+                buildHref={(p) => buildHref(sp, { page: String(p) })}
+                previousLabel={tCommon('previous')}
+                nextLabel={tCommon('next')}
+                pageAriaLabel={(p) => t('list.goToPage', { page: p })}
+              />
             </div>
           ) : null}
         </>

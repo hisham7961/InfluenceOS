@@ -1,3 +1,4 @@
+import * as React from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './button';
@@ -14,28 +15,49 @@ function pageWindow(current: number, total: number): (number | 'ellipsis')[] {
   return pages;
 }
 
-/**
- * Numbered page navigation for offset-paginated management tables (a real
- * `total`/`totalPages`, not a cursor feed). Plain <Link>s, no client state,
- * so it renders fine from an async Server Component page.
- */
-export function Pagination({
-  page,
-  totalPages,
-  buildHref,
-  previousLabel,
-  nextLabel,
-  pageAriaLabel,
-}: {
+type PaginationBaseProps = {
   page: number;
   totalPages: number;
-  buildHref: (page: number) => string;
   previousLabel: string;
   nextLabel: string;
   pageAriaLabel: (page: number) => string;
-}) {
+};
+
+/** Server-page mode: plain <Link>s built from a page number, so it renders
+ *  fine from an async Server Component with no client JS. */
+type PaginationLinkProps = PaginationBaseProps & { buildHref: (page: number) => string; onPageChange?: never };
+
+/** Client-widget mode: a button per page that calls back with the page
+ *  number, for a self-fetching client component (e.g. a `useQuery`-backed
+ *  tab) where the page isn't part of the URL. */
+type PaginationButtonProps = PaginationBaseProps & { onPageChange: (page: number) => void; buildHref?: never };
+
+/**
+ * Numbered page navigation for offset-paginated lists (a real
+ * `total`/`totalPages`, not a cursor feed). Pass `buildHref` for a
+ * server-rendered page, or `onPageChange` for a client-fetched widget.
+ */
+export function Pagination(props: PaginationLinkProps | PaginationButtonProps) {
+  const { page, totalPages, previousLabel, nextLabel, pageAriaLabel } = props;
   if (totalPages <= 1) return null;
   const pages = pageWindow(page, totalPages);
+
+  function PageButton({ target, children, ariaLabel }: { target: number; children: React.ReactNode; ariaLabel: string }) {
+    if (props.buildHref) {
+      return (
+        <Button variant="outline" size="icon-sm" asChild>
+          <Link href={props.buildHref(target)} aria-label={ariaLabel}>
+            {children}
+          </Link>
+        </Button>
+      );
+    }
+    return (
+      <Button variant="outline" size="icon-sm" onClick={() => props.onPageChange(target)} aria-label={ariaLabel}>
+        {children}
+      </Button>
+    );
+  }
 
   return (
     <div className="flex items-center gap-1.5">
@@ -44,11 +66,9 @@ export function Pagination({
           <ChevronLeft className="h-4 w-4" />
         </Button>
       ) : (
-        <Button variant="outline" size="icon-sm" asChild>
-          <Link href={buildHref(page - 1)} aria-label={previousLabel}>
-            <ChevronLeft className="h-4 w-4" />
-          </Link>
-        </Button>
+        <PageButton target={page - 1} ariaLabel={previousLabel}>
+          <ChevronLeft className="h-4 w-4" />
+        </PageButton>
       )}
 
       {pages.map((p, i) =>
@@ -61,11 +81,9 @@ export function Pagination({
             {p}
           </Button>
         ) : (
-          <Button key={p} variant="outline" size="icon-sm" asChild>
-            <Link href={buildHref(p)} aria-label={pageAriaLabel(p)}>
-              {p}
-            </Link>
-          </Button>
+          <PageButton key={p} target={p} ariaLabel={pageAriaLabel(p)}>
+            {p}
+          </PageButton>
         ),
       )}
 
@@ -74,11 +92,9 @@ export function Pagination({
           <ChevronRight className="h-4 w-4" />
         </Button>
       ) : (
-        <Button variant="outline" size="icon-sm" asChild>
-          <Link href={buildHref(page + 1)} aria-label={nextLabel}>
-            <ChevronRight className="h-4 w-4" />
-          </Link>
-        </Button>
+        <PageButton target={page + 1} ariaLabel={nextLabel}>
+          <ChevronRight className="h-4 w-4" />
+        </PageButton>
       )}
     </div>
   );

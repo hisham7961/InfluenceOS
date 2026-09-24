@@ -9,6 +9,7 @@ import {
   type Platform,
 } from '@influenceos/shared';
 import {
+  buildOffsetPagination,
   requests,
   type BrandContentSummaryDTO,
   type ContentMetricsDTO,
@@ -16,6 +17,7 @@ import {
   type ContentViewerStateDTO,
   type CursorPage,
   type MonitoringEventDTO,
+  type Paginated,
   type PublishedContentDTO,
 } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
@@ -33,6 +35,7 @@ import {
   toInfluencerSummary,
   toPublishedContentDTO,
 } from '../lib/mappers';
+import { makeCampaignService } from './campaign.service';
 
 type ContentCreate = z.infer<typeof requests.publishedContentCreateSchema>;
 type StoryCreate = z.infer<typeof requests.publishedContentStoryCreateSchema>;
@@ -474,6 +477,67 @@ export function makeContentService(ctx: DomainContext) {
     const hasMore = rows.length > filter.limit;
     const data = await Promise.all(rows.slice(0, filter.limit).map((r) => mapRow(r)));
     return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore };
+  }
+
+  /**
+   * A single campaign's own Live Content tab (workflow pass follow-up). Unlike
+   * feed()'s cursor pagination (unbounded global feeds — What's New, the
+   * Content Wall, Notifications), one campaign's content is small/bounded, so
+   * offset pagination with a real total is safe and lets the UI jump to any
+   * page directly. `bucket: 'linked'` is exactly what campaignId=filter used
+   * to return; `bucket: 'unlinked'` is the gap the tab was missing — content
+   * belonging to this campaign's own roster influencers that was never linked
+   * to this campaign (added independently, or linked to a different one).
+   */
+  async function campaignContent(
+    campaignId: string,
+    filter: z.infer<typeof requests.campaignContentQuerySchema>,
+  ): Promise<Paginated<PublishedContentDTO>> {
+    await makeCampaignService(ctx).assertInScope(campaignId);
+
+    let where: Prisma.PublishedContentWhereInput;
+    if (filter.bucket === 'linked') {
+      where = { campaignId };
+    } else {
+      const roster = await prisma.campaignInfluencer.findMany({
+        where: { campaignId },
+        select: { influencerId: true },
+      });
+      where = {
+        influencerId: { in: roster.map((r) => r.influencerId) },
+        OR: [{ campaignId: null }, { campaignId: { not: campaignId } }],
+      };
+    }
+
+    // Same brand/country scope posture as feed() — a scoped actor viewing a
+    // campaign they already have access to still shouldn't see roster-
+    // influencer content that belongs to a brand/country outside their own
+    // access (an influencer can carry content across brands/campaigns).
+    const scopeConditions: Prisma.PublishedContentWhereInput[] = [];
+    const brandScope = await scopedBrandIds(ctx);
+    if (brandScope) {
+      scopeConditions.push({ OR: [{ brandId: { in: brandScope } }, { brandId: null }] });
+    }
+    const countryScope = await scopedCountryCodes(ctx);
+    if (countryScope) {
+      scopeConditions.push({ OR: [{ influencerId: null }, { influencer: { countryCode: { in: countryScope } } }] });
+    }
+    if (scopeConditions.length) where.AND = scopeConditions;
+
+    const actorId = ctx.actor?.id;
+    const [total, rows] = await Promise.all([
+      prisma.publishedContent.count({ where }),
+      prisma.publishedContent.findMany({
+        where,
+        include: relIncludeFor(actorId),
+        orderBy: [{ detectedAt: 'desc' }, { id: 'desc' }],
+        skip: (filter.page - 1) * filter.pageSize,
+        take: filter.pageSize,
+      }),
+    ]);
+
+    const data = await Promise.all(rows.map((r) => mapRow(r)));
+    return { data, pagination: buildOffsetPagination(filter.page, filter.pageSize, total) };
   }
 
   async function detail(id: string): Promise<PublishedContentDTO> {
@@ -976,6 +1040,7 @@ export function makeContentService(ctx: DomainContext) {
     create,
     createStory,
     feed,
+    campaignContent,
     detail,
     update,
     remove,

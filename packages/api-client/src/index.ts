@@ -299,6 +299,10 @@ export function createClient(config: ClientConfig) {
         http.post<CampaignInfluencerDTO>(`${V}/campaigns/${id}/influencers`, { ...body, campaignId: id }),
       scripts: (id: string) => http.get<ScriptDTO[]>(`${V}/campaigns/${id}/scripts`),
       costs: (id: string) => http.get<{ expenses: ExpenseDTO[]; summary: CostSummaryDTO }>(`${V}/campaigns/${id}/costs`),
+      // Live Content tab — offset-paginated, split into content already
+      // linked to this campaign vs. its roster's content not yet linked.
+      content: (id: string, params?: QueryParams) =>
+        http.get<Paginated<PublishedContentDTO>>(`${V}/campaigns/${id}/content`, { query: params }),
       // Server-computed spend efficiency (CPV/CPM/CPE) + metric freshness (W6-1).
       efficiency: (idOrSlug: string) => http.get<CampaignEfficiencyDTO>(`${V}/campaigns/${idOrSlug}/efficiency`),
       addExpense: (id: string, body: Omit<In<typeof requests.expenseCreateSchema>, 'campaignId'>) =>

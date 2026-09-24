@@ -40,7 +40,8 @@
     "emptyDescription": "Launch your first campaign to start tracking influencers, deliverables and spend.",
     "emptyFilteredTitle": "No campaigns match your filters",
     "emptyFilteredDescription": "Try a different search term or clear your filters to see everything.",
-    "paginationSummary": "Page {page} of {totalPages} · {count, plural, one {# campaign} other {# campaigns}}"
+    "paginationSummary": "Page {page} of {totalPages} · {count, plural, one {# campaign} other {# campaigns}}",
+    "goToPage": "Go to page {page}"
   },
   "addInfluencerDialog": {
     "trigger": "Add influencer",
@@ -150,7 +151,11 @@
       "noLinkCandidates": "No other content found for this creator to link.",
       "linkedElsewhere": "Currently linked to {campaign}",
       "linkButton": "Link",
-      "linkedToast": "Content linked to this campaign."
+      "linkedToast": "Content linked to this campaign.",
+      "linkedHeading": "Linked to this campaign ({count})",
+      "unlinkedHeading": "From this campaign's creators — not yet linked ({count})",
+      "unlinkedEmptyDescription": "All of this campaign's creators' content is already linked here.",
+      "goToPage": "Go to page {page}"
     },
     "overview": {
       "noDescription": "No description on file yet.",
