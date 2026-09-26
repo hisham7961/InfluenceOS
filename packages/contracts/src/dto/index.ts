@@ -1313,9 +1313,14 @@ export interface RankedSearchResultDTO extends SearchResultDTO {
 /** A full, ranked, paginated global-search results page (W3-6). */
 export interface SearchPageDTO {
   results: RankedSearchResultDTO[];
+  /** Results of the requested type(s) — what `page`/`pageSize` paginate. */
   total: number;
   page: number;
   pageSize: number;
+  /** Matches per type whatever `types` asked for (so a page can show tabs with counts). */
+  counts: Record<'influencer' | 'campaign' | 'brand' | 'published_content', number>;
+  /** A requested type had more matches than are ranked; a narrower query finds the rest. */
+  truncated: boolean;
 }
 
 /**

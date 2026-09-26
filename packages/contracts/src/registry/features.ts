@@ -423,7 +423,8 @@ export const FEATURES: FeatureEntry[] = [
   {
     key: 'search',
     name: 'Global Search',
-    description: 'Backend-driven search across influencers, campaigns, brands, content.',
+    description:
+      'Backend-driven search across influencers, campaigns, brands, content: the quick palette, and a full ranked page (notes, tags, captions; counts per type; paginated).',
     module: 'Search',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -432,8 +433,8 @@ export const FEATURES: FeatureEntry[] = [
     permissions: ALL,
     flag: null,
     minApiVersion: 'v1',
-    apiEndpoints: ['GET /api/v1/search'],
-    deepLink: null,
+    apiEndpoints: ['GET /api/v1/search', 'GET /api/v1/search/page'],
+    deepLink: '/search',
   },
   {
     key: 'files',

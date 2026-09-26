@@ -195,6 +195,7 @@ contracts, media represented independently of the web UI — spec addendum §37)
 ### Global Search
 
 - `GET /api/v1/search`
+- `GET /api/v1/search/page`
 
 ### Files & Attachments
 

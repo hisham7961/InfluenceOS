@@ -625,6 +625,7 @@ hands out is checked against the web app's pages by a test
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/v1/search` | Global search across influencers, campaigns, brands, and content. Required `q`, optional `brandId`, `limit` (default 8, max 20). |
+| GET | `/api/v1/search/page` | The full search page (P3.7): also matches creators' full names, tags and notes, brands' notes, and post captions/links; ranked by how and where it matched (`matchedOn`). Required `q`; optional `types` (one or more of `influencer`, `campaign`, `brand`, `published_content`), `page`, `pageSize` (max 50), `brandId`. `counts` gives the matches per type whatever `types` asks for; up to 60 per type are ranked, and `truncated` says a narrower query would find more. Deleted notes never match; posts follow their creator's country scope (so does `/search`). |
 
 ### Integrations
 

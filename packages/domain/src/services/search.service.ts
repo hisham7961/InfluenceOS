@@ -6,6 +6,7 @@ import {
 } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import { bestScore } from '@influenceos/shared';
+import type { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
@@ -57,7 +58,9 @@ export function makeSearchService(ctx: DomainContext) {
                 { socialAccounts: { some: { username: { contains: q, mode: 'insensitive' } } } },
               ],
             },
-            ...(brandScope ? [{ brandInfluencers: { some: { brandId: { in: brandScope } } } }] : []),
+            ...(brandScope
+              ? [{ brandInfluencers: { some: { brandId: { in: brandScope } } } }]
+              : []),
             ...(countryScope ? [{ countryCode: { in: countryScope } }] : []),
           ],
         },
@@ -99,6 +102,7 @@ export function makeSearchService(ctx: DomainContext) {
             { originalUrl: { contains: q, mode: 'insensitive' } },
           ],
           ...(brandScope ? { brandId: { in: brandScope } } : {}),
+          ...contentCountryScope(countryScope),
         },
         select: {
           id: true,
@@ -159,8 +163,14 @@ export function makeSearchService(ctx: DomainContext) {
    */
   async function searchPage(input: SearchPageInput): Promise<SearchPageDTO> {
     const { q, brandId, page, pageSize } = input;
-    const types = new Set(input.types && input.types.length > 0 ? input.types : requests.SEARCH_RESULT_TYPES);
+    const wanted = new Set(
+      input.types && input.types.length > 0 ? input.types : requests.SEARCH_RESULT_TYPES,
+    );
+    // Every type is searched so the page can show a count per type (its
+    // tabs); `types` only narrows which results are paginated.
+    const types = new Set(requests.SEARCH_RESULT_TYPES);
     const contains = { contains: q, mode: 'insensitive' as const };
+    const liveNote = { deletedAt: null, body: contains };
 
     // Brand + country scope — same posture as search() above, composed into
     // every candidate query here too (this is a SEPARATE query path, not a
@@ -188,10 +198,12 @@ export function makeSearchService(ctx: DomainContext) {
                     { primaryUsername: contains },
                     { socialAccounts: { some: { username: contains } } },
                     { tags: { some: { tag: { name: contains } } } },
-                    { notes: { some: { body: contains } } },
+                    { notes: { some: liveNote } },
                   ],
                 },
-                ...(brandScope ? [{ brandInfluencers: { some: { brandId: { in: brandScope } } } }] : []),
+                ...(brandScope
+                  ? [{ brandInfluencers: { some: { brandId: { in: brandScope } } } }]
+                  : []),
                 ...(countryScope ? [{ countryCode: { in: countryScope } }] : []),
               ],
             },
@@ -205,7 +217,7 @@ export function makeSearchService(ctx: DomainContext) {
               resolvedAvatarUrl: true,
               socialAccounts: { select: { username: true } },
               tags: { select: { tag: { select: { name: true } } } },
-              notes: { select: { body: true }, take: 10 },
+              notes: { where: { deletedAt: null }, select: { body: true }, take: 10 },
             },
             take: CANDIDATE_CAP,
           })
@@ -218,7 +230,13 @@ export function makeSearchService(ctx: DomainContext) {
                 ...(scopedBrandIdFilter !== undefined ? [{ brandId: scopedBrandIdFilter }] : []),
               ],
             },
-            select: { id: true, name: true, description: true, coverUrl: true, brand: { select: { name: true } } },
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              coverUrl: true,
+              brand: { select: { name: true } },
+            },
             take: CANDIDATE_CAP,
           })
         : [],
@@ -226,11 +244,17 @@ export function makeSearchService(ctx: DomainContext) {
         ? prisma.brand.findMany({
             where: {
               AND: [
-                { OR: [{ name: contains }, { notes: { some: { body: contains } } }] },
+                { OR: [{ name: contains }, { notes: { some: liveNote } }] },
                 ...(brandScope ? [{ id: { in: brandScope } }] : []),
               ],
             },
-            select: { id: true, name: true, slug: true, logoUrl: true, notes: { select: { body: true }, take: 10 } },
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              logoUrl: true,
+              notes: { where: { deletedAt: null }, select: { body: true }, take: 10 },
+            },
             take: CANDIDATE_CAP,
           })
         : [],
@@ -239,6 +263,7 @@ export function makeSearchService(ctx: DomainContext) {
             where: {
               OR: [{ caption: contains }, { originalUrl: contains }],
               ...(brandScope ? { brandId: { in: brandScope } } : {}),
+              ...contentCountryScope(countryScope),
             },
             select: {
               id: true,
@@ -284,16 +309,40 @@ export function makeSearchService(ctx: DomainContext) {
         ['note', bestScore([c.description], q) * 0.5],
       ];
       const [matchedOn, score] = pickBest(scores);
-      ranked.push({ type: 'campaign', id: c.id, title: c.name, subtitle: c.brand.name, imageUrl: c.coverUrl, link: `/campaigns/${c.id}`, score, matchedOn });
+      ranked.push({
+        type: 'campaign',
+        id: c.id,
+        title: c.name,
+        subtitle: c.brand.name,
+        imageUrl: c.coverUrl,
+        link: `/campaigns/${c.id}`,
+        score,
+        matchedOn,
+      });
     }
 
     for (const b of brands) {
       const scores: Array<[string, number]> = [
         ['name', bestScore([b.name], q)],
-        ['note', bestScore(b.notes.map((n) => n.body), q) * 0.4],
+        [
+          'note',
+          bestScore(
+            b.notes.map((n) => n.body),
+            q,
+          ) * 0.4,
+        ],
       ];
       const [matchedOn, score] = pickBest(scores);
-      ranked.push({ type: 'brand', id: b.id, title: b.name, subtitle: b.slug, imageUrl: b.logoUrl, link: `/brands/${b.slug}`, score, matchedOn });
+      ranked.push({
+        type: 'brand',
+        id: b.id,
+        title: b.name,
+        subtitle: b.slug,
+        imageUrl: b.logoUrl,
+        link: `/brands/${b.slug}`,
+        score,
+        matchedOn,
+      });
     }
 
     for (const pc of content) {
@@ -317,12 +366,43 @@ export function makeSearchService(ctx: DomainContext) {
     // Highest relevance first; ties broken by title for a stable order.
     ranked.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
 
-    const total = ranked.length;
+    const counts = {
+      influencer: influencers.length,
+      campaign: campaigns.length,
+      brand: brands.length,
+      published_content: content.length,
+    };
+    // A type that hit the candidate cap may have more matches than shown.
+    const truncated = [...wanted].some((t) => counts[t] >= CANDIDATE_CAP);
+    const shown = ranked.filter((r) => wanted.has(r.type));
+    const total = shown.length;
     const start = (page - 1) * pageSize;
-    return { results: ranked.slice(start, start + pageSize), total, page, pageSize };
+    return {
+      results: shown.slice(start, start + pageSize),
+      total,
+      page,
+      pageSize,
+      counts,
+      truncated,
+    };
   }
 
   return { search, searchPage };
+}
+
+/**
+ * Posts follow their creator's country scope, the same way the content list
+ * does: a post with no creator stays visible, one by a creator outside the
+ * viewer's countries doesn't.
+ */
+function contentCountryScope(countryScope: string[] | null): Prisma.PublishedContentWhereInput {
+  return countryScope
+    ? {
+        AND: [
+          { OR: [{ influencerId: null }, { influencer: { countryCode: { in: countryScope } } }] },
+        ],
+      }
+    : {};
 }
 
 /** Pick the highest-scoring [field, score] pair; defaults to a floor of 10. */

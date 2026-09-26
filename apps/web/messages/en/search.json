@@ -1,0 +1,31 @@
+{
+  "title": "Search",
+  "description": "Every influencer, campaign, brand and post that matches — including notes, tags and captions.",
+  "placeholder": "Name, @handle, tag, note or caption…",
+  "searchLabel": "Search everything",
+  "start": "Type a name, an @handle, a tag, a word from a note or a caption.",
+  "noResults": "Nothing matches “{q}”.",
+  "noResultsHint": "Try fewer letters, or the other spelling (Arabic or English).",
+  "truncated": "Showing the closest matches. Add a word to narrow it down if you don't see what you're after.",
+  "tabs": {
+    "all": "All",
+    "influencer": "Influencers",
+    "campaign": "Campaigns",
+    "brand": "Brands",
+    "published_content": "Posts"
+  },
+  "type": {
+    "influencer": "Influencer",
+    "campaign": "Campaign",
+    "brand": "Brand",
+    "published_content": "Post"
+  },
+  "matchedOn": {
+    "username": "Matched the handle",
+    "tag": "Matched a tag",
+    "note": "Matched a note",
+    "caption": "Matched the caption",
+    "url": "Matched the link"
+  },
+  "seeAll": "See all results for “{q}”"
+}
