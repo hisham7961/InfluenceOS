@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   AlertCircle,
@@ -54,7 +54,6 @@ import type {
   PaymentStatus,
   Platform,
   ProductShipmentDTO,
-  PublishedContentDTO,
   ScriptDTO,
 } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
@@ -113,6 +112,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { AttachmentsPanel } from '@/components/common/attachments-panel';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { WhatsAppDialog } from '@/components/influencers/whatsapp-dialog';
+import { PageFooter } from '@/components/ui/page-footer';
 import { ShipmentDetailSheet } from '@/app/(app)/logistics/shipment-detail-sheet';
 import { AddInfluencerDialog } from './add-influencer-dialog';
 import { BulkAddInfluencersDialog } from './bulk-add-influencers-dialog';
@@ -150,7 +150,6 @@ export interface WorkspaceProps {
   influencers: CampaignInfluencerDTO[];
   costs: { expenses: ExpenseDTO[]; summary: CostSummaryDTO };
   scripts: ScriptDTO[];
-  contentFeed: PublishedContentDTO[];
 }
 
 const WORKSPACE_TABS = [
@@ -171,7 +170,7 @@ const WORKSPACE_TABS = [
 ] as const;
 
 /** The campaign control room — tabs covering everything about one campaign. */
-export function Workspace({ campaign, influencers, costs, scripts, contentFeed }: WorkspaceProps) {
+export function Workspace({ campaign, influencers, costs, scripts }: WorkspaceProps) {
   const t = useTranslations('campaigns');
   const discussionUnread = useConversationUnread(`campaign:${campaign.id}`);
   const router = useRouter();
@@ -253,7 +252,7 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
       </TabsContent>
 
       <TabsContent value="performance">
-        <PerformanceTab campaignId={campaign.id} contentFeed={contentFeed} />
+        <PerformanceTab campaignId={campaign.id} />
       </TabsContent>
 
       <TabsContent value="files">
@@ -2522,7 +2521,7 @@ function MetricsFreshnessBanner({ efficiency }: { efficiency: CampaignEfficiency
   );
 }
 
-function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; contentFeed: PublishedContentDTO[] }) {
+function PerformanceTab({ campaignId }: { campaignId: string }) {
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tContent = useTranslations('content');
@@ -2532,6 +2531,13 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
   const { data, isLoading, isError } = useQuery({
     queryKey: ['campaign-efficiency', campaignId],
     queryFn: () => api.campaigns.efficiency(campaignId),
+  });
+  // Every post in the campaign, a page at a time (the totals above cover them all).
+  const [tablePage, setTablePage] = React.useState(1);
+  const rowsQuery = useQuery({
+    queryKey: ['campaign-content', campaignId, 'performance', tablePage],
+    queryFn: () => api.campaigns.content(campaignId, { bucket: 'linked', page: tablePage, pageSize: 20 }),
+    placeholderData: keepPreviousData,
   });
 
   if (isLoading) {
@@ -2639,7 +2645,7 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {contentFeed.map((c) => {
+              {(rowsQuery.data?.data ?? []).map((c) => {
                 const eff = byContent.get(c.id);
                 return (
                   <tr key={c.id}>
@@ -2687,6 +2693,7 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
             </tbody>
           </table>
         </CardContent>
+        <PageFooter pagination={rowsQuery.data?.pagination} onPageChange={setTablePage} className="px-5 pb-4" />
       </Card>
     </div>
   );

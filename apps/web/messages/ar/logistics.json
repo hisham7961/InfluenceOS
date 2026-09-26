@@ -34,8 +34,7 @@
       "addressHealth": "حالة العنوان",
       "courierTracking": "شركة الشحن / رقم التتبع"
     },
-    "oneOpenIssue": "1 مشكلة مفتوحة",
-    "loadMore": "تحميل المزيد"
+    "oneOpenIssue": "1 مشكلة مفتوحة"
   },
   "countryStrip": {
     "filterAriaLabel": "تصفية حسب دولة وجهة الشحنة"

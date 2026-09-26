@@ -41,6 +41,7 @@
   "somethingWentWrong": "Something went wrong.",
   "pageOf": "Page {page} of {total}",
   "showingRange": "Showing {from}–{to} of {total}",
+  "goToPage": "Go to page {page}",
   "maintenanceMessage": "The system is under maintenance. Some actions are temporarily unavailable.",
   "maintenanceReadOnly": "Changes are read-only until this clears.",
   "commandPaletteSearchPlaceholder": "Search influencers, campaigns, brands, content…",

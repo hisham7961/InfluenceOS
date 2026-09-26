@@ -37,7 +37,7 @@ export function ContentFilterChips({
     reviewed: enumLabel(tEnums, 'contentReviewStatus', 'REVIEWED'),
     reviewLater: t('reviewMode.reviewLater'),
     unassigned: enumLabel(tEnums, 'contentAssociationStatus', 'UNASSIGNED'),
-    alerts: t('feed.summary.alerts'),
+    alerts: t('feed.chips.alerts'),
     noMetrics: t('metricsEntry.missingChip'),
     today: tCommon('today'),
   };

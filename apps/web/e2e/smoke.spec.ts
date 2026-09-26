@@ -29,6 +29,8 @@ test.describe('InfluenceOS smoke', () => {
     await signIn(page);
     await page.goto('/content');
     await expect(page.getByRole('heading', { name: 'Live Content' })).toBeVisible();
+    // Numbered pages that say how many posts there are (never a silent "load more").
+    await expect(page.getByText(/Showing 1–\d+ of \d+/)).toBeVisible();
   });
 
   test('the influencer directory renders and switches views', async ({ page }) => {

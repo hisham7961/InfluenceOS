@@ -28,7 +28,7 @@ export default async function AuditLogPage() {
     );
   }
 
-  const [initial, users] = await Promise.all([api.platform.audit({ limit: 50 }), api.users.list()]);
+  const [initial, users] = await Promise.all([api.platform.audit({ limit: 50, page: 1 }), api.users.list()]);
 
   return (
     <div>

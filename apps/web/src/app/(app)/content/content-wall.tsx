@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   Eye,
   ExternalLink,
@@ -35,6 +35,9 @@ import { api } from '@/lib/api-browser';
 import { cn } from '@/lib/cn';
 import { formatCompact, useLocalizedFormat } from '@/lib/format';
 import { enumLabel } from '@/lib/enum-labels';
+import { useReplaceQuery, useUrlPage } from '@/lib/use-url-page';
+import { PageFooter } from '@/components/ui/page-footer';
+import { WALL_PAGE_SIZE } from './wall-constants';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -111,6 +114,23 @@ function filtersFromUrl(params: URLSearchParams | null): WallFilters {
   };
 }
 
+/** The address form of the wall's filters (the inverse of filtersFromUrl). */
+function filtersToQuery(f: WallFilters): Record<string, string | null> {
+  return {
+    brandId: f.brandId || null,
+    campaignId: f.campaignId || null,
+    influencerId: f.influencerId || null,
+    platform: f.platform || null,
+    status: f.status || null,
+    assignment: f.assignment || null,
+    reviewState: f.reviewState || null,
+    alerts: f.alertsOnly ? '1' : null,
+    metrics: f.metricsMissing ? 'missing' : null,
+    today: f.today ? '1' : null,
+    q: f.q || null,
+  };
+}
+
 function todayBounds() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
@@ -133,9 +153,9 @@ function chipFromFilters(f: WallFilters): ChipKey {
 /**
  * The Live Content Command Center: Timeline (day → brand, item 10) is the
  * default operational view; Grid/Masonry/Feed remain for people who prefer
- * them. Filters + layout are client state; cursor pagination is driven by
- * useInfiniteQuery, seeded with the server-rendered first page so the wall
- * paints instantly. Chip counts and the daily summary come from ONE
+ * them. Filters and the page number live in the address (so a reload, a
+ * shared link or the back button lands on the same view), and the first
+ * page is server-rendered so the wall paints instantly. Chip counts and the daily summary come from ONE
  * GET /content/summary call, never one request per statistic.
  */
 export function ContentWall({
@@ -157,6 +177,8 @@ export function ContentWall({
   const searchParams = useSearchParams();
   const [filters, setFilters] = React.useState<WallFilters>(() => filtersFromUrl(searchParams));
   const [searchInput, setSearchInput] = React.useState(() => searchParams?.get('q') ?? '');
+  const replaceQuery = useReplaceQuery();
+  const [page, setPage] = useUrlPage();
   const [layout, setLayoutState] = React.useState<Layout>(
     initialLayout && (VALID_LAYOUTS as string[]).includes(initialLayout) ? (initialLayout as Layout) : 'timeline',
   );
@@ -190,6 +212,22 @@ export function ContentWall({
   );
   const isDefaultFilters = !hasActiveFilters;
 
+  // Keep the address in step with the filters; a new filter starts again at page 1.
+  const filtersKey = JSON.stringify(filters);
+  const syncedFilters = React.useRef(filtersKey);
+  React.useEffect(() => {
+    if (syncedFilters.current === filtersKey) return;
+    syncedFilters.current = filtersKey;
+    replaceQuery({ ...filtersToQuery(filters), page: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the serialized filters
+  }, [filtersKey]);
+
+  function goToPage(next: number) {
+    setPage(next);
+    wallTop.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  const wallTop = React.useRef<HTMLDivElement>(null);
+
   const { start: todayStart, end: todayEnd } = React.useMemo(() => todayBounds(), []);
 
   const summary = useQuery({
@@ -198,12 +236,12 @@ export function ContentWall({
     staleTime: 30_000,
   });
 
-  const query = useInfiniteQuery({
-    queryKey: ['content-feed', filters] as const,
-    queryFn: ({ pageParam }) =>
+  const query = useQuery({
+    queryKey: ['content-feed', filters, page] as const,
+    queryFn: () =>
       api.content.feed({
-        cursor: pageParam,
-        limit: 24,
+        page,
+        limit: WALL_PAGE_SIZE,
         brandId: filters.brandId || undefined,
         campaignId: filters.campaignId || undefined,
         influencerId: filters.influencerId || undefined,
@@ -217,9 +255,8 @@ export function ContentWall({
         to: filters.today ? todayEnd.toISOString() : undefined,
         q: filters.q || undefined,
       }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => (lastPage.hasMore ? (lastPage.nextCursor ?? undefined) : undefined),
-    initialData: isDefaultFilters ? () => ({ pages: [initial], pageParams: [undefined] }) : undefined,
+    initialData: isDefaultFilters && page === 1 ? initial : undefined,
+    placeholderData: keepPreviousData,
     staleTime: 30_000,
     // The Live Content wall reflects worker-detected availability/status changes,
     // so refresh it periodically while it's open (paused when the tab is hidden).
@@ -227,7 +264,7 @@ export function ContentWall({
     refetchIntervalInBackground: false,
   });
 
-  const items = React.useMemo(() => query.data?.pages.flatMap((page) => page.data) ?? [], [query.data]);
+  const items = React.useMemo(() => query.data?.data ?? [], [query.data]);
 
   // New-content-arrival (item 49): a background refetch lands new pages
   // straight into the query cache, so `items` above already carries them —
@@ -262,7 +299,8 @@ export function ContentWall({
   // Assumes the feed stays time-ordered (newest first) so only genuinely new
   // items can land ahead of the anchor — an unrelated resort could in theory
   // fool this count, but that's out of scope for this fix.
-  const anchorIndex = frozenTopId ? items.findIndex((item) => item.id === frozenTopId) : -1;
+  // Only the first page can have new posts arrive at its top.
+  const anchorIndex = page === 1 && frozenTopId ? items.findIndex((item) => item.id === frozenTopId) : -1;
   const pendingNewCount = anchorIndex > 0 ? anchorIndex : 0;
   const displayItems = pendingNewCount > 0 ? items.slice(anchorIndex) : items;
 
@@ -319,6 +357,7 @@ export function ContentWall({
 
   return (
     <div className="space-y-6">
+      <div ref={wallTop} className="-mt-6" aria-hidden />
       <ContentFilterChips
         active={chipFromFilters(filters)}
         counts={{
@@ -359,7 +398,7 @@ export function ContentWall({
         hasActiveFilters={hasActiveFilters}
         layout={layout}
         onLayoutChange={setLayout}
-        resultCount={displayItems.length}
+        resultCount={query.data?.pagination?.total ?? displayItems.length}
       />
 
       {pendingNewCount > 0 ? (
@@ -403,12 +442,8 @@ export function ContentWall({
         <FeedLayout items={displayItems} />
       )}
 
-      {displayItems.length > 0 && query.hasNextPage && layout !== 'brand' ? (
-        <div className="flex justify-center pt-2">
-          <Button variant="outline" onClick={() => query.fetchNextPage()} disabled={query.isFetchingNextPage}>
-            {query.isFetchingNextPage ? tCommon('loading') : t('feed.loadMore')}
-          </Button>
-        </div>
+      {displayItems.length > 0 && layout !== 'brand' ? (
+        <PageFooter pagination={query.data?.pagination} onPageChange={goToPage} className="border-t border-border" />
       ) : null}
     </div>
   );

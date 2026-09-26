@@ -2,7 +2,9 @@ import { requests, type ActivityDTO, type CursorPage } from '@influenceos/contra
 import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
+import { windowArgs, windowPage } from '../lib/cursor';
 import { toActivityDTO } from '../lib/mappers';
+import { scopedBrandIds } from '../lib/scope';
 
 type ActivityFilter = z.infer<typeof requests.activityFilterSchema>;
 
@@ -35,24 +37,35 @@ export function makeActivityService(ctx: DomainContext) {
   }
 
   async function feed(filter: ActivityFilter): Promise<CursorPage<ActivityDTO>> {
-    const where = buildWhere(filter);
-    const rows = await prisma.activityLog.findMany({
-      where,
-      include: activityInclude,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: filter.limit + 1,
-      ...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),
-    });
+    // A user limited to some brands sees only their brands' activity: rows
+    // tagged with one of those brands, or untagged rows whose campaign (if
+    // any) is one of theirs.
+    const brandScope = await scopedBrandIds(ctx);
+    const where: Prisma.ActivityLogWhereInput = brandScope
+      ? {
+          AND: [
+            buildWhere(filter),
+            {
+              OR: [
+                { brandId: { in: brandScope } },
+                { brandId: null, OR: [{ campaignId: null }, { campaign: { brandId: { in: brandScope } } }] },
+              ],
+            },
+          ],
+        }
+      : buildWhere(filter);
+    const [rows, total] = await Promise.all([
+      prisma.activityLog.findMany({
+        where,
+        include: activityInclude,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        ...windowArgs(filter),
+      }),
+      filter.page ? prisma.activityLog.count({ where }) : null,
+    ]);
 
-    const hasMore = rows.length > filter.limit;
-    const page = hasMore ? rows.slice(0, filter.limit) : rows;
-    const nextCursor = hasMore ? (page[page.length - 1]?.id ?? null) : null;
-
-    return {
-      data: page.map(toActivityDTO),
-      nextCursor,
-      hasMore,
-    };
+    const page = windowPage(rows, filter, total);
+    return { ...page, data: page.data.map(toActivityDTO) };
   }
 
   return { feed };

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { ExternalLink, Package } from 'lucide-react';
 import { SHIPMENT_STATUS_TONE } from '@influenceos/shared';
@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageFooter } from '@/components/ui/page-footer';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
 import { LtrText } from '@/components/common/bidi-text';
 import { useLocalizedFormat } from '@/lib/format';
@@ -36,9 +37,11 @@ export function CreatorShipmentsTab({ influencerId }: { influencerId: string }) 
   const t = useTranslations('influencers');
   const te = useTranslations('enums');
   const { relativeTime } = useLocalizedFormat();
+  const [page, setPage] = React.useState(1);
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['creator-shipments', influencerId],
-    queryFn: () => api.shipments.list({ influencerId, limit: 50 }),
+    queryKey: ['creator-shipments', influencerId, page],
+    queryFn: () => api.shipments.list({ influencerId, limit: 20, page }),
+    placeholderData: keepPreviousData,
   });
 
   if (isLoading) {
@@ -139,6 +142,7 @@ export function CreatorShipmentsTab({ influencerId }: { influencerId: string }) 
           </Table>
         </TableScroll>
       </Card>
+      <PageFooter pagination={data?.pagination} onPageChange={setPage} className="pt-0" />
       <div className="flex justify-end">
         <Button asChild variant="outline" size="sm">
           <Link href={`/logistics?influencerId=${influencerId}`}>{t('detail.shipments.openInLogistics')}</Link>

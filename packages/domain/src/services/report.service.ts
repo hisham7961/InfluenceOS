@@ -358,7 +358,7 @@ export function makeReportService(ctx: DomainContext) {
       : baseContentWhere;
     const items = await prisma.publishedContent.findMany({
       where,
-      orderBy: [{ detectedAt: 'desc' }, { id: 'desc' }],
+      orderBy: [{ sortAt: 'desc' }, { id: 'desc' }],
       take: MAX_ROWS,
       select: {
         platform: true,

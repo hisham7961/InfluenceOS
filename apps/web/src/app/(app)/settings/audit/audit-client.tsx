@@ -2,11 +2,13 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { ExternalLink, ScrollText, Search, X } from 'lucide-react';
 import type { AuditEntryDTO, CursorPage } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
+import { useUrlPage } from '@/lib/use-url-page';
+import { PageFooter } from '@/components/ui/page-footer';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -51,7 +53,6 @@ export function AuditLogClient({
   actors: { id: string; name: string }[];
 }) {
   const t = useTranslations('settings');
-  const tCommon = useTranslations('common');
   const { dateTime, relativeTime } = useLocalizedFormat();
   const [filters, setFilters] = React.useState<Filters>(EMPTY);
   const [searchInput, setSearchInput] = React.useState('');
@@ -64,11 +65,21 @@ export function AuditLogClient({
 
   const isDefault = JSON.stringify(filters) === JSON.stringify(EMPTY);
 
-  const query = useInfiniteQuery({
-    queryKey: ['audit-log', filters],
-    queryFn: ({ pageParam }) =>
+  // A new filter starts again at page 1.
+  const [page, setPage] = useUrlPage();
+  const filtersKey = JSON.stringify(filters);
+  const pagedFilters = React.useRef(filtersKey);
+  React.useEffect(() => {
+    if (pagedFilters.current === filtersKey) return;
+    pagedFilters.current = filtersKey;
+    setPage(1);
+  }, [filtersKey, setPage]);
+
+  const query = useQuery({
+    queryKey: ['audit-log', filters, page],
+    queryFn: () =>
       api.platform.audit({
-        cursor: pageParam,
+        page,
         limit: 50,
         actorId: filters.actorId || undefined,
         type: filters.type || undefined,
@@ -77,13 +88,12 @@ export function AuditLogClient({
         to: filters.to || undefined,
         q: filters.q || undefined,
       }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => (last.hasMore ? (last.nextCursor ?? undefined) : undefined),
-    initialData: isDefault ? { pages: [initial], pageParams: [undefined] } : undefined,
+    initialData: isDefault && page === 1 ? initial : undefined,
+    placeholderData: keepPreviousData,
     staleTime: 15_000,
   });
 
-  const items = React.useMemo(() => query.data?.pages.flatMap((p) => p.data) ?? [], [query.data]);
+  const items = React.useMemo(() => query.data?.data ?? [], [query.data]);
   const hasActiveFilters = !isDefault;
 
   function reset() {
@@ -184,13 +194,7 @@ export function AuditLogClient({
         </Card>
       )}
 
-      {query.hasNextPage ? (
-        <div className="flex justify-center">
-          <Button variant="outline" onClick={() => query.fetchNextPage()} disabled={query.isFetchingNextPage}>
-            {query.isFetchingNextPage ? tCommon('loading') : t('audit.loadMore')}
-          </Button>
-        </div>
-      ) : null}
+      <PageFooter pagination={query.data?.pagination} onPageChange={setPage} />
 
       <AuditDetailDrawer entry={selected} onClose={() => setSelected(null)} />
     </div>

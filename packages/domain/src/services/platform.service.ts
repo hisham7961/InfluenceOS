@@ -26,6 +26,7 @@ import {
 import { ActivityType, Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { requireAdmin } from '../lib/authz';
+import { windowArgs, windowPage } from '../lib/cursor';
 import { getStorage } from '../lib/storage';
 import { diskUsage } from '../lib/disk';
 import { maxUploadBytes } from './attachment.service';
@@ -307,20 +308,23 @@ export function makePlatformService(ctx: DomainContext) {
     }
     if (filter.q) and.push({ message: { contains: filter.q, mode: 'insensitive' } });
 
-    const rows = await prisma.activityLog.findMany({
-      where: and.length ? { AND: and } : {},
-      include: {
-        actor: { select: { name: true } },
-        brand: { select: { name: true } },
-        campaign: { select: { name: true } },
-      },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: filter.limit + 1,
-      ...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),
-    });
+    const auditWhere: Prisma.ActivityLogWhereInput = and.length ? { AND: and } : {};
+    const [rows, total] = await Promise.all([
+      prisma.activityLog.findMany({
+        where: auditWhere,
+        include: {
+          actor: { select: { name: true } },
+          brand: { select: { name: true } },
+          campaign: { select: { name: true } },
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        ...windowArgs(filter),
+      }),
+      filter.page ? prisma.activityLog.count({ where: auditWhere }) : null,
+    ]);
 
-    const hasMore = rows.length > filter.limit;
-    const page = hasMore ? rows.slice(0, filter.limit) : rows;
+    const paged = windowPage(rows, filter, total);
+    const page = paged.data;
 
     const data: AuditEntryDTO[] = page.map((r) => {
       // Derive the primary entity by specificity.
@@ -366,7 +370,7 @@ export function makePlatformService(ctx: DomainContext) {
       };
     });
 
-    return { data, nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null, hasMore };
+    return { ...paged, data };
   }
 
   /** Flattened endpoint list (from the feature registry) with derived auth level. */

@@ -353,7 +353,7 @@ export function createClient(config: ClientConfig) {
     // workspace (reads the same shipment rows every other view reads).
     shipments: {
       list: (params?: QueryParams) =>
-        http.get<{ data: LogisticsRequestDTO[]; hasMore: boolean; nextCursor: string | null }>(`${V}/shipments`, {
+        http.get<CursorPage<LogisticsRequestDTO>>(`${V}/shipments`, {
           query: params,
         }),
       // Country-first summary strip — respects scope + every filter except the country facet itself.

@@ -22,6 +22,9 @@ export interface CursorPage<T> {
   data: T[];
   nextCursor: string | null;
   hasMore: boolean;
+  /** Present when the list was asked for a numbered `page` instead of a
+   *  cursor: where this page sits in the whole list. */
+  pagination?: OffsetPagination;
 }
 
 export const offsetQuerySchema = z.object({
@@ -32,6 +35,16 @@ export const offsetQuerySchema = z.object({
 export const cursorQuerySchema = z.object({
   cursor: z.string().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(24),
+});
+
+/**
+ * Numbered-page mode for a cursor list: send `page` (1-based) with `limit`
+ * as the page size and get that page plus `pagination.total` back, so a
+ * screen can show "page 3 of 12" instead of "load more". Without `page` the
+ * list pages by `cursor` as before.
+ */
+export const pageNumberSchema = z.object({
+  page: z.coerce.number().int().min(1).max(10_000).optional(),
 });
 
 export type OffsetQuery = z.infer<typeof offsetQuerySchema>;

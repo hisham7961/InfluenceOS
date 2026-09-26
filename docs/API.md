@@ -192,7 +192,7 @@ Query params (`offsetQuerySchema`, extended per-endpoint with filters):
 `page` (default `1`), `pageSize` (default `24`, max `100`). Used today by:
 
 - `GET /api/v1/influencers` (`Paginated<InfluencerSummaryDTO>`)
-- `GET /api/v1/campaigns` (`Paginated<CampaignSummaryDTO>`)
+- `GET /api/v1/campaigns` (`Paginated<CampaignSummaryDTO>`; newest first, or `sort=startDate|endDate|name` with `order`)
 
 ### Cursor (feeds)
 
@@ -201,6 +201,7 @@ interface CursorPage<T> {
   data: T[];
   nextCursor: string | null;
   hasMore: boolean;
+  pagination?: OffsetPagination; // only when `page` was sent
 }
 ```
 
@@ -210,9 +211,19 @@ Query params (`cursorQuerySchema`, extended per-endpoint with filters):
 `20`/max `50`, activity default `25`/max `50`). Implemented today as literal
 `CursorPage<T>` responses on:
 
-- `GET /api/v1/content/feed` — Live Content
+- `GET /api/v1/content/feed` — Live Content (newest first by publish date,
+  or by when it was found if the publish date is unknown)
 - `GET /api/v1/notifications`
-- `GET /api/v1/activity`
+- `GET /api/v1/activity` (limited to the caller's brands)
+- `GET /api/v1/shipments`
+- `GET /api/v1/platform/audit`
+- `GET /api/v1/influencers/:id/timeline`
+
+**Numbered pages.** Every one of these also accepts `page` (1-based) instead
+of `cursor`; `limit` is then the page size and the response carries
+`pagination: { page, pageSize, total, totalPages }` (`hasMore` is true until
+the last page, `nextCursor` is null). The web app uses numbered pages
+everywhere; cursor paging stays for clients that stream.
 
 `GET /api/v1/whats-new` is conceptually the same class of feed (and is grouped
 with these in `pagination.ts`'s own comment), but is currently returned as a

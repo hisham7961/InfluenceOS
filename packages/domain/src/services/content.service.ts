@@ -15,6 +15,7 @@ import {
 import type { z } from '@influenceos/contracts';
 import { Prisma, type ContentStatus } from '@influenceos/database';
 import type { DomainContext } from '../context';
+import { windowArgs, windowPage } from '../lib/cursor';
 import { AppError } from '../errors';
 import { requireActor, requireCapability } from '../lib/authz';
 import { resolveContentAssociation } from '../lib/content-association';
@@ -462,17 +463,20 @@ export function makeContentService(ctx: DomainContext) {
     }
     if (scopeConditions.length) where.AND = scopeConditions;
 
-    const rows = await prisma.publishedContent.findMany({
-      where,
-      include: relIncludeFor(actorId),
-      orderBy: [{ detectedAt: 'desc' }, { id: 'desc' }],
-      take: filter.limit + 1,
-      ...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),
-    });
+    // Newest first by when the post went up (or was found, if unknown) —
+    // sortAt is kept in step by a database trigger.
+    const [rows, total] = await Promise.all([
+      prisma.publishedContent.findMany({
+        where,
+        include: relIncludeFor(actorId),
+        orderBy: [{ sortAt: 'desc' }, { id: 'desc' }],
+        ...windowArgs(filter),
+      }),
+      filter.page ? prisma.publishedContent.count({ where }) : null,
+    ]);
 
-    const hasMore = rows.length > filter.limit;
-    const data = await Promise.all(rows.slice(0, filter.limit).map((r) => mapRow(r)));
-    return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore };
+    const page = windowPage(rows, filter, total);
+    return { ...page, data: await Promise.all(page.data.map((r) => mapRow(r))) };
   }
 
   /**
@@ -526,7 +530,7 @@ export function makeContentService(ctx: DomainContext) {
       prisma.publishedContent.findMany({
         where,
         include: relIncludeFor(actorId),
-        orderBy: [{ detectedAt: 'desc' }, { id: 'desc' }],
+        orderBy: [{ sortAt: 'desc' }, { id: 'desc' }],
         skip: (filter.page - 1) * filter.pageSize,
         take: filter.pageSize,
       }),

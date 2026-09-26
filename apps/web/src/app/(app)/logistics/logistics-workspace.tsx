@@ -3,11 +3,14 @@
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Filter, Package } from 'lucide-react';
-import type { BrandSummaryDTO, LogisticsRequestDTO } from '@influenceos/contracts';
+import type { BrandSummaryDTO, CursorPage, LogisticsRequestDTO } from '@influenceos/contracts';
 import { ADDRESS_HEALTH_TONE, COUNTRIES, SHIPMENT_STATUSES, SHIPMENT_STATUS_TONE } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
+import { useReplaceQuery, useUrlPage } from '@/lib/use-url-page';
+import { PageFooter } from '@/components/ui/page-footer';
+import { LOGISTICS_PAGE_SIZE } from './logistics-constants';
 import { enumLabel } from '@/lib/enum-labels';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -84,7 +87,7 @@ export function LogisticsWorkspace({
   initial,
   brands,
 }: {
-  initial: { data: LogisticsRequestDTO[]; hasMore: boolean; nextCursor: string | null };
+  initial: CursorPage<LogisticsRequestDTO>;
   brands: BrandSummaryDTO[];
 }) {
   const { user } = useApp();
@@ -109,16 +112,27 @@ export function LogisticsWorkspace({
 
   const set = (patch: Partial<Filters>) => setFilters((prev) => ({ ...prev, ...patch }));
 
-  const query = useInfiniteQuery({
-    queryKey: ['logistics', filters] as const,
-    queryFn: ({ pageParam }) => api.shipments.list({ ...filters, cursor: pageParam, limit: 50 }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => (last.hasMore ? (last.nextCursor ?? undefined) : undefined),
-    initialData: isDefault ? () => ({ pages: [initial], pageParams: [undefined] }) : undefined,
+  // Filters and the page number live in the address; a new filter starts at page 1.
+  const replaceQuery = useReplaceQuery();
+  const [page, setPage] = useUrlPage();
+  const filtersKey = JSON.stringify(filters);
+  const syncedFilters = React.useRef(filtersKey);
+  React.useEffect(() => {
+    if (syncedFilters.current === filtersKey) return;
+    syncedFilters.current = filtersKey;
+    replaceQuery({ ...filters, page: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the serialized filters
+  }, [filtersKey]);
+
+  const query = useQuery({
+    queryKey: ['logistics', filters, page] as const,
+    queryFn: () => api.shipments.list({ ...filters, page, limit: LOGISTICS_PAGE_SIZE }),
+    initialData: isDefault && page === 1 ? initial : undefined,
+    placeholderData: keepPreviousData,
     staleTime: 15_000,
   });
 
-  const rows = React.useMemo(() => query.data?.pages.flatMap((p) => p.data) ?? [], [query.data]);
+  const rows = React.useMemo(() => query.data?.data ?? [], [query.data]);
   const selected = rows.find((r) => r.id === selectedId) ?? null;
 
   const quickView: 'all' | 'mine' | 'unassigned' | 'attention' =
@@ -385,13 +399,7 @@ export function LogisticsWorkspace({
         </div>
       )}
 
-      {rows.length > 0 && query.hasNextPage ? (
-        <div className="flex justify-center pt-2">
-          <Button variant="outline" onClick={() => query.fetchNextPage()} disabled={query.isFetchingNextPage}>
-            {query.isFetchingNextPage ? tc('loading') : t('workspace.loadMore')}
-          </Button>
-        </div>
-      ) : null}
+      {rows.length > 0 ? <PageFooter pagination={query.data?.pagination} onPageChange={setPage} /> : null}
 
       <ShipmentDetailSheet shipment={selected} onOpenChange={(open) => !open && setSelectedId(null)} />
     </div>

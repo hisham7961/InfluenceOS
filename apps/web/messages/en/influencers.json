@@ -335,8 +335,7 @@
         "usageRights": "Usage Rights"
       },
       "emptyTitle": "Nothing here yet",
-      "emptyDescription": "Campaign joins, deliverables, shipments, content, payments, submissions and notes will show up here as they happen.",
-      "loadEarlier": "Load earlier"
+      "emptyDescription": "Campaign joins, deliverables, shipments, content, payments, submissions and notes will show up here as they happen."
     },
     "shipments": {
       "table": {

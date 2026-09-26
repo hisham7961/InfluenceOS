@@ -33,11 +33,10 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     throw e;
   }
 
-  const [influencers, costs, scripts, contentFeed] = await Promise.all([
+  const [influencers, costs, scripts] = await Promise.all([
     api.campaigns.influencers(campaign.id),
     api.campaigns.costs(campaign.id),
     api.campaigns.scripts(campaign.id),
-    api.content.feed({ campaignId: campaign.id, limit: 20 }),
   ]);
 
   const p = campaign.progress;
@@ -174,7 +173,6 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         influencers={influencers}
         costs={costs}
         scripts={scripts}
-        contentFeed={contentFeed.data}
       />
     </div>
   );

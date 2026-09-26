@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
 import { LogisticsWorkspace } from './logistics-workspace';
+import { LOGISTICS_PAGE_SIZE } from './logistics-constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export default async function LogisticsPage() {
   const api = getServerApi();
   const t = await getTranslations('logistics');
-  const [initial, brands] = await Promise.all([api.shipments.list({ limit: 50 }), api.brands.list()]);
+  const [initial, brands] = await Promise.all([api.shipments.list({ limit: LOGISTICS_PAGE_SIZE, page: 1 }), api.brands.list()]);
 
   return (
     <div>

@@ -113,6 +113,18 @@ export function makeCampaignService(ctx: DomainContext) {
     return where;
   }
 
+  /** Newest first by default; `sort` may pick start date, end date or name. */
+  function campaignOrder(filter: CampaignFilter): Prisma.CampaignOrderByWithRelationInput[] {
+    const dir = filter.order ?? 'desc';
+    const by =
+      filter.sort === 'startDate' || filter.sort === 'endDate'
+        ? { [filter.sort]: { sort: dir, nulls: 'last' } }
+        : filter.sort === 'name'
+          ? { name: dir }
+          : { createdAt: dir };
+    return [by as Prisma.CampaignOrderByWithRelationInput, { id: dir }];
+  }
+
   async function list(filter: CampaignFilter): Promise<Paginated<CampaignSummaryDTO>> {
     const where = await buildWhere(filter);
     const [total, rows] = await Promise.all([
@@ -120,7 +132,7 @@ export function makeCampaignService(ctx: DomainContext) {
       prisma.campaign.findMany({
         where,
         include: { brand: { select: brandSummarySelect } },
-        orderBy: [{ status: 'asc' }, { startDate: 'desc' }, { createdAt: 'desc' }],
+        orderBy: campaignOrder(filter),
         skip: (filter.page - 1) * filter.pageSize,
         take: filter.pageSize,
       }),

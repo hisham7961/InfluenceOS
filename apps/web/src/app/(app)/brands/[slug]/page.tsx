@@ -10,7 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { StatCard } from '@/components/ui/stat-card';
 import { SectionHeader } from '@/components/common/page-header';
 import { MissionControl } from '@/components/dashboard/mission-control';
-import { ContentGrid } from '@/components/content/content-grid';
+import { PagedContentGrid } from '@/components/content/paged-content-grid';
+import { CONTENT_GRID_PAGE_SIZE } from '@/components/content/content-page-size';
 import { BidiText } from '@/components/common/bidi-text';
 import { formatCurrency } from '@/lib/format';
 import { BrandEditDialog } from './brand-edit-dialog';
@@ -40,7 +41,9 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
   // Brand content (Content Command Center pass, item 19) — the SAME
   // PublishedContent feed and ContentCard/ContentViewer every other content
   // surface uses, just brandId-scoped; no second content model.
-  const brandContent = await api.content.feed({ brandId: brand.id, limit: 24 }).catch(() => ({ data: [], hasMore: false, nextCursor: null }));
+  const brandContent = await api.content
+    .feed({ brandId: brand.id, limit: CONTENT_GRID_PAGE_SIZE, page: 1 })
+    .catch(() => undefined);
 
   return (
     <div>
@@ -138,13 +141,14 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
         <SectionHeader
           title={t('detail.content')}
           action={
-            <Link href={`/content`} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            <Link href={`/content?brandId=${brand.id}`} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
               {t('detail.viewInLiveContent')}
             </Link>
           }
         />
-        <ContentGrid
-          items={brandContent.data}
+        <PagedContentGrid
+          filter={{ brandId: brand.id }}
+          initial={brandContent}
           emptyTitle={t('detail.noContentTitle')}
           emptyDescription={t('detail.noContentDescription', { name: brand.name })}
         />

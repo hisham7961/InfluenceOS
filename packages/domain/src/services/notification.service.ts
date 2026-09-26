@@ -2,6 +2,7 @@ import { requests, type CursorPage, type NotificationDTO } from '@influenceos/co
 import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
+import { windowArgs, windowPage } from '../lib/cursor';
 import { AppError } from '../errors';
 import { requireActor } from '../lib/authz';
 import { toNotificationDTO } from '../lib/mappers';
@@ -27,22 +28,17 @@ export function makeNotificationService(ctx: DomainContext) {
       AND: [actorScope(actor.id), ...(filter.unreadOnly ? [{ isRead: false }] : [])],
     };
 
-    const rows = await prisma.notification.findMany({
-      where,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: filter.limit + 1,
-      ...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),
-    });
+    const [rows, total] = await Promise.all([
+      prisma.notification.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        ...windowArgs(filter),
+      }),
+      filter.page ? prisma.notification.count({ where }) : null,
+    ]);
 
-    const hasMore = rows.length > filter.limit;
-    const page = hasMore ? rows.slice(0, filter.limit) : rows;
-    const nextCursor = hasMore ? (page[page.length - 1]?.id ?? null) : null;
-
-    return {
-      data: page.map(toNotificationDTO),
-      nextCursor,
-      hasMore,
-    };
+    const page = windowPage(rows, filter, total);
+    return { ...page, data: page.data.map(toNotificationDTO) };
   }
 
   async function unreadCount(): Promise<number> {

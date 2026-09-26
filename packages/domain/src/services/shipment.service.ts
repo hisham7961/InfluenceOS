@@ -1,6 +1,7 @@
 import {
   requests,
   type AddressHealth,
+  type CursorPage,
   type LogisticsCountrySummaryDTO,
   type LogisticsIssueDTO,
   type LogisticsRequestDTO,
@@ -15,6 +16,7 @@ import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor, requireCapability } from '../lib/authz';
 import { hasCapability } from '../lib/capabilities';
+import { windowArgs, windowPage } from '../lib/cursor';
 import { createNotification, iso, logActivity } from '../lib/helpers';
 import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
@@ -342,7 +344,7 @@ export function makeShipmentService(ctx: DomainContext) {
    * (never a copy), with just enough context (creator/brand/campaign/
    * deliverable) to be usable without a second lookup per row.
    */
-  async function listAll(filter: ShipmentFilter): Promise<{ data: LogisticsRequestDTO[]; hasMore: boolean; nextCursor: string | null }> {
+  async function listAll(filter: ShipmentFilter): Promise<CursorPage<LogisticsRequestDTO>> {
     const where = await buildWhere(filter);
     const rows = await prisma.productShipment.findMany({
       where,
@@ -360,12 +362,12 @@ export function makeShipmentService(ctx: DomainContext) {
         deliverable: { select: { type: true } },
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: filter.limit + 1,
-      ...(filter.cursor ? { cursor: { id: filter.cursor }, skip: 1 } : {}),
+      ...windowArgs(filter),
     });
+    const total = filter.page ? await prisma.productShipment.count({ where }) : null;
 
-    const hasMore = rows.length > filter.limit;
-    const page = rows.slice(0, filter.limit);
+    const paged = windowPage(rows, filter, total);
+    const page = paged.data;
     const canView = await canViewAddress();
     const data: LogisticsRequestDTO[] = page.map((s) =>
       redactWith(
@@ -386,7 +388,7 @@ export function makeShipmentService(ctx: DomainContext) {
         canView,
       ),
     );
-    return { data, hasMore, nextCursor: hasMore ? (page[page.length - 1]?.id ?? null) : null };
+    return { ...paged, data };
   }
 
   /**

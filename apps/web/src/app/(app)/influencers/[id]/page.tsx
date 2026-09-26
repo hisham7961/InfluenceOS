@@ -20,6 +20,7 @@ import { InfluencerEditDialog } from './influencer-edit-dialog';
 import { InfluencerDeleteButton } from './influencer-delete-button';
 import { SyncAvatarButton } from './sync-avatar-button';
 import { CreatorSnapshot } from './creator-snapshot';
+import { CONTENT_GRID_PAGE_SIZE } from '@/components/content/content-page-size';
 import { WhatsAppDialog } from '@/components/influencers/whatsapp-dialog';
 
 export const dynamic = 'force-dynamic';
@@ -39,7 +40,7 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
   }
 
   const [contentFeed, notes, brandRelationships, snapshot, reliability] = await Promise.all([
-    api.content.feed({ influencerId: id, limit: 12 }),
+    api.content.feed({ influencerId: id, limit: CONTENT_GRID_PAGE_SIZE, page: 1 }),
     api.influencers.notes(id),
     api.influencers.brandRelationships(id),
     api.influencers.snapshot(id),
@@ -178,7 +179,7 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
 
       <CreatorConnections influencerId={influencer.id} />
 
-      <ProfileTabs influencer={influencer} content={contentFeed.data} notes={notes} brandRelationships={brandRelationships} />
+      <ProfileTabs influencer={influencer} content={contentFeed} notes={notes} brandRelationships={brandRelationships} />
     </div>
   );
 }

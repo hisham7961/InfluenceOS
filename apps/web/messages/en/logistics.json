@@ -34,8 +34,7 @@
       "addressHealth": "Address Health",
       "courierTracking": "Courier / Tracking"
     },
-    "oneOpenIssue": "1 open",
-    "loadMore": "Load more"
+    "oneOpenIssue": "1 open"
   },
   "countryStrip": {
     "filterAriaLabel": "Filter by destination country"

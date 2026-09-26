@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { cursorQuerySchema, requests, z, type InfluencerExportRowDTO } from '@influenceos/contracts';
+import { cursorQuerySchema, pageNumberSchema, requests, z, type InfluencerExportRowDTO } from '@influenceos/contracts';
 import { csvLocale, requireAuth, rowsToCsv, sendCsv, servicesFor } from '../http';
 
 const idParam = z.object({ id: z.string() });
@@ -255,7 +255,7 @@ export async function influencerRoutes(app: FastifyInstance): Promise<void> {
     '/influencers/:id/timeline',
     {
       preHandler: [requireAuth],
-      schema: { tags: ['Influencers'], summary: 'Creator master timeline', params: idParam, querystring: cursorQuerySchema },
+      schema: { tags: ['Influencers'], summary: 'Creator master timeline', params: idParam, querystring: cursorQuerySchema.merge(pageNumberSchema) },
     },
     async (req) => servicesFor(req).creator360.timeline(req.params.id, req.query),
   );

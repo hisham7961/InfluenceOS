@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -74,6 +75,8 @@ export interface StatCardProps {
   hint?: string;
   tone?: StatCardTone;
   trend?: StatCardTrend;
+  /** Makes the whole tile a link to the list behind the number. */
+  href?: string;
   className?: string;
 }
 
@@ -88,14 +91,15 @@ export function StatCard({
   hint,
   tone = 'neutral',
   trend,
+  href,
   className,
 }: StatCardProps) {
   const Icon = icon ?? (iconName ? STAT_ICONS[iconName] : undefined);
   const isPositiveTrend = trend !== undefined ? trend.value >= 0 : null;
   const TrendIcon = isPositiveTrend ? ArrowUpRight : ArrowDownRight;
 
-  return (
-    <Card className={cn('overflow-hidden transition-shadow hover:shadow-pop', className)}>
+  const card = (
+    <Card className={cn('overflow-hidden transition-shadow hover:shadow-pop', href && 'h-full', className)}>
       <CardContent className="flex flex-col gap-4 p-5 pt-5">
         <div className="flex items-start justify-between gap-3">
           <span className="text-sm font-medium text-muted-foreground">{label}</span>
@@ -135,5 +139,12 @@ export function StatCard({
         ) : null}
       </CardContent>
     </Card>
+  );
+  return href ? (
+    <Link href={href} className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      {card}
+    </Link>
+  ) : (
+    card
   );
 }

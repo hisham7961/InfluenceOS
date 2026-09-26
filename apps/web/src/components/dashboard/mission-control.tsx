@@ -66,18 +66,28 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
     { key: 'usageRightsExpiringLine', count: ws.usageRightsExpiring },
   ].filter((l) => l.count > 0);
 
+  // A brand's own Mission Control opens lists filtered to that brand.
+  const scoped = (href: string) => (brandId ? `${href}${href.includes('?') ? '&' : '?'}brandId=${brandId}` : href);
+
   return (
     <div className="space-y-8">
       {/* Campaign Pulse */}
       <section>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-          <StatCard label={t('activeCampaignsStat')} value={p.activeCampaigns} icon={Megaphone} tone="info" />
-          <StatCard label={t('activeInfluencers')} value={p.activeInfluencers} icon={Users} tone="accent" />
-          <StatCard label={t('contentThisWeek')} value={p.contentPublishedThisWeek} icon={PlaySquare} tone="success" />
-          <StatCard label={t('upcomingDeliverables')} value={p.upcomingDeliverables} icon={Timer} tone="neutral" />
-          <StatCard label={t('overdueDeliverables')} value={p.overdueDeliverables} icon={AlertTriangle} tone="danger" />
-          <StatCard label={t('totalSpend')} value={p.totalSpend} icon={Wallet} tone="warning" format={(n) => formatCurrency(n, p.currency)} />
-          <StatCard label={t('contentAlerts')} value={p.contentAlerts} icon={ShieldAlert} tone="danger" />
+          <StatCard label={t('activeCampaignsStat')} value={p.activeCampaigns} icon={Megaphone} tone="info" href={scoped('/campaigns?status=ACTIVE')} />
+          <StatCard label={t('activeInfluencers')} value={p.activeInfluencers} icon={Users} tone="accent" href="/influencers" />
+          <StatCard label={t('contentThisWeek')} value={p.contentPublishedThisWeek} icon={PlaySquare} tone="success" href={scoped('/content')} />
+          <StatCard label={t('upcomingDeliverables')} value={p.upcomingDeliverables} icon={Timer} tone="neutral" href="/calendar" />
+          <StatCard label={t('overdueDeliverables')} value={p.overdueDeliverables} icon={AlertTriangle} tone="danger" href="/calendar" />
+          <StatCard
+            label={t('totalSpend')}
+            value={p.totalSpend}
+            icon={Wallet}
+            tone="warning"
+            format={(n) => formatCurrency(n, p.currency)}
+            href={scoped('/campaigns')}
+          />
+          <StatCard label={t('contentAlerts')} value={p.contentAlerts} icon={ShieldAlert} tone="danger" href={scoped('/content?alerts=1')} />
         </div>
       </section>
 
@@ -87,7 +97,7 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
           <SectionHeader
             title={t('whatsNewSinceVisit')}
             action={
-              <Link href="/content" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              <Link href={scoped('/content')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
                 {t('viewWall')} <ArrowRight className="rtl:-scale-x-100 h-3.5 w-3.5" />
               </Link>
             }

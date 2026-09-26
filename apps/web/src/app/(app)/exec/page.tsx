@@ -86,7 +86,7 @@ export default async function ExecPage() {
             <CardTitle>{tCommon('today')}</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
-            <Metric label={t('exec.today.contentPublished')} value={dash.today.contentPublished} href="/content" />
+            <Metric label={t('exec.today.contentPublished')} value={dash.today.contentPublished} href="/content?today=1" />
             <Metric label={t('exec.today.deliverablesDue')} value={dash.today.deliverablesDue} href="/calendar" />
             <Metric label={t('exec.today.campaignsStarting')} value={dash.today.campaignsStarting} href="/campaigns" />
             <Metric label={t('exec.today.campaignsEnding')} value={dash.today.campaignsEnding} href="/campaigns" />
@@ -107,7 +107,7 @@ export default async function ExecPage() {
               label={t('exec.sinceYesterday.contentRemoved')}
               value={dash.digest.contentRemoved}
               tone={dash.digest.contentRemoved > 0 ? 'danger' : undefined}
-              href="/content"
+              href="/content?alerts=1"
             />
             <Metric label={t('exec.sinceYesterday.shipmentsDelivered')} value={dash.digest.shipmentsDelivered} href="/logistics?status=DELIVERED" />
             <Metric

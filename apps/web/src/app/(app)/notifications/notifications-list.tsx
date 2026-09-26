@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { isThisWeek, isToday, isYesterday, parseISO } from 'date-fns';
 import {
@@ -28,6 +28,8 @@ import { toast } from 'sonner';
 import type { NotificationCategory, NotificationDTO, Tone } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
+import { useUrlPage } from '@/lib/use-url-page';
+import { PageFooter } from '@/components/ui/page-footer';
 import { cn } from '@/lib/cn';
 import { useLocalizedFormat } from '@/lib/format';
 import { Card } from '@/components/ui/card';
@@ -119,7 +121,12 @@ export function NotificationsList() {
   const t = useTranslations('notifications');
   const tCommon = useTranslations('common');
   const queryClient = useQueryClient();
-  const [filter, setFilter] = React.useState<Filter>('all');
+  const [filter, setFilterState] = React.useState<Filter>('all');
+  const [page, setPage] = useUrlPage();
+  const setFilter = (next: Filter) => {
+    setFilterState(next);
+    setPage(1);
+  };
 
   const onError = React.useCallback(
     (e: unknown) => {
@@ -135,16 +142,15 @@ export function NotificationsList() {
   });
   const unreadCount = unreadQuery.data?.count ?? 0;
 
-  const query = useInfiniteQuery({
-    queryKey: ['notifications', 'list', filter] as const,
-    queryFn: ({ pageParam }) =>
+  const query = useQuery({
+    queryKey: ['notifications', 'list', filter, page] as const,
+    queryFn: () =>
       api.notifications.list({
-        cursor: pageParam,
+        page,
         limit: LIMIT,
         unreadOnly: filter === 'unread' || undefined,
       }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => (lastPage.hasMore ? (lastPage.nextCursor ?? undefined) : undefined),
+    placeholderData: keepPreviousData,
     staleTime: 15_000,
   });
 
@@ -161,7 +167,7 @@ export function NotificationsList() {
     }),
     [t, tCommon],
   );
-  const items = React.useMemo(() => query.data?.pages.flatMap((page) => page.data) ?? [], [query.data]);
+  const items = React.useMemo(() => query.data?.data ?? [], [query.data]);
   const groups = React.useMemo(() => groupByBucket(items, bucketLabels), [items, bucketLabels]);
   const isInitialLoading = query.isLoading && items.length === 0;
 
@@ -230,13 +236,7 @@ export function NotificationsList() {
         </div>
       )}
 
-      {items.length > 0 && query.hasNextPage ? (
-        <div className="flex justify-center pt-2">
-          <Button variant="outline" onClick={() => query.fetchNextPage()} disabled={query.isFetchingNextPage}>
-            {query.isFetchingNextPage ? tCommon('loading') : t('loadMore')}
-          </Button>
-        </div>
-      ) : null}
+      {items.length > 0 ? <PageFooter pagination={query.data?.pagination} onPageChange={setPage} /> : null}
     </div>
   );
 }

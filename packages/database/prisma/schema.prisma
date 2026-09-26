@@ -1117,6 +1117,10 @@ model PublishedContent {
   caption              String?
   publishedAt          DateTime?
   detectedAt           DateTime      @default(now())
+  /// When the post went up, or when we found it if that's unknown — the
+  /// one date lists sort by. Kept in step by a database trigger
+  /// (migration 20260926170000); never written by the app.
+  sortAt               DateTime      @default(now())
   brandId              String?
   campaignId           String?
   influencerId         String?
@@ -1160,6 +1164,7 @@ model PublishedContent {
   @@index([availabilityStatus])
   @@index([publishedAt])
   @@index([detectedAt])
+  @@index([sortAt, id])
   @@index([nextCheckAt])
 }
 

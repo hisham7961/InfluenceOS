@@ -15,7 +15,6 @@
     "descriptionUnread": "No unread notifications right now.",
     "descriptionAll": "Alerts about content, deliverables, campaigns, and account activity will show up here."
   },
-  "loadMore": "Load more",
   "buckets": {
     "thisWeek": "This week",
     "earlier": "Earlier"

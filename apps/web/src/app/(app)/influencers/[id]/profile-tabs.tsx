@@ -10,6 +10,7 @@ import type {
   BrandInfluencerDTO,
   InfluencerDetailDTO,
   NoteDTO,
+  CursorPage,
   PublishedContentDTO,
 } from '@influenceos/contracts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -21,7 +22,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Avatar } from '@/components/ui/avatar';
 import { AudienceHealthBadge, RelationshipStatusBadge } from '@/components/ui/status-badges';
 import { StatCard } from '@/components/ui/stat-card';
-import { ContentGrid } from '@/components/content/content-grid';
+import { PagedContentGrid } from '@/components/content/paged-content-grid';
 import { AddContentFlow } from '@/components/content/add-content-flow';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { formatCurrency, useLocalizedFormat } from '@/lib/format';
@@ -79,7 +80,7 @@ export function ProfileTabs({
   brandRelationships,
 }: {
   influencer: InfluencerDetailDTO;
-  content: PublishedContentDTO[];
+  content: CursorPage<PublishedContentDTO>;
   notes: NoteDTO[];
   brandRelationships: BrandInfluencerDTO[];
 }) {
@@ -272,8 +273,9 @@ export function ProfileTabs({
         <div className="flex items-center justify-end">
           <AddContentButton influencerId={influencer.id} influencerName={influencer.displayName} />
         </div>
-        <ContentGrid
-          items={content}
+        <PagedContentGrid
+          filter={{ influencerId: influencer.id }}
+          initial={content}
           emptyTitle={t('detail.content.emptyTitle')}
           emptyDescription={t('detail.content.emptyDescription', { name: influencer.displayName })}
         />

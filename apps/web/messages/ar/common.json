@@ -41,6 +41,7 @@
   "somethingWentWrong": "حدث خطأ ما.",
   "pageOf": "الصفحة {page} من {total}",
   "showingRange": "عرض {from}–{to} من {total}",
+  "goToPage": "الانتقال إلى الصفحة {page}",
   "maintenanceMessage": "النظام قيد الصيانة حاليًا. بعض الإجراءات غير متاحة مؤقتًا.",
   "maintenanceReadOnly": "ستبقى التعديلات للعرض فقط حتى انتهاء الصيانة.",
   "commandPaletteSearchPlaceholder": "ابحث عن المؤثرين والحملات والعلامات التجارية والمحتوى…",

@@ -1,13 +1,15 @@
 'use client';
 
+import * as React from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { Activity as ActivityIcon } from 'lucide-react';
 import { api } from '@/lib/api-browser';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageFooter } from '@/components/ui/page-footer';
 import { BidiText } from '@/components/common/bidi-text';
 import { useLocalizedFormat } from '@/lib/format';
 
@@ -42,9 +44,11 @@ export function ActivityFeed({
 }) {
   const t = useTranslations('common');
   const { relativeTime } = useLocalizedFormat();
+  const [page, setPage] = React.useState(1);
   const { data, isLoading, isError } = useQuery({
-    queryKey,
-    queryFn: () => api.activity.feed(filter),
+    queryKey: [...queryKey, page],
+    queryFn: () => api.activity.feed({ ...filter, page }),
+    placeholderData: keepPreviousData,
   });
 
   if (isLoading) {
@@ -79,29 +83,33 @@ export function ActivityFeed({
   }
 
   return (
-    <Card className="divide-y divide-border">
-      {items.map((a) => (
-        <div key={a.id} className="flex items-start gap-3 p-4">
-          <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand" />
-          <div className="min-w-0 flex-1">
-            {a.link ? (
-              <Link href={a.link} className="text-sm leading-snug hover:underline">
-                {a.message}
-              </Link>
-            ) : (
-              <p className="text-sm leading-snug">{a.message}</p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              {a.actorName ? (
-                <>
-                  <BidiText as="span">{a.actorName}</BidiText>{' · '}
-                </>
-              ) : null}
-              {relativeTime(a.createdAt)}
-            </p>
+    <div>
+      <Card className="divide-border divide-y">
+        {items.map((a) => (
+          <div key={a.id} className="flex items-start gap-3 p-4">
+            <span className="bg-brand mt-1 h-2 w-2 shrink-0 rounded-full" />
+            <div className="min-w-0 flex-1">
+              {a.link ? (
+                <Link href={a.link} className="text-sm leading-snug hover:underline">
+                  {a.message}
+                </Link>
+              ) : (
+                <p className="text-sm leading-snug">{a.message}</p>
+              )}
+              <p className="text-muted-foreground text-xs">
+                {a.actorName ? (
+                  <>
+                    <BidiText as="span">{a.actorName}</BidiText>
+                    {' · '}
+                  </>
+                ) : null}
+                {relativeTime(a.createdAt)}
+              </p>
+            </div>
           </div>
-        </div>
-      ))}
-    </Card>
+        ))}
+      </Card>
+      <PageFooter pagination={data?.pagination} onPageChange={setPage} />
+    </div>
   );
 }

@@ -1,5 +1,7 @@
 import {
+  buildOffsetPagination,
   type CreatorReliabilityDTO,
+  type CursorPage,
   type CreatorSnapshotDTO,
   type CreatorTimelineItemDTO,
   type DeliverableSubmissionDTO,
@@ -315,12 +317,16 @@ export function makeCreator360Service(ctx: DomainContext) {
    *  so mixing them in would show most events twice. */
   async function timeline(
     influencerId: string,
-    query: { cursor?: string; limit?: number },
-  ): Promise<{ data: CreatorTimelineItemDTO[]; nextCursor: string | null; hasMore: boolean }> {
+    query: { cursor?: string; limit?: number; page?: number },
+  ): Promise<CursorPage<CreatorTimelineItemDTO>> {
     requireActor(ctx);
     await assertVisible(influencerId);
     const limit = query.limit ?? 30;
-    const before = query.cursor ? new Date(query.cursor) : null;
+    // A numbered page reads every source up to the end of that page and
+    // merges; a cursor page reads the next `limit` of each before the cursor.
+    const pageNo = query.page;
+    const before = !pageNo && query.cursor ? new Date(query.cursor) : null;
+    const take = pageNo ? pageNo * limit : limit;
 
     // Per-panel brand scope — every one of the five sources below must be
     // independently narrowed to the actor's in-scope brands, exactly like
@@ -335,13 +341,13 @@ export function makeCreator360Service(ctx: DomainContext) {
         where: { influencerId, ...brandNullableWhere, ...(before ? { createdAt: { lt: before } } : {}) },
         include: { actor: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
-        take: limit,
+        take,
       }),
       prisma.note.findMany({
         where: { influencerId, parentId: null, ...brandNullableWhere, ...(before ? { createdAt: { lt: before } } : {}) },
         include: { author: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
-        take: limit,
+        take,
       }),
       prisma.deliverableSubmission.findMany({
         where: {
@@ -350,7 +356,7 @@ export function makeCreator360Service(ctx: DomainContext) {
         },
         include: { deliverable: { select: { id: true, campaignInfluencerId: true, campaignInfluencer: { select: { campaignId: true } } } } },
         orderBy: { updatedAt: 'desc' },
-        take: limit,
+        take,
       }),
       // "Contacted" events (gap #12) — CampaignInfluencer.dateContacted is a
       // real timestamp already read by snapshot() above; never synthesized
@@ -360,7 +366,7 @@ export function makeCreator360Service(ctx: DomainContext) {
         where: { influencerId, dateContacted: before ? { not: null, lt: before } : { not: null }, ...ciCampaignScopeWhere },
         include: { campaign: { select: { id: true, name: true } } },
         orderBy: { dateContacted: 'desc' },
-        take: limit,
+        take,
       }),
       // Usage-rights lifecycle events (gap #12) — one event per UsageRight row,
       // anchored on its real `createdAt` (when the right was granted). No
@@ -375,7 +381,7 @@ export function makeCreator360Service(ctx: DomainContext) {
       prisma.usageRight.findMany({
         where: { influencerId, ...(brandScope ? { brandId: { in: brandScope } } : {}), ...(before ? { createdAt: { lt: before } } : {}) },
         orderBy: { createdAt: 'desc' },
-        take: limit,
+        take,
       }),
     ]);
 
@@ -453,6 +459,24 @@ export function makeCreator360Service(ctx: DomainContext) {
     }
 
     items.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+
+    if (pageNo) {
+      const counts = await Promise.all([
+        prisma.activityLog.count({ where: { influencerId, ...brandNullableWhere } }),
+        prisma.note.count({ where: { influencerId, parentId: null, ...brandNullableWhere } }),
+        prisma.deliverableSubmission.count({ where: { deliverable: { campaignInfluencer: { influencerId, ...ciCampaignScopeWhere } } } }),
+        prisma.campaignInfluencer.count({ where: { influencerId, dateContacted: { not: null }, ...ciCampaignScopeWhere } }),
+        prisma.usageRight.count({ where: { influencerId, ...(brandScope ? { brandId: { in: brandScope } } : {}) } }),
+      ]);
+      const pagination = buildOffsetPagination(pageNo, limit, counts.reduce((a, b) => a + b, 0));
+      return {
+        data: items.slice((pageNo - 1) * limit, pageNo * limit),
+        nextCursor: null,
+        hasMore: pageNo < pagination.totalPages,
+        pagination,
+      };
+    }
+
     const page = items.slice(0, limit);
     // Any source that returned a FULL page of `limit` rows might still have
     // more beyond what we fetched — a conservative hasMore, never a false negative.

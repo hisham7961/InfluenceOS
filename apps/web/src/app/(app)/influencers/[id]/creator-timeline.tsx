@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { Clock, FileCheck, History, MessageSquare, Package, PhoneCall, PlaySquare, Sparkles, Wallet } from 'lucide-react';
 import type { CreatorTimelineItemDTO } from '@influenceos/contracts';
@@ -10,6 +10,7 @@ import { api } from '@/lib/api-browser';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageFooter } from '@/components/ui/page-footer';
 import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
@@ -40,11 +41,9 @@ const BUCKET_ICON: Record<Bucket, React.ComponentType<{ className?: string }>> =
  */
 export function CreatorTimeline({ influencerId }: { influencerId: string }) {
   const t = useTranslations('influencers');
-  const tc = useTranslations('common');
   const { relativeTime } = useLocalizedFormat();
   const [bucket, setBucket] = React.useState<Bucket | typeof BUCKET_ALL>(BUCKET_ALL);
-  const [cursor, setCursor] = React.useState<string | undefined>(undefined);
-  const [items, setItems] = React.useState<CreatorTimelineItemDTO[]>([]);
+  const [page, setPage] = React.useState(1);
 
   const BUCKET_LABEL: Record<Bucket, string> = {
     campaign: t('detail.timeline.buckets.campaign'),
@@ -59,15 +58,11 @@ export function CreatorTimeline({ influencerId }: { influencerId: string }) {
   };
 
   const query = useQuery({
-    queryKey: ['creator-timeline', influencerId, cursor],
-    queryFn: () => api.influencers.timeline(influencerId, { limit: 30, cursor }),
+    queryKey: ['creator-timeline', influencerId, page],
+    queryFn: () => api.influencers.timeline(influencerId, { limit: 30, page }),
+    placeholderData: keepPreviousData,
   });
-
-  React.useEffect(() => {
-    if (!query.data) return;
-    setItems((prev) => (cursor ? [...prev, ...query.data.data] : query.data.data));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.data]);
+  const items: CreatorTimelineItemDTO[] = query.data?.data ?? [];
 
   const filtered = bucket === BUCKET_ALL ? items : items.filter((i) => i.bucket === bucket);
 
@@ -121,13 +116,7 @@ export function CreatorTimeline({ influencerId }: { influencerId: string }) {
         </ul>
       )}
 
-      {query.data?.hasMore && query.data.nextCursor && (
-        <div className="flex justify-center pt-2">
-          <Button variant="outline" size="sm" disabled={query.isFetching} onClick={() => setCursor(query.data!.nextCursor!)}>
-            {query.isFetching ? tc('loading') : t('detail.timeline.loadEarlier')}
-          </Button>
-        </div>
-      )}
+      <PageFooter pagination={query.data?.pagination} onPageChange={setPage} />
     </div>
   );
 }

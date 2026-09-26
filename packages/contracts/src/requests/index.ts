@@ -26,7 +26,7 @@ import {
   LOGISTICS_ISSUE_TYPES,
   COUNTRY_CODES,
 } from '@influenceos/shared';
-import { offsetQuerySchema } from '../pagination';
+import { offsetQuerySchema, pageNumberSchema } from '../pagination';
 
 /**
  * All request DTO schemas + server-side filter/pagination contracts
@@ -663,6 +663,7 @@ export const shipmentFilterSchema = z.object({
   /** Active shipment with no destinationCountryCode on file. */
   missingDestinationCountry: z.coerce.boolean().optional(),
   cursor: z.string().min(1).optional(),
+  page: pageNumberSchema.shape.page,
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 /** Per-destination-country counts for the Logistics workspace's country-first
@@ -779,6 +780,7 @@ export const campaignMetricsBulkSchema = z.object({
 
 export const contentFilterSchema = z.object({
   cursor: z.string().min(1).optional(),
+  page: pageNumberSchema.shape.page,
   limit: z.coerce.number().int().min(1).max(60).default(24),
   brandId: cuid.optional(),
   campaignId: cuid.optional(),
@@ -1030,6 +1032,7 @@ export type BulkInfluencerRequest = z.infer<typeof bulkInfluencerRequestSchema>;
 // --- Notifications ---------------------------------------------------------
 export const notificationFilterSchema = z.object({
   cursor: z.string().min(1).optional(),
+  page: pageNumberSchema.shape.page,
   limit: z.coerce.number().int().min(1).max(50).default(20),
   unreadOnly: z.coerce.boolean().optional(),
 });
@@ -1041,6 +1044,7 @@ export const markReadSchema = z.object({
 // --- Activity feed ---------------------------------------------------------
 export const activityFilterSchema = z.object({
   cursor: z.string().min(1).optional(),
+  page: pageNumberSchema.shape.page,
   limit: z.coerce.number().int().min(1).max(50).default(25),
   brandId: cuid.optional(),
   campaignId: cuid.optional(),
@@ -1057,6 +1061,7 @@ export const activityFilterSchema = z.object({
 /** Server-side filters for GET /platform/audit (admin only). */
 export const auditFilterSchema = z.object({
   cursor: z.string().min(1).optional(),
+  page: pageNumberSchema.shape.page,
   limit: z.coerce.number().int().min(1).max(100).default(50),
   actorId: cuid.optional(),
   type: z.string().trim().max(64).optional(),
