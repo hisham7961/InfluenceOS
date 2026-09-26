@@ -4,7 +4,9 @@ import { expect, test, type Page } from '@playwright/test';
  * P3.7 — rate benchmarks: past confirmed bookings of creators on the same
  * platform and follower size show beside the fee when booking (and say
  * whether the fee typed is in the usual range), and on the platform × size
- * page. A currency no other test uses (OMR) keeps the figures to this test.
+ * page. A currency no other test uses keeps the figures to this test — a
+ * different one on a retry, so bookings a failed attempt left behind never
+ * count.
  */
 
 const ADMIN = { email: 'e2e-browser-test@influenceos.app', password: 'E2eTest-Passw0rd!' };
@@ -30,8 +32,9 @@ async function post<T>(page: Page, url: string, data: unknown): Promise<T> {
 
 test('Rate benchmarks: beside the fee when booking, and the platform × size page', async ({
   page,
-}) => {
+}, testInfo) => {
   test.setTimeout(150_000);
+  const CUR = ['OMR', 'BHD', 'JOD'][testInfo.retry % 3]!;
   await signIn(page);
   const stamp = Date.now();
   const tag = `Bench E2E ${stamp}`;
@@ -39,7 +42,7 @@ test('Rate benchmarks: beside the fee when booking, and the platform × size pag
   const campaign = await post<{ id: string }>(page, '/campaigns', {
     brandId: brand.id,
     name: `${tag} Campaign`,
-    currency: 'OMR',
+    currency: CUR,
   });
   const creators: string[] = [];
   async function creator(key: string) {
@@ -83,9 +86,9 @@ test('Rate benchmarks: beside the fee when booking, and the platform × size pag
     await add.getByRole('button', { name: new RegExp(`${tag} D`) }).click();
     const hint = add.getByTestId('fee-benchmark');
     await expect(hint).toContainText(
-      'Creators like this (YouTube · Macro (500K–1M)) usually cost OMR 200 a post',
+      `Creators like this (YouTube · Macro (500K–1M)) usually cost ${CUR} 200 a post`,
     );
-    await expect(hint).toContainText('the middle half of 3 bookings paid OMR 150 – OMR 250');
+    await expect(hint).toContainText(`the middle half of 3 bookings paid ${CUR} 150 – ${CUR} 250`);
     await add.getByRole('spinbutton').fill('900');
     await add.getByRole('button', { name: 'Add to campaign' }).click();
     await expect(page.getByText(`${tag} D added to the campaign.`)).toBeVisible();
@@ -94,16 +97,16 @@ test('Rate benchmarks: beside the fee when booking, and the platform × size pag
     await page.getByRole('button', { name: `Edit ${tag} D` }).click();
     const edit = page.getByRole('dialog', { name: 'Edit influencer' });
     const editHint = edit.getByTestId('fee-benchmark');
-    await expect(editHint).toContainText('OMR 900 a post is above the usual range.');
+    await expect(editHint).toContainText(`${CUR} 900 a post is above the usual range.`);
     await edit.getByRole('spinbutton').first().fill('180');
-    await expect(editHint).toContainText('OMR 180 a post is within the usual range.');
+    await expect(editHint).toContainText(`${CUR} 180 a post is within the usual range.`);
     await edit.getByRole('button', { name: 'Close' }).first().click();
 
     // The page: the same figures, the selected size highlighted.
-    await page.goto('/reports/benchmarks?currency=OMR&platform=YOUTUBE&tier=MACRO');
+    await page.goto(`/reports/benchmarks?currency=${CUR}&platform=YOUTUBE&tier=MACRO`);
     await expect(page.getByRole('heading', { name: 'Rate benchmarks' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'YouTube · Macro (500K–1M)' })).toBeVisible();
-    await expect(page.getByTestId('benchmark-feePerPost')).toContainText('OMR 200');
+    await expect(page.getByTestId('benchmark-feePerPost')).toContainText(`${CUR} 200`);
     await expect(page.getByTestId('benchmark-feePerPost')).toContainText('From 3 bookings');
     const youtube = page.getByRole('region', { name: 'YouTube' });
     const macro = youtube.locator('tr[aria-current="true"]');
@@ -115,11 +118,17 @@ test('Rate benchmarks: beside the fee when booking, and the platform × size pag
     await page.getByRole('link', { name: 'Rate benchmarks' }).click();
     await expect(page).toHaveURL(/\/reports\/benchmarks$/);
   } finally {
-    // Take the bookings off so they don't count in later runs, then the creators.
-    const roster = (await (
-      await page.request.get(`${V}/campaigns/${campaign.id}/influencers`)
-    ).json()) as { id: string }[];
-    for (const r of roster) await page.request.delete(`${V}/campaign-influencers/${r.id}`);
-    for (const id of creators) await page.request.delete(`${V}/influencers/${id}`);
+    // Take the bookings off so they don't count in later runs, then the
+    // creators — time-boxed, and never hiding the error that got us here.
+    const opts = { timeout: 10_000 };
+    try {
+      const roster = (await (
+        await page.request.get(`${V}/campaigns/${campaign.id}/influencers`, opts)
+      ).json()) as { id: string }[];
+      for (const r of roster) await page.request.delete(`${V}/campaign-influencers/${r.id}`, opts);
+      for (const id of creators) await page.request.delete(`${V}/influencers/${id}`, opts);
+    } catch (e) {
+      console.warn('rate-benchmarks cleanup failed:', e);
+    }
   }
 });
