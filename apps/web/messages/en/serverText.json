@@ -27,6 +27,7 @@
   "e_expired_oauth_state_start_again": "Expired OAuth state — start again.",
   "e_file_exceeds_maximum_allowed_size": "File exceeds the maximum allowed size.",
   "e_file_not_found": "File not found.",
+  "e_cover_not_found": "Cover not found.",
   "e_file_size_must_greater_than_zero": "File size must be greater than zero.",
   "e_file_too_large_maximum_mb": "File too large — maximum {max} MB.",
   "e_incomplete_oauth_state": "Incomplete OAuth state.",

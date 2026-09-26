@@ -376,6 +376,17 @@ campaign is cancelled (404).
 Drafts carry `fromCreator` in `DeliverableSubmissionDTO`; deliverables carry
 `creatorPostUrl` and `creatorPostedAt`.
 
+**Saved post covers.** The cover links Instagram and TikTok give out expire
+after a few days. Each sweep the worker copies up to `COVER_BATCH_SIZE` covers
+(default 30; 0 = off) into private storage under `covers/` — only from the
+platforms' image hosts (https, each redirect re-checked), only real images
+(checked by their bytes), at most 3 MB, with a timeout; an expired link is
+looked up again from the post once, and a cover that can't be saved is tried
+at most 3 times. Posts then show `GET /api/v1/covers/:id?e=…&s=…`: a signed
+link that stays the same all day (so browsers cache it), works for at least a
+day, needs no login (so shared client reports show covers too) and opens only
+that one post's cover. Deleting the post deletes its saved cover.
+
 **Post discovery (P3.4).** While a campaign is active the worker reads the
 roster creators' newest posts where the configured keys allow it (Instagram
 Business Discovery for Professional accounts, YouTube uploads playlist, X user

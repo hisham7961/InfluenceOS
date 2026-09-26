@@ -16,6 +16,7 @@ import { toMoneyNumber } from '../lib/money';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
 import { makeAnalyticsService } from './analytics.service';
 import { makeSalesService } from './sales.service';
+import { contentThumbnail } from '../lib/covers';
 
 type ReportQuery = z.infer<typeof requests.campaignReportQuerySchema>;
 
@@ -93,6 +94,7 @@ export function makeCampaignReportService(ctx: DomainContext) {
           platform: true,
           originalUrl: true,
           thumbnailUrl: true,
+          coverKey: true,
           caption: true,
           publishedAt: true,
           availabilityStatus: true,
@@ -152,7 +154,7 @@ export function makeCampaignReportService(ctx: DomainContext) {
           platform: p.platform as Platform,
           // A Story has no public link (its media is stored with us).
           url: p.originalUrl.startsWith('story://') ? null : p.originalUrl,
-          thumbnailUrl: p.thumbnailUrl,
+          thumbnailUrl: contentThumbnail(p),
           caption: p.caption,
           publishedAt: iso(p.publishedAt),
           removed: GONE.has(p.availabilityStatus),

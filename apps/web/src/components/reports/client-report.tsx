@@ -6,6 +6,7 @@ import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { SafeImg } from '@/components/ui/safe-img';
 import { cn } from '@/lib/cn';
+import { toBrowserUrl } from '@/lib/browser-url';
 
 type T = Awaited<ReturnType<typeof getTranslations<'campaigns.clientReport'>>>;
 
@@ -288,7 +289,7 @@ export async function ClientReport({ report }: { report: CampaignReportDTO }) {
                 <div className="bg-surface-muted flex aspect-[4/5] items-center justify-center">
                   {p.thumbnailUrl ? (
                     <SafeImg
-                      src={p.thumbnailUrl}
+                      src={toBrowserUrl(p.thumbnailUrl)}
                       alt=""
                       className="h-full w-full object-cover"
                       fallback={

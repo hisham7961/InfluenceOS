@@ -19,6 +19,7 @@ import type {
 } from '@influenceos/contracts';
 import { iso } from './helpers';
 import { moneyNumberOr0, toMoneyNumber, type MoneyInput } from './money';
+import { contentThumbnail } from './covers';
 
 /*
  * Mappers translate persistence rows into API DTOs. They accept structural
@@ -277,6 +278,7 @@ interface PublishedContentLike {
   originalUrl: string;
   embedUrl: string | null;
   thumbnailUrl: string | null;
+  coverKey?: string | null;
   caption: string | null;
   publishedAt: Date | null;
   detectedAt: Date;
@@ -318,7 +320,7 @@ export function toPublishedContentDTO(
     canonicalUrl: embed?.canonicalUrl ?? pc.originalUrl,
     embed,
     embeddable: !!embed && embed.kind !== 'link-only',
-    thumbnailUrl: pc.thumbnailUrl,
+    thumbnailUrl: contentThumbnail(pc),
     caption: pc.caption,
     publishedAt: iso(pc.publishedAt),
     detectedAt: pc.detectedAt.toISOString(),

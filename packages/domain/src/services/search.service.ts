@@ -10,6 +10,7 @@ import type { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 import { arabicMatchIds, orIds } from '../lib/arabic-search';
+import { contentThumbnail } from '../lib/covers';
 
 type SearchInput = z.infer<typeof requests.searchSchema>;
 type SearchPageInput = z.infer<typeof requests.searchPageSchema>;
@@ -119,6 +120,7 @@ export function makeSearchService(ctx: DomainContext) {
           platform: true,
           caption: true,
           thumbnailUrl: true,
+          coverKey: true,
           influencer: { select: { displayName: true } },
           campaign: { select: { name: true } },
         },
@@ -158,7 +160,7 @@ export function makeSearchService(ctx: DomainContext) {
       id: pc.id,
       title: pc.caption ? pc.caption.slice(0, 60) : `${pc.platform} content`,
       subtitle: pc.influencer?.displayName ?? null,
-      imageUrl: pc.thumbnailUrl,
+      imageUrl: contentThumbnail(pc),
       link: `/content/${pc.id}`,
     }));
 
@@ -288,6 +290,7 @@ export function makeSearchService(ctx: DomainContext) {
               caption: true,
               originalUrl: true,
               thumbnailUrl: true,
+              coverKey: true,
               influencer: { select: { displayName: true } },
             },
             take: CANDIDATE_CAP,
@@ -373,7 +376,7 @@ export function makeSearchService(ctx: DomainContext) {
         id: pc.id,
         title: pc.caption ? pc.caption.slice(0, 60) : `${pc.platform} content`,
         subtitle: pc.influencer?.displayName ?? null,
-        imageUrl: pc.thumbnailUrl,
+        imageUrl: contentThumbnail(pc),
         link: `/content/${pc.id}`,
         score,
         matchedOn,

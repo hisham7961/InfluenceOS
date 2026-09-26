@@ -27,6 +27,7 @@
   "e_expired_oauth_state_start_again": "انتهت صلاحية حالة OAuth — ابدأ من جديد.",
   "e_file_exceeds_maximum_allowed_size": "حجم الملف يتجاوز الحد الأقصى المسموح به.",
   "e_file_not_found": "لم يتم العثور على الملف.",
+  "e_cover_not_found": "لم يتم العثور على صورة الغلاف.",
   "e_file_size_must_greater_than_zero": "يجب أن يكون حجم الملف أكبر من صفر.",
   "e_file_too_large_maximum_mb": "الملف كبير جدًا — الحد الأقصى {max} MB.",
   "e_incomplete_oauth_state": "حالة OAuth غير مكتملة.",

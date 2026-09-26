@@ -8,6 +8,29 @@ const idParam = z.object({ id: z.string() });
 export async function contentRoutes(app: FastifyInstance): Promise<void> {
   const r = app.withTypeProvider<ZodTypeProvider>();
 
+  // A post's cover, from our own storage. No login — the signed, expiring
+  // link is the permission (like a file download link), so a shared client
+  // report shows covers too. Same link all day, so browsers cache it.
+  r.get(
+    '/covers/:id',
+    {
+      schema: {
+        tags: ['Content'],
+        summary: "A post's saved cover image (signed link)",
+        params: idParam,
+        querystring: z.object({ e: z.string().optional(), s: z.string().optional() }),
+      },
+    },
+    async (req, reply) => {
+      const { buffer, mimeType } = await servicesFor(req).content.readCover(req.params.id, req.query.e, req.query.s);
+      reply
+        .header('Content-Type', mimeType)
+        .header('Cache-Control', 'private, max-age=86400')
+        .header('X-Content-Type-Options', 'nosniff')
+        .send(buffer);
+    },
+  );
+
   r.get(
     '/content/feed',
     {

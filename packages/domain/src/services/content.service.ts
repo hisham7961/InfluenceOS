@@ -37,7 +37,7 @@ import { resolveContentAssociation } from '../lib/content-association';
 import { createNotification, iso, logActivity } from '../lib/helpers';
 import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 import { arabicMatchIds, orIds } from '../lib/arabic-search';
-import { resolveAttachmentDownloadUrl } from '../lib/storage';
+import { getStorage, resolveAttachmentDownloadUrl } from '../lib/storage';
 import {
   toBrandSummary,
   toContentMetricsDTO,
@@ -45,6 +45,7 @@ import {
   toPublishedContentDTO,
 } from '../lib/mappers';
 import { makeCampaignService } from './campaign.service';
+import { coverMimeType, verifyCoverLink } from '../lib/covers';
 
 type ContentCreate = z.infer<typeof requests.publishedContentCreateSchema>;
 type StoryCreate = z.infer<typeof requests.publishedContentStoryCreateSchema>;
@@ -825,6 +826,23 @@ export function makeContentService(ctx: DomainContext) {
     if (!existing) throw AppError.notFound('Content');
     await assertContentInScope({ brandId: existing.brandId, influencerId: existing.influencerId });
     await prisma.publishedContent.delete({ where: { id } });
+    // Our saved copy of its cover goes with it (best effort — a leftover
+    // file is harmless and never served, since the row is gone).
+    if (existing.coverKey) await getStorage().remove(existing.coverKey).catch(() => undefined);
+  }
+
+  /**
+   * Our saved copy of a post's cover, for a signed cover link (no login: the
+   * link itself is the permission, like a file download link, so shared
+   * client reports can show it too). Not found once the post is deleted.
+   */
+  async function readCover(id: string, expires: string | undefined, signature: string | undefined): Promise<{ buffer: Buffer; mimeType: string }> {
+    if (!verifyCoverLink(id, expires, signature)) throw AppError.notFound('Cover');
+    const row = await prisma.publishedContent.findUnique({ where: { id }, select: { coverKey: true } });
+    if (!row?.coverKey) throw AppError.notFound('Cover');
+    const buffer = await getStorage().read(row.coverKey);
+    if (!buffer) throw AppError.notFound('Cover');
+    return { buffer, mimeType: coverMimeType(row.coverKey) };
   }
 
   async function metricsHistory(id: string): Promise<ContentMetricsDTO[]> {
@@ -1287,6 +1305,7 @@ export function makeContentService(ctx: DomainContext) {
     detail,
     update,
     remove,
+    readCover,
     metricsHistory,
     monitoring,
     addManualMetrics,

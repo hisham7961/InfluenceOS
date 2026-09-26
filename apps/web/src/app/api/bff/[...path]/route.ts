@@ -96,6 +96,14 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
   if (ct && !nullBody) out.headers.set('content-type', ct);
   const cd = res.headers.get('content-disposition');
   if (cd) out.headers.set('content-disposition', cd);
+  // Images (saved post covers) keep the API's caching, so a cover isn't
+  // downloaded again on every page.
+  if (ct?.startsWith('image/')) {
+    for (const h of ['cache-control', 'x-content-type-options']) {
+      const v = res.headers.get(h);
+      if (v) out.headers.set(h, v);
+    }
+  }
   // Rate-limit and request-id headers let the browser back off and let a
   // support request be matched to the server log.
   for (const h of ['retry-after', 'x-request-id', 'x-ratelimit-limit', 'x-ratelimit-remaining', 'x-ratelimit-reset']) {

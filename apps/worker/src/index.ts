@@ -9,6 +9,7 @@ import {
   pruneHistory,
   recordSyncHealth,
   refreshProviderCredentialOverrides,
+  saveCovers,
   sendDueDigests,
   smtpMailer,
   type EmailRunOptions,
@@ -35,6 +36,8 @@ const MAX_BATCH = Math.max(BATCH, Number(process.env.MONITOR_MAX_BATCH_SIZE) || 
 const ACCOUNT_BATCH = Number(process.env.MONITOR_ACCOUNT_BATCH_SIZE) || 25;
 /** Creator accounts read for new posts per sweep (P3.4); 0 turns discovery off. */
 const DISCOVERY_BATCH = Number(process.env.MONITOR_DISCOVERY_BATCH_SIZE ?? 20);
+/** Post covers copied into our storage per sweep (their CDN links expire); 0 turns it off. */
+const COVER_BATCH = Number(process.env.COVER_BATCH_SIZE ?? 30);
 const MONITOR_CRON = process.env.MONITOR_CRON || '*/30 * * * *';
 const HEALTH_PORT = Number(process.env.WORKER_PORT) || 4100;
 /**
@@ -100,6 +103,8 @@ const stats = {
   historyPruned: { checkEvents: 0, contentSnapshots: 0, followerSnapshots: 0 },
   /** Post discovery (P3.4): creator accounts read and posts suggested since start. */
   discovery: { accountsChecked: 0, postsFound: 0 },
+  /** Post covers saved into our storage since start (and ones that couldn't be). */
+  covers: { saved: 0, failed: 0 },
 };
 
 // Whether Redis is currently reachable — drives the /health verdict (WK-03).
@@ -140,6 +145,16 @@ async function runMaintenance(enqueue: (kind: Kind, id: string) => Promise<void>
   });
   stats.discovery.accountsChecked += discovered.checked;
   stats.discovery.postsFound += discovered.found;
+
+  // Covers: keep our own copy before the platform's CDN link expires.
+  if (COVER_BATCH > 0) {
+    const covers = await saveCovers(prisma, COVER_BATCH).catch((e) => {
+      console.error('[maintenance] saving post covers failed', e);
+      return { saved: 0, failed: 0 };
+    });
+    stats.covers.saved += covers.saved;
+    stats.covers.failed += covers.failed;
+  }
 
   const notif = await generateNotifications();
   stats.notifications += notif.created;

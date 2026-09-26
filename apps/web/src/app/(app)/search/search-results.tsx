@@ -20,6 +20,7 @@ import { PageFooter } from '@/components/ui/page-footer';
 import { SafeImg } from '@/components/ui/safe-img';
 import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { toBrowserUrl } from '@/lib/browser-url';
 
 type ResultType = keyof SearchPageDTO['counts'];
 const TYPES: ResultType[] = ['influencer', 'campaign', 'brand', 'published_content'];
@@ -208,7 +209,7 @@ function ResultImage({ result: r }: { result: RankedSearchResultDTO }) {
   );
   return r.imageUrl ? (
     <SafeImg
-      src={r.imageUrl}
+      src={toBrowserUrl(r.imageUrl)}
       alt=""
       className="h-10 w-10 shrink-0 rounded-lg object-cover"
       fallback={fallback}

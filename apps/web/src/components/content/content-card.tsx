@@ -57,7 +57,7 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-gradient-to-br from-neutral-800 to-neutral-900">
         {storyImageSrc || content.thumbnailUrl ? (
           <SafeImg
-            src={storyImageSrc ?? content.thumbnailUrl!}
+            src={storyImageSrc ?? toBrowserUrl(content.thumbnailUrl!)}
             alt=""
             loading="lazy"
             decoding="async"

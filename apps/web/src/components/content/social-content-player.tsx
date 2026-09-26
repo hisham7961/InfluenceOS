@@ -185,7 +185,7 @@ function Fallback({
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-neutral-900 to-neutral-800 text-white">
       {content.thumbnailUrl ? (
         <SafeImg
-          src={content.thumbnailUrl}
+          src={toBrowserUrl(content.thumbnailUrl)}
           alt={content.caption ?? ''}
           className="absolute inset-0 h-full w-full object-cover opacity-70"
         />

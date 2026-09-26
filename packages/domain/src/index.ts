@@ -127,6 +127,16 @@ export {
 } from './lib/credential-store';
 export { maxUploadBytes, type UploadCleanupResult } from './services/attachment.service';
 export { getStorage, resetStorage, sanitizeFileName, buildStorageKey } from './lib/storage';
+export {
+  saveCovers,
+  coverUrl,
+  verifyCoverLink,
+  coverMimeType,
+  fetchCover,
+  isAllowedCoverUrl,
+  MAX_COVER_TRIES,
+  type SaveCoversResult,
+} from './lib/covers';
 export { signDownloadTicket, verifyDownloadTicket } from './lib/tokens';
 export { diskUsage, type DiskUsage } from './lib/disk';
 export { resealStoredSecrets, type ResealResult } from './lib/reseal';
