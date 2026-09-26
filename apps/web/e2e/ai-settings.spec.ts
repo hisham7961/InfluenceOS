@@ -149,6 +149,8 @@ test('AI writing help: the buttons show only while writing help is on', async ({
   try {
     // A new script offers an AI first draft, in either language.
     await page.goto(`/campaigns/${campaign.id}?tab=scripts`);
+    // Let the tab hydrate first: a click that lands mid-hydration can be lost.
+    await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: 'New script' }).first().click();
     let dialog = page.getByRole('dialog');
     await expect(dialog.getByText('Draft with AI')).toBeVisible();
@@ -167,6 +169,7 @@ test('AI writing help: the buttons show only while writing help is on', async ({
     // Writing help off: no buttons.
     await page.request.patch(`${V}/platform/ai`, { data: { writingHelp: false } });
     await page.goto(`/campaigns/${campaign.id}?tab=scripts`);
+    await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: 'New script' }).first().click();
     await expect(page.getByRole('dialog').getByText('Caption suggestion')).toBeVisible();
     await expect(

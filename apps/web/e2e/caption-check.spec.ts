@@ -106,6 +106,8 @@ test('Caption check: live on the creator page, and on the team’s draft review'
 
     // The team reviews it and sees what's missing.
     await page.goto(`/campaigns/${campaign.id}?tab=submissions`);
+    // Let the page hydrate first: a click that lands mid-hydration can be lost.
+    await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: 'Review' }).first().click();
     const dialog = page.getByRole('dialog', { name: 'Review submission' });
     const teamCheck = dialog.getByRole('group', { name: 'Caption check' });

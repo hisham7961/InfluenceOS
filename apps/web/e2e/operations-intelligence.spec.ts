@@ -180,6 +180,9 @@ test('operator drives Comments, Mentions, Campaign/Team Chat, Trends, Creator 36
   await page.goto(`${campaignUrl}?tab=discussion`);
   await expect(page.getByRole('tab', { name: 'Discussion' })).toHaveAttribute('data-state', 'active');
   await expect(page.getByText('Campaign Chat')).toBeVisible();
+  // Let the chat hydrate first: text typed into inert markup never reaches
+  // React, so Send would stay disabled.
+  await page.waitForLoadState('networkidle');
   const campaignMessage = `Let's brief the creator on tone — ${STAMP}`;
   await page.getByPlaceholder(/Message the team about this campaign/i).fill(campaignMessage);
   await page.getByRole('button', { name: 'Send' }).click();
