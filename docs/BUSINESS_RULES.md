@@ -65,3 +65,26 @@ while the report is being written) the gap is never longer than 6 hours. A
 failed check retries after 1h, 2h, 4h… but never later than the normal gap.
 Removed posts and Stories are not checked. A post's page shows when its next
 check is due; "Refresh" checks it right away.
+
+## Creator licences (P3.5)
+
+A campaign names the countries it is for (`marketCountryCodes`; new campaigns
+start with Kuwait). An admin sets which countries need a creator advertising
+licence (Settings → Compliance; Kuwait, Saudi Arabia and the UAE by default).
+For each of the campaign's countries on that list, every creator still on the
+roster (invited, confirmed, in progress) is checked
+(`packages/domain/src/lib/licences.ts`):
+
+| State | Meaning |
+|---|---|
+| Valid | A licence for that country that lasts past the campaign's end (or has no end date) |
+| Missing | No licence recorded for that country |
+| Expired | Its end date has passed |
+| Ends during | It ends before the campaign does — or within 30 days when the campaign has no end date |
+
+The roster shows this per creator. Needs Attention shows one line per
+planning, active or paused campaign whose **confirmed / in-progress** creators
+are missing a valid licence (red while the campaign is active) or whose
+licences end during it (amber). A licence's own page status is "expiring
+soon" within 30 days of its end; the worker warns the creator's owner (or the
+whole team) once, 30 days ahead, and again after a renewal changes the date.

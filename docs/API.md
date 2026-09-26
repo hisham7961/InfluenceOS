@@ -390,6 +390,24 @@ from 2 days before the campaign to 3 days after it.
 
 Checks follow the post's age (see BUSINESS_RULES.md "Checking posts");
 `PublishedContentDTO.nextCheckAt` says when the next one is due.
+
+**Creator licences (P3.5).** A creator's advertising licence per country; a
+campaign's `marketCountryCodes` (on create/update and in `CampaignDetailDTO`)
+say which countries it is for. See BUSINESS_RULES.md "Creator licences".
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/influencers/:id/licences` | The creator's licences: `countryCode`, `authority`, `number`, `issuedAt`, `expiresAt`, `status` (`VALID` / `EXPIRING_SOON` within 30 days / `EXPIRED`), `daysLeft`, `document` (open with `GET /files/:id`). Needs `INFLUENCERS_VIEW`; country and brand scope. |
+| POST | `/api/v1/influencers/:id/licences` | Record one: `countryCode` (required), `authority`, `number`, `issuedAt`, `expiresAt`, `attachmentId` (must be one of this creator's files), `notes`. One per creator and country (409). Needs `INFLUENCERS_MANAGE`. |
+| PATCH | `/api/v1/licences/:id` | Change it (a renewal: new number or end date — a new end date re-arms the expiry reminder). |
+| DELETE | `/api/v1/licences/:id` | Remove it. |
+| GET | `/api/v1/campaigns/:id/licences` | The roster (invited, confirmed, in progress) against the campaign's countries that need a licence: per creator and country `VALID` / `MISSING` / `EXPIRED` / `EXPIRES_DURING`, and `ok`. Needs `CAMPAIGNS_VIEW`; brand scope, creators outside the viewer's countries left out. |
+| GET | `/api/v1/compliance/settings` | `licenceCountryCodes`: the countries where creators need a licence (default KW, SA, AE). |
+| PUT | `/api/v1/compliance/settings` | Admin only: set that list. |
+
+Needs Attention gains `CREATOR_LICENCE` (one per planning/active/paused
+campaign; `params.missing` / `params.expiring` count confirmed creators), and
+notifications gain `LICENCE_EXPIRING`.
 | GET | `/api/v1/campaigns/:id/influencers` | Influencers on a campaign. Each row carries `results`: posts live / total / planned, latest views and engagements, engagement rate, and the creator's own spend (fee + expenses recorded against them, gift purchases excluded) with cost per view and per engagement. |
 | GET | `/api/v1/campaigns/:idOrSlug/efficiency` | Campaign spend efficiency (CPV/CPM/CPE), metric freshness and sources, `perContent` (each post's estimated CPV from its own creator's spend) and `perCreator` (the roster's `results` side by side). |
 | POST | `/api/v1/campaigns/:id/influencers` | Add an influencer to a campaign. |

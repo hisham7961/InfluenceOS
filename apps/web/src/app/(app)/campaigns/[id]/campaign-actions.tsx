@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
+import { CountryMultiPicker } from '@/components/common/country-multi-picker';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ChevronDown, FileBarChart, Pencil } from 'lucide-react';
@@ -26,13 +27,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Field, Input, Textarea } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { errorMessage } from '@/lib/errors';
 
 /** Sentinel for "no objective" in the Select (Radix forbids an empty-string value). */
 const NONE = 'none';
-
 
 function toDateInput(s: string | null | undefined): string {
   if (!s) return '';
@@ -124,12 +130,15 @@ function EditCampaignDialog({
     campaign.plannedBudget != null ? String(campaign.plannedBudget) : '',
   );
   const [targetMarket, setTargetMarket] = React.useState(campaign.targetMarket ?? '');
+  const [markets, setMarkets] = React.useState<string[]>(campaign.marketCountryCodes);
   const [description, setDescription] = React.useState(campaign.description ?? '');
   const [brief, setBrief] = React.useState(campaign.brief ?? '');
   const [draftReview, setDraftReview] = React.useState(campaign.draftReview);
   const numText = (v: number | null) => (v != null ? String(v) : '');
   const [targetViews, setTargetViews] = React.useState(numText(campaign.targetViews));
-  const [targetEngagements, setTargetEngagements] = React.useState(numText(campaign.targetEngagements));
+  const [targetEngagements, setTargetEngagements] = React.useState(
+    numText(campaign.targetEngagements),
+  );
   const [targetRate, setTargetRate] = React.useState(numText(campaign.targetEngagementRate));
   const [targetCpv, setTargetCpv] = React.useState(numText(campaign.targetCostPerView));
   const [reportSummary, setReportSummary] = React.useState(campaign.reportSummary ?? '');
@@ -145,6 +154,7 @@ function EditCampaignDialog({
       setCurrency(campaign.currency);
       setPlannedBudget(campaign.plannedBudget != null ? String(campaign.plannedBudget) : '');
       setTargetMarket(campaign.targetMarket ?? '');
+      setMarkets(campaign.marketCountryCodes);
       setDescription(campaign.description ?? '');
       setBrief(campaign.brief ?? '');
       setDraftReview(campaign.draftReview);
@@ -184,6 +194,7 @@ function EditCampaignDialog({
         currency: currency.trim() || undefined,
         plannedBudget: budget === '' ? null : Number(budget),
         targetMarket: targetMarket.trim() || null,
+        marketCountryCodes: markets,
         description: description.trim() || null,
         brief: brief.trim() || null,
         draftReview,
@@ -212,7 +223,11 @@ function EditCampaignDialog({
 
         <div className="grid grid-cols-2 gap-4">
           <Field label={t('actions.nameLabel')} className="col-span-2">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('newForm.campaignNameLabel')} />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('newForm.campaignNameLabel')}
+            />
           </Field>
           <Field label={t('fields.status')}>
             <Select value={status} onValueChange={(v) => setStatus(v as CampaignStatus)}>
@@ -260,47 +275,116 @@ function EditCampaignDialog({
             />
           </Field>
           <Field label={t('fields.currency')}>
-            <Input value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder={t('newForm.currencyPlaceholder')} />
+            <Input
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              placeholder={t('newForm.currencyPlaceholder')}
+            />
           </Field>
-          <Field label={t('fields.targetMarket')} hint={t('fields.optionalHint')} className="col-span-2">
+          <Field
+            label={t('fields.marketCountries')}
+            hint={t('fields.marketCountriesHint')}
+            className="col-span-2"
+          >
+            <CountryMultiPicker value={markets} onChange={setMarkets} />
+          </Field>
+          <Field
+            label={t('fields.targetMarket')}
+            hint={t('fields.optionalHint')}
+            className="col-span-2"
+          >
             <Input
               value={targetMarket}
               onChange={(e) => setTargetMarket(e.target.value)}
               placeholder={t('actions.targetMarketPlaceholder')}
             />
           </Field>
-          <Field label={t('fields.description')} hint={t('fields.optionalHint')} className="col-span-2">
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+          <Field
+            label={t('fields.description')}
+            hint={t('fields.optionalHint')}
+            className="col-span-2"
+          >
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+            />
           </Field>
-          <Field label={t('newForm.creativeBriefLabel')} hint={t('fields.optionalHint')} className="col-span-2">
+          <Field
+            label={t('newForm.creativeBriefLabel')}
+            hint={t('fields.optionalHint')}
+            className="col-span-2"
+          >
             <Textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={3} />
           </Field>
-          <label className="col-span-2 flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+          <label className="border-border col-span-2 flex items-start justify-between gap-3 rounded-lg border px-3 py-2.5">
             <span className="min-w-0">
               <span className="block text-sm font-medium">{t('actions.draftReviewLabel')}</span>
-              <span className="block text-xs text-muted-foreground">{t('actions.draftReviewHint')}</span>
+              <span className="text-muted-foreground block text-xs">
+                {t('actions.draftReviewHint')}
+              </span>
             </span>
-            <Switch checked={draftReview} onCheckedChange={setDraftReview} aria-label={t('actions.draftReviewLabel')} />
+            <Switch
+              checked={draftReview}
+              onCheckedChange={setDraftReview}
+              aria-label={t('actions.draftReviewLabel')}
+            />
           </label>
 
           <div className="col-span-2 space-y-1 pt-2">
             <p className="text-sm font-semibold">{t('actions.targetsTitle')}</p>
-            <p className="text-xs text-muted-foreground">{t('actions.targetsHint')}</p>
+            <p className="text-muted-foreground text-xs">{t('actions.targetsHint')}</p>
           </div>
           <Field label={t('actions.targetViewsLabel')} hint={t('fields.optionalHint')}>
-            <Input inputMode="decimal" value={targetViews} onChange={(e) => setTargetViews(e.target.value)} placeholder="500k" dir="ltr" />
+            <Input
+              inputMode="decimal"
+              value={targetViews}
+              onChange={(e) => setTargetViews(e.target.value)}
+              placeholder="500k"
+              dir="ltr"
+            />
           </Field>
           <Field label={t('actions.targetEngagementsLabel')} hint={t('fields.optionalHint')}>
-            <Input inputMode="decimal" value={targetEngagements} onChange={(e) => setTargetEngagements(e.target.value)} placeholder="25k" dir="ltr" />
+            <Input
+              inputMode="decimal"
+              value={targetEngagements}
+              onChange={(e) => setTargetEngagements(e.target.value)}
+              placeholder="25k"
+              dir="ltr"
+            />
           </Field>
           <Field label={t('actions.targetRateLabel')} hint={t('fields.optionalHint')}>
-            <Input inputMode="decimal" value={targetRate} onChange={(e) => setTargetRate(e.target.value)} placeholder="4.5" dir="ltr" />
+            <Input
+              inputMode="decimal"
+              value={targetRate}
+              onChange={(e) => setTargetRate(e.target.value)}
+              placeholder="4.5"
+              dir="ltr"
+            />
           </Field>
-          <Field label={t('actions.targetCpvLabel', { currency: campaign.currency })} hint={t('fields.optionalHint')}>
-            <Input inputMode="decimal" value={targetCpv} onChange={(e) => setTargetCpv(e.target.value)} placeholder="0.010" dir="ltr" />
+          <Field
+            label={t('actions.targetCpvLabel', { currency: campaign.currency })}
+            hint={t('fields.optionalHint')}
+          >
+            <Input
+              inputMode="decimal"
+              value={targetCpv}
+              onChange={(e) => setTargetCpv(e.target.value)}
+              placeholder="0.010"
+              dir="ltr"
+            />
           </Field>
-          <Field label={t('actions.reportSummaryLabel')} hint={t('actions.reportSummaryHint')} className="col-span-2">
-            <Textarea value={reportSummary} onChange={(e) => setReportSummary(e.target.value)} rows={3} dir="auto" />
+          <Field
+            label={t('actions.reportSummaryLabel')}
+            hint={t('actions.reportSummaryHint')}
+            className="col-span-2"
+          >
+            <Textarea
+              value={reportSummary}
+              onChange={(e) => setReportSummary(e.target.value)}
+              rows={3}
+              dir="auto"
+            />
           </Field>
         </div>
 

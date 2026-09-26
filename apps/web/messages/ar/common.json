@@ -141,5 +141,7 @@
     "activeFilters": "عوامل التصفية النشطة",
     "removeFilter": "إزالة عامل التصفية: {filter}",
     "clearAll": "مسح الكل"
-  }
+  },
+  "removeItem": "إزالة {name}",
+  "addCountry": "إضافة دولة أخرى…"
 }

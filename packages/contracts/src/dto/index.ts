@@ -355,6 +355,8 @@ export interface CampaignDetailDTO extends CampaignSummaryDTO {
   description: string | null;
   brief: string | null;
   targetMarket: string | null;
+  /** The countries the campaign is for (ISO codes); creator licences are checked against them. */
+  marketCountryCodes: string[];
   internalNotes: string | null;
   owner: { id: string; name: string } | null;
   publishedContentCount: number;
@@ -741,7 +743,12 @@ export interface ProductShipmentDTO {
  *  enough context (creator/brand/campaign) to be useful without a second
  *  lookup; still the same underlying ProductShipment row, never a copy. */
 export interface LogisticsRequestDTO extends ProductShipmentDTO {
-  influencer: { id: string; displayName: string; avatarUrl: string | null; countryCode: string | null } | null;
+  influencer: {
+    id: string;
+    displayName: string;
+    avatarUrl: string | null;
+    countryCode: string | null;
+  } | null;
   brand: { id: string; name: string } | null;
   campaign: { id: string; name: string } | null;
   deliverableType: DeliverableType | null;
@@ -1417,7 +1424,8 @@ export interface AttentionItemDTO {
     | 'UGC_AWAITING_REVIEW'
     | 'CREATOR_MISSING_INFO'
     | 'INTEGRITY_ISSUE'
-    | 'LOGISTICS_ADDRESS_ISSUE';
+    | 'LOGISTICS_ADDRESS_ISSUE'
+    | 'CREATOR_LICENCE';
   title: string;
   description: string;
   severity: 'warning' | 'danger';
@@ -1478,7 +1486,13 @@ export interface WhatsNewSummaryDTO {
   submissionsApproved: number;
   usageRightsExpiring: number;
   items: WhatsNewItemDTO[];
-  byBrand: { brandId: string; brandName: string; updates: number; newContent: number; alerts: number }[];
+  byBrand: {
+    brandId: string;
+    brandName: string;
+    updates: number;
+    newContent: number;
+    alerts: number;
+  }[];
 }
 
 export interface ActiveCampaignCardDTO {
@@ -1724,7 +1738,12 @@ export interface CreatorPerformanceDTO {
   /** Paid to them, per currency (null without finance access). */
   paid: CurrencyTotalDTO[] | null;
   costPerView: { currency: string; value: number } | null;
-  byPlatform: { platform: Platform; posts: number; medianViews: number | null; medianEngagementRate: number | null }[];
+  byPlatform: {
+    platform: Platform;
+    posts: number;
+    medianViews: number | null;
+    medianEngagementRate: number | null;
+  }[];
   /** Sales credited to them through promo codes and tracking links (P3.1); null when none. */
   sales: { orders: number; revenue: CurrencyTotalDTO[]; clicks: number } | null;
 }
@@ -1744,7 +1763,11 @@ export interface ExecDashboardDTO {
 
 // --- Platform & API / mobile readiness -------------------------------------
 export type FeatureStatus = 'READY' | 'PARTIAL' | 'PLANNED' | 'ADMIN_SERVER_ONLY' | 'NOT_EXPOSED';
-export type FeatureClass = 'SHARED' | 'WEB_ONLY_BY_DESIGN' | 'MOBILE_ONLY_BY_DESIGN' | 'ADMIN_DESKTOP_ONLY';
+export type FeatureClass =
+  | 'SHARED'
+  | 'WEB_ONLY_BY_DESIGN'
+  | 'MOBILE_ONLY_BY_DESIGN'
+  | 'ADMIN_DESKTOP_ONLY';
 
 export interface FeatureDTO {
   key: string;
@@ -1926,7 +1949,16 @@ export interface CreatorTimelineItemDTO {
    *  'contacted' (CampaignInfluencer.dateContacted) and 'usageRights'
    *  (UsageRight.createdAt) were added to close gap #12 — see
    *  creator360.service.ts's timeline() for how each is derived. */
-  bucket: 'campaign' | 'content' | 'ugc' | 'logistics' | 'payment' | 'collaboration' | 'activity' | 'contacted' | 'usageRights';
+  bucket:
+    | 'campaign'
+    | 'content'
+    | 'ugc'
+    | 'logistics'
+    | 'payment'
+    | 'collaboration'
+    | 'activity'
+    | 'contacted'
+    | 'usageRights';
   message: string;
   link: string | null;
   at: string;
@@ -1937,7 +1969,15 @@ export interface CreatorTimelineItemDTO {
 export type CampaignOperationsStageState = 'done' | 'pending' | 'overdue' | 'waiting' | 'na';
 
 export interface CampaignOperationsStageDTO {
-  key: 'agreement' | 'product' | 'contentDue' | 'draft' | 'review' | 'approved' | 'published' | 'payment';
+  key:
+    | 'agreement'
+    | 'product'
+    | 'contentDue'
+    | 'draft'
+    | 'review'
+    | 'approved'
+    | 'published'
+    | 'payment';
   label: string;
   state: CampaignOperationsStageState;
   detail: string | null;
@@ -2001,7 +2041,16 @@ export type DuplicateMatchConfidence = 'exact' | 'strongPossible' | 'possible';
 
 /** One reason a candidate is a possible duplicate (PART 46) — shown so the user can judge for themselves, never an opaque "this is a duplicate" verdict. */
 export interface DuplicateMatchReasonDTO {
-  field: 'instagramUsername' | 'tiktokUsername' | 'youtubeUsername' | 'snapchatUsername' | 'xUsername' | 'email' | 'mobile' | 'whatsapp' | 'name';
+  field:
+    | 'instagramUsername'
+    | 'tiktokUsername'
+    | 'youtubeUsername'
+    | 'snapchatUsername'
+    | 'xUsername'
+    | 'email'
+    | 'mobile'
+    | 'whatsapp'
+    | 'name';
   value: string;
 }
 
@@ -2251,7 +2300,12 @@ export interface SalesImportResultDTO {
   invalidCount: number;
   /** Codes in the file that aren't set up for this brand (most used first, at most 20). */
   unknownCodes: { code: string; rows: number }[];
-  byCampaign: { campaignId: string; campaignName: string; orders: number; revenue: CurrencyTotalDTO[] }[];
+  byCampaign: {
+    campaignId: string;
+    campaignName: string;
+    orders: number;
+    revenue: CurrencyTotalDTO[];
+  }[];
 }
 
 export interface TrackingLinkResolveDTO {
@@ -2379,7 +2433,12 @@ export interface DiscoveredPostDTO {
   campaignId: string;
   campaignInfluencerId: string;
   /** The suggested (or chosen) deliverable. */
-  deliverable: { id: string; type: DeliverableType; platform: Platform; dueDate: string | null } | null;
+  deliverable: {
+    id: string;
+    type: DeliverableType;
+    platform: Platform;
+    dueDate: string | null;
+  } | null;
   /** Why it looks like campaign content: "code:SARA15", "hashtag:#glow", "mention:@brand", "brand", "disclosure". */
   signals: string[];
   status: 'NEW' | 'ADDED' | 'DISMISSED';
@@ -2401,3 +2460,60 @@ export interface DiscoveryRunDTO {
   unavailable: { platform: Platform; username: string; reason: string }[];
 }
 
+// --- Creator licences (P3.5) ---------------------------------------------------
+
+/** A creator's advertising licence in one country. */
+export interface CreatorLicenceDTO {
+  id: string;
+  influencerId: string;
+  countryCode: string;
+  authority: string | null;
+  number: string | null;
+  issuedAt: string | null;
+  expiresAt: string | null;
+  /** VALID, EXPIRING_SOON (within 30 days) or EXPIRED; no expiry date = VALID. */
+  status: 'VALID' | 'EXPIRING_SOON' | 'EXPIRED';
+  /** Days until it expires (negative once expired); null without an expiry date. */
+  daysLeft: number | null;
+  /** The scanned licence; open it with GET /files/:id. */
+  document: NoteAttachmentRefDTO | null;
+  notes: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * How one creator stands for one country the campaign needs a licence in:
+ * VALID, MISSING (no licence recorded), EXPIRED, or EXPIRES_DURING (it ends
+ * before the campaign does, or within 30 days when the campaign has no end).
+ */
+export type LicenceCheckState = 'VALID' | 'MISSING' | 'EXPIRED' | 'EXPIRES_DURING';
+
+export interface CampaignLicenceCheckDTO {
+  campaignId: string;
+  /** The campaign's countries. */
+  markets: string[];
+  /** Of those, the ones that need a creator licence (Settings → Compliance). */
+  checkedCountries: string[];
+  creators: {
+    campaignInfluencerId: string;
+    influencerId: string;
+    influencerName: string;
+    participationStatus: ParticipationStatus;
+    checks: {
+      countryCode: string;
+      state: LicenceCheckState;
+      licenceId: string | null;
+      number: string | null;
+      expiresAt: string | null;
+    }[];
+    /** Every checked country is VALID. */
+    ok: boolean;
+  }[];
+}
+
+export interface ComplianceSettingsDTO {
+  /** Countries where creators need an advertising licence to post for a brand. */
+  licenceCountryCodes: string[];
+}

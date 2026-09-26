@@ -10,7 +10,7 @@ import type {
   WhatsNewItemDTO,
   WhatsNewSummaryDTO,
 } from '@influenceos/contracts';
-import { LOGISTICS_ISSUE_TYPE_LABELS } from '@influenceos/shared';
+import { LOGISTICS_ISSUE_TYPE_LABELS, appRoutes } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { requireActor } from '../lib/authz';
 import { iso } from '../lib/helpers';
@@ -22,6 +22,7 @@ import { scopedBrandIds } from '../lib/scope';
 import { makeBrandService } from './brand.service';
 import { makeCampaignService } from './campaign.service';
 import { makeContentService } from './content.service';
+import { makeLicenceService } from './licence.service';
 
 const REMOVED_STATUSES = ['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BROKEN_LINK'] as const;
 // Real, already-recorded event categories worth surfacing in "What's New" —
@@ -54,7 +55,9 @@ export function makeDashboardService(ctx: DomainContext) {
   // authenticated actor can call it) never rolls up another brand's spend,
   // activity or content — mirrors whatsNew/whatsNewSummary/attention in this
   // same file, which already composed scope before this fix.
-  async function scopedBrandFilter(brandId?: string): Promise<{ brandId?: string | { in: string[] } }> {
+  async function scopedBrandFilter(
+    brandId?: string,
+  ): Promise<{ brandId?: string | { in: string[] } }> {
     const scope = await scopedBrandIds(ctx);
     if (brandId) return { brandId: scope && !scope.includes(brandId) ? { in: [] } : brandId };
     return scope ? { brandId: { in: scope } } : {};
@@ -63,14 +66,21 @@ export function makeDashboardService(ctx: DomainContext) {
   /** The caller's own "What's New" checkpoint — never lastLoginAt (item 35). */
   async function checkpoint(): Promise<Date | null> {
     const actor = requireActor(ctx);
-    const user = await prisma.user.findUnique({ where: { id: actor.id }, select: { lastWhatsNewViewedAt: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: actor.id },
+      select: { lastWhatsNewViewedAt: true },
+    });
     return user?.lastWhatsNewViewedAt ?? null;
   }
   /** Deliverable-relation variant of scopedBrandFilter — a Deliverable's
    *  brand lives at campaignInfluencer.campaign.brandId, not on the row itself. */
-  async function scopedDeliverableBrandFilter(brandId?: string): Promise<{ campaignInfluencer?: { campaign: { brandId: string | { in: string[] } } } }> {
+  async function scopedDeliverableBrandFilter(
+    brandId?: string,
+  ): Promise<{ campaignInfluencer?: { campaign: { brandId: string | { in: string[] } } } }> {
     const bf = await scopedBrandFilter(brandId);
-    return bf.brandId !== undefined ? { campaignInfluencer: { campaign: { brandId: bf.brandId } } } : {};
+    return bf.brandId !== undefined
+      ? { campaignInfluencer: { campaign: { brandId: bf.brandId } } }
+      : {};
   }
 
   async function totalSpend(brandId?: string): Promise<number> {
@@ -79,7 +89,10 @@ export function makeDashboardService(ctx: DomainContext) {
       where: bf.brandId !== undefined ? { brandId: bf.brandId } : {},
       select: { id: true },
     });
-    const money = await loadCampaignMoney(prisma, campaigns.map((c) => c.id));
+    const money = await loadCampaignMoney(
+      prisma,
+      campaigns.map((c) => c.id),
+    );
     return moneyNumberOr0(sumCampaignMoney(money.values(), 'totalSpend'));
   }
 
@@ -108,7 +121,12 @@ export function makeDashboardService(ctx: DomainContext) {
     ] = await Promise.all([
       prisma.campaign.count({ where: { status: 'ACTIVE', ...bf } }),
       prisma.campaignInfluencer.findMany({
-        where: { campaign: { status: 'ACTIVE', ...(bf.brandId !== undefined ? { brandId: bf.brandId } : {}) } },
+        where: {
+          campaign: {
+            status: 'ACTIVE',
+            ...(bf.brandId !== undefined ? { brandId: bf.brandId } : {}),
+          },
+        },
         select: { influencerId: true },
         distinct: ['influencerId'],
       }),
@@ -205,22 +223,33 @@ export function makeDashboardService(ctx: DomainContext) {
     const bf = await scopedBrandFilter(brandId);
     const notifWhere = { ...bf, createdAt: { gt: effectiveSince } };
 
-    const [items, newContent, campaignsLaunched, byCategory, byBrandRows, brands] = await Promise.all([
-      whatsNew(brandId, 20),
-      prisma.publishedContent.count({ where: { ...bf, detectedAt: { gt: effectiveSince } } }),
-      prisma.campaign.count({ where: { ...bf, status: 'ACTIVE', createdAt: { gt: effectiveSince } } }),
-      prisma.notification.groupBy({
-        by: ['category'],
-        where: { ...notifWhere, category: { in: WHATS_NEW_CATEGORIES } },
-        _count: true,
-      }),
-      prisma.notification.groupBy({
-        by: ['brandId', 'category'],
-        where: { ...scopeWhere, createdAt: { gt: effectiveSince }, brandId: { not: null }, category: { in: WHATS_NEW_CATEGORIES } },
-        _count: true,
-      }),
-      prisma.brand.findMany({ where: scope ? { id: { in: scope } } : {}, select: { id: true, name: true } }),
-    ]);
+    const [items, newContent, campaignsLaunched, byCategory, byBrandRows, brands] =
+      await Promise.all([
+        whatsNew(brandId, 20),
+        prisma.publishedContent.count({ where: { ...bf, detectedAt: { gt: effectiveSince } } }),
+        prisma.campaign.count({
+          where: { ...bf, status: 'ACTIVE', createdAt: { gt: effectiveSince } },
+        }),
+        prisma.notification.groupBy({
+          by: ['category'],
+          where: { ...notifWhere, category: { in: WHATS_NEW_CATEGORIES } },
+          _count: true,
+        }),
+        prisma.notification.groupBy({
+          by: ['brandId', 'category'],
+          where: {
+            ...scopeWhere,
+            createdAt: { gt: effectiveSince },
+            brandId: { not: null },
+            category: { in: WHATS_NEW_CATEGORIES },
+          },
+          _count: true,
+        }),
+        prisma.brand.findMany({
+          where: scope ? { id: { in: scope } } : {},
+          select: { id: true, name: true },
+        }),
+      ]);
 
     const countFor = (cats: NotificationCategory[]) =>
       byCategory.filter((r) => cats.includes(r.category)).reduce((sum, r) => sum + r._count, 0);
@@ -247,7 +276,11 @@ export function makeDashboardService(ctx: DomainContext) {
       usageRightsExpiring: countFor(['USAGE_RIGHT_EXPIRING']),
       items,
       byBrand: Array.from(byBrandMap.entries())
-        .map(([brandId_, v]) => ({ brandId: brandId_, brandName: brandNames.get(brandId_) ?? 'Unknown brand', ...v }))
+        .map(([brandId_, v]) => ({
+          brandId: brandId_,
+          brandName: brandNames.get(brandId_) ?? 'Unknown brand',
+          ...v,
+        }))
         .sort((a, b) => b.updates - a.updates),
     };
   }
@@ -264,7 +297,9 @@ export function makeDashboardService(ctx: DomainContext) {
    *  expiring usage rights etc. in full. Delegating to scopedBrandFilter()
    *  gives the same "out-of-scope explicit filter matches nothing" guarantee
    *  every other buildWhere() in this codebase already has. */
-  async function attentionBrandFilter(brandId?: string): Promise<{ brandId?: string | { in: string[] } }> {
+  async function attentionBrandFilter(
+    brandId?: string,
+  ): Promise<{ brandId?: string | { in: string[] } }> {
     return scopedBrandFilter(brandId);
   }
 
@@ -282,7 +317,11 @@ export function makeDashboardService(ctx: DomainContext) {
    * `limit` and item-shaped; forcing the digest through this capped list
    * would silently undercount at scale.
    */
-  async function attention(brandId?: string, campaignId?: string, limit = 12): Promise<AttentionItemDTO[]> {
+  async function attention(
+    brandId?: string,
+    campaignId?: string,
+    limit = 12,
+  ): Promise<AttentionItemDTO[]> {
     const now = new Date();
     const in5 = new Date(now.getTime() + 5 * 864e5);
     const in14 = new Date(now.getTime() + 14 * 864e5);
@@ -293,93 +332,148 @@ export function makeDashboardService(ctx: DomainContext) {
     // (never a way to escape it) — a scoped user passing a campaignId from
     // another brand simply gets zero rows, same as any other out-of-scope
     // filter in this codebase.
-    const ciFilter = { ...(bf.brandId ? { campaign: { brandId: bf.brandId } } : {}), ...(campaignId ? { campaignId } : {}) };
+    const ciFilter = {
+      ...(bf.brandId ? { campaign: { brandId: bf.brandId } } : {}),
+      ...(campaignId ? { campaignId } : {}),
+    };
     const deliverableBf = Object.keys(ciFilter).length ? { campaignInfluencer: ciFilter } : {};
     const shipmentBf = deliverableBf;
     const directCampaignFilter = campaignId ? { campaignId } : {};
 
-    const [overdue, removed, endingSoon, unassignedCount, shipmentIssues, expiringRights, ownerlessCount, ugcAwaiting, logisticsIssues] =
-      await Promise.all([
-        prisma.deliverable.findMany({
-          where: { AND: [overdueWhere(now), deliverableBf] },
-          include: {
-            campaignInfluencer: {
-              select: { campaignId: true, influencer: { select: { displayName: true } }, campaign: { select: { name: true, brandId: true } } },
+    const [
+      overdue,
+      removed,
+      endingSoon,
+      unassignedCount,
+      shipmentIssues,
+      expiringRights,
+      ownerlessCount,
+      ugcAwaiting,
+      logisticsIssues,
+      licenceIssues,
+    ] = await Promise.all([
+      prisma.deliverable.findMany({
+        where: { AND: [overdueWhere(now), deliverableBf] },
+        include: {
+          campaignInfluencer: {
+            select: {
+              campaignId: true,
+              influencer: { select: { displayName: true } },
+              campaign: { select: { name: true, brandId: true } },
             },
           },
-          orderBy: { dueDate: 'asc' },
-          take: limit,
-        }),
-        prisma.publishedContent.findMany({
-          where: { availabilityStatus: { in: [...REMOVED_STATUSES] }, ...bf, ...directCampaignFilter },
-          include: { influencer: { select: { displayName: true } } },
-          orderBy: { lastCheckedAt: 'desc' },
-          take: limit,
-        }),
-        prisma.campaign.findMany({
-          where: { status: 'ACTIVE', endDate: { gte: now, lte: in5 }, ...bf, ...(campaignId ? { id: campaignId } : {}) },
-          orderBy: { endDate: 'asc' },
-          take: limit,
-        }),
-        // Content Command Center pass — reuses the SAME "no campaign, no
-        // influencer" derivation as everywhere else (never a stored column),
-        // one roll-up entry rather than a row per item. Not meaningful when
-        // scoped to a single campaign (unassigned content has no campaign by
-        // definition), so skip the query entirely rather than return a
-        // confusing always-zero count.
-        campaignId ? Promise.resolve(0) : prisma.publishedContent.count({ where: { campaignId: null, influencerId: null, ...bf } }),
-        prisma.productShipment.findMany({
-          where: { status: { in: ['FAILED', 'RETURNED'] }, ...shipmentBf },
-          include: {
-            campaignInfluencer: {
-              select: { campaignId: true, influencer: { select: { displayName: true } }, campaign: { select: { name: true, brandId: true } } },
+        },
+        orderBy: { dueDate: 'asc' },
+        take: limit,
+      }),
+      prisma.publishedContent.findMany({
+        where: {
+          availabilityStatus: { in: [...REMOVED_STATUSES] },
+          ...bf,
+          ...directCampaignFilter,
+        },
+        include: { influencer: { select: { displayName: true } } },
+        orderBy: { lastCheckedAt: 'desc' },
+        take: limit,
+      }),
+      prisma.campaign.findMany({
+        where: {
+          status: 'ACTIVE',
+          endDate: { gte: now, lte: in5 },
+          ...bf,
+          ...(campaignId ? { id: campaignId } : {}),
+        },
+        orderBy: { endDate: 'asc' },
+        take: limit,
+      }),
+      // Content Command Center pass — reuses the SAME "no campaign, no
+      // influencer" derivation as everywhere else (never a stored column),
+      // one roll-up entry rather than a row per item. Not meaningful when
+      // scoped to a single campaign (unassigned content has no campaign by
+      // definition), so skip the query entirely rather than return a
+      // confusing always-zero count.
+      campaignId
+        ? Promise.resolve(0)
+        : prisma.publishedContent.count({ where: { campaignId: null, influencerId: null, ...bf } }),
+      prisma.productShipment.findMany({
+        where: { status: { in: ['FAILED', 'RETURNED'] }, ...shipmentBf },
+        include: {
+          campaignInfluencer: {
+            select: {
+              campaignId: true,
+              influencer: { select: { displayName: true } },
+              campaign: { select: { name: true, brandId: true } },
             },
           },
-          orderBy: { updatedAt: 'desc' },
-          take: limit,
-        }),
-        prisma.usageRight.findMany({
-          where: { status: 'ACTIVE', expiresAt: { gte: now, lte: in14 }, ...bf, ...directCampaignFilter },
-          include: { brand: { select: { name: true } } },
-          orderBy: { expiresAt: 'asc' },
-          take: limit,
-        }),
-        // "Campaigns missing an owner" is a discovery item, not something a
-        // single already-open campaign's own board needs restated — skip
-        // when scoped, same reasoning as unassignedCount above.
-        campaignId ? Promise.resolve(0) : prisma.campaign.count({ where: { ownerId: null, status: { in: ['ACTIVE', 'PLANNING'] }, ...bf } }),
-        prisma.deliverableSubmission.findMany({
-          where: { status: 'IN_REVIEW', deliverable: { campaignInfluencer: ciFilter } },
-          include: {
-            deliverable: {
-              select: {
-                campaignInfluencer: {
-                  select: { campaignId: true, influencer: { select: { displayName: true } }, campaign: { select: { name: true, brandId: true } } },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: limit,
+      }),
+      prisma.usageRight.findMany({
+        where: {
+          status: 'ACTIVE',
+          expiresAt: { gte: now, lte: in14 },
+          ...bf,
+          ...directCampaignFilter,
+        },
+        include: { brand: { select: { name: true } } },
+        orderBy: { expiresAt: 'asc' },
+        take: limit,
+      }),
+      // "Campaigns missing an owner" is a discovery item, not something a
+      // single already-open campaign's own board needs restated — skip
+      // when scoped, same reasoning as unassignedCount above.
+      campaignId
+        ? Promise.resolve(0)
+        : prisma.campaign.count({
+            where: { ownerId: null, status: { in: ['ACTIVE', 'PLANNING'] }, ...bf },
+          }),
+      prisma.deliverableSubmission.findMany({
+        where: { status: 'IN_REVIEW', deliverable: { campaignInfluencer: ciFilter } },
+        include: {
+          deliverable: {
+            select: {
+              campaignInfluencer: {
+                select: {
+                  campaignId: true,
+                  influencer: { select: { displayName: true } },
+                  campaign: { select: { name: true, brandId: true } },
                 },
               },
             },
           },
-          orderBy: { createdAt: 'asc' },
-          take: limit,
-        }),
-        // Advanced Roles & Logistics Operations pass — the SAME LogisticsIssue
-        // records the Logistics workspace and Influencer 360 show, surfaced
-        // here as an actionable attention item, never a duplicate calculation.
-        prisma.logisticsIssue.findMany({
-          where: { status: 'OPEN', shipment: { campaignInfluencer: ciFilter } },
-          include: {
-            shipment: {
-              select: {
-                campaignInfluencer: {
-                  select: { campaignId: true, influencer: { select: { displayName: true } }, campaign: { select: { name: true, brandId: true } } },
+        },
+        orderBy: { createdAt: 'asc' },
+        take: limit,
+      }),
+      // Advanced Roles & Logistics Operations pass — the SAME LogisticsIssue
+      // records the Logistics workspace and Influencer 360 show, surfaced
+      // here as an actionable attention item, never a duplicate calculation.
+      prisma.logisticsIssue.findMany({
+        where: { status: 'OPEN', shipment: { campaignInfluencer: ciFilter } },
+        include: {
+          shipment: {
+            select: {
+              campaignInfluencer: {
+                select: {
+                  campaignId: true,
+                  influencer: { select: { displayName: true } },
+                  campaign: { select: { name: true, brandId: true } },
                 },
               },
             },
           },
-          orderBy: { createdAt: 'asc' },
-          take: limit,
-        }),
-      ]);
+        },
+        orderBy: { createdAt: 'asc' },
+        take: limit,
+      }),
+      // Creators who agreed to post without a licence covering the
+      // campaign's countries (P3.5) — one line per campaign.
+      makeLicenceService(ctx).campaignIssues(
+        { ...bf, ...(campaignId ? { id: campaignId } : {}) },
+        limit,
+      ),
+    ]);
 
     for (const d of overdue) {
       out.push({
@@ -394,7 +488,11 @@ export function makeDashboardService(ctx: DomainContext) {
         campaignId: d.campaignInfluencer.campaignId,
         influencerId: null,
         actionLabel: 'Open deliverable',
-        params: { influencerName: d.campaignInfluencer.influencer.displayName, type: d.type, campaignName: d.campaignInfluencer.campaign.name },
+        params: {
+          influencerName: d.campaignInfluencer.influencer.displayName,
+          type: d.type,
+          campaignName: d.campaignInfluencer.campaign.name,
+        },
       });
     }
     for (const c of removed) {
@@ -448,7 +546,10 @@ export function makeDashboardService(ctx: DomainContext) {
         campaignId: s.campaignInfluencer.campaignId,
         influencerId: null,
         actionLabel: 'Resolve shipment',
-        params: { influencerName: s.campaignInfluencer.influencer.displayName, campaignName: s.campaignInfluencer.campaign.name },
+        params: {
+          influencerName: s.campaignInfluencer.influencer.displayName,
+          campaignName: s.campaignInfluencer.campaign.name,
+        },
       });
     }
     for (const i of logisticsIssues) {
@@ -469,7 +570,11 @@ export function makeDashboardService(ctx: DomainContext) {
         campaignId: ci.campaignId,
         influencerId: null,
         actionLabel: 'Resolve in Logistics',
-        params: { influencerName: ci.influencer.displayName, campaignName: ci.campaign.name, issueType: i.type },
+        params: {
+          influencerName: ci.influencer.displayName,
+          campaignName: ci.campaign.name,
+          issueType: i.type,
+        },
       });
     }
     for (const r of expiringRights) {
@@ -485,7 +590,11 @@ export function makeDashboardService(ctx: DomainContext) {
         campaignId: r.campaignId,
         influencerId: r.influencerId,
         actionLabel: 'Review usage right',
-        params: { brandName: r.brand.name, usageType: r.usageType, expiresAt: r.expiresAt?.toISOString().slice(0, 10) ?? '' },
+        params: {
+          brandName: r.brand.name,
+          usageType: r.usageType,
+          expiresAt: r.expiresAt?.toISOString().slice(0, 10) ?? '',
+        },
       });
     }
     for (const s of ugcAwaiting) {
@@ -506,12 +615,36 @@ export function makeDashboardService(ctx: DomainContext) {
       });
     }
 
+    for (const l of licenceIssues) {
+      const parts = [
+        l.missing ? `${l.missing} without a valid licence` : null,
+        l.expiring ? `${l.expiring} whose licence ends before the campaign does` : null,
+      ].filter(Boolean);
+      out.push({
+        id: `licence-${l.campaign.id}`,
+        kind: 'CREATOR_LICENCE',
+        title: `Creator licences — ${l.campaign.name}`,
+        description: `Creators on this campaign: ${parts.join(', ')}.`,
+        // A creator posting without a licence is the legal risk; one that
+        // only ends later is a heads-up.
+        severity: l.missing && l.campaign.status === 'ACTIVE' ? 'danger' : 'warning',
+        link: appRoutes.campaign(l.campaign.id, 'influencers'),
+        at: now.toISOString(),
+        brandId: l.campaign.brandId,
+        campaignId: l.campaign.id,
+        influencerId: null,
+        actionLabel: 'Check licences',
+        params: { campaignName: l.campaign.name, missing: l.missing, expiring: l.expiring },
+      });
+    }
+
     if (unassignedCount > 0) {
       out.push({
         id: 'unassigned-content',
         kind: 'UNASSIGNED_CONTENT',
         title: `${unassignedCount} unassigned content item${unassignedCount === 1 ? '' : 's'}`,
-        description: 'Published content with no campaign or influencer linked yet — resolve it from the content wall.',
+        description:
+          'Published content with no campaign or influencer linked yet — resolve it from the content wall.',
         severity: 'warning',
         link: '/content?assignment=UNASSIGNED',
         at: now.toISOString(),
@@ -543,7 +676,10 @@ export function makeDashboardService(ctx: DomainContext) {
     return out.sort((a, b) => severityRank(a.severity) - severityRank(b.severity)).slice(0, limit);
   }
 
-  async function activeCampaignCards(brandId?: string, limit = 6): Promise<ActiveCampaignCardDTO[]> {
+  async function activeCampaignCards(
+    brandId?: string,
+    limit = 6,
+  ): Promise<ActiveCampaignCardDTO[]> {
     const result = await campaigns.list({
       page: 1,
       pageSize: limit,
@@ -569,7 +705,14 @@ export function makeDashboardService(ctx: DomainContext) {
         ...(bf.brandId !== undefined ? { campaign: { brandId: bf.brandId } } : {}),
       },
       include: {
-        influencer: { select: { displayName: true, primaryPlatform: true, avatarOverrideUrl: true, resolvedAvatarUrl: true } },
+        influencer: {
+          select: {
+            displayName: true,
+            primaryPlatform: true,
+            avatarOverrideUrl: true,
+            resolvedAvatarUrl: true,
+          },
+        },
         campaign: { select: { name: true, brand: { select: { name: true } } } },
         deliverables: { select: { platform: true }, take: 1 },
       },
@@ -612,19 +755,27 @@ export function makeDashboardService(ctx: DomainContext) {
   }
 
   async function global(brandId?: string): Promise<GlobalDashboardDTO> {
-    const [pulseData, whatsNewData, whatsNewSummaryData, attentionData, activeData, upcomingData, activityData, contentSummaryData] =
-      await Promise.all([
-        pulse(brandId),
-        whatsNew(brandId),
-        whatsNewSummary(brandId),
-        attention(brandId),
-        activeCampaignCards(brandId),
-        upcomingContent(brandId),
-        recentActivity(brandId),
-        // Reused for the "Review New Content" CTA's count — same
-        // GET /content/summary aggregation, not a second computation.
-        content.summary({}),
-      ]);
+    const [
+      pulseData,
+      whatsNewData,
+      whatsNewSummaryData,
+      attentionData,
+      activeData,
+      upcomingData,
+      activityData,
+      contentSummaryData,
+    ] = await Promise.all([
+      pulse(brandId),
+      whatsNew(brandId),
+      whatsNewSummary(brandId),
+      attention(brandId),
+      activeCampaignCards(brandId),
+      upcomingContent(brandId),
+      recentActivity(brandId),
+      // Reused for the "Review New Content" CTA's count — same
+      // GET /content/summary aggregation, not a second computation.
+      content.summary({}),
+    ]);
     return {
       pulse: pulseData,
       whatsNew: whatsNewData,

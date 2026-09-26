@@ -35,7 +35,8 @@
     "MENTION": "Mention",
     "REPLY": "Reply",
     "IMPORTANT_MESSAGE": "Important message",
-    "LOGISTICS_ADDRESS_ISSUE": "Address issue"
+    "LOGISTICS_ADDRESS_ISSUE": "Address issue",
+    "LICENCE_EXPIRING": "Creator licence expiring"
   },
   "emailSettings": "Email settings"
 }

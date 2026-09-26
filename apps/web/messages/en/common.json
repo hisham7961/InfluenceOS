@@ -141,5 +141,7 @@
     "activeFilters": "Active filters",
     "removeFilter": "Remove filter: {filter}",
     "clearAll": "Clear all"
-  }
+  },
+  "removeItem": "Remove {name}",
+  "addCountry": "Add another country…"
 }

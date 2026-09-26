@@ -313,5 +313,15 @@
   "n_new_posts_found_body": "{n} منشورات جديدة من {displayName} قد تخص حملة {name}.",
   "e_suggested_post_not_found": "لم يتم العثور على المنشور المقترح.",
   "e_post_already_decided": "تمت إضافة هذا المنشور أو استبعاده مسبقاً.",
-  "e_deliverable_not_this_creators": "هذه المهمة لا تخص هذا المؤثر في هذه الحملة."
+  "e_deliverable_not_this_creators": "هذه المهمة لا تخص هذا المؤثر في هذه الحملة.",
+  "n_creator_licence_expiring": "رخصة مؤثر تقترب من الانتهاء",
+  "n_creator_licence_expires_day": "رخصة الإعلان الخاصة بـ {displayName} ({countryCode}) تنتهي خلال {days} يوم.",
+  "e_licence_file_not_creators": "ملف الرخصة يجب أن يكون من ملفات هذا المؤثر.",
+  "e_licence_country_taken": "لدى هذا المؤثر رخصة لهذه الدولة بالفعل. عدّلها بدلاً من إضافة رخصة جديدة.",
+  "e_licence_not_found": "لم يتم العثور على الرخصة.",
+  "e_licence_dates": "تاريخ الانتهاء يجب أن يكون بعد تاريخ الإصدار.",
+  "a_recorded_licence": "{name} سجّل رخصة الإعلان الخاصة بـ {displayName} في {countryCode}.",
+  "a_updated_licence": "{name} حدّث رخصة الإعلان الخاصة بـ {displayName} في {countryCode}.",
+  "a_removed_licence": "{name} حذف رخصة الإعلان الخاصة بـ {displayName} في {countryCode}.",
+  "a_changed_licence_countries": "{name} غيّر قائمة الدول التي يحتاج فيها المؤثر رخصة إعلان."
 }

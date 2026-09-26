@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import {
   ArrowRight,
+  BadgeCheck,
   BellRing,
   Database,
   Flag,
@@ -51,14 +52,14 @@ export default async function SettingsPage() {
           description={t('hub.cards.general.description')}
           className="md:col-span-2"
         >
-          <div className="mt-4 flex flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="border-border mt-4 flex flex-col gap-4 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <Avatar name={user.name} src={user.avatarUrl} size="lg" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">
                   <BidiText>{user.name}</BidiText>
                 </p>
-                <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+                <p className="text-muted-foreground flex items-center gap-1.5 truncate text-xs">
                   <Mail className="h-3.5 w-3.5 shrink-0" />
                   <LtrText>{user.email}</LtrText>
                 </p>
@@ -147,6 +148,13 @@ export default async function SettingsPage() {
         ) : null}
 
         <NavCard
+          href="/settings/compliance"
+          icon={BadgeCheck}
+          title={t('hub.cards.compliance.title')}
+          description={t('hub.cards.compliance.description')}
+        />
+
+        <NavCard
           href="/settings/platform#flags"
           icon={Flag}
           title={t('hub.cards.featureFlags.title')}
@@ -156,12 +164,14 @@ export default async function SettingsPage() {
         {/* Appearance & language — explains top bar controls, not a link */}
         <Card className="border-dashed">
           <CardHeader className="flex-row items-start gap-4 space-y-0">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
+            <span className="bg-brand-soft text-brand flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
               <Palette className="h-5 w-5" />
             </span>
             <div className="min-w-0 space-y-1">
-              <p className="text-base font-semibold leading-tight tracking-tight">{t('hub.appearance.title')}</p>
-              <p className="text-sm text-muted-foreground">{t('hub.appearance.description')}</p>
+              <p className="text-base font-semibold leading-tight tracking-tight">
+                {t('hub.appearance.title')}
+              </p>
+              <p className="text-muted-foreground text-sm">{t('hub.appearance.description')}</p>
             </div>
           </CardHeader>
         </Card>
@@ -189,9 +199,9 @@ function NavCard({
 }) {
   return (
     <Link href={href} className={`group block ${className ?? ''}`}>
-      <Card className="h-full transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-elevated">
+      <Card className="hover:border-brand/30 hover:shadow-elevated h-full transition-all duration-200 hover:-translate-y-0.5">
         <CardContent className="flex items-start gap-4 p-5">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand transition-colors group-hover:bg-brand group-hover:text-white">
+          <span className="bg-brand-soft text-brand group-hover:bg-brand flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors group-hover:text-white">
             <Icon className="h-5 w-5" />
           </span>
           <div className="min-w-0 flex-1">
@@ -203,9 +213,9 @@ function NavCard({
                 </Badge>
               ) : null}
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+            <p className="text-muted-foreground mt-1 text-sm">{description}</p>
           </div>
-          <ArrowRight className="rtl:-scale-x-100 mt-1 h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform duration-200 group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 group-hover:text-brand" />
+          <ArrowRight className="text-muted-foreground/50 group-hover:text-brand mt-1 h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 rtl:-scale-x-100 rtl:group-hover:-translate-x-0.5" />
         </CardContent>
         {children ? <div className="px-5 pb-5">{children}</div> : null}
       </Card>

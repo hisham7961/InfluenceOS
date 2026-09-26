@@ -9,6 +9,7 @@ import {
 import type { DomainContext } from '../context';
 import { dueWithinWhere, overdueWhere } from './deliverable-rules';
 import { createNotification } from './helpers';
+import { LICENCE_SOON_DAYS } from './licences';
 
 /**
  * The reminders the worker sends (P2.6) — deadlines, campaigns ending and
@@ -57,9 +58,10 @@ const rowSelect = {
 
 /** Who is told about a deliverable: its campaign's owner and its creator's owner, or everyone. */
 function recipientsOf(r: Row): (string | null)[] {
-  const ids = [r.campaignInfluencer.campaign.ownerId, r.campaignInfluencer.influencer.ownerId].filter(
-    (x): x is string => !!x,
-  );
+  const ids = [
+    r.campaignInfluencer.campaign.ownerId,
+    r.campaignInfluencer.influencer.ownerId,
+  ].filter((x): x is string => !!x);
   return ids.length ? [...new Set(ids)] : [null];
 }
 
@@ -83,7 +85,10 @@ function typeWord(type: string): string {
   return words[type] ?? type.charAt(0) + type.slice(1).toLowerCase();
 }
 
-export async function runReminders(ctx: DomainContext, now: Date = new Date()): Promise<{ created: number }> {
+export async function runReminders(
+  ctx: DomainContext,
+  now: Date = new Date(),
+): Promise<{ created: number }> {
   const { prisma } = ctx;
   let created = 0;
 
@@ -130,7 +135,10 @@ export async function runReminders(ctx: DomainContext, now: Date = new Date()): 
     created++;
   }
   if (overdue.length) {
-    await prisma.deliverable.updateMany({ where: { id: { in: overdue.map((r) => r.id) } }, data: { overdueRemindedAt: now } });
+    await prisma.deliverable.updateMany({
+      where: { id: { in: overdue.map((r) => r.id) } },
+      data: { overdueRemindedAt: now },
+    });
   }
 
   // --- Due soon (today, tomorrow, the day after — Kuwait days) --------------
@@ -143,7 +151,9 @@ export async function runReminders(ctx: DomainContext, now: Date = new Date()): 
   })) as Row[];
   // Remind once per due date: skip if reminded within 3 days before this one.
   const dueSoon = soonCandidates.filter(
-    (r) => r.dueDate && (!r.dueSoonRemindedAt || r.dueSoonRemindedAt.getTime() < r.dueDate.getTime() - 3 * DAY),
+    (r) =>
+      r.dueDate &&
+      (!r.dueSoonRemindedAt || r.dueSoonRemindedAt.getTime() < r.dueDate.getTime() - 3 * DAY),
   );
   for (const { userId, rows } of groupRows(dueSoon).values()) {
     const first = rows[0]!;
@@ -173,7 +183,10 @@ export async function runReminders(ctx: DomainContext, now: Date = new Date()): 
     created++;
   }
   if (dueSoon.length) {
-    await prisma.deliverable.updateMany({ where: { id: { in: dueSoon.map((r) => r.id) } }, data: { dueSoonRemindedAt: now } });
+    await prisma.deliverable.updateMany({
+      where: { id: { in: dueSoon.map((r) => r.id) } },
+      data: { dueSoonRemindedAt: now },
+    });
   }
 
   // --- Campaigns ending within 3 days (once per end date) ------------------
@@ -201,11 +214,17 @@ export async function runReminders(ctx: DomainContext, now: Date = new Date()): 
   // --- Usage rights -----------------------------------------------------------
   // Keep the stored ledger truthful: ACTIVE licences past their expiry are
   // EXPIRED (the DTO derives it on read too, but reports filter the column).
-  await prisma.usageRight.updateMany({ where: { status: 'ACTIVE', expiresAt: { lt: now } }, data: { status: 'EXPIRED' } });
+  await prisma.usageRight.updateMany({
+    where: { status: 'ACTIVE', expiresAt: { lt: now } },
+    data: { status: 'EXPIRED' },
+  });
   // Warn once per licence and expiry date, so ad spend isn't planned on
   // rights about to lapse; extending a licence warns again next time.
   const expiring = await prisma.usageRight.findMany({
-    where: { status: 'ACTIVE', expiresAt: { gte: now, lte: new Date(now.getTime() + USAGE_RIGHT_EXPIRY_WARNING_DAYS * DAY) } },
+    where: {
+      status: 'ACTIVE',
+      expiresAt: { gte: now, lte: new Date(now.getTime() + USAGE_RIGHT_EXPIRY_WARNING_DAYS * DAY) },
+    },
     include: { brand: { select: { name: true } } },
     orderBy: { expiresAt: 'asc' },
     take: 200,
@@ -228,10 +247,48 @@ export async function runReminders(ctx: DomainContext, now: Date = new Date()): 
     created++;
   }
 
+  // --- Creator licences (P3.5) -------------------------------------------------
+  // Warn once per licence and expiry date, 30 days ahead, to the creator's
+  // owner (or the whole team). Renewing it (a new expiry date) clears the
+  // mark, so the renewed licence is warned about in its turn.
+  const licences = await prisma.creatorLicence.findMany({
+    where: {
+      expiresAt: { gte: now, lte: new Date(now.getTime() + LICENCE_SOON_DAYS * DAY) },
+      expiryRemindedAt: null,
+    },
+    include: { influencer: { select: { id: true, displayName: true, ownerId: true } } },
+    orderBy: { expiresAt: 'asc' },
+    take: 200,
+  });
+  for (const l of licences) {
+    const dedupeKey = `licence-expiring:${l.id}:${l.expiresAt!.toISOString().slice(0, 10)}`;
+    if (!(await alreadySent(ctx, 'LICENCE_EXPIRING', dedupeKey))) {
+      const days = daysUntilExpiry(l.expiresAt, now) ?? 0;
+      await createNotification(ctx, {
+        category: 'LICENCE_EXPIRING',
+        title: 'Creator licence expiring',
+        body: `${l.influencer.displayName}'s advertising licence (${l.countryCode}) expires in ${days} day${days === 1 ? '' : 's'}.`,
+        targetUrl: appRoutes.influencer(l.influencerId),
+        influencerId: l.influencerId,
+        userId: l.influencer.ownerId,
+        dedupeKey,
+      });
+      created++;
+    }
+    await prisma.creatorLicence.update({ where: { id: l.id }, data: { expiryRemindedAt: now } });
+  }
+
   return { created };
 }
 
-async function alreadySent(ctx: DomainContext, category: NotificationCategory, dedupeKey: string): Promise<boolean> {
-  const existing = await ctx.prisma.notification.findFirst({ where: { category, dedupeKey }, select: { id: true } });
+async function alreadySent(
+  ctx: DomainContext,
+  category: NotificationCategory,
+  dedupeKey: string,
+): Promise<boolean> {
+  const existing = await ctx.prisma.notification.findFirst({
+    where: { category, dedupeKey },
+    select: { id: true },
+  });
   return !!existing;
 }

@@ -6,7 +6,7 @@ Every major capability, its backend/API/web status, and whether it is **Mobile R
 (business logic server-side, documented API, server-side auth + permissions, stable
 contracts, media represented independently of the web UI — spec addendum §37).
 
-**Coverage:** 40 features · API ready 39 · Web ready 40 · Mobile ready 36 · Admin-desktop-only 4 · **Mobile readiness 100%** (of SHARED features).
+**Coverage:** 41 features · API ready 40 · Web ready 41 · Mobile ready 37 · Admin-desktop-only 4 · **Mobile readiness 100%** (of SHARED features).
 
 | Feature | Module | Class | API | Web | Mobile Ready | Roles | Flag |
 |---|---|---|---|---|:---:|---|---|
@@ -50,6 +50,7 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Client report links | Campaigns | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Creator task links | Campaigns | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Post discovery | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Creator advertising licences | Influencers | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 
 ## API endpoints by feature
 
@@ -318,3 +319,13 @@ contracts, media represented independently of the web UI — spec addendum §37)
 - `POST /api/v1/campaigns/:id/discover-posts`
 - `POST /api/v1/discovered-posts/:id/add`
 - `POST /api/v1/discovered-posts/:id/dismiss`
+
+### Creator advertising licences
+
+- `GET /api/v1/influencers/:id/licences`
+- `POST /api/v1/influencers/:id/licences`
+- `PATCH /api/v1/licences/:id`
+- `DELETE /api/v1/licences/:id`
+- `GET /api/v1/campaigns/:id/licences`
+- `GET /api/v1/compliance/settings`
+- `PUT /api/v1/compliance/settings`

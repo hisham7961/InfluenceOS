@@ -33,6 +33,9 @@ import type {
   CreatorPortalDTO,
   DiscoveredPostDTO,
   DiscoveryRunDTO,
+  CreatorLicenceDTO,
+  CampaignLicenceCheckDTO,
+  ComplianceSettingsDTO,
   PayablesPageDTO,
   PaymentDTO,
   PaymentsPageDTO,
@@ -125,7 +128,8 @@ export function createClient(config: ClientConfig) {
   const V = '/api/v1';
   const financeUrl = (path: string, params?: QueryParams) => {
     const q = new URLSearchParams();
-    for (const [k, v] of Object.entries(params ?? {})) if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
+    for (const [k, v] of Object.entries(params ?? {}))
+      if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
     const qs = q.toString();
     return `${config.baseUrl.replace(/\/$/, '')}${V}${path}${qs ? `?${qs}` : ''}`;
   };
@@ -150,7 +154,8 @@ export function createClient(config: ClientConfig) {
 
     users: {
       list: () => http.get<UserDTO[]>(`${V}/users`),
-      create: (body: In<typeof requests.registerUserSchema>) => http.post<UserDTO>(`${V}/users`, body),
+      create: (body: In<typeof requests.registerUserSchema>) =>
+        http.post<UserDTO>(`${V}/users`, body),
       // Lightweight id/name/avatar-only directory for the @mention picker — any authenticated user may read it.
       directory: () => http.get<TeamMemberRefDTO[]>(`${V}/users/directory`),
       update: (id: string, body: In<typeof requests.userAdminUpdateSchema>) =>
@@ -173,10 +178,10 @@ export function createClient(config: ClientConfig) {
         http.put<void>(`${V}/users/${id}/capabilities`, body),
       // Hypothetical, unsaved "this user can/cannot" preview — never persists.
       previewPermissions: (id: string, body: In<typeof requests.permissionPreviewSchema>) =>
-        http.post<{ effectiveCapabilities: string[]; permissionPreview: CapabilityPreviewLineDTO[] }>(
-          `${V}/users/${id}/permissions/preview`,
-          body,
-        ),
+        http.post<{
+          effectiveCapabilities: string[];
+          permissionPreview: CapabilityPreviewLineDTO[];
+        }>(`${V}/users/${id}/permissions/preview`, body),
     },
 
     brands: {
@@ -187,9 +192,11 @@ export function createClient(config: ClientConfig) {
         http.post<BrandDetailDTO>(`${V}/brands`, body),
       update: (id: string, body: In<typeof requests.brandUpdateSchema>) =>
         http.patch<BrandDetailDTO>(`${V}/brands/${id}`, body),
-      dashboard: (idOrSlug: string) => http.get<BrandDashboardDTO>(`${V}/brands/${idOrSlug}/dashboard`),
+      dashboard: (idOrSlug: string) =>
+        http.get<BrandDashboardDTO>(`${V}/brands/${idOrSlug}/dashboard`),
       // Usage-rights ledger for a brand (W3-2 web surface).
-      usageRights: (brandId: string) => http.get<UsageRightDTO[]>(`${V}/brands/${brandId}/usage-rights`),
+      usageRights: (brandId: string) =>
+        http.get<UsageRightDTO[]>(`${V}/brands/${brandId}/usage-rights`),
       createUsageRight: (brandId: string, body: In<typeof requests.usageRightCreateSchema>) =>
         http.post<UsageRightDTO>(`${V}/brands/${brandId}/usage-rights`, body),
       revokeUsageRight: (usageRightId: string) =>
@@ -211,7 +218,9 @@ export function createClient(config: ClientConfig) {
         http.get<CursorPage<InfluencerSummaryDTO>>(`${V}/influencers/cursor`, { query: params }),
       // Country-first summary strip — respects scope + every filter except the country facet itself.
       countrySummary: (params?: QueryParams) =>
-        http.get<InfluencerCountrySummaryDTO[]>(`${V}/influencers/country-summary`, { query: params }),
+        http.get<InfluencerCountrySummaryDTO[]>(`${V}/influencers/country-summary`, {
+          query: params,
+        }),
       // Export influencers + their info. Raw form returns the file Response
       // (CSV by default, `format=json` for structured rows) — for programmatic
       // / mobile use. `exportUrl` builds a same-origin href for a browser
@@ -220,7 +229,8 @@ export function createClient(config: ClientConfig) {
         http.get<Response>(`${V}/influencers/export`, { query: params, raw: true }),
       exportUrl: (params?: QueryParams) => {
         const q = new URLSearchParams();
-        for (const [k, v] of Object.entries(params ?? {})) if (v != null && v !== '') q.set(k, String(v));
+        for (const [k, v] of Object.entries(params ?? {}))
+          if (v != null && v !== '') q.set(k, String(v));
         q.set('format', 'csv');
         return `${config.baseUrl.replace(/\/$/, '')}${V}/influencers/export?${q.toString()}`;
       },
@@ -239,38 +249,62 @@ export function createClient(config: ClientConfig) {
       logContact: (id: string, body: In<typeof requests.influencerContactLogSchema>) =>
         http.post<void>(`${V}/influencers/${id}/contact-log`, body),
       syncAvatar: (id: string) =>
-        http.post<{ influencer: InfluencerDetailDTO; synced: boolean; reason: 'NO_LINKED_ACCOUNT' | 'NOT_FOUND' | 'SYNCED' }>(
-          `${V}/influencers/${id}/sync-avatar`,
-        ),
-      socialAccounts: (id: string) => http.get<SocialAccountDTO[]>(`${V}/influencers/${id}/social-accounts`),
+        http.post<{
+          influencer: InfluencerDetailDTO;
+          synced: boolean;
+          reason: 'NO_LINKED_ACCOUNT' | 'NOT_FOUND' | 'SYNCED';
+        }>(`${V}/influencers/${id}/sync-avatar`),
+      socialAccounts: (id: string) =>
+        http.get<SocialAccountDTO[]>(`${V}/influencers/${id}/social-accounts`),
       // Creator-OAuth connections (INT-3; inert until platform app review).
       creatorConnections: (id: string) =>
         http.get<CreatorConnectionDTO[]>(`${V}/influencers/${id}/creator-connections`),
       startCreatorConnection: (id: string, platform: string) =>
-        http.post<CreatorOAuthStartDTO>(`${V}/influencers/${id}/creator-connections/${platform}/start`),
+        http.post<CreatorOAuthStartDTO>(
+          `${V}/influencers/${id}/creator-connections/${platform}/start`,
+        ),
       disconnectCreator: (id: string, platform: string) =>
         http.del<{ ok: true }>(`${V}/influencers/${id}/creator-connections/${platform}`),
-      addSocialAccount: (id: string, body: Omit<In<typeof requests.socialAccountCreateSchema>, 'influencerId'>) =>
-        http.post<SocialAccountDTO>(`${V}/influencers/${id}/social-accounts`, { ...body, influencerId: id }),
+      addSocialAccount: (
+        id: string,
+        body: Omit<In<typeof requests.socialAccountCreateSchema>, 'influencerId'>,
+      ) =>
+        http.post<SocialAccountDTO>(`${V}/influencers/${id}/social-accounts`, {
+          ...body,
+          influencerId: id,
+        }),
       notes: (id: string) => http.get<NoteDTO[]>(`${V}/influencers/${id}/notes`),
-      brandRelationships: (id: string) => http.get<BrandInfluencerDTO[]>(`${V}/influencers/${id}/brands`),
+      brandRelationships: (id: string) =>
+        http.get<BrandInfluencerDTO[]>(`${V}/influencers/${id}/brands`),
       /** Follower counts over time, per social account. */
       followers: (id: string) =>
         http.get<
-          { accountId: string; platform: Platform; username: string; points: { capturedAt: string; followers: number | null }[] }[]
+          {
+            accountId: string;
+            platform: Platform;
+            username: string;
+            points: { capturedAt: string; followers: number | null }[];
+          }[]
         >(`${V}/influencers/${id}/followers`),
-      audienceHealth: (id: string) => http.get<AudienceHealthDTO>(`${V}/influencers/${id}/audience-health`),
+      audienceHealth: (id: string) =>
+        http.get<AudienceHealthDTO>(`${V}/influencers/${id}/audience-health`),
       // Creator 360 (Operations Intelligence pass).
       snapshot: (id: string) => http.get<CreatorSnapshotDTO>(`${V}/influencers/${id}/snapshot`),
-      reliability: (id: string) => http.get<CreatorReliabilityDTO>(`${V}/influencers/${id}/reliability`),
-      performance: (id: string) => http.get<CreatorPerformanceDTO>(`${V}/influencers/${id}/performance`),
+      reliability: (id: string) =>
+        http.get<CreatorReliabilityDTO>(`${V}/influencers/${id}/reliability`),
+      performance: (id: string) =>
+        http.get<CreatorPerformanceDTO>(`${V}/influencers/${id}/performance`),
       timeline: (id: string, params?: QueryParams) =>
-        http.get<CursorPage<CreatorTimelineItemDTO>>(`${V}/influencers/${id}/timeline`, { query: params }),
+        http.get<CursorPage<CreatorTimelineItemDTO>>(`${V}/influencers/${id}/timeline`, {
+          query: params,
+        }),
       // Every submission across this creator's campaigns (Creator 360 UGC tab,
       // gap #11) — same DeliverableSubmissionDTO shape as elsewhere, plus the
       // campaign id/name needed to link a row back to where it was submitted.
       submissions: (id: string) =>
-        http.get<Array<DeliverableSubmissionDTO & { campaignId: string; campaignName: string }>>(`${V}/influencers/${id}/submissions`),
+        http.get<Array<DeliverableSubmissionDTO & { campaignId: string; campaignName: string }>>(
+          `${V}/influencers/${id}/submissions`,
+        ),
       // Bulk directory-wide actions (Operations Intelligence pass) — preview
       // is always a dry run; execute is admin-only.
       bulkPreview: (body: In<typeof requests.bulkInfluencerRequestSchema>) =>
@@ -300,7 +334,8 @@ export function createClient(config: ClientConfig) {
       // Inspiration comments and Campaign/General chat (Operations Intelligence pass).
       list: (context: QueryParams, params?: QueryParams) =>
         http.get<CursorPage<NoteDTO>>(`${V}/notes`, { query: { ...context, ...params } }),
-      create: (body: In<typeof requests.noteCreateSchema>) => http.post<NoteDTO>(`${V}/notes`, body),
+      create: (body: In<typeof requests.noteCreateSchema>) =>
+        http.post<NoteDTO>(`${V}/notes`, body),
       update: (id: string, body: { body?: string; pinned?: boolean }) =>
         http.patch<NoteDTO>(`${V}/notes/${id}`, body),
       editBody: (id: string, body: In<typeof requests.noteEditSchema>) =>
@@ -309,13 +344,17 @@ export function createClient(config: ClientConfig) {
       remove: (id: string) => http.del<void>(`${V}/notes/${id}`),
       // Internal notes on a piece of content (Content Command Center pass) —
       // reuses this same Note model, not a parallel comment system.
-      forContent: (publishedContentId: string) => http.get<NoteDTO[]>(`${V}/content/${publishedContentId}/notes`),
+      forContent: (publishedContentId: string) =>
+        http.get<NoteDTO[]>(`${V}/content/${publishedContentId}/notes`),
       forBrand: (brandId: string) => http.get<NoteDTO[]>(`${V}/brands/${brandId}/notes`),
-      mentions: (params?: QueryParams) => http.get<CursorPage<NoteDTO>>(`${V}/notes/mentions`, { query: params }),
+      mentions: (params?: QueryParams) =>
+        http.get<CursorPage<NoteDTO>>(`${V}/notes/mentions`, { query: params }),
       markConversationRead: (conversationKey: string) =>
         http.post<{ lastReadAt: string }>(`${V}/notes/conversations/read`, { conversationKey }),
       unreadCounts: (conversationKeys: string[]) =>
-        http.get<ConversationUnreadDTO[]>(`${V}/notes/conversations/unread`, { query: { keys: conversationKeys.join(',') } }),
+        http.get<ConversationUnreadDTO[]>(`${V}/notes/conversations/unread`, {
+          query: { keys: conversationKeys.join(',') },
+        }),
     },
 
     campaigns: {
@@ -347,19 +386,29 @@ export function createClient(config: ClientConfig) {
       // Product shipments across a campaign roster (W3-5 web surface).
       shipments: (id: string) => http.get<ProductShipmentDTO[]>(`${V}/campaigns/${id}/shipments`),
       // Submission review queue across a campaign (W3-1 web surface).
-      submissions: (id: string) => http.get<DeliverableSubmissionDTO[]>(`${V}/campaigns/${id}/submissions`),
+      submissions: (id: string) =>
+        http.get<DeliverableSubmissionDTO[]>(`${V}/campaigns/${id}/submissions`),
       // Campaign Operations Board — per-influencer stage pipeline (Operations Intelligence).
-      operationsBoard: (id: string) => http.get<CampaignOperationsBoardDTO>(`${V}/campaigns/${id}/operations-board`),
+      operationsBoard: (id: string) =>
+        http.get<CampaignOperationsBoardDTO>(`${V}/campaigns/${id}/operations-board`),
       get: (idOrSlug: string) => http.get<CampaignDetailDTO>(`${V}/campaigns/${idOrSlug}`),
       create: (body: In<typeof requests.campaignCreateSchema>) =>
         http.post<CampaignDetailDTO>(`${V}/campaigns`, body),
       update: (id: string, body: In<typeof requests.campaignUpdateSchema>) =>
         http.patch<CampaignDetailDTO>(`${V}/campaigns/${id}`, body),
-      influencers: (id: string) => http.get<CampaignInfluencerDTO[]>(`${V}/campaigns/${id}/influencers`),
-      addInfluencer: (id: string, body: Omit<In<typeof requests.campaignInfluencerCreateSchema>, 'campaignId'>) =>
-        http.post<CampaignInfluencerDTO>(`${V}/campaigns/${id}/influencers`, { ...body, campaignId: id }),
+      influencers: (id: string) =>
+        http.get<CampaignInfluencerDTO[]>(`${V}/campaigns/${id}/influencers`),
+      addInfluencer: (
+        id: string,
+        body: Omit<In<typeof requests.campaignInfluencerCreateSchema>, 'campaignId'>,
+      ) =>
+        http.post<CampaignInfluencerDTO>(`${V}/campaigns/${id}/influencers`, {
+          ...body,
+          campaignId: id,
+        }),
       scripts: (id: string) => http.get<ScriptDTO[]>(`${V}/campaigns/${id}/scripts`),
-      costs: (id: string) => http.get<{ expenses: ExpenseDTO[]; summary: CostSummaryDTO }>(`${V}/campaigns/${id}/costs`),
+      costs: (id: string) =>
+        http.get<{ expenses: ExpenseDTO[]; summary: CostSummaryDTO }>(`${V}/campaigns/${id}/costs`),
       // Live Content tab — offset-paginated, split into content already
       // linked to this campaign vs. its roster's content not yet linked.
       content: (id: string, params?: QueryParams) =>
@@ -368,28 +417,37 @@ export function createClient(config: ClientConfig) {
       linkRosterContent: (id: string) =>
         http.post<{ linked: number; skipped: number }>(`${V}/campaigns/${id}/content/link-roster`),
       // Server-computed spend efficiency (CPV/CPM/CPE) + metric freshness (W6-1).
-      efficiency: (idOrSlug: string) => http.get<CampaignEfficiencyDTO>(`${V}/campaigns/${idOrSlug}/efficiency`),
+      efficiency: (idOrSlug: string) =>
+        http.get<CampaignEfficiencyDTO>(`${V}/campaigns/${idOrSlug}/efficiency`),
       /** Client report: results against targets, per creator and per post. */
       report: (idOrSlug: string, params?: { locale?: 'en' | 'ar'; costs?: boolean }) =>
-        http.get<CampaignReportDTO>(`${V}/campaigns/${idOrSlug}/report`, { query: reportQuery(params) }),
+        http.get<CampaignReportDTO>(`${V}/campaigns/${idOrSlug}/report`, {
+          query: reportQuery(params),
+        }),
       /** The client report as an .xlsx file (raw Response, for programmatic / mobile use). */
       reportXlsx: (idOrSlug: string, params?: { locale?: 'en' | 'ar'; costs?: boolean }) =>
-        http.get<Response>(`${V}/campaigns/${idOrSlug}/report/xlsx`, { query: reportQuery(params), raw: true }),
+        http.get<Response>(`${V}/campaigns/${idOrSlug}/report/xlsx`, {
+          query: reportQuery(params),
+          raw: true,
+        }),
       /** Same-origin href for a browser download of the .xlsx (auth via the cookie transport). */
       reportXlsxUrl: (idOrSlug: string, params?: { locale?: 'en' | 'ar'; costs?: boolean }) => {
         const q = new URLSearchParams(reportQuery(params) as Record<string, string>);
         return `${config.baseUrl.replace(/\/$/, '')}${V}/campaigns/${idOrSlug}/report/xlsx?${q.toString()}`;
       },
       /** No-login links to the client report (P3.3). */
-      reportShares: (campaignId: string) => http.get<ReportShareDTO[]>(`${V}/campaigns/${campaignId}/report-shares`),
+      reportShares: (campaignId: string) =>
+        http.get<ReportShareDTO[]>(`${V}/campaigns/${campaignId}/report-shares`),
       shareReport: (campaignId: string, body: In<typeof requests.reportShareCreateSchema>) =>
         http.post<ReportShareDTO>(`${V}/campaigns/${campaignId}/report-shares`, body),
-      revokeReportShare: (id: string) => http.post<ReportShareDTO>(`${V}/report-shares/${id}/revoke`, {}),
+      revokeReportShare: (id: string) =>
+        http.post<ReportShareDTO>(`${V}/report-shares/${id}/revoke`, {}),
       /** Public: a shared report by its link token (counts the visit unless `preview`). */
       sharedReport: (token: string, params?: { preview?: '1' }) =>
         http.get<CampaignReportDTO>(`${V}/public/reports/${token}`, { query: params }),
       /** Public: a shared report as an .xlsx file (raw Response). */
-      sharedReportXlsx: (token: string) => http.get<Response>(`${V}/public/reports/${token}/xlsx`, { raw: true }),
+      sharedReportXlsx: (token: string) =>
+        http.get<Response>(`${V}/public/reports/${token}/xlsx`, { raw: true }),
       addExpense: (id: string, body: Omit<In<typeof requests.expenseCreateSchema>, 'campaignId'>) =>
         http.post<ExpenseDTO>(`${V}/campaigns/${id}/expenses`, { ...body, campaignId: id }),
     },
@@ -412,14 +470,18 @@ export function createClient(config: ClientConfig) {
       update: (id: string, body: In<typeof requests.campaignInfluencerUpdateSchema>) =>
         http.patch<CampaignInfluencerDTO>(`${V}/campaign-influencers/${id}`, body),
       remove: (id: string) => http.del<void>(`${V}/campaign-influencers/${id}`),
-      addDeliverable: (id: string, body: Omit<In<typeof requests.deliverableCreateSchema>, 'campaignInfluencerId'>) =>
+      addDeliverable: (
+        id: string,
+        body: Omit<In<typeof requests.deliverableCreateSchema>, 'campaignInfluencerId'>,
+      ) =>
         http.post<DeliverableDTO>(`${V}/campaign-influencers/${id}/deliverables`, {
           ...body,
           campaignInfluencerId: id,
         }),
       // Logistics: shipments on this campaign participation (evolved W3-5 — one
       // campaign-influencer may have several, never just 0-or-1).
-      shipments: (id: string) => http.get<ProductShipmentDTO[]>(`${V}/campaign-influencers/${id}/shipments`),
+      shipments: (id: string) =>
+        http.get<ProductShipmentDTO[]>(`${V}/campaign-influencers/${id}/shipments`),
       createShipment: (id: string, body: In<typeof requests.shipmentCreateSchema>) =>
         http.post<ProductShipmentDTO>(`${V}/campaign-influencers/${id}/shipments`, body),
     },
@@ -429,11 +491,13 @@ export function createClient(config: ClientConfig) {
         http.patch<DeliverableDTO>(`${V}/deliverables/${id}`, body),
       remove: (id: string) => http.del<void>(`${V}/deliverables/${id}`),
       // Draft/asset review queue for one deliverable (W3-1) — never a public URL requirement.
-      submissions: (id: string) => http.get<DeliverableSubmissionDTO[]>(`${V}/deliverables/${id}/submissions`),
+      submissions: (id: string) =>
+        http.get<DeliverableSubmissionDTO[]>(`${V}/deliverables/${id}/submissions`),
       submit: (id: string, body: In<typeof requests.submissionCreateSchema>) =>
         http.post<DeliverableSubmissionDTO>(`${V}/deliverables/${id}/submissions`, body),
       // Shipments fulfilling this deliverable (never just 0-or-1 — see shipment.service.ts's listForDeliverable).
-      shipments: (id: string) => http.get<ProductShipmentDTO[]>(`${V}/deliverables/${id}/shipments`),
+      shipments: (id: string) =>
+        http.get<ProductShipmentDTO[]>(`${V}/deliverables/${id}/shipments`),
     },
 
     submissions: {
@@ -452,7 +516,8 @@ export function createClient(config: ClientConfig) {
           query: params,
         }),
       // Country-first summary strip — respects scope + every filter except the country facet itself.
-      summary: (params?: QueryParams) => http.get<LogisticsCountrySummaryDTO[]>(`${V}/shipments/summary`, { query: params }),
+      summary: (params?: QueryParams) =>
+        http.get<LogisticsCountrySummaryDTO[]>(`${V}/shipments/summary`, { query: params }),
       get: (id: string) => http.get<ProductShipmentDTO>(`${V}/shipments/${id}`),
       update: (id: string, body: In<typeof requests.shipmentUpdateSchema>) =>
         http.patch<ProductShipmentDTO>(`${V}/shipments/${id}`, body),
@@ -467,7 +532,8 @@ export function createClient(config: ClientConfig) {
     // shipment rows; a LogisticsIssue is a separate blocker record, never a
     // ShipmentStatus overload.
     logisticsIssues: {
-      list: (shipmentId: string) => http.get<LogisticsIssueDTO[]>(`${V}/shipments/${shipmentId}/issues`),
+      list: (shipmentId: string) =>
+        http.get<LogisticsIssueDTO[]>(`${V}/shipments/${shipmentId}/issues`),
       create: (shipmentId: string, body: In<typeof requests.logisticsIssueCreateSchema>) =>
         http.post<LogisticsIssueDTO>(`${V}/shipments/${shipmentId}/issues`, body),
       resolve: (id: string) => http.post<LogisticsIssueDTO>(`${V}/logistics-issues/${id}/resolve`),
@@ -475,7 +541,8 @@ export function createClient(config: ClientConfig) {
     },
 
     inspiration: {
-      list: (params?: QueryParams) => http.get<CursorPage<InspirationItemDTO>>(`${V}/inspiration`, { query: params }),
+      list: (params?: QueryParams) =>
+        http.get<CursorPage<InspirationItemDTO>>(`${V}/inspiration`, { query: params }),
       get: (id: string) => http.get<InspirationItemDTO>(`${V}/inspiration/${id}`),
       create: (body: In<typeof requests.inspirationCreateSchema>) =>
         http.post<InspirationItemDTO>(`${V}/inspiration`, body),
@@ -486,12 +553,16 @@ export function createClient(config: ClientConfig) {
 
     scripts: {
       get: (id: string) => http.get<ScriptDTO>(`${V}/scripts/${id}`),
-      create: (body: In<typeof requests.scriptCreateSchema>) => http.post<ScriptDTO>(`${V}/scripts`, body),
+      create: (body: In<typeof requests.scriptCreateSchema>) =>
+        http.post<ScriptDTO>(`${V}/scripts`, body),
       addVersion: (id: string, body: In<typeof requests.scriptVersionSchema>) =>
         http.post<ScriptDTO>(`${V}/scripts/${id}/versions`, body),
       /** Sent to the brand, changes requested, approved (or back to draft). */
-      setVersionStatus: (id: string, version: number, body: In<typeof requests.scriptVersionStatusSchema>) =>
-        http.post<ScriptDTO>(`${V}/scripts/${id}/versions/${version}/status`, body),
+      setVersionStatus: (
+        id: string,
+        version: number,
+        body: In<typeof requests.scriptVersionStatusSchema>,
+      ) => http.post<ScriptDTO>(`${V}/scripts/${id}/versions/${version}/status`, body),
     },
 
     content: {
@@ -518,7 +589,10 @@ export function createClient(config: ClientConfig) {
         http.post<PublishedContentDTO>(`${V}/content/${id}/metrics`, body),
       /** End-of-campaign entry: numbers for many posts of one campaign. */
       addMetricsBulk: (campaignId: string, body: In<typeof requests.campaignMetricsBulkSchema>) =>
-        http.post<{ recorded: number; skipped: number }>(`${V}/campaigns/${campaignId}/content-metrics`, body),
+        http.post<{ recorded: number; skipped: number }>(
+          `${V}/campaigns/${campaignId}/content-metrics`,
+          body,
+        ),
       refresh: (id: string) => http.post<PublishedContentDTO>(`${V}/content/${id}/refresh`),
       // Content Command Center — per-user counts + brand aggregation, and the
       // seen/reviewed/review-later mutation the Viewer and card actions send.
@@ -533,18 +607,21 @@ export function createClient(config: ClientConfig) {
         http.patch<ExpenseDTO>(`${V}/expenses/${id}`, body),
       /** Moves it to the campaign's trash (restorable). */
       remove: (id: string) => http.del<void>(`${V}/expenses/${id}`),
-      trash: (campaignId: string) => http.get<ExpenseDTO[]>(`${V}/campaigns/${campaignId}/expenses/trash`),
+      trash: (campaignId: string) =>
+        http.get<ExpenseDTO[]>(`${V}/campaigns/${campaignId}/expenses/trash`),
       restore: (id: string) => http.post<ExpenseDTO>(`${V}/expenses/${id}/restore`, {}),
     },
 
     /** P2.3 — the payment ledger and what is still owed. */
     finance: {
-      payables: (params?: QueryParams) => http.get<PayablesPageDTO>(`${V}/finance/payables`, { query: params }),
+      payables: (params?: QueryParams) =>
+        http.get<PayablesPageDTO>(`${V}/finance/payables`, { query: params }),
       payablesXlsx: (params?: QueryParams) =>
         http.get<Response>(`${V}/finance/payables/xlsx`, { query: params, raw: true }),
       /** Same-origin href for a browser download of the .xlsx (auth via the cookie transport). */
       payablesXlsxUrl: (params?: QueryParams) => financeUrl('/finance/payables/xlsx', params),
-      payments: (params?: QueryParams) => http.get<PaymentsPageDTO>(`${V}/finance/payments`, { query: params }),
+      payments: (params?: QueryParams) =>
+        http.get<PaymentsPageDTO>(`${V}/finance/payments`, { query: params }),
       paymentsXlsx: (params?: QueryParams) =>
         http.get<Response>(`${V}/finance/payments/xlsx`, { query: params, raw: true }),
       paymentsXlsxUrl: (params?: QueryParams) => financeUrl('/finance/payments/xlsx', params),
@@ -553,35 +630,43 @@ export function createClient(config: ClientConfig) {
         http.post<PaymentDTO>(`${V}/campaign-influencers/${campaignInfluencerId}/payments`, body),
       payExpense: (expenseId: string, body: In<typeof requests.paymentCreateSchema>) =>
         http.post<PaymentDTO>(`${V}/expenses/${expenseId}/payments`, body),
-      voidPayment: (id: string, reason: string) => http.post<PaymentDTO>(`${V}/payments/${id}/void`, { reason }),
+      voidPayment: (id: string, reason: string) =>
+        http.post<PaymentDTO>(`${V}/payments/${id}/void`, { reason }),
     },
 
     dashboard: {
       global: (brandId?: string) =>
         http.get<GlobalDashboardDTO>(`${V}/dashboard/global`, { query: { brandId } }),
       attention: (opts?: { brandId?: string; campaignId?: string }) =>
-        http.get<GlobalDashboardDTO['attention']>(`${V}/dashboard/attention`, { query: { brandId: opts?.brandId, campaignId: opts?.campaignId } }),
+        http.get<GlobalDashboardDTO['attention']>(`${V}/dashboard/attention`, {
+          query: { brandId: opts?.brandId, campaignId: opts?.campaignId },
+        }),
       whatsNew: (brandId?: string) =>
         http.get<GlobalDashboardDTO['whatsNew']>(`${V}/whats-new`, { query: { brandId } }),
       // Advances the caller's own "since your last visit" checkpoint — call
       // this when the person opens/dismisses the What's New panel, never on
       // a passive GET (item 57).
-      whatsNewAck: () => http.post<{ lastWhatsNewViewedAt: string }>(`${V}/dashboard/whats-new/ack`),
+      whatsNewAck: () =>
+        http.post<{ lastWhatsNewViewedAt: string }>(`${V}/dashboard/whats-new/ack`),
     },
 
     dataQuality: {
-      report: (brandId?: string) => http.get<DataQualityReportDTO>(`${V}/data-quality/report`, { query: { brandId } }),
-      duplicates: (brandId?: string) => http.get<DuplicateCandidateDTO[]>(`${V}/data-quality/duplicates`, { query: { brandId } }),
+      report: (brandId?: string) =>
+        http.get<DataQualityReportDTO>(`${V}/data-quality/report`, { query: { brandId } }),
+      duplicates: (brandId?: string) =>
+        http.get<DuplicateCandidateDTO[]>(`${V}/data-quality/duplicates`, { query: { brandId } }),
       checkDuplicate: (body: In<typeof requests.duplicateCheckSchema>) =>
         http.post<DuplicateCandidateDTO[]>(`${V}/data-quality/duplicates/check`, body),
     },
 
     integrityGuard: {
-      findings: (brandId?: string) => http.get<IntegrityFindingDTO[]>(`${V}/integrity/findings`, { query: { brandId } }),
+      findings: (brandId?: string) =>
+        http.get<IntegrityFindingDTO[]>(`${V}/integrity/findings`, { query: { brandId } }),
     },
 
     calendar: {
-      events: (params: QueryParams) => http.get<CalendarEventDTO[]>(`${V}/calendar`, { query: params }),
+      events: (params: QueryParams) =>
+        http.get<CalendarEventDTO[]>(`${V}/calendar`, { query: params }),
     },
 
     reports: {
@@ -596,43 +681,89 @@ export function createClient(config: ClientConfig) {
       leaderboard: (params?: QueryParams) =>
         http.get<CreatorLeaderboardDTO>(`${V}/reports/leaderboard`, { query: params }),
       // Executive overview: spend-vs-budget, today, since-yesterday, cross-brand (W6-3).
-      execDashboard: (params?: { brandId?: string; period?: ReportPeriod; from?: string; to?: string }) =>
-        http.get<ExecDashboardDTO>(`${V}/reports/exec-dashboard`, { query: params }),
+      execDashboard: (params?: {
+        brandId?: string;
+        period?: ReportPeriod;
+        from?: string;
+        to?: string;
+      }) => http.get<ExecDashboardDTO>(`${V}/reports/exec-dashboard`, { query: params }),
       // Week- or month-by-month results (P2.7).
-      trends: (params?: QueryParams) => http.get<TrendsDTO>(`${V}/reports/trends`, { query: params }),
+      trends: (params?: QueryParams) =>
+        http.get<TrendsDTO>(`${V}/reports/trends`, { query: params }),
     },
 
     // Post discovery (P3.4): posts found on the roster creators' own accounts.
     discovery: {
       forCampaign: (campaignId: string, params?: { status?: 'NEW' | 'ADDED' | 'DISMISSED' }) =>
-        http.get<DiscoveredPostDTO[]>(`${V}/campaigns/${campaignId}/discovered-posts`, { query: params }),
-      runForCampaign: (campaignId: string) => http.post<DiscoveryRunDTO>(`${V}/campaigns/${campaignId}/discover-posts`, {}),
+        http.get<DiscoveredPostDTO[]>(`${V}/campaigns/${campaignId}/discovered-posts`, {
+          query: params,
+        }),
+      runForCampaign: (campaignId: string) =>
+        http.post<DiscoveryRunDTO>(`${V}/campaigns/${campaignId}/discover-posts`, {}),
       add: (id: string, body: In<typeof requests.discoveredPostAddSchema> = {}) =>
         http.post<DiscoveredPostDTO>(`${V}/discovered-posts/${id}/add`, body),
-      dismiss: (id: string) => http.post<DiscoveredPostDTO>(`${V}/discovered-posts/${id}/dismiss`, {}),
+      dismiss: (id: string) =>
+        http.post<DiscoveredPostDTO>(`${V}/discovered-posts/${id}/dismiss`, {}),
+    },
+
+    // Creator advertising licences (P3.5).
+    licences: {
+      forInfluencer: (influencerId: string) =>
+        http.get<CreatorLicenceDTO[]>(`${V}/influencers/${influencerId}/licences`),
+      create: (influencerId: string, body: In<typeof requests.creatorLicenceCreateSchema>) =>
+        http.post<CreatorLicenceDTO>(`${V}/influencers/${influencerId}/licences`, body),
+      update: (id: string, body: In<typeof requests.creatorLicenceUpdateSchema>) =>
+        http.patch<CreatorLicenceDTO>(`${V}/licences/${id}`, body),
+      remove: (id: string) => http.del<void>(`${V}/licences/${id}`),
+      /** Each creator on the roster against the campaign's countries that need a licence. */
+      forCampaign: (campaignId: string) =>
+        http.get<CampaignLicenceCheckDTO>(`${V}/campaigns/${campaignId}/licences`),
+      settings: () => http.get<ComplianceSettingsDTO>(`${V}/compliance/settings`),
+      updateSettings: (body: In<typeof requests.complianceSettingsUpdateSchema>) =>
+        http.put<ComplianceSettingsDTO>(`${V}/compliance/settings`, body),
     },
 
     // Creator task links (P3.3): a creator's part of a campaign without an account.
     creatorLinks: {
       list: (campaignInfluencerId: string) =>
-        http.get<CreatorLinkDTO[]>(`${V}/campaign-influencers/${campaignInfluencerId}/creator-links`),
+        http.get<CreatorLinkDTO[]>(
+          `${V}/campaign-influencers/${campaignInfluencerId}/creator-links`,
+        ),
       create: (campaignInfluencerId: string, body: In<typeof requests.creatorLinkCreateSchema>) =>
-        http.post<CreatorLinkDTO>(`${V}/campaign-influencers/${campaignInfluencerId}/creator-links`, body),
+        http.post<CreatorLinkDTO>(
+          `${V}/campaign-influencers/${campaignInfluencerId}/creator-links`,
+          body,
+        ),
       revoke: (id: string) => http.post<CreatorLinkDTO>(`${V}/creator-links/${id}/revoke`, {}),
       /** Public: the creator's page (counts the visit unless `preview`). */
       portal: (token: string, params?: { preview?: '1' }) =>
         http.get<CreatorPortalDTO>(`${V}/public/creator/${token}`, { query: params }),
       /** Public: the creator sends a draft for review. */
-      sendDraft: (token: string, deliverableId: string, body: In<typeof requests.creatorDraftSchema>) =>
-        http.post<CreatorPortalDTO>(`${V}/public/creator/${token}/deliverables/${deliverableId}/drafts`, body),
+      sendDraft: (
+        token: string,
+        deliverableId: string,
+        body: In<typeof requests.creatorDraftSchema>,
+      ) =>
+        http.post<CreatorPortalDTO>(
+          `${V}/public/creator/${token}/deliverables/${deliverableId}/drafts`,
+          body,
+        ),
       /** Public: the creator sends the link to their live post. */
-      sendPost: (token: string, deliverableId: string, body: In<typeof requests.creatorPostedSchema>) =>
-        http.post<CreatorPortalDTO>(`${V}/public/creator/${token}/deliverables/${deliverableId}/posted`, body),
+      sendPost: (
+        token: string,
+        deliverableId: string,
+        body: In<typeof requests.creatorPostedSchema>,
+      ) =>
+        http.post<CreatorPortalDTO>(
+          `${V}/public/creator/${token}/deliverables/${deliverableId}/posted`,
+          body,
+        ),
     },
 
     // Sales & ROI (P3.1): promo codes, tracking links, the brand's sales.
     sales: {
-      forCampaign: (campaignId: string) => http.get<CampaignSalesDTO>(`${V}/campaigns/${campaignId}/sales`),
+      forCampaign: (campaignId: string) =>
+        http.get<CampaignSalesDTO>(`${V}/campaigns/${campaignId}/sales`),
       createPromoCode: (campaignId: string, body: In<typeof requests.promoCodeCreateSchema>) =>
         http.post<PromoCodeDTO>(`${V}/campaigns/${campaignId}/promo-codes`, body),
       updatePromoCode: (id: string, body: In<typeof requests.promoCodeUpdateSchema>) =>
@@ -649,7 +780,8 @@ export function createClient(config: ClientConfig) {
       /** Check (dryRun: true) or record a shop's order file for a brand. */
       importFile: (brandId: string, body: In<typeof requests.salesImportSchema>) =>
         http.post<SalesImportResultDTO>(`${V}/brands/${brandId}/sales/import`, body),
-      undoImport: (importId: string) => http.del<{ removed: number }>(`${V}/sales-imports/${importId}`),
+      undoImport: (importId: string) =>
+        http.del<{ removed: number }>(`${V}/sales-imports/${importId}`),
       /** Public: where a tracking link sends people (counts the click unless `preview`). */
       resolveLink: (slug: string, params?: { preview?: '1' }) =>
         http.get<TrackingLinkResolveDTO>(`${V}/public/links/${slug}`, { query: params }),
@@ -669,7 +801,8 @@ export function createClient(config: ClientConfig) {
     },
 
     activity: {
-      feed: (params?: QueryParams) => http.get<CursorPage<ActivityDTO>>(`${V}/activity`, { query: params }),
+      feed: (params?: QueryParams) =>
+        http.get<CursorPage<ActivityDTO>>(`${V}/activity`, { query: params }),
     },
 
     search: {
@@ -707,7 +840,8 @@ export function createClient(config: ClientConfig) {
       capabilities: () => http.get<IntegrationCapabilityDTO[]>(`${V}/integrations/capabilities`),
       update: (platform: string, body: In<typeof requests.integrationUpdateSchema>) =>
         http.patch<IntegrationDTO>(`${V}/integrations/${platform}`, body),
-      test: (platform: string) => http.post<{ ok: boolean; message: string }>(`${V}/integrations/${platform}/test`),
+      test: (platform: string) =>
+        http.post<{ ok: boolean; message: string }>(`${V}/integrations/${platform}/test`),
       // Encrypted provider-credential store (INT-4, admin).
       credentials: () => http.get<ProviderCredentialStatusDTO[]>(`${V}/integrations/credentials`),
       setCredential: (body: In<typeof requests.providerCredentialSetSchema>) =>
@@ -721,14 +855,20 @@ export function createClient(config: ClientConfig) {
       modules: () => http.get<ApiModuleDTO[]>(`${V}/platform/modules`),
       status: () => http.get<PlatformStatusDTO>(`${V}/platform/status`),
       storage: () => http.get<StorageStatusDTO>(`${V}/platform/storage`),
-      audit: (params?: QueryParams) => http.get<CursorPage<AuditEntryDTO>>(`${V}/platform/audit`, { query: params }),
+      audit: (params?: QueryParams) =>
+        http.get<CursorPage<AuditEntryDTO>>(`${V}/platform/audit`, { query: params }),
       endpoints: () => http.get<ApiEndpointDTO[]>(`${V}/platform/endpoints`),
-      flags: () => http.get<{ key: string; description: string | null; scope: string; enabled: boolean }[]>(`${V}/platform/flags`),
+      flags: () =>
+        http.get<{ key: string; description: string | null; scope: string; enabled: boolean }[]>(
+          `${V}/platform/flags`,
+        ),
       setFlag: (key: string, enabled: boolean) =>
         http.patch<unknown>(`${V}/platform/flags/${key}`, { enabled }),
       appVersions: () => http.get<unknown>(`${V}/platform/app-versions`),
-      updateAppVersion: (platform: 'IOS' | 'ANDROID', body: In<typeof requests.appVersionUpdateSchema>) =>
-        http.patch<unknown>(`${V}/platform/app-versions/${platform}`, body),
+      updateAppVersion: (
+        platform: 'IOS' | 'ANDROID',
+        body: In<typeof requests.appVersionUpdateSchema>,
+      ) => http.patch<unknown>(`${V}/platform/app-versions/${platform}`, body),
       updateClientConfig: (body: In<typeof requests.clientConfigUpdateSchema>) =>
         http.patch<ClientConfigDTO>(`${V}/platform/client-config`, body),
     },

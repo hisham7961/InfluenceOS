@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { CountryMultiPicker } from '@/components/common/country-multi-picker';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Building2, CalendarRange, Megaphone, Sparkles, Wallet } from 'lucide-react';
@@ -15,10 +16,23 @@ import {
 import type { BrandSummaryDTO } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
 import { formatCurrency } from '@/lib/format';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Field, Input, Textarea } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -45,6 +59,7 @@ interface FormState {
   currency: string;
   plannedBudget: string;
   targetMarket: string;
+  marketCountryCodes: string[];
   description: string;
   brief: string;
   draftReview: boolean;
@@ -60,11 +75,12 @@ const initialState: FormState = {
   currency: 'KWD',
   plannedBudget: '',
   targetMarket: '',
+  // Most campaigns are for Kuwait; untick it for one that isn't.
+  marketCountryCodes: ['KW'],
   description: '',
   brief: '',
   draftReview: false,
 };
-
 
 /** Multi-section "new campaign" form: brand + basics, timeline & budget, and brief — with a live preview aside. */
 export function NewCampaignForm({ brands }: NewCampaignFormProps) {
@@ -86,13 +102,15 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
       return api.campaigns.create({
         brandId: form.brandId,
         name,
-        objective: form.objective === NO_OBJECTIVE ? undefined : (form.objective as CampaignObjective),
+        objective:
+          form.objective === NO_OBJECTIVE ? undefined : (form.objective as CampaignObjective),
         status: form.status,
         startDate: form.startDate ? new Date(form.startDate) : undefined,
         endDate: form.endDate ? new Date(form.endDate) : undefined,
         currency: form.currency.trim() || 'KWD',
         plannedBudget: budget ? Number(budget) : undefined,
         targetMarket: form.targetMarket.trim() || undefined,
+        marketCountryCodes: form.marketCountryCodes,
         description: form.description.trim() || undefined,
         brief: form.brief.trim() || undefined,
         draftReview: form.draftReview,
@@ -134,9 +152,9 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
       <form onSubmit={handleSubmit} className="flex flex-col gap-6 lg:col-span-2">
         <Card>
-          <CardHeader className="gap-1.5 border-b border-border pb-5">
+          <CardHeader className="border-border gap-1.5 border-b pb-5">
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
+              <span className="bg-brand-soft text-brand flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
                 1
               </span>
               <CardTitle>{t('newForm.basicsTitle')}</CardTitle>
@@ -200,9 +218,9 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
         </Card>
 
         <Card>
-          <CardHeader className="gap-1.5 border-b border-border pb-5">
+          <CardHeader className="border-border gap-1.5 border-b pb-5">
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
+              <span className="bg-brand-soft text-brand flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
                 2
               </span>
               <CardTitle>{t('newForm.timelineBudgetTitle')}</CardTitle>
@@ -211,10 +229,21 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-x-6 gap-y-4 pt-5 sm:grid-cols-2">
             <Field label={t('fields.startDate')}>
-              <Input type="date" value={form.startDate} onChange={(e) => set('startDate', e.target.value)} />
+              <Input
+                type="date"
+                value={form.startDate}
+                onChange={(e) => set('startDate', e.target.value)}
+              />
             </Field>
-            <Field label={t('fields.endDate')} error={dateRangeInvalid ? t('newForm.endDateError') : undefined}>
-              <Input type="date" value={form.endDate} onChange={(e) => set('endDate', e.target.value)} />
+            <Field
+              label={t('fields.endDate')}
+              error={dateRangeInvalid ? t('newForm.endDateError') : undefined}
+            >
+              <Input
+                type="date"
+                value={form.endDate}
+                onChange={(e) => set('endDate', e.target.value)}
+              />
             </Field>
 
             <Field label={t('fields.currency')}>
@@ -237,7 +266,22 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
               />
             </Field>
 
-            <Field label={t('fields.targetMarket')} className="sm:col-span-2" hint={t('newForm.targetMarketHint')}>
+            <Field
+              label={t('fields.marketCountries')}
+              className="sm:col-span-2"
+              hint={t('fields.marketCountriesHint')}
+            >
+              <CountryMultiPicker
+                value={form.marketCountryCodes}
+                onChange={(codes) => set('marketCountryCodes', codes)}
+              />
+            </Field>
+
+            <Field
+              label={t('fields.targetMarket')}
+              className="sm:col-span-2"
+              hint={t('newForm.targetMarketHint')}
+            >
               <Input
                 value={form.targetMarket}
                 onChange={(e) => set('targetMarket', e.target.value)}
@@ -248,9 +292,9 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
         </Card>
 
         <Card>
-          <CardHeader className="gap-1.5 border-b border-border pb-5">
+          <CardHeader className="border-border gap-1.5 border-b pb-5">
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand">
+              <span className="bg-brand-soft text-brand flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
                 3
               </span>
               <CardTitle>{t('newForm.descriptionBriefTitle')}</CardTitle>
@@ -274,10 +318,12 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
                 rows={5}
               />
             </Field>
-            <label className="flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+            <label className="border-border flex items-start justify-between gap-3 rounded-lg border px-3 py-2.5">
               <span className="min-w-0">
                 <span className="block text-sm font-medium">{t('actions.draftReviewLabel')}</span>
-                <span className="block text-xs text-muted-foreground">{t('actions.draftReviewHint')}</span>
+                <span className="text-muted-foreground block text-xs">
+                  {t('actions.draftReviewHint')}
+                </span>
               </span>
               <Switch
                 checked={form.draftReview}
@@ -286,7 +332,7 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
               />
             </label>
           </CardContent>
-          <CardFooter className="justify-end gap-3 border-t border-border pt-5">
+          <CardFooter className="border-border justify-end gap-3 border-t pt-5">
             <Button
               type="button"
               variant="outline"
@@ -296,7 +342,11 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
               {tCommon('cancel')}
             </Button>
             <Button type="submit" disabled={!canSubmit}>
-              {createCampaign.isPending ? <Spinner className="text-current" /> : <Megaphone className="h-4 w-4" />}
+              {createCampaign.isPending ? (
+                <Spinner className="text-current" />
+              ) : (
+                <Megaphone className="h-4 w-4" />
+              )}
               {createCampaign.isPending ? t('newForm.creating') : t('newForm.createCampaign')}
             </Button>
           </CardFooter>
@@ -306,24 +356,32 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
       <aside className="lg:sticky lg:top-6">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <CardTitle className="text-muted-foreground text-sm font-semibold uppercase tracking-wide">
               {t('newForm.previewTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 pt-0">
             <div className="flex items-start gap-3">
               <div
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-base font-semibold text-white shadow-soft"
+                className="shadow-soft flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-base font-semibold text-white"
                 style={{ backgroundColor: selectedBrand?.primaryColor ?? 'hsl(var(--brand))' }}
               >
-                {selectedBrand ? selectedBrand.name.slice(0, 1).toUpperCase() : <Sparkles className="h-5 w-5" />}
+                {selectedBrand ? (
+                  selectedBrand.name.slice(0, 1).toUpperCase()
+                ) : (
+                  <Sparkles className="h-5 w-5" />
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold leading-tight">
                   <BidiText>{form.name.trim() || t('newForm.untitledCampaign')}</BidiText>
                 </p>
-                <p className="truncate text-sm text-muted-foreground">
-                  {selectedBrand ? <BidiText>{selectedBrand.name}</BidiText> : t('newForm.noBrandSelected')}
+                <p className="text-muted-foreground truncate text-sm">
+                  {selectedBrand ? (
+                    <BidiText>{selectedBrand.name}</BidiText>
+                  ) : (
+                    t('newForm.noBrandSelected')
+                  )}
                 </p>
               </div>
             </div>
@@ -337,9 +395,9 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
               ) : null}
             </div>
 
-            <div className="space-y-2 rounded-xl bg-surface-muted px-3 py-2.5 text-sm">
+            <div className="bg-surface-muted space-y-2 rounded-xl px-3 py-2.5 text-sm">
               <div className="flex items-center justify-between gap-3">
-                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                <span className="text-muted-foreground inline-flex items-center gap-1.5">
                   <CalendarRange className="h-3.5 w-3.5" /> {t('fields.timeline')}
                 </span>
                 <span className="text-end font-medium">
@@ -349,19 +407,23 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                <span className="text-muted-foreground inline-flex items-center gap-1.5">
                   <Wallet className="h-3.5 w-3.5" /> {t('fields.budget')}
                 </span>
                 <span className="font-medium">
-                  {form.plannedBudget.trim()
-                    ? <LtrText>{formatCurrency(Number(form.plannedBudget), form.currency.trim() || 'KWD')}</LtrText>
-                    : t('fields.notSet')}
+                  {form.plannedBudget.trim() ? (
+                    <LtrText>
+                      {formatCurrency(Number(form.plannedBudget), form.currency.trim() || 'KWD')}
+                    </LtrText>
+                  ) : (
+                    t('fields.notSet')
+                  )}
                 </span>
               </div>
             </div>
 
             {!selectedBrand && !form.name ? (
-              <p className="text-xs text-muted-foreground">{t('newForm.previewHint')}</p>
+              <p className="text-muted-foreground text-xs">{t('newForm.previewHint')}</p>
             ) : null}
           </CardContent>
         </Card>

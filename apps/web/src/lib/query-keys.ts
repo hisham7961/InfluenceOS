@@ -13,7 +13,13 @@ export const qk = {
     sales: (id: string) => ['campaign', id, 'sales'] as const,
     reportShares: (id: string) => ['campaign', id, 'report-shares'] as const,
     foundPosts: (id: string) => ['campaign', id, 'found-posts'] as const,
+    licences: (id: string) => ['campaign', id, 'licences'] as const,
     /** A roster row's creator task links (keyed under the campaign so a campaign refresh covers them). */
-    creatorLinks: (id: string, campaignInfluencerId: string) => ['campaign', id, 'creator-links', campaignInfluencerId] as const,
+    creatorLinks: (id: string, campaignInfluencerId: string) =>
+      ['campaign', id, 'creator-links', campaignInfluencerId] as const,
   },
+  influencer: {
+    licences: (id: string) => ['influencer', id, 'licences'] as const,
+  },
+  complianceSettings: ['compliance-settings'] as const,
 };

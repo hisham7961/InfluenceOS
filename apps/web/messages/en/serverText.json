@@ -313,5 +313,15 @@
   "n_new_posts_found_body": "{n} new posts from {displayName} may belong to {name}.",
   "e_suggested_post_not_found": "Suggested post not found.",
   "e_post_already_decided": "This post was already added or dismissed.",
-  "e_deliverable_not_this_creators": "That deliverable isn't this creator's on this campaign."
+  "e_deliverable_not_this_creators": "That deliverable isn't this creator's on this campaign.",
+  "n_creator_licence_expiring": "Creator licence expiring",
+  "n_creator_licence_expires_day": "{displayName}'s advertising licence ({countryCode}) expires in {days} day{value}.",
+  "e_licence_file_not_creators": "The licence file must be one of this creator's files.",
+  "e_licence_country_taken": "This creator already has a licence for that country. Edit it instead.",
+  "e_licence_not_found": "Licence not found.",
+  "e_licence_dates": "The expiry date must be after the issue date.",
+  "a_recorded_licence": "{name} recorded {displayName}'s advertising licence for {countryCode}.",
+  "a_updated_licence": "{name} updated {displayName}'s advertising licence for {countryCode}.",
+  "a_removed_licence": "{name} removed {displayName}'s advertising licence for {countryCode}.",
+  "a_changed_licence_countries": "{name} changed the countries where creators need an advertising licence."
 }

@@ -81,7 +81,8 @@ export const FEATURES: FeatureEntry[] = [
   {
     key: 'influencers',
     name: 'Influencer Management',
-    description: 'Directory, add-from-URL, 360 profile, social accounts, notes, tags, brand relationships.',
+    description:
+      'Directory, add-from-URL, 360 profile, social accounts, notes, tags, brand relationships.',
     module: 'Influencers',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -163,7 +164,8 @@ export const FEATURES: FeatureEntry[] = [
   {
     key: 'submissions',
     name: 'Deliverable Submissions & Review',
-    description: 'UGC/draft submission, threaded review (approve / request changes / reject); UGC deliverables complete without any public URL.',
+    description:
+      'UGC/draft submission, threaded review (approve / request changes / reject); UGC deliverables complete without any public URL.',
     module: 'Deliverables',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -186,7 +188,7 @@ export const FEATURES: FeatureEntry[] = [
     key: 'logistics',
     name: 'Logistics & Shipments',
     description:
-      'Product-shipment fulfilment requests with line items, evolved from single-shipment gifting (W3-5) into a country-aware operations workspace: a country-first summary strip, My Queue/Unassigned/Needs Attention views, a distinct destinationCountryCode per shipment (never re-derived from the creator\'s current profile country), a logistics assignee distinct from the requester, and cross-campaign status sync (activity + notifications). Recipient address/phone are redacted server-side for anyone without the LOGISTICS_ADDRESS_VIEW capability (Advanced Roles pass) — never just the legacy VIEWER role.',
+      "Product-shipment fulfilment requests with line items, evolved from single-shipment gifting (W3-5) into a country-aware operations workspace: a country-first summary strip, My Queue/Unassigned/Needs Attention views, a distinct destinationCountryCode per shipment (never re-derived from the creator's current profile country), a logistics assignee distinct from the requester, and cross-campaign status sync (activity + notifications). Recipient address/phone are redacted server-side for anyone without the LOGISTICS_ADDRESS_VIEW capability (Advanced Roles pass) — never just the legacy VIEWER role.",
     module: 'Logistics',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -212,7 +214,7 @@ export const FEATURES: FeatureEntry[] = [
     key: 'logistics_issues',
     name: 'Logistics Address Clarification',
     description:
-      'A lightweight, purpose-built blocker record (never a general-purpose issue tracker) for when a shipment\'s address/phone needs confirming — a fixed type vocabulary (missing/incomplete/unclear address, missing/invalid phone, missing area or city, country mismatch, location clarification, other), routed to the responsible employee (explicit choice, else campaign owner, else the creator\'s relationship owner, else the original requester — never a broadcast). The shipment\'s own ShipmentStatus is never overloaded with a logistics-problem state; addressHealth (Complete/Incomplete/Clarification Requested/Resolved) is derived, never stored. One record surfaces on the Logistics workspace, the Influencer 360 warning banner, the Campaign Operations Board\'s Product-stage blocker, and the canonical Needs Attention feed — never copied. Resolving offers an explicit, opt-in checkbox to also update the creator\'s default shipping address; it never silently rewrites past shipments.',
+      "A lightweight, purpose-built blocker record (never a general-purpose issue tracker) for when a shipment's address/phone needs confirming — a fixed type vocabulary (missing/incomplete/unclear address, missing/invalid phone, missing area or city, country mismatch, location clarification, other), routed to the responsible employee (explicit choice, else campaign owner, else the creator's relationship owner, else the original requester — never a broadcast). The shipment's own ShipmentStatus is never overloaded with a logistics-problem state; addressHealth (Complete/Incomplete/Clarification Requested/Resolved) is derived, never stored. One record surfaces on the Logistics workspace, the Influencer 360 warning banner, the Campaign Operations Board's Product-stage blocker, and the canonical Needs Attention feed — never copied. Resolving offers an explicit, opt-in checkbox to also update the creator's default shipping address; it never silently rewrites past shipments.",
     module: 'Logistics',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -267,7 +269,8 @@ export const FEATURES: FeatureEntry[] = [
   {
     key: 'content',
     name: 'Published Content & Player',
-    description: 'URL parsing, media-independent content data + embed descriptors, monitoring status.',
+    description:
+      'URL parsing, media-independent content data + embed descriptors, monitoring status.',
     module: 'Content',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -311,7 +314,7 @@ export const FEATURES: FeatureEntry[] = [
     key: 'whats_new',
     name: "What's New",
     description:
-      "Per-user \"since your last visit\" summary (lastWhatsNewViewedAt checkpoint, never lastLoginAt) of real recorded events — new content, campaigns launched, content alerts, overdue deliverables, shipments delivered, submissions approved, usage rights expiring — never a raw activity-log dump.",
+      'Per-user "since your last visit" summary (lastWhatsNewViewedAt checkpoint, never lastLoginAt) of real recorded events — new content, campaigns launched, content alerts, overdue deliverables, shipments delivered, submissions approved, usage rights expiring — never a raw activity-log dump.',
     module: 'Content',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -399,10 +402,7 @@ export const FEATURES: FeatureEntry[] = [
     permissions: ALL,
     flag: null,
     minApiVersion: 'v1',
-    apiEndpoints: [
-      'GET /api/v1/notifications',
-      'POST /api/v1/notifications/read',
-    ],
+    apiEndpoints: ['GET /api/v1/notifications', 'POST /api/v1/notifications/read'],
     deepLink: null,
   },
   {
@@ -491,7 +491,8 @@ export const FEATURES: FeatureEntry[] = [
   {
     key: 'storage_admin',
     name: 'Storage Administration',
-    description: 'Admin view of object-storage configuration and usage: driver, private-by-default access model, upload limits, allowed types, object count and total size.',
+    description:
+      'Admin view of object-storage configuration and usage: driver, private-by-default access model, upload limits, allowed types, object count and total size.',
     module: 'Settings',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -506,7 +507,8 @@ export const FEATURES: FeatureEntry[] = [
   {
     key: 'audit_admin',
     name: 'Audit Log',
-    description: 'Admin-only, workspace-wide audit trail with server-side filters (actor, action, entity, brand/campaign, date range, free-text) and cursor pagination. Authorization enforced at the API layer (requireAdmin), not the UI.',
+    description:
+      'Admin-only, workspace-wide audit trail with server-side filters (actor, action, entity, brand/campaign, date range, free-text) and cursor pagination. Authorization enforced at the API layer (requireAdmin), not the UI.',
     module: 'Settings',
     classification: 'ADMIN_DESKTOP_ONLY',
     apiStatus: 'READY',
@@ -580,7 +582,8 @@ export const FEATURES: FeatureEntry[] = [
   {
     key: 'creator_360',
     name: 'Creator 360',
-    description: 'Relationship snapshot (owner, brands worked with, rate range, outstanding payment, delivery reliability) and a cross-source master timeline (campaign/content/UGC/logistics/payment/notes/activity) on the influencer profile.',
+    description:
+      'Relationship snapshot (owner, brands worked with, rate range, outstanding payment, delivery reliability) and a cross-source master timeline (campaign/content/UGC/logistics/payment/notes/activity) on the influencer profile.',
     module: 'Influencers',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -589,13 +592,18 @@ export const FEATURES: FeatureEntry[] = [
     permissions: ALL,
     flag: null,
     minApiVersion: 'v1',
-    apiEndpoints: ['GET /api/v1/influencers/:id/snapshot', 'GET /api/v1/influencers/:id/reliability', 'GET /api/v1/influencers/:id/timeline'],
+    apiEndpoints: [
+      'GET /api/v1/influencers/:id/snapshot',
+      'GET /api/v1/influencers/:id/reliability',
+      'GET /api/v1/influencers/:id/timeline',
+    ],
     deepLink: '/influencers/:id',
   },
   {
     key: 'campaign_operations_board',
     name: 'Campaign Operations Board',
-    description: 'Per-influencer 8-stage pipeline (Agreement/Product/Content Due/Draft/Review/Approved/Published/Payment) derived read-time from roster/deliverable/submission/shipment records, with clickable status filter chips.',
+    description:
+      'Per-influencer 8-stage pipeline (Agreement/Product/Content Due/Draft/Review/Approved/Published/Payment) derived read-time from roster/deliverable/submission/shipment records, with clickable status filter chips.',
     module: 'Campaigns',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -610,7 +618,8 @@ export const FEATURES: FeatureEntry[] = [
   {
     key: 'data_quality',
     name: 'Data Quality',
-    description: 'Missing/incomplete-data findings (real counts, never a fabricated score) and possible-duplicate creator detection (confidence-graded by matched hard identifiers vs. name-only), both derived read-time and optionally brand-scoped.',
+    description:
+      'Missing/incomplete-data findings (real counts, never a fabricated score) and possible-duplicate creator detection (confidence-graded by matched hard identifiers vs. name-only), both derived read-time and optionally brand-scoped.',
     module: 'Data Quality',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -625,7 +634,8 @@ export const FEATURES: FeatureEntry[] = [
   {
     key: 'workflow_integrity_guard',
     name: 'Workflow Integrity Guard',
-    description: 'Read-only relational-consistency sweep across content/deliverables/campaigns/usage rights — surfaces mismatches the content-association and submission-review write paths are supposed to prevent, without ever repairing them.',
+    description:
+      'Read-only relational-consistency sweep across content/deliverables/campaigns/usage rights — surfaces mismatches the content-association and submission-review write paths are supposed to prevent, without ever repairing them.',
     module: 'Data Quality',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -640,7 +650,8 @@ export const FEATURES: FeatureEntry[] = [
   {
     key: 'bulk_influencer_actions',
     name: 'Bulk Creator Actions',
-    description: 'Multi-select assign-owner / add-tag / set-relationship-status across the influencer directory. Preview (the exact per-row outcome) is available to any staff member; applying the change is admin-only.',
+    description:
+      'Multi-select assign-owner / add-tag / set-relationship-status across the influencer directory. Preview (the exact per-row outcome) is available to any staff member; applying the change is admin-only.',
     module: 'Influencers',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -649,14 +660,17 @@ export const FEATURES: FeatureEntry[] = [
     permissions: ALL,
     flag: null,
     minApiVersion: 'v1',
-    apiEndpoints: ['POST /api/v1/influencers/bulk/preview', 'POST /api/v1/influencers/bulk/execute'],
+    apiEndpoints: [
+      'POST /api/v1/influencers/bulk/preview',
+      'POST /api/v1/influencers/bulk/execute',
+    ],
     deepLink: '/influencers',
   },
   {
     key: 'advanced_roles',
     name: 'Advanced Roles & Capabilities',
     description:
-      'Replaces the flat ADMIN/STAFF/VIEWER model\'s all-or-nothing authorization with an optional, additive Role Profile (System Admin, General Manager, Operations Manager, Logistics, Influencer Manager, Viewer) that resolves to a default set of ~22 named capabilities, refined per user by explicit grant/revoke overrides — never scattered `actor.role === X` checks; every authorization decision funnels through one centralized resolveCapabilitiesFor()/hasCapability(). A role/profile change revokes the user\'s live sessions and takes effect on their very next request, not after their token expires. A user with no Role Profile assigned keeps their exact pre-existing legacy STAFF/VIEWER behavior — zero behavior change for anyone not explicitly migrated.',
+      "Replaces the flat ADMIN/STAFF/VIEWER model's all-or-nothing authorization with an optional, additive Role Profile (System Admin, General Manager, Operations Manager, Logistics, Influencer Manager, Viewer) that resolves to a default set of ~22 named capabilities, refined per user by explicit grant/revoke overrides — never scattered `actor.role === X` checks; every authorization decision funnels through one centralized resolveCapabilitiesFor()/hasCapability(). A role/profile change revokes the user's live sessions and takes effect on their very next request, not after their token expires. A user with no Role Profile assigned keeps their exact pre-existing legacy STAFF/VIEWER behavior — zero behavior change for anyone not explicitly migrated.",
     module: 'Settings',
     classification: 'ADMIN_DESKTOP_ONLY',
     apiStatus: 'READY',
@@ -665,14 +679,19 @@ export const FEATURES: FeatureEntry[] = [
     permissions: ADMIN_ONLY,
     flag: null,
     minApiVersion: 'v1',
-    apiEndpoints: ['GET /api/v1/users/:id/permissions', 'POST /api/v1/users/:id/permissions/preview', 'PUT /api/v1/users/:id/capabilities', 'PATCH /api/v1/users/:id'],
+    apiEndpoints: [
+      'GET /api/v1/users/:id/permissions',
+      'POST /api/v1/users/:id/permissions/preview',
+      'PUT /api/v1/users/:id/capabilities',
+      'PATCH /api/v1/users/:id',
+    ],
     deepLink: '/settings/users',
   },
   {
     key: 'country_scoping',
     name: 'Country Scoping',
     description:
-      'ISO-style country-code access control, independent of (and composable with) brand scope — both must be satisfied where both apply. Applied server-side everywhere a country-relevant record is read: the Logistics workspace (by a shipment\'s own destinationCountryCode, a point-in-time snapshot that is never re-derived from the creator\'s current profile country after the fact) and the Influencer directory (by the creator\'s own countryCode). Enforced on both list endpoints (an out-of-scope filter matches nothing) and direct-by-id endpoints (a country-scoped actor gets a 404, not just a hidden row, when guessing an out-of-scope id) — verified for both shipments and influencers. An actor with zero explicit country-access rows (including ADMIN) is unrestricted, so this is fully additive.',
+      "ISO-style country-code access control, independent of (and composable with) brand scope — both must be satisfied where both apply. Applied server-side everywhere a country-relevant record is read: the Logistics workspace (by a shipment's own destinationCountryCode, a point-in-time snapshot that is never re-derived from the creator's current profile country after the fact) and the Influencer directory (by the creator's own countryCode). Enforced on both list endpoints (an out-of-scope filter matches nothing) and direct-by-id endpoints (a country-scoped actor gets a 404, not just a hidden row, when guessing an out-of-scope id) — verified for both shipments and influencers. An actor with zero explicit country-access rows (including ADMIN) is unrestricted, so this is fully additive.",
     module: 'Logistics',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -783,6 +802,30 @@ export const FEATURES: FeatureEntry[] = [
       'POST /api/v1/discovered-posts/:id/dismiss',
     ],
     deepLink: '/campaigns',
+  },
+  {
+    key: 'creator_licences',
+    name: 'Creator advertising licences',
+    description:
+      "Each creator's advertising licence per country (issuer, number, dates, scanned licence from their files). A campaign names the countries it is for; for the countries an admin marks as needing a licence (Settings → Compliance; Kuwait, Saudi Arabia and the UAE by default), every creator still on the roster is checked: no licence, expired, or ending before the campaign does. The roster shows it per creator, Needs Attention raises one line per campaign whose confirmed creators aren't covered, and the worker warns 30 days before a licence expires (again after a renewal).",
+    module: 'Influencers',
+    classification: 'SHARED',
+    apiStatus: 'READY',
+    webStatus: 'READY',
+    mobileReady: true,
+    permissions: ALL,
+    flag: null,
+    minApiVersion: 'v1',
+    apiEndpoints: [
+      'GET /api/v1/influencers/:id/licences',
+      'POST /api/v1/influencers/:id/licences',
+      'PATCH /api/v1/licences/:id',
+      'DELETE /api/v1/licences/:id',
+      'GET /api/v1/campaigns/:id/licences',
+      'GET /api/v1/compliance/settings',
+      'PUT /api/v1/compliance/settings',
+    ],
+    deepLink: '/settings/compliance',
   },
 ];
 

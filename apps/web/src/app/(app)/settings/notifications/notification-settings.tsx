@@ -6,7 +6,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { CalendarClock, Mail, MailWarning, Send } from 'lucide-react';
-import type { DigestDTO, DigestFrequency, DigestSectionDTO, NotificationCategory } from '@influenceos/contracts';
+import type {
+  DigestDTO,
+  DigestFrequency,
+  DigestSectionDTO,
+  NotificationCategory,
+} from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
 import { errorMessage } from '@/lib/errors';
 import { enumLabel } from '@/lib/enum-labels';
@@ -33,6 +38,7 @@ const EMAIL_CATEGORIES: NotificationCategory[] = [
   'DELIVERABLE_DUE_SOON',
   'SUBMISSION_APPROVED',
   'USAGE_RIGHT_EXPIRING',
+  'LICENCE_EXPIRING',
   'CAMPAIGN_ENDING',
   'LOGISTICS_ADDRESS_ISSUE',
   'SHIPMENT_DELIVERED',
@@ -55,12 +61,20 @@ export function NotificationSettings() {
   const qc = useQueryClient();
   const { dateTime } = useLocalizedFormat();
 
-  const settings = useQuery({ queryKey: SETTINGS_KEY, queryFn: () => api.notifications.settings() });
-  const preview = useQuery({ queryKey: PREVIEW_KEY, queryFn: () => api.notifications.digestPreview() });
+  const settings = useQuery({
+    queryKey: SETTINGS_KEY,
+    queryFn: () => api.notifications.settings(),
+  });
+  const preview = useQuery({
+    queryKey: PREVIEW_KEY,
+    queryFn: () => api.notifications.digestPreview(),
+  });
 
   const save = useMutation({
-    mutationFn: (body: { digestFrequency?: DigestFrequency; emailCategories?: NotificationCategory[] }) =>
-      api.notifications.updateSettings(body),
+    mutationFn: (body: {
+      digestFrequency?: DigestFrequency;
+      emailCategories?: NotificationCategory[];
+    }) => api.notifications.updateSettings(body),
     onSuccess: (data) => {
       qc.setQueryData(SETTINGS_KEY, data);
       toast.success(t('saved'));
@@ -94,7 +108,7 @@ export function NotificationSettings() {
       {!s.emailConfigured ? (
         <Card className="border-warning/40 bg-warning/5">
           <CardContent className="flex items-start gap-3 p-4 text-sm">
-            <MailWarning className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <MailWarning className="text-warning mt-0.5 h-4 w-4 shrink-0" />
             <div className="space-y-1">
               <p className="font-medium">{t('notConfiguredTitle')}</p>
               <p className="text-muted-foreground">{t('notConfiguredBody')}</p>
@@ -106,13 +120,17 @@ export function NotificationSettings() {
       <Card>
         <CardHeader className="space-y-1">
           <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarClock className="h-4 w-4 text-muted-foreground" />
+            <CalendarClock className="text-muted-foreground h-4 w-4" />
             {t('summaryTitle')}
           </CardTitle>
-          <p className="text-sm text-muted-foreground">{t('summaryDescription')}</p>
+          <p className="text-muted-foreground text-sm">{t('summaryDescription')}</p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div role="radiogroup" aria-label={t('summaryTitle')} className="grid gap-2 sm:grid-cols-3">
+          <div
+            role="radiogroup"
+            aria-label={t('summaryTitle')}
+            className="grid gap-2 sm:grid-cols-3"
+          >
             {FREQUENCIES.map((f) => (
               <button
                 key={f}
@@ -123,20 +141,26 @@ export function NotificationSettings() {
                 onClick={() => s.digestFrequency !== f && save.mutate({ digestFrequency: f })}
                 className={cn(
                   'rounded-xl border p-3 text-start text-sm transition-colors',
-                  s.digestFrequency === f ? 'border-brand bg-brand-soft' : 'border-border hover:bg-surface-muted',
+                  s.digestFrequency === f
+                    ? 'border-brand bg-brand-soft'
+                    : 'border-border hover:bg-surface-muted',
                 )}
               >
                 <span className="block font-medium">{t(`frequency.${f}`)}</span>
-                <span className="block text-xs text-muted-foreground">{t(`frequencyHint.${f}`)}</span>
+                <span className="text-muted-foreground block text-xs">
+                  {t(`frequencyHint.${f}`)}
+                </span>
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+          <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-3 text-xs">
             <span className="flex items-center gap-1.5">
               <Mail className="h-3.5 w-3.5" />
               <LtrText>{s.email}</LtrText>
             </span>
-            {s.lastDigestAt ? <span>{t('lastSent', { when: dateTime(s.lastDigestAt) })}</span> : null}
+            {s.lastDigestAt ? (
+              <span>{t('lastSent', { when: dateTime(s.lastDigestAt) })}</span>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -146,7 +170,7 @@ export function NotificationSettings() {
               onClick={() => test.mutate()}
               className="gap-1.5"
             >
-              <Send className="rtl:-scale-x-100 h-3.5 w-3.5" />
+              <Send className="h-3.5 w-3.5 rtl:-scale-x-100" />
               {t('sendTest')}
             </Button>
           </div>
@@ -158,11 +182,14 @@ export function NotificationSettings() {
       <Card>
         <CardHeader className="space-y-1">
           <CardTitle className="text-base">{t('instantTitle')}</CardTitle>
-          <p className="text-sm text-muted-foreground">{t('instantDescription')}</p>
+          <p className="text-muted-foreground text-sm">{t('instantDescription')}</p>
         </CardHeader>
-        <CardContent className="divide-y divide-border p-0">
+        <CardContent className="divide-border divide-y p-0">
           {EMAIL_CATEGORIES.map((c) => (
-            <label key={c} className="flex cursor-pointer items-center justify-between gap-4 px-5 py-3 text-sm">
+            <label
+              key={c}
+              className="flex cursor-pointer items-center justify-between gap-4 px-5 py-3 text-sm"
+            >
               <span>{tCat(c)}</span>
               <Switch
                 checked={chosen.has(c)}
@@ -183,7 +210,11 @@ function DigestPreview({ digest, loading }: { digest: DigestDTO | undefined; loa
   const tEnums = useTranslations('enums');
   const { shortDate } = useLocalizedFormat();
 
-  const sections: { key: string; data: DigestSectionDTO; kind: 'deliverableType' | 'contentStatus' | 'usageRightType' }[] = digest
+  const sections: {
+    key: string;
+    data: DigestSectionDTO;
+    kind: 'deliverableType' | 'contentStatus' | 'usageRightType';
+  }[] = digest
     ? [
         { key: 'overdue', data: digest.overdue, kind: 'deliverableType' },
         { key: 'dueSoon', data: digest.dueSoon, kind: 'deliverableType' },
@@ -198,32 +229,42 @@ function DigestPreview({ digest, loading }: { digest: DigestDTO | undefined; loa
       <CardHeader className="space-y-1">
         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
           {t('previewTitle')}
-          {digest ? <Badge tone="neutral">{digest.onlyMine ? t('previewMine') : t('previewTeam')}</Badge> : null}
+          {digest ? (
+            <Badge tone="neutral">{digest.onlyMine ? t('previewMine') : t('previewTeam')}</Badge>
+          ) : null}
         </CardTitle>
-        <p className="text-sm text-muted-foreground">{t('previewDescription')}</p>
+        <p className="text-muted-foreground text-sm">{t('previewDescription')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {loading || !digest ? (
           <Skeleton className="h-24 w-full" />
         ) : digest.isEmpty ? (
-          <p className="text-sm text-muted-foreground">{t('previewEmpty')}</p>
+          <p className="text-muted-foreground text-sm">{t('previewEmpty')}</p>
         ) : (
           sections
             .filter((s) => s.data.total > 0)
             .map((s) => (
               <div key={s.key} className="space-y-1.5">
                 <p className="text-sm font-medium">
-                  {t(`sections.${s.key}`)} <span className="text-muted-foreground">({s.data.total})</span>
+                  {t(`sections.${s.key}`)}{' '}
+                  <span className="text-muted-foreground">({s.data.total})</span>
                 </p>
                 <ul className="space-y-1 text-sm">
                   {s.data.items.map((item) => (
                     <li key={item.id} className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-                      <Link href={item.link} className="min-w-0 truncate font-medium hover:underline">
-                        <BidiText as="span">{item.influencerName ?? item.brandName ?? '—'}</BidiText>
+                      <Link
+                        href={item.link}
+                        className="min-w-0 truncate font-medium hover:underline"
+                      >
+                        <BidiText as="span">
+                          {item.influencerName ?? item.brandName ?? '—'}
+                        </BidiText>
                         {item.kind ? ` · ${enumLabel(tEnums, s.kind, item.kind)}` : ''}
                       </Link>
-                      <span className="text-xs text-muted-foreground">
-                        {item.campaignName ? <BidiText as="span">{item.campaignName}</BidiText> : null}
+                      <span className="text-muted-foreground text-xs">
+                        {item.campaignName ? (
+                          <BidiText as="span">{item.campaignName}</BidiText>
+                        ) : null}
                         {item.campaignName && item.at ? ' — ' : ''}
                         {item.at ? shortDate(item.at) : ''}
                       </span>
@@ -231,16 +272,22 @@ function DigestPreview({ digest, loading }: { digest: DigestDTO | undefined; loa
                   ))}
                 </ul>
                 {s.data.total > s.data.items.length ? (
-                  <p className="text-xs text-muted-foreground">{t('andMore', { count: s.data.total - s.data.items.length })}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {t('andMore', { count: s.data.total - s.data.items.length })}
+                  </p>
                 ) : null}
               </div>
             ))
         )}
         {digest?.unpaid ? (
-          <p className="border-t border-border pt-3 text-sm">
+          <p className="border-border border-t pt-3 text-sm">
             <Link href="/finance" className="hover:underline">
               {t('unpaid', { count: digest.unpaid.count })}{' '}
-              <LtrText>{digest.unpaid.totals.map((x) => formatCurrency(Number(x.amount), x.currency)).join(' + ')}</LtrText>
+              <LtrText>
+                {digest.unpaid.totals
+                  .map((x) => formatCurrency(Number(x.amount), x.currency))
+                  .join(' + ')}
+              </LtrText>
             </Link>
           </p>
         ) : null}

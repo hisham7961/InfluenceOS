@@ -56,6 +56,12 @@
     "USAGE_RIGHT_EXPIRING": "Review usage right",
     "UGC_AWAITING_REVIEW": "Review draft",
     "UNASSIGNED_CONTENT": "Resolve content",
-    "CAMPAIGN_MISSING_OWNER": "Assign owner"
+    "CAMPAIGN_MISSING_OWNER": "Assign owner",
+    "CREATOR_LICENCE": "Check licences"
+  },
+  "creatorLicence": {
+    "title": "Creator licences — <name>{campaignName}</name>",
+    "missing": "{count, plural, one {# creator has} other {# creators have}} no valid licence for this campaign's countries.",
+    "expiring": "{count, plural, one {# creator's licence ends} other {# creators' licences end}} before the campaign does."
   }
 }

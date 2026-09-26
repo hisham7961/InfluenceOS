@@ -56,6 +56,12 @@
     "USAGE_RIGHT_EXPIRING": "مراجعة حق الاستخدام",
     "UGC_AWAITING_REVIEW": "مراجعة المسودة",
     "UNASSIGNED_CONTENT": "معالجة المحتوى",
-    "CAMPAIGN_MISSING_OWNER": "تعيين مالك"
+    "CAMPAIGN_MISSING_OWNER": "تعيين مالك",
+    "CREATOR_LICENCE": "مراجعة الرخص"
+  },
+  "creatorLicence": {
+    "title": "رخص المؤثرين — <name>{campaignName}</name>",
+    "missing": "{count, plural, one {مؤثر واحد ليس لديه رخصة سارية} two {مؤثران ليس لديهما رخصة سارية} few {# مؤثرين ليس لديهم رخصة سارية} many {# مؤثراً ليس لديهم رخصة سارية} other {# مؤثر ليس لديهم رخصة سارية}} لدول هذه الحملة.",
+    "expiring": "{count, plural, one {رخصة مؤثر واحد تنتهي} two {رخصتا مؤثرَين تنتهيان} few {رخص # مؤثرين تنتهي} many {رخص # مؤثراً تنتهي} other {رخص # مؤثر تنتهي}} قبل نهاية الحملة."
   }
 }

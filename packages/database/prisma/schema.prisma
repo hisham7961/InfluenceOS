@@ -268,6 +268,8 @@ enum NotificationCategory {
   /// responsible employee (Advanced Roles & Logistics Operations pass) —
   /// its own category so it's never confused with a routine shipment update.
   LOGISTICS_ADDRESS_ISSUE
+  /// A creator's advertising licence is about to expire (P3.5).
+  LICENCE_EXPIRING
   GENERAL
 }
 
@@ -488,6 +490,7 @@ model User {
   reportShares            ReportShareLink[]        @relation("ReportShareCreatedBy")
   creatorLinks            CreatorAccessLink[]      @relation("CreatorAccessCreatedBy")
   decidedDiscoveries      DiscoveredPost[]         @relation("DiscoveryDecidedBy")
+  createdLicences         CreatorLicence[]         @relation("CreatorLicenceCreatedBy")
 
   @@index([role])
   @@index([roleProfile])
@@ -681,6 +684,7 @@ model Influencer {
   trackingLinks       TrackingLink[]
   sales               Sale[]
   discoveredPosts     DiscoveredPost[]
+  licences            CreatorLicence[]
 
   @@index([relationshipStatus])
   @@index([ownerId])
@@ -808,6 +812,9 @@ model Campaign {
   currency             String             @default("KWD")
   plannedBudget        Decimal?           @db.Decimal(18, 3)
   targetMarket         String?
+  /// The countries the campaign is for (ISO codes, P3.5). Creator licences
+  /// are checked against these; targetMarket stays as free-text description.
+  marketCountryCodes   String[]           @default([])
   ownerId              String?
   internalNotes        String?
   /// Every deliverable goes through a draft review before posting (UGC always does).
@@ -1419,6 +1426,7 @@ model Attachment {
   campaignInfluencer CampaignInfluencer?     @relation(fields: [campaignInfluencerId], references: [id], onDelete: Cascade)
   submissions        DeliverableSubmission[]
   paymentReceipts    Payment[]
+  licences           CreatorLicence[]
   influencer         Influencer?             @relation(fields: [influencerId], references: [id], onDelete: Cascade)
   deliverable        Deliverable?            @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
   scriptReference    ScriptReference?        @relation(fields: [scriptReferenceId], references: [id], onDelete: Cascade)
@@ -1655,6 +1663,37 @@ model UsageRight {
 /// A no-login link to a campaign's client report. Looked up by a hash of the
 /// token; the token itself is kept encrypted so the link can be copied again.
 /// Language and whether costs show are fixed when the link is made.
+/// A creator's advertising licence in one country (P3.5): Mawthooq in Saudi
+/// Arabia, the UAE Media Council permit, a Kuwait licence and so on. One per
+/// creator and country; a renewal updates the same record. The scanned
+/// licence is one of the creator's files.
+model CreatorLicence {
+  id               String    @id @default(cuid())
+  influencerId     String
+  countryCode      String
+  /// Who issued it ("Mawthooq", "UAE Media Council"…), as the team writes it.
+  authority        String?
+  number           String?
+  issuedAt         DateTime?
+  /// Null when the licence has no end date recorded.
+  expiresAt        DateTime?
+  attachmentId     String?
+  notes            String?
+  createdById      String?
+  /// When the worker last warned that it is about to expire (one warning per expiry date).
+  expiryRemindedAt DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  influencer Influencer  @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  attachment Attachment? @relation(fields: [attachmentId], references: [id], onDelete: SetNull)
+  createdBy  User?       @relation("CreatorLicenceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([influencerId, countryCode])
+  @@index([expiresAt])
+  @@index([attachmentId])
+}
+
 model ReportShareLink {
   id           String    @id @default(cuid())
   campaignId   String
@@ -2024,6 +2063,10 @@ model ClientConfig {
   maxUploadMb        Int      @default(50)
   supportInfo        String?
   extra              Json?
+  /// Countries where a creator needs an advertising licence to post for a
+  /// brand (P3.5). A campaign aimed at one of these checks every creator on
+  /// its roster for a valid licence there. Admins change it in Settings.
+  licenceCountryCodes String[] @default(["KW", "SA", "AE"])
   updatedAt          DateTime @updatedAt
 }
 

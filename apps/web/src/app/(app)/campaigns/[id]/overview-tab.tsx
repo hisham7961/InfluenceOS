@@ -8,6 +8,7 @@ import { BidiText } from '@/components/common/bidi-text';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProgressBar } from '@/components/ui/progress';
 import { formatPercent, useLocalizedFormat } from '@/lib/format';
+import { useCountryList } from '@/lib/country-names';
 
 // ---------------------------------------------------------------------------
 // Overview
@@ -15,9 +16,11 @@ import { formatPercent, useLocalizedFormat } from '@/lib/format';
 
 function DetailRow({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-3 last:border-0 last:pb-0">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="text-end text-sm font-medium text-foreground">{value || '—'}</span>
+    <div className="border-border/60 flex items-center justify-between gap-4 border-b pb-3 last:border-0 last:pb-0">
+      <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+        {label}
+      </span>
+      <span className="text-foreground text-end text-sm font-medium">{value || '—'}</span>
     </div>
   );
 }
@@ -26,6 +29,7 @@ export function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
   const t = useTranslations('campaigns');
   const tEnums = useTranslations('enums');
   const { shortDate } = useLocalizedFormat();
+  const countryList = useCountryList();
   const p = campaign.progress;
 
   return (
@@ -37,9 +41,13 @@ export function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
           </CardHeader>
           <CardContent>
             {campaign.description ? (
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{campaign.description}</p>
+              <p className="text-foreground whitespace-pre-wrap text-sm leading-relaxed">
+                {campaign.description}
+              </p>
             ) : (
-              <p className="text-sm text-muted-foreground">{t('workspace.overview.noDescription')}</p>
+              <p className="text-muted-foreground text-sm">
+                {t('workspace.overview.noDescription')}
+              </p>
             )}
           </CardContent>
         </Card>
@@ -50,9 +58,11 @@ export function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
           </CardHeader>
           <CardContent>
             {campaign.brief ? (
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{campaign.brief}</p>
+              <p className="text-foreground whitespace-pre-wrap text-sm leading-relaxed">
+                {campaign.brief}
+              </p>
             ) : (
-              <p className="text-sm text-muted-foreground">{t('workspace.overview.noBrief')}</p>
+              <p className="text-muted-foreground text-sm">{t('workspace.overview.noBrief')}</p>
             )}
           </CardContent>
         </Card>
@@ -63,7 +73,9 @@ export function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
               <CardTitle>{t('workspace.overview.internalNotesTitle')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="whitespace-pre-wrap text-sm text-foreground">{campaign.internalNotes}</p>
+              <p className="text-foreground whitespace-pre-wrap text-sm">
+                {campaign.internalNotes}
+              </p>
             </CardContent>
           </Card>
         ) : null}
@@ -76,41 +88,47 @@ export function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="text-muted-foreground flex items-center justify-between text-xs">
                 <span>{t('workspace.overview.deliverablesPublishedLabel')}</span>
-                <span className="font-medium text-foreground">
+                <span className="text-foreground font-medium">
                   {p.deliverablesPublished}/{p.deliverablesTotal}
                 </span>
               </div>
               <ProgressBar value={p.deliverableCompletion} tone="brand" className="mt-1.5" />
             </div>
             <div>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="text-muted-foreground flex items-center justify-between text-xs">
                 <span>{t('workspace.overview.influencersCompletedLabel')}</span>
-                <span className="font-medium text-foreground">
+                <span className="text-foreground font-medium">
                   {p.influencersCompleted}/{p.influencersTotal}
                 </span>
               </div>
               <ProgressBar
-                value={p.influencersTotal > 0 ? (p.influencersCompleted / p.influencersTotal) * 100 : 0}
+                value={
+                  p.influencersTotal > 0 ? (p.influencersCompleted / p.influencersTotal) * 100 : 0
+                }
                 tone="success"
                 className="mt-1.5"
               />
             </div>
             {p.timeElapsedPercent != null ? (
               <div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="text-muted-foreground flex items-center justify-between text-xs">
                   <span>{t('workspace.overview.timeElapsedLabel')}</span>
-                  <span className="font-medium text-foreground">{formatPercent(p.timeElapsedPercent, 0)}</span>
+                  <span className="text-foreground font-medium">
+                    {formatPercent(p.timeElapsedPercent, 0)}
+                  </span>
                 </div>
                 <ProgressBar value={p.timeElapsedPercent} tone="warning" className="mt-1.5" />
               </div>
             ) : null}
             {p.plannedBudget != null ? (
               <div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="text-muted-foreground flex items-center justify-between text-xs">
                   <span>{t('workspace.overview.budgetUsedLabel')}</span>
-                  <span className="font-medium text-foreground">{formatPercent(p.budgetUsedPercent, 0)}</span>
+                  <span className="text-foreground font-medium">
+                    {formatPercent(p.budgetUsedPercent, 0)}
+                  </span>
                 </div>
                 <ProgressBar
                   value={p.budgetUsedPercent ?? 0}
@@ -129,7 +147,17 @@ export function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
           <CardContent className="space-y-3">
             <DetailRow
               label={t('fields.objective')}
-              value={campaign.objective ? enumLabel(tEnums, 'campaignObjective', campaign.objective) : null}
+              value={
+                campaign.objective
+                  ? enumLabel(tEnums, 'campaignObjective', campaign.objective)
+                  : null
+              }
+            />
+            <DetailRow
+              label={t('fields.marketCountries')}
+              value={
+                campaign.marketCountryCodes.length ? countryList(campaign.marketCountryCodes) : null
+              }
             />
             <DetailRow label={t('fields.targetMarket')} value={campaign.targetMarket} />
             <DetailRow

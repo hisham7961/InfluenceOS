@@ -66,7 +66,12 @@ export const LOGISTICS_ISSUE_STATUSES = ['OPEN', 'RESOLVED', 'CANCELLED'] as con
 export type LogisticsIssueStatus = (typeof LOGISTICS_ISSUE_STATUSES)[number];
 
 /** Derived, never-stored indicator of a shipment's address completeness. */
-export const ADDRESS_HEALTHS = ['COMPLETE', 'INCOMPLETE', 'CLARIFICATION_REQUESTED', 'RESOLVED'] as const;
+export const ADDRESS_HEALTHS = [
+  'COMPLETE',
+  'INCOMPLETE',
+  'CLARIFICATION_REQUESTED',
+  'RESOLVED',
+] as const;
 export type AddressHealth = (typeof ADDRESS_HEALTHS)[number];
 
 export const DATA_SOURCES = ['MANUAL', 'OFFICIAL_API', 'EMBED', 'UNAVAILABLE'] as const;
@@ -91,7 +96,14 @@ export const CONTACT_METHODS = ['WHATSAPP', 'EMAIL', 'PHONE', 'INSTAGRAM_DM', 'O
 export type ContactMethod = (typeof CONTACT_METHODS)[number];
 
 /** Why a creator was messaged (WhatsApp templates and the contact log). */
-export const CONTACT_PURPOSES = ['BRIEF', 'OFFER', 'SHIPMENT', 'ADDRESS', 'CHANGES', 'GENERAL'] as const;
+export const CONTACT_PURPOSES = [
+  'BRIEF',
+  'OFFER',
+  'SHIPMENT',
+  'ADDRESS',
+  'CHANGES',
+  'GENERAL',
+] as const;
 export type ContactPurpose = (typeof CONTACT_PURPOSES)[number];
 
 export const AUDIENCE_HEALTH_LABELS = ['HEALTHY', 'REVIEW', 'LIMITED_DATA'] as const;
@@ -178,7 +190,12 @@ export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
  * (DRAFT), sent to the brand, sent back with changes, or approved — the
  * approved version is the one creators should follow.
  */
-export const SCRIPT_VERSION_STATUSES = ['DRAFT', 'SENT_TO_BRAND', 'CHANGES_REQUESTED', 'APPROVED'] as const;
+export const SCRIPT_VERSION_STATUSES = [
+  'DRAFT',
+  'SENT_TO_BRAND',
+  'CHANGES_REQUESTED',
+  'APPROVED',
+] as const;
 export type ScriptVersionStatus = (typeof SCRIPT_VERSION_STATUSES)[number];
 
 /** A reviewer's decision on a submission. */
@@ -195,15 +212,17 @@ export const CONTENT_STATUSES = [
 ] as const;
 export type ContentStatus = (typeof CONTENT_STATUSES)[number];
 
-export const PAYMENT_STATUSES = [
-  'NOT_APPLICABLE',
-  'UNPAID',
-  'PARTIALLY_PAID',
-  'PAID',
-] as const;
+export const PAYMENT_STATUSES = ['NOT_APPLICABLE', 'UNPAID', 'PARTIALLY_PAID', 'PAID'] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
-export const PAYMENT_METHODS = ['BANK_TRANSFER', 'CASH', 'CHEQUE', 'CARD', 'PAYMENT_LINK', 'OTHER'] as const;
+export const PAYMENT_METHODS = [
+  'BANK_TRANSFER',
+  'CASH',
+  'CHEQUE',
+  'CARD',
+  'PAYMENT_LINK',
+  'OTHER',
+] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export const EXPENSE_TYPES = [
@@ -232,6 +251,7 @@ export const NOTIFICATION_CATEGORIES = [
   'REPLY',
   'IMPORTANT_MESSAGE',
   'LOGISTICS_ADDRESS_ISSUE',
+  'LICENCE_EXPIRING',
   'GENERAL',
 ] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -387,10 +407,14 @@ export const ROLE_PROFILE_LABELS = labelMap(ROLE_PROFILES, {
 });
 export const ROLE_PROFILE_DESCRIPTIONS: Record<RoleProfile, string> = {
   ADMIN: 'Full system administration — users, permissions, integrations, all data.',
-  GENERAL_MANAGER: 'Broad operational visibility across brands, countries and campaigns — not system configuration.',
-  OPERATIONS_MANAGER: 'Monitors campaign progress, content and logistics workflows; not an administrator.',
-  LOGISTICS: 'Fulfils shipments — address, courier, tracking and logistics issues for their assigned countries.',
-  INFLUENCER_MANAGER: 'Manages creator relationships, campaign participation and content for their assigned countries.',
+  GENERAL_MANAGER:
+    'Broad operational visibility across brands, countries and campaigns — not system configuration.',
+  OPERATIONS_MANAGER:
+    'Monitors campaign progress, content and logistics workflows; not an administrator.',
+  LOGISTICS:
+    'Fulfils shipments — address, courier, tracking and logistics issues for their assigned countries.',
+  INFLUENCER_MANAGER:
+    'Manages creator relationships, campaign participation and content for their assigned countries.',
   VIEWER: 'Read-only access within whatever scopes are granted.',
 };
 export const CAPABILITY_LABELS = labelMap(CAPABILITIES, {

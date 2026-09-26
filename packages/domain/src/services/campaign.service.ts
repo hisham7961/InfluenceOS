@@ -89,11 +89,14 @@ export function makeCampaignService(ctx: DomainContext) {
   // service.ts, shipment.service.ts, content.service.ts): an out-of-scope
   // explicit brandId matches nothing rather than silently widening; an
   // unscoped actor (ADMIN, or no explicit UserBrandAccess rows) is untouched.
-  async function buildWhere(filter: CampaignFilter | CampaignCursorQuery): Promise<Prisma.CampaignWhereInput> {
+  async function buildWhere(
+    filter: CampaignFilter | CampaignCursorQuery,
+  ): Promise<Prisma.CampaignWhereInput> {
     const where: Prisma.CampaignWhereInput = {};
     const brandScope = await scopedBrandIds(ctx);
     if (filter.brandId) {
-      where.brandId = brandScope && !brandScope.includes(filter.brandId) ? { in: [] } : filter.brandId;
+      where.brandId =
+        brandScope && !brandScope.includes(filter.brandId) ? { in: [] } : filter.brandId;
     } else if (brandScope) {
       where.brandId = { in: brandScope };
     }
@@ -168,7 +171,10 @@ export function makeCampaignService(ctx: DomainContext) {
       where: brandId
         ? { brandId, OR: [{ id: idOrSlug }, { slug: idOrSlug }] }
         : { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
-      include: { brand: { select: brandSummarySelect }, owner: { select: { id: true, name: true } } },
+      include: {
+        brand: { select: brandSummarySelect },
+        owner: { select: { id: true, name: true } },
+      },
     });
     if (!campaign) throw AppError.notFound('Campaign');
     // Direct-ID brand scope (Security & Authorization Freeze Gate) — a
@@ -191,7 +197,9 @@ export function makeCampaignService(ctx: DomainContext) {
    * should call this instead of its own raw `prisma.campaign.findUnique` —
    * one scope check, not one per call site to independently remember.
    */
-  async function assertInScope(campaignId: string): Promise<{ id: string; brandId: string; name: string }> {
+  async function assertInScope(
+    campaignId: string,
+  ): Promise<{ id: string; brandId: string; name: string }> {
     const campaign = await prisma.campaign.findUnique({
       where: { id: campaignId },
       select: { id: true, brandId: true, name: true },
@@ -213,6 +221,7 @@ export function makeCampaignService(ctx: DomainContext) {
       description: c.description,
       brief: c.brief,
       targetMarket: c.targetMarket,
+      marketCountryCodes: c.marketCountryCodes,
       internalNotes: c.internalNotes,
       owner: c.owner ? { id: c.owner.id, name: c.owner.name } : null,
       publishedContentCount,
@@ -257,6 +266,7 @@ export function makeCampaignService(ctx: DomainContext) {
         currency: input.currency ?? 'KWD',
         plannedBudget: input.plannedBudget ?? null,
         targetMarket: input.targetMarket ?? null,
+        marketCountryCodes: input.marketCountryCodes ?? [],
         ownerId: input.ownerId ?? ctx.actor?.id ?? null,
         internalNotes: input.internalNotes ?? null,
         draftReview: input.draftReview ?? false,
@@ -315,13 +325,17 @@ export function makeCampaignService(ctx: DomainContext) {
         currency: input.currency ?? undefined,
         plannedBudget: input.plannedBudget === undefined ? undefined : input.plannedBudget,
         targetMarket: input.targetMarket === undefined ? undefined : input.targetMarket,
+        marketCountryCodes: input.marketCountryCodes ?? undefined,
         ownerId: input.ownerId === undefined ? undefined : input.ownerId,
         internalNotes: input.internalNotes === undefined ? undefined : input.internalNotes,
         draftReview: input.draftReview ?? undefined,
         targetViews: input.targetViews === undefined ? undefined : input.targetViews,
-        targetEngagements: input.targetEngagements === undefined ? undefined : input.targetEngagements,
-        targetEngagementRate: input.targetEngagementRate === undefined ? undefined : input.targetEngagementRate,
-        targetCostPerView: input.targetCostPerView === undefined ? undefined : input.targetCostPerView,
+        targetEngagements:
+          input.targetEngagements === undefined ? undefined : input.targetEngagements,
+        targetEngagementRate:
+          input.targetEngagementRate === undefined ? undefined : input.targetEngagementRate,
+        targetCostPerView:
+          input.targetCostPerView === undefined ? undefined : input.targetCostPerView,
         reportSummary: input.reportSummary === undefined ? undefined : input.reportSummary,
       },
     });
@@ -345,7 +359,16 @@ export function makeCampaignService(ctx: DomainContext) {
     return detail(id);
   }
 
-  return { list, listCursor, detail, create, update, findByIdOrSlug, assertInScope, brandSummarySelect };
+  return {
+    list,
+    listCursor,
+    detail,
+    create,
+    update,
+    findByIdOrSlug,
+    assertInScope,
+    brandSummarySelect,
+  };
 }
 
 export type CampaignService = ReturnType<typeof makeCampaignService>;

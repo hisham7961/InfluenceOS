@@ -43,6 +43,10 @@
       "notifications": {
         "title": "Notifications",
         "description": "Morning summary email and which alerts reach your inbox."
+      },
+      "compliance": {
+        "title": "Compliance",
+        "description": "The countries where creators need an advertising licence."
       }
     },
     "darkTheme": "Dark theme",
@@ -544,5 +548,17 @@
     "unpaid": "Still owed: {count} fees and expenses —",
     "instantTitle": "Also email me right away when",
     "instantDescription": "These arrive as they happen, in addition to the app. Team-wide alerts only reach you for your brands and countries."
+  },
+  "compliance": {
+    "title": "Compliance",
+    "description": "Rules the app checks for you on every campaign.",
+    "savedToast": "Saved",
+    "licences": {
+      "title": "Creator advertising licences",
+      "description": "A campaign aimed at one of these countries checks every creator on its roster for a valid licence there. Missing or expired licences show on the roster and in Needs Attention.",
+      "current": "Checked in: {countries}",
+      "none": "No country is checked. Licences are not checked on any campaign.",
+      "adminOnly": "Only an administrator can change this list."
+    }
   }
 }

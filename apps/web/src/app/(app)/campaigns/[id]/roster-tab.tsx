@@ -5,11 +5,23 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Film, Link2, Megaphone, Paperclip, Pencil, Plus, Search, Trash2, Users, Wallet } from 'lucide-react';
+import {
+  Film,
+  Link2,
+  Megaphone,
+  Paperclip,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import type {
   CampaignDetailDTO,
   CampaignInfluencerDTO,
   CampaignInfluencerResultsDTO,
+  CampaignLicenceCheckDTO,
   CampaignOperationsRowDTO,
   DealType,
   ParticipationStatus,
@@ -25,7 +37,13 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Avatar } from '@/components/ui/avatar';
 import { PlatformBadge } from '@/components/ui/platform-badge';
 import { DealTypeBadge, PaymentStatusBadge } from '@/components/ui/status-badges';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Field, Input, Textarea } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { OPERATIONS_FILTER_KEYS, StageStrip } from './operations-board-tab';
@@ -44,6 +62,8 @@ import { useApp } from '@/components/shell/app-context';
 import { PaymentHistory } from '@/components/finance/payment-history';
 import { WhatsAppDialog } from '@/components/influencers/whatsapp-dialog';
 import { CreatorLinkButton } from './creator-link-dialog';
+import { LicenceBadges } from './licence-badges';
+import { qk } from '@/lib/query-keys';
 import { AddInfluencerDialog } from './add-influencer-dialog';
 import { BulkAddInfluencersDialog } from './bulk-add-influencers-dialog';
 import { errorMessage } from '@/lib/errors';
@@ -56,9 +76,17 @@ import { DeliverableDialog, DeliverableRow } from './deliverables-tab';
 
 type RosterFilter = CampaignOperationsRowDTO['filterBuckets'][number] | 'ALL';
 
-export function InfluencersTab({ campaign, influencers }: { campaign: CampaignDetailDTO; influencers: CampaignInfluencerDTO[] }) {
+export function InfluencersTab({
+  campaign,
+  influencers,
+}: {
+  campaign: CampaignDetailDTO;
+  influencers: CampaignInfluencerDTO[];
+}) {
   const t = useTranslations('campaigns');
-  const [addDeliverableFor, setAddDeliverableFor] = React.useState<CampaignInfluencerDTO | null>(null);
+  const [addDeliverableFor, setAddDeliverableFor] = React.useState<CampaignInfluencerDTO | null>(
+    null,
+  );
   const [filter, setFilter] = React.useState<RosterFilter>('ALL');
   const [search, setSearch] = React.useState('');
 
@@ -72,6 +100,16 @@ export function InfluencersTab({ campaign, influencers }: { campaign: CampaignDe
   const opsById = React.useMemo(
     () => new Map((board.data?.rows ?? []).map((r) => [r.campaignInfluencerId, r])),
     [board.data],
+  );
+  // Licences for the campaign's countries (P3.5); nothing to check without countries.
+  const licences = useQuery({
+    queryKey: qk.campaign.licences(campaign.id),
+    queryFn: () => api.licences.forCampaign(campaign.id),
+    enabled: influencers.length > 0 && campaign.marketCountryCodes.length > 0,
+  });
+  const licenceById = React.useMemo(
+    () => new Map((licences.data?.creators ?? []).map((c) => [c.campaignInfluencerId, c])),
+    [licences.data],
   );
 
   const needle = search.trim().toLowerCase().replace(/^@/, '');
@@ -91,19 +129,31 @@ export function InfluencersTab({ campaign, influencers }: { campaign: CampaignDe
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           {t('workspace.influencers.countOnCampaign', { count: influencers.length })}
         </p>
         <div className="flex items-center gap-2">
-          <BulkAddInfluencersDialog campaignId={campaign.id} existingInfluencerIds={influencers.map((ci) => ci.influencer.id)} />
-          <AddInfluencerDialog campaignId={campaign.id} existingInfluencerIds={influencers.map((ci) => ci.influencer.id)} />
+          <BulkAddInfluencersDialog
+            campaignId={campaign.id}
+            existingInfluencerIds={influencers.map((ci) => ci.influencer.id)}
+          />
+          <AddInfluencerDialog
+            campaignId={campaign.id}
+            existingInfluencerIds={influencers.map((ci) => ci.influencer.id)}
+          />
         </div>
       </div>
+
+      {influencers.length > 0 && campaign.marketCountryCodes.length === 0 ? (
+        <p className="border-border text-muted-foreground rounded-lg border border-dashed px-3 py-2 text-xs">
+          {t('licences.noCountriesHint')}
+        </p>
+      ) : null}
 
       {influencers.length > 1 ? (
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
           <div className="relative lg:w-64 lg:shrink-0">
-            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="text-muted-foreground pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2" />
             <Input
               type="search"
               value={search}
@@ -115,8 +165,15 @@ export function InfluencersTab({ campaign, influencers }: { campaign: CampaignDe
           </div>
           {chips.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
-              <Button variant={filter === 'ALL' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter('ALL')}>
-                {t('operations.chipWithCount', { label: t('operations.allChip'), count: influencers.length })}
+              <Button
+                variant={filter === 'ALL' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setFilter('ALL')}
+              >
+                {t('operations.chipWithCount', {
+                  label: t('operations.allChip'),
+                  count: influencers.length,
+                })}
               </Button>
               {chips.map((c) => (
                 <Button
@@ -125,7 +182,10 @@ export function InfluencersTab({ campaign, influencers }: { campaign: CampaignDe
                   size="sm"
                   onClick={() => setFilter(filter === c.key ? 'ALL' : c.key)}
                 >
-                  {t('operations.chipWithCount', { label: t(`operations.filters.${c.key}`), count: c.count })}
+                  {t('operations.chipWithCount', {
+                    label: t(`operations.filters.${c.key}`),
+                    count: c.count,
+                  })}
                 </Button>
               ))}
             </div>
@@ -165,6 +225,7 @@ export function InfluencersTab({ campaign, influencers }: { campaign: CampaignDe
               ci={ci}
               campaign={campaign}
               ops={opsById.get(ci.id) ?? null}
+              licence={licenceById.get(ci.id) ?? null}
               onAddDeliverable={() => setAddDeliverableFor(ci)}
             />
           ))}
@@ -187,32 +248,51 @@ export function InfluencersTab({ campaign, influencers }: { campaign: CampaignDe
  * vs planned, their latest views and engagements, and their own spend over
  * those — so the expensive creator's cost per view isn't averaged away.
  */
-function RosterResults({ results, currency }: { results: CampaignInfluencerResultsDTO; currency: string }) {
+function RosterResults({
+  results,
+  currency,
+}: {
+  results: CampaignInfluencerResultsDTO;
+  currency: string;
+}) {
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const r = results;
   const na = tCommon('na');
   // "1 of 2" is a sentence and follows the page's direction; money and counts stay left-to-right.
-  const items: { label: string; value: React.ReactNode; hint?: string | null; sentence?: boolean }[] = [
+  const items: {
+    label: string;
+    value: React.ReactNode;
+    hint?: string | null;
+    sentence?: boolean;
+  }[] = [
     {
       label: t('workspace.influencers.results.posts'),
       sentence: true,
       value:
         r.postsPlanned > 0
-          ? t('workspace.influencers.results.postsOfPlanned', { live: r.postsLive, planned: r.postsPlanned })
+          ? t('workspace.influencers.results.postsOfPlanned', {
+              live: r.postsLive,
+              planned: r.postsPlanned,
+            })
           : String(r.postsLive),
       hint:
         r.postsTotal > r.postsLive
           ? t('workspace.influencers.results.postsDown', { count: r.postsTotal - r.postsLive })
           : null,
     },
-    { label: t('workspace.influencers.results.views'), value: r.views != null ? formatCompact(r.views) : na },
+    {
+      label: t('workspace.influencers.results.views'),
+      value: r.views != null ? formatCompact(r.views) : na,
+    },
     {
       label: t('workspace.influencers.results.engagements'),
       value: r.engagements != null ? formatCompact(r.engagements) : na,
       hint:
         r.engagementRate != null
-          ? t('workspace.influencers.results.engagementRate', { rate: formatPercent(r.engagementRate) })
+          ? t('workspace.influencers.results.engagementRate', {
+              rate: formatPercent(r.engagementRate),
+            })
           : null,
     },
     { label: t('workspace.influencers.results.spend'), value: formatCurrency(r.spend, currency) },
@@ -230,19 +310,24 @@ function RosterResults({ results, currency }: { results: CampaignInfluencerResul
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 xl:grid-cols-6">
         {items.map((item) => (
           <div key={item.label} className="min-w-0">
-            <dt className="truncate text-xs text-muted-foreground">{item.label}</dt>
-            <dd className="text-sm font-semibold tabular-nums text-foreground">
+            <dt className="text-muted-foreground truncate text-xs">{item.label}</dt>
+            <dd className="text-foreground text-sm font-semibold tabular-nums">
               {item.sentence ? item.value : <LtrText>{item.value}</LtrText>}
             </dd>
-            {item.hint ? <dd className="truncate text-xs text-muted-foreground">{item.hint}</dd> : null}
+            {item.hint ? (
+              <dd className="text-muted-foreground truncate text-xs">{item.hint}</dd>
+            ) : null}
           </div>
         ))}
       </dl>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-muted-foreground text-xs">
         {r.postsTotal === 0
           ? t('workspace.influencers.results.noPostsYet')
           : r.postsWithMetrics < r.postsTotal
-            ? t('workspace.influencers.results.numbersOn', { measured: r.postsWithMetrics, total: r.postsTotal })
+            ? t('workspace.influencers.results.numbersOn', {
+                measured: r.postsWithMetrics,
+                total: r.postsTotal,
+              })
             : t('workspace.influencers.results.spendNote')}
       </p>
     </div>
@@ -253,11 +338,13 @@ function InfluencerRow({
   ci,
   campaign,
   ops,
+  licence,
   onAddDeliverable,
 }: {
   ci: CampaignInfluencerDTO;
   campaign: CampaignDetailDTO;
   ops: CampaignOperationsRowDTO | null;
+  licence: CampaignLicenceCheckDTO['creators'][number] | null;
   onAddDeliverable: () => void;
 }) {
   const t = useTranslations('campaigns');
@@ -298,20 +385,24 @@ function InfluencerRow({
     queryClient.invalidateQueries();
   };
   const markPaid = useMutation({
-    mutationFn: () => api.finance.payFee(ci.id, { amount: owed, paidAt: new Date(), method: 'BANK_TRANSFER' }),
+    mutationFn: () =>
+      api.finance.payFee(ci.id, { amount: owed, paidAt: new Date(), method: 'BANK_TRANSFER' }),
     onSuccess: (payment) => {
       refresh();
-      toast.success(t('workspace.influencers.markedPaidToast', { name: ci.influencer.displayName }), {
-        action: {
-          label: t('workspace.influencers.undo'),
-          onClick: () => {
-            api.finance
-              .voidPayment(payment.id, t('workspace.influencers.undoPaymentReason'))
-              .then(refresh)
-              .catch((e: unknown) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))));
+      toast.success(
+        t('workspace.influencers.markedPaidToast', { name: ci.influencer.displayName }),
+        {
+          action: {
+            label: t('workspace.influencers.undo'),
+            onClick: () => {
+              api.finance
+                .voidPayment(payment.id, t('workspace.influencers.undoPaymentReason'))
+                .then(refresh)
+                .catch((e: unknown) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))));
+            },
           },
         },
-      });
+      );
     },
     onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
@@ -320,20 +411,30 @@ function InfluencerRow({
     <Card className="overflow-hidden">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <Avatar name={ci.influencer.displayName} src={ci.influencer.avatarUrl} size="lg" rounded="lg" />
+          <Avatar
+            name={ci.influencer.displayName}
+            src={ci.influencer.avatarUrl}
+            size="lg"
+            rounded="lg"
+          />
           <div className="min-w-0">
-            <Link href={`/influencers/${ci.influencer.id}`} className="truncate font-semibold hover:underline">
+            <Link
+              href={`/influencers/${ci.influencer.id}`}
+              className="truncate font-semibold hover:underline"
+            >
               <BidiText>{ci.influencer.displayName}</BidiText>
             </Link>
             {ci.influencer.primaryUsername ? (
-              <p className="truncate text-sm text-muted-foreground">
+              <p className="text-muted-foreground truncate text-sm">
                 <LtrText>@{ci.influencer.primaryUsername}</LtrText>
               </p>
             ) : null}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <DealTypeBadge status={ci.dealType} />
               <PaymentStatusBadge status={ci.paymentStatus} />
-              <Badge tone="neutral">{enumLabel(tEnums, 'participationStatus', ci.participationStatus)}</Badge>
+              <Badge tone="neutral">
+                {enumLabel(tEnums, 'participationStatus', ci.participationStatus)}
+              </Badge>
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {ci.contentCount > 0 ? (
@@ -350,9 +451,12 @@ function InfluencerRow({
               {ci.allTimeCampaignCount > 1 ? (
                 <Badge tone="neutral" className="gap-1">
                   <Megaphone className="h-3 w-3" />
-                  {t('workspace.influencers.pastCampaignsBadge', { count: ci.allTimeCampaignCount - 1 })}
+                  {t('workspace.influencers.pastCampaignsBadge', {
+                    count: ci.allTimeCampaignCount - 1,
+                  })}
                 </Badge>
               ) : null}
+              {licence && licence.checks.length > 0 ? <LicenceBadges check={licence} /> : null}
             </div>
           </div>
         </div>
@@ -372,7 +476,8 @@ function InfluencerRow({
                   .filter((d) => d.status !== 'CANCELLED')
                   .map((d) => ({ type: d.type, platform: d.platform, dueDate: d.dueDate })),
                 fee:
-                  ci.agreedCost != null && (ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED')
+                  ci.agreedCost != null &&
+                  (ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED')
                     ? { amount: ci.agreedCost, currency: ci.currency ?? campaign.currency }
                     : null,
                 gifted: ci.dealType === 'GIFTED_PRODUCT' || ci.dealType === 'PAID_PLUS_GIFTED',
@@ -383,8 +488,12 @@ function InfluencerRow({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={t('workspace.influencers.linkContentAriaLabel', { name: ci.influencer.displayName })}
-              title={t('workspace.influencers.linkContentAriaLabel', { name: ci.influencer.displayName })}
+              aria-label={t('workspace.influencers.linkContentAriaLabel', {
+                name: ci.influencer.displayName,
+              })}
+              title={t('workspace.influencers.linkContentAriaLabel', {
+                name: ci.influencer.displayName,
+              })}
               onClick={() => setLinkOpen(true)}
             >
               <Link2 className="h-4 w-4" />
@@ -393,7 +502,9 @@ function InfluencerRow({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={t('workspace.influencers.filesAriaLabel', { name: ci.influencer.displayName })}
+              aria-label={t('workspace.influencers.filesAriaLabel', {
+                name: ci.influencer.displayName,
+              })}
               title={t('workspace.influencers.filesAriaLabel', { name: ci.influencer.displayName })}
               onClick={() => setFilesOpen(true)}
             >
@@ -403,7 +514,9 @@ function InfluencerRow({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={t('workspace.influencers.editAriaLabel', { name: ci.influencer.displayName })}
+              aria-label={t('workspace.influencers.editAriaLabel', {
+                name: ci.influencer.displayName,
+              })}
               onClick={() => setEditOpen(true)}
             >
               <Pencil className="h-4 w-4" />
@@ -412,30 +525,37 @@ function InfluencerRow({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={t('workspace.influencers.removeAriaLabel', { name: ci.influencer.displayName })}
+              aria-label={t('workspace.influencers.removeAriaLabel', {
+                name: ci.influencer.displayName,
+              })}
               className="text-muted-foreground hover:text-danger"
               onClick={() => setRemoveOpen(true)}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
-          <p className="text-lg font-semibold text-foreground">
-            {ci.agreedCost != null
-              ? <LtrText>{formatCurrency(ci.agreedCost, ci.currency ?? undefined)}</LtrText>
-              : ci.dealType === 'GIFTED_PRODUCT'
-                ? t('workspace.influencers.gifted')
-                : '—'}
+          <p className="text-foreground text-lg font-semibold">
+            {ci.agreedCost != null ? (
+              <LtrText>{formatCurrency(ci.agreedCost, ci.currency ?? undefined)}</LtrText>
+            ) : ci.dealType === 'GIFTED_PRODUCT' ? (
+              t('workspace.influencers.gifted')
+            ) : (
+              '—'
+            )}
           </p>
           {ci.giftedProductValue != null ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               {t.rich('workspace.influencers.giftValue', {
                 value: formatCurrency(ci.giftedProductValue, ci.currency ?? undefined),
                 ltr: (chunks) => <LtrText>{chunks}</LtrText>,
               })}
             </p>
           ) : null}
-          <p className="text-xs text-muted-foreground">
-            {t('workspace.influencers.deliveredCount', { published: dp.published, total: dp.total })}
+          <p className="text-muted-foreground text-xs">
+            {t('workspace.influencers.deliveredCount', {
+              published: dp.published,
+              total: dp.total,
+            })}
           </p>
           {canMarkPaid ? (
             <Button
@@ -446,24 +566,40 @@ function InfluencerRow({
               disabled={markPaid.isPending}
               onClick={() => markPaid.mutate()}
             >
-              {markPaid.isPending ? <Spinner className="h-3.5 w-3.5" /> : <Wallet className="h-3.5 w-3.5" />}
+              {markPaid.isPending ? (
+                <Spinner className="h-3.5 w-3.5" />
+              ) : (
+                <Wallet className="h-3.5 w-3.5" />
+              )}
               {t('workspace.influencers.markPaid')}
             </Button>
           ) : null}
         </div>
       </div>
 
-      <div className="space-y-4 border-t border-border px-5 py-4">
+      <div className="border-border space-y-4 border-t px-5 py-4">
         {ops ? <StageStrip stages={ops.stages} /> : null}
         <RosterResults results={ci.results} currency={campaign.currency} />
       </div>
 
-      <EditInfluencerDialog ci={ci} currency={ci.currency ?? campaign.currency} open={editOpen} onOpenChange={setEditOpen} />
-      <LinkExistingContentDialog ci={ci} campaign={campaign} open={linkOpen} onOpenChange={setLinkOpen} />
+      <EditInfluencerDialog
+        ci={ci}
+        currency={ci.currency ?? campaign.currency}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+      />
+      <LinkExistingContentDialog
+        ci={ci}
+        campaign={campaign}
+        open={linkOpen}
+        onOpenChange={setLinkOpen}
+      />
       <Dialog open={filesOpen} onOpenChange={setFilesOpen}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t('workspace.influencers.filesTitle', { name: ci.influencer.displayName })}</DialogTitle>
+            <DialogTitle>
+              {t('workspace.influencers.filesTitle', { name: ci.influencer.displayName })}
+            </DialogTitle>
             <DialogDescription>{t('workspace.influencers.filesDescription')}</DialogDescription>
           </DialogHeader>
           {filesOpen ? <AttachmentsPanel target={{ campaignInfluencerId: ci.id }} compact /> : null}
@@ -473,15 +609,17 @@ function InfluencerRow({
         open={removeOpen}
         onOpenChange={setRemoveOpen}
         title={t('workspace.influencers.removeConfirmTitle')}
-        description={t('workspace.influencers.removeConfirmDescription', { name: ci.influencer.displayName })}
+        description={t('workspace.influencers.removeConfirmDescription', {
+          name: ci.influencer.displayName,
+        })}
         confirmLabel={tCommon('remove')}
         loading={remove.isPending}
         onConfirm={() => remove.mutate()}
       />
 
-      <div className="border-t border-border bg-surface-muted/40 p-5">
+      <div className="border-border bg-surface-muted/40 border-t p-5">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
             {t('card.deliverablesLabel')}
           </p>
           <Button type="button" variant="ghost" size="sm" onClick={onAddDeliverable}>
@@ -489,11 +627,17 @@ function InfluencerRow({
           </Button>
         </div>
         {ci.deliverables.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('workspace.deliverables.emptyShort')}</p>
+          <p className="text-muted-foreground text-sm">{t('workspace.deliverables.emptyShort')}</p>
         ) : (
           <div className="space-y-2">
             {ci.deliverables.map((d) => (
-              <DeliverableRow key={d.id} deliverable={d} campaign={campaign} influencer={ci.influencer} campaignInfluencerId={ci.id} />
+              <DeliverableRow
+                key={d.id}
+                deliverable={d}
+                campaign={campaign}
+                influencer={ci.influencer}
+                campaignInfluencerId={ci.id}
+              />
             ))}
           </div>
         )}
@@ -554,32 +698,48 @@ function LinkExistingContentDialog({
         <DialogHeader>
           <DialogTitle>{t('workspace.liveContent.linkDialogTitle')}</DialogTitle>
           <DialogDescription>
-            {t('workspace.liveContent.linkDialogDescription', { name: ci.influencer.displayName, campaign: campaign.name })}
+            {t('workspace.liveContent.linkDialogDescription', {
+              name: ci.influencer.displayName,
+              campaign: campaign.name,
+            })}
           </DialogDescription>
         </DialogHeader>
 
         {contentQuery.isLoading ? (
           <Spinner className="mx-auto" />
         ) : candidates.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">{t('workspace.liveContent.noLinkCandidates')}</p>
+          <p className="text-muted-foreground py-6 text-center text-sm">
+            {t('workspace.liveContent.noLinkCandidates')}
+          </p>
         ) : (
           <div className="space-y-2">
             {candidates.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
+              <div
+                key={c.id}
+                className="border-border flex items-center gap-3 rounded-lg border p-3"
+              >
                 {c.thumbnailUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={c.thumbnailUrl} alt="" className="h-12 w-12 shrink-0 rounded-md object-cover" />
+                  <img
+                    src={c.thumbnailUrl}
+                    alt=""
+                    className="h-12 w-12 shrink-0 rounded-md object-cover"
+                  />
                 ) : (
-                  <div className="h-12 w-12 shrink-0 rounded-md bg-surface-muted" />
+                  <div className="bg-surface-muted h-12 w-12 shrink-0 rounded-md" />
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <PlatformBadge platform={c.platform} size="sm" />
                     {c.campaign ? (
-                      <Badge tone="warning">{t('workspace.liveContent.linkedElsewhere', { campaign: c.campaign.name })}</Badge>
+                      <Badge tone="warning">
+                        {t('workspace.liveContent.linkedElsewhere', { campaign: c.campaign.name })}
+                      </Badge>
                     ) : null}
                   </div>
-                  {c.caption ? <p className="truncate text-sm text-foreground">{c.caption}</p> : null}
+                  {c.caption ? (
+                    <p className="text-foreground truncate text-sm">{c.caption}</p>
+                  ) : null}
                 </div>
                 <Button
                   type="button"
@@ -588,7 +748,11 @@ function LinkExistingContentDialog({
                   disabled={link.isPending && linkingId === c.id}
                   onClick={() => link.mutate(c.id)}
                 >
-                  {link.isPending && linkingId === c.id ? <Spinner className="text-current" /> : t('workspace.liveContent.linkButton')}
+                  {link.isPending && linkingId === c.id ? (
+                    <Spinner className="text-current" />
+                  ) : (
+                    t('workspace.liveContent.linkButton')
+                  )}
                 </Button>
               </div>
             ))}
@@ -621,13 +785,19 @@ function EditInfluencerDialog({
   const tEnums = useTranslations('enums');
   const queryClient = useQueryClient();
   const [dealType, setDealType] = React.useState<DealType>(ci.dealType);
-  const [agreedCost, setAgreedCost] = React.useState(ci.agreedCost != null ? String(ci.agreedCost) : '');
+  const [agreedCost, setAgreedCost] = React.useState(
+    ci.agreedCost != null ? String(ci.agreedCost) : '',
+  );
   const [giftedProductValue, setGiftedProductValue] = React.useState(
     ci.giftedProductValue != null ? String(ci.giftedProductValue) : '',
   );
-  const [participationStatus, setParticipationStatus] = React.useState<ParticipationStatus>(ci.participationStatus);
+  const [participationStatus, setParticipationStatus] = React.useState<ParticipationStatus>(
+    ci.participationStatus,
+  );
   const [dateContacted, setDateContacted] = React.useState(toDateInputValue(ci.dateContacted));
-  const [expectedPublishAt, setExpectedPublishAt] = React.useState(toDateInputValue(ci.expectedPublishAt));
+  const [expectedPublishAt, setExpectedPublishAt] = React.useState(
+    toDateInputValue(ci.expectedPublishAt),
+  );
   const [notes, setNotes] = React.useState(ci.notes ?? '');
 
   React.useEffect(() => {
@@ -656,8 +826,10 @@ function EditInfluencerDialog({
     mutationFn: () => {
       const cost = agreedCost.trim();
       const gift = giftedProductValue.trim();
-      if (cost !== '' && !Number.isFinite(Number(cost))) throw new Error(t('workspace.influencers.invalidAgreedCost'));
-      if (gift !== '' && !Number.isFinite(Number(gift))) throw new Error(t('workspace.influencers.invalidGiftValue'));
+      if (cost !== '' && !Number.isFinite(Number(cost)))
+        throw new Error(t('workspace.influencers.invalidAgreedCost'));
+      if (gift !== '' && !Number.isFinite(Number(gift)))
+        throw new Error(t('workspace.influencers.invalidGiftValue'));
       return api.campaignInfluencers.update(ci.id, {
         dealType,
         agreedCost: cost === '' ? null : Number(cost),
@@ -701,7 +873,10 @@ function EditInfluencerDialog({
               </SelectContent>
             </Select>
           </Field>
-          <Field label={t('workspace.influencers.agreedCostLabel')} hint={t('workspace.influencers.agreedCostHint')}>
+          <Field
+            label={t('workspace.influencers.agreedCostLabel')}
+            hint={t('workspace.influencers.agreedCostHint')}
+          >
             <Input
               type="number"
               min={0}
@@ -722,7 +897,10 @@ function EditInfluencerDialog({
             />
           </Field>
           <Field label={t('fields.participationStatus')}>
-            <Select value={participationStatus} onValueChange={(v) => setParticipationStatus(v as ParticipationStatus)}>
+            <Select
+              value={participationStatus}
+              onValueChange={(v) => setParticipationStatus(v as ParticipationStatus)}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -735,11 +913,25 @@ function EditInfluencerDialog({
               </SelectContent>
             </Select>
           </Field>
-          <Field label={t('workspace.influencers.dateContactedLabel')} hint={t('fields.optionalHint')}>
-            <Input type="date" value={dateContacted} onChange={(e) => setDateContacted(e.target.value)} />
+          <Field
+            label={t('workspace.influencers.dateContactedLabel')}
+            hint={t('fields.optionalHint')}
+          >
+            <Input
+              type="date"
+              value={dateContacted}
+              onChange={(e) => setDateContacted(e.target.value)}
+            />
           </Field>
-          <Field label={t('workspace.influencers.expectedPublishLabel')} hint={t('fields.optionalHint')}>
-            <Input type="date" value={expectedPublishAt} onChange={(e) => setExpectedPublishAt(e.target.value)} />
+          <Field
+            label={t('workspace.influencers.expectedPublishLabel')}
+            hint={t('fields.optionalHint')}
+          >
+            <Input
+              type="date"
+              value={expectedPublishAt}
+              onChange={(e) => setExpectedPublishAt(e.target.value)}
+            />
           </Field>
           <Field label={t('fields.notes')} hint={t('fields.optionalHint')} className="col-span-2">
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
@@ -747,7 +939,7 @@ function EditInfluencerDialog({
         </div>
 
         {showPayments ? (
-          <div className="border-t border-border pt-4">
+          <div className="border-border border-t pt-4">
             <PaymentHistory
               target={{ kind: 'FEE', id: ci.id }}
               payeeName={ci.influencer.displayName}

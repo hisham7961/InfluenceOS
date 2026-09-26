@@ -148,9 +148,16 @@ export const userAdminUpdateSchema = z
      *  role-only behavior; omitted leaves the current value unchanged. */
     roleProfile: z.enum(ROLE_PROFILES).optional().nullable(),
   })
-  .refine((v) => v.name !== undefined || v.role !== undefined || v.isActive !== undefined || v.roleProfile !== undefined, {
-    message: 'Provide at least one field to update.',
-  });
+  .refine(
+    (v) =>
+      v.name !== undefined ||
+      v.role !== undefined ||
+      v.isActive !== undefined ||
+      v.roleProfile !== undefined,
+    {
+      message: 'Provide at least one field to update.',
+    },
+  );
 /** An admin sets a new password for another user (no current-password check). */
 export const adminResetPasswordSchema = z.object({ newPassword: strongPassword });
 export type UserAdminUpdateInput = z.infer<typeof userAdminUpdateSchema>;
@@ -168,7 +175,9 @@ export type BrandAccessSetInput = z.infer<typeof brandAccessSetSchema>;
  * brandAccessSetSchema exactly. An empty list clears the scope (unscoped:
  * sees every country).
  */
-export const countryAccessSetSchema = z.object({ countryCodes: z.array(countryCode).max(300).default([]) });
+export const countryAccessSetSchema = z.object({
+  countryCodes: z.array(countryCode).max(300).default([]),
+});
 export type CountryAccessSetInput = z.infer<typeof countryAccessSetSchema>;
 
 /**
@@ -194,7 +203,10 @@ export type CapabilityOverridesSetInput = z.infer<typeof capabilityOverridesSetS
  */
 export const permissionPreviewSchema = z.object({
   roleProfile: z.enum(ROLE_PROFILES).optional().nullable(),
-  overrides: z.array(z.object({ capability: z.enum(CAPABILITIES), granted: z.boolean() })).max(CAPABILITIES.length).optional(),
+  overrides: z
+    .array(z.object({ capability: z.enum(CAPABILITIES), granted: z.boolean() }))
+    .max(CAPABILITIES.length)
+    .optional(),
 });
 export type PermissionPreviewInput = z.infer<typeof permissionPreviewSchema>;
 
@@ -225,7 +237,12 @@ export type PaginationInput = z.infer<typeof paginationSchema>;
 // --- Brand -----------------------------------------------------------------
 export const brandCreateSchema = z.object({
   name: shortString,
-  slug: z.string().trim().regex(/^[a-z0-9-]+$/).max(64).optional(),
+  slug: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9-]+$/)
+    .max(64)
+    .optional(),
   description: optionalString,
   logoUrl: safeUrl,
   iconUrl: safeUrl,
@@ -399,7 +416,12 @@ export const brandInfluencerSchema = z.object({
 export const campaignCreateSchema = z.object({
   brandId: cuid,
   name: shortString,
-  slug: z.string().trim().regex(/^[a-z0-9-]+$/).max(64).optional(),
+  slug: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9-]+$/)
+    .max(64)
+    .optional(),
   coverUrl: safeUrl,
   description: optionalString,
   brief: optionalString,
@@ -410,6 +432,12 @@ export const campaignCreateSchema = z.object({
   currency: z.string().max(8).default('KWD'),
   plannedBudget: money,
   targetMarket: optionalString,
+  /** The countries the campaign is for; creator licences are checked against them (P3.5). */
+  marketCountryCodes: z
+    .array(countryCode)
+    .max(30)
+    .transform((codes) => [...new Set(codes)])
+    .optional(),
   ownerId: cuid.optional().nullable(),
   internalNotes: optionalString,
   /** Every deliverable needs its draft approved before posting (UGC always does). */
@@ -639,7 +667,9 @@ export const shipmentCreateSchema = z.object({
   items: z.array(shipmentItemInputSchema).max(50).default([]),
 });
 /** Update fulfilment details on an existing shipment — never its campaignInfluencerId/deliverableId/items (fixed at creation). */
-export const shipmentUpdateSchema = shipmentCreateSchema.omit({ deliverableId: true, items: true }).partial();
+export const shipmentUpdateSchema = shipmentCreateSchema
+  .omit({ deliverableId: true, items: true })
+  .partial();
 /** Advance only the fulfilment status (courier webhook / quick action). */
 export const shipmentStatusSchema = z.object({
   status: z.enum(SHIPMENT_STATUSES),
@@ -837,7 +867,9 @@ export const contentFilterSchema = z.object({
   q: z.string().trim().max(200).optional(),
   // Derived assignment status (see contentAssociationStatus in @influenceos/shared)
   // filtered server-side so pagination stays correct — never a stored column.
-  assignment: z.enum(['FULLY_LINKED', 'CAMPAIGN_LINKED', 'INFLUENCER_LINKED', 'UNASSIGNED']).optional(),
+  assignment: z
+    .enum(['FULLY_LINKED', 'CAMPAIGN_LINKED', 'INFLUENCER_LINKED', 'UNASSIGNED'])
+    .optional(),
   /** `missing`: posts (still up) that have no numbers at all yet. */
   metrics: z.enum(['missing']).optional(),
   // Current-user review state (Content Command Center pass) — filtered
@@ -960,7 +992,11 @@ export type AttachmentTarget = z.infer<typeof attachmentTargetSchema>;
 export const attachmentInitiateSchema = z.object({
   fileName: z.string().trim().min(1).max(200),
   mimeType: z.string().trim().min(1).max(120),
-  sizeBytes: z.coerce.number().int().positive().max(500 * 1024 * 1024),
+  sizeBytes: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(500 * 1024 * 1024),
   target: attachmentTargetSchema,
 });
 export type AttachmentInitiate = z.infer<typeof attachmentInitiateSchema>;
@@ -1010,7 +1046,8 @@ export const noteCreateSchema = z
         v.parentId
       ),
     {
-      message: 'A message must be attached to a context (influencer, brand, content, campaign, deliverable, shipment, trend, or a channel) or be a reply.',
+      message:
+        'A message must be attached to a context (influencer, brand, content, campaign, deliverable, shipment, trend, or a channel) or be a reply.',
     },
   );
 export type NoteCreateInput = z.infer<typeof noteCreateSchema>;
@@ -1035,8 +1072,20 @@ export const noteListQuerySchema = z
   })
   .refine(
     (v) =>
-      !!(v.influencerId || v.brandId || v.publishedContentId || v.campaignId || v.deliverableId || v.shipmentId || v.inspirationItemId || v.channel),
-    { message: 'A context (influencer, brand, content, campaign, deliverable, shipment, trend, or channel) is required.' },
+      !!(
+        v.influencerId ||
+        v.brandId ||
+        v.publishedContentId ||
+        v.campaignId ||
+        v.deliverableId ||
+        v.shipmentId ||
+        v.inspirationItemId ||
+        v.channel
+      ),
+    {
+      message:
+        'A context (influencer, brand, content, campaign, deliverable, shipment, trend, or channel) is required.',
+    },
   );
 export type NoteListQuery = z.infer<typeof noteListQuerySchema>;
 
@@ -1112,8 +1161,16 @@ export type DuplicateCheckInput = z.infer<typeof duplicateCheckSchema>;
 const bulkInfluencerIds = z.array(cuid).min(1).max(500);
 export const bulkInfluencerRequestSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('ASSIGN_OWNER'), influencerIds: bulkInfluencerIds, ownerId: cuid }),
-  z.object({ action: z.literal('ADD_TAG'), influencerIds: bulkInfluencerIds, tagName: z.string().trim().min(1).max(60) }),
-  z.object({ action: z.literal('SET_RELATIONSHIP_STATUS'), influencerIds: bulkInfluencerIds, status: z.enum(RELATIONSHIP_STATUSES) }),
+  z.object({
+    action: z.literal('ADD_TAG'),
+    influencerIds: bulkInfluencerIds,
+    tagName: z.string().trim().min(1).max(60),
+  }),
+  z.object({
+    action: z.literal('SET_RELATIONSHIP_STATUS'),
+    influencerIds: bulkInfluencerIds,
+    status: z.enum(RELATIONSHIP_STATUSES),
+  }),
 ]);
 export type BulkInfluencerRequest = z.infer<typeof bulkInfluencerRequestSchema>;
 
@@ -1131,7 +1188,10 @@ export const markReadSchema = z.object({
 export const notificationSettingsSchema = z
   .object({
     digestFrequency: z.enum(DIGEST_FREQUENCIES).optional(),
-    emailCategories: z.array(z.enum(NOTIFICATION_CATEGORIES)).max(NOTIFICATION_CATEGORIES.length).optional(),
+    emailCategories: z
+      .array(z.enum(NOTIFICATION_CATEGORIES))
+      .max(NOTIFICATION_CATEGORIES.length)
+      .optional(),
   })
   .refine((v) => v.digestFrequency !== undefined || v.emailCategories !== undefined, {
     message: 'Choose a summary frequency and/or the notifications to email.',
@@ -1204,7 +1264,12 @@ export const searchSchema = z.object({
 });
 
 /** The searchable entity types a full search page can be narrowed to (W3-6). */
-export const SEARCH_RESULT_TYPES = ['influencer', 'campaign', 'brand', 'published_content'] as const;
+export const SEARCH_RESULT_TYPES = [
+  'influencer',
+  'campaign',
+  'brand',
+  'published_content',
+] as const;
 /** Full, ranked, paginated global search (W3-6). */
 export const searchPageSchema = z.object({
   q: z.string().trim().min(1).max(200),
@@ -1273,7 +1338,9 @@ export const savedViewUpdateSchema = z.object({
   filters: viewFilters.optional(),
   isShared: z.boolean().optional(),
 });
-export const savedViewFilterSchema = z.object({ scope: z.string().trim().min(1).max(60).optional() });
+export const savedViewFilterSchema = z.object({
+  scope: z.string().trim().min(1).max(60).optional(),
+});
 export type SavedViewCreateInput = z.infer<typeof savedViewCreateSchema>;
 export type SavedViewUpdateInput = z.infer<typeof savedViewUpdateSchema>;
 
@@ -1322,7 +1389,13 @@ const promoCodeText = z
   .min(2)
   .max(40)
   .refine((v) => /^[\p{L}\p{N}#_\-\s]+$/u.test(v), { message: 'Use letters and numbers only.' });
-const threeLetterCurrency = z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).optional().nullable();
+const threeLetterCurrency = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z]{3}$/)
+  .optional()
+  .nullable();
 
 export const promoCodeCreateSchema = z.object({
   influencerId: cuid,
@@ -1430,5 +1503,46 @@ export const discoveredPostAddSchema = z.object({
   deliverableId: cuid.nullable().optional(),
 });
 export type DiscoveredPostAddInput = z.infer<typeof discoveredPostAddSchema>;
+
+// --- Creator licences (P3.5) ---------------------------------------------------
+export const creatorLicenceCreateSchema = z
+  .object({
+    countryCode,
+    authority: z.string().trim().max(120).optional().nullable(),
+    number: z.string().trim().max(80).optional().nullable(),
+    issuedAt: isoDate,
+    expiresAt: isoDate,
+    /** The scanned licence: one of this creator's files. */
+    attachmentId: cuid.optional().nullable(),
+    notes: z.string().trim().max(1000).optional().nullable(),
+  })
+  .refine((v) => !v.issuedAt || !v.expiresAt || v.expiresAt >= v.issuedAt, {
+    message: 'The expiry date must be after the issue date.',
+    path: ['expiresAt'],
+  });
+export const creatorLicenceUpdateSchema = z
+  .object({
+    countryCode: countryCode.optional(),
+    authority: z.string().trim().max(120).optional().nullable(),
+    number: z.string().trim().max(80).optional().nullable(),
+    issuedAt: isoDate,
+    expiresAt: isoDate,
+    attachmentId: cuid.optional().nullable(),
+    notes: z.string().trim().max(1000).optional().nullable(),
+  })
+  .refine((v) => !v.issuedAt || !v.expiresAt || v.expiresAt >= v.issuedAt, {
+    message: 'The expiry date must be after the issue date.',
+    path: ['expiresAt'],
+  });
+/** Admin: the countries where creators need an advertising licence. */
+export const complianceSettingsUpdateSchema = z.object({
+  licenceCountryCodes: z
+    .array(countryCode)
+    .max(60)
+    .transform((codes) => [...new Set(codes)]),
+});
+export type CreatorLicenceCreateInput = z.infer<typeof creatorLicenceCreateSchema>;
+export type CreatorLicenceUpdateInput = z.infer<typeof creatorLicenceUpdateSchema>;
+export type ComplianceSettingsUpdateInput = z.infer<typeof complianceSettingsUpdateSchema>;
 
 export { z };

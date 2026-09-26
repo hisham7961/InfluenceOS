@@ -114,6 +114,12 @@ shape and the rules behind it.
 |---|---|---|
 | **DiscoveredPost** | A post found on a roster creator's own account, suggested for a campaign. | `platform` + `externalId` (unique — a post is suggested once, ever), `url`, `caption`, `postedAt`, `signals` (why it matched), suggested `campaignId` / `campaignInfluencerId` / `deliverableId`, `status` (`NEW`/`ADDED`/`DISMISSED`), `publishedContentId` once added, `decidedById` / `decidedAt`. Also `SocialAccount.lastDiscoveryAt` / `lastDiscoveryError`. |
 
+## Creator licences (P3.5)
+
+| Model | Purpose | Key fields / relations |
+|---|---|---|
+| **CreatorLicence** | A creator's advertising licence in one country. | `influencerId` + `countryCode` (unique — a renewal updates the record), `authority`, `number`, `issuedAt`, `expiresAt` (null = no end date), `attachmentId` (the scanned licence, one of the creator's files; cleared if the file is deleted), `notes`, `createdById`, `expiryRemindedAt` (the 30-day warning was sent; cleared when the end date changes). Deleted with the creator. Also `Campaign.marketCountryCodes` (the countries a campaign is for; backfilled from `targetMarket` where it plainly names them) and `ClientConfig.licenceCountryCodes` (countries needing a licence, default KW/SA/AE). |
+
 ## Mobile / API-readiness additions
 
 These models exist ahead of a mobile client so the API contract and auth model don't need

@@ -48,6 +48,7 @@ import { makeSalesService } from './services/sales.service';
 import { makeReportShareService } from './services/report-share.service';
 import { makeCreatorLinkService } from './services/creator-link.service';
 import { makeDiscoveryService } from './services/discovery.service';
+import { makeLicenceService } from './services/licence.service';
 
 export function createServices(ctx: DomainContext) {
   return {
@@ -77,6 +78,7 @@ export function createServices(ctx: DomainContext) {
     reportShares: makeReportShareService(ctx),
     creatorLinks: makeCreatorLinkService(ctx),
     discovery: makeDiscoveryService(ctx),
+    licences: makeLicenceService(ctx),
     scripts: makeScriptService(ctx),
     content: makeContentService(ctx),
     expenses: makeExpenseService(ctx),
@@ -118,15 +120,40 @@ export { getStorage, resetStorage, sanitizeFileName, buildStorageKey } from './l
 export { signDownloadTicket, verifyDownloadTicket } from './lib/tokens';
 export { diskUsage, type DiskUsage } from './lib/disk';
 export { resealStoredSecrets, type ResealResult } from './lib/reseal';
-export { alertAdmins, recordSyncHealth, SYNC_FAILURE_THRESHOLD, type AdminAlert, type PlatformSyncHealth } from './lib/ops-alerts';
-export { deliveredWhere, outstandingWhere, countedWhere, overdueWhere, dueWithinWhere } from './lib/deliverable-rules';
+export {
+  alertAdmins,
+  recordSyncHealth,
+  SYNC_FAILURE_THRESHOLD,
+  type AdminAlert,
+  type PlatformSyncHealth,
+} from './lib/ops-alerts';
+export {
+  deliveredWhere,
+  outstandingWhere,
+  countedWhere,
+  overdueWhere,
+  dueWithinWhere,
+} from './lib/deliverable-rules';
 export { runReminders, OVERDUE_REPEAT_DAYS } from './lib/reminders';
 export { type DiscoveryService, DISCOVERY_INTERVAL_MS } from './services/discovery.service';
 export { checkGapMs, retryGapMs } from './lib/check-cadence';
+export { LICENCE_SOON_DAYS, licenceState, countriesToCheck } from './lib/licences';
 export { pruneHistory, RETENTION, type PruneResult } from './lib/retention';
 export { buildDigest, removedSinceWhere, REMOVED_CONTENT_STATUSES } from './lib/digest';
-export { emailConfigFromEnv, appUrlFromEnv, smtpMailer, type EmailConfig, type Mailer } from './lib/email/config';
-export { parseSmtpUrl, sendSmtp, buildMime, type MailMessage, type SmtpConfig } from './lib/email/smtp';
+export {
+  emailConfigFromEnv,
+  appUrlFromEnv,
+  smtpMailer,
+  type EmailConfig,
+  type Mailer,
+} from './lib/email/config';
+export {
+  parseSmtpUrl,
+  sendSmtp,
+  buildMime,
+  type MailMessage,
+  type SmtpConfig,
+} from './lib/email/smtp';
 export {
   dispatchNotificationEmails,
   sendDueDigests,

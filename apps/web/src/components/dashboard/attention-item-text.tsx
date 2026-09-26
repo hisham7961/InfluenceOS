@@ -37,27 +37,85 @@ export function AttentionItemTitle({ item }: { item: AttentionItemDTO }) {
   const p = item.params;
   switch (item.kind) {
     case 'DELIVERABLE_OVERDUE':
-      return <>{t.rich('deliverableOverdue.title', { influencerName: String(p.influencerName ?? ''), ...RICH_TAGS })}</>;
+      return (
+        <>
+          {t.rich('deliverableOverdue.title', {
+            influencerName: String(p.influencerName ?? ''),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
     case 'CONTENT_REMOVED':
       return <>{t('contentRemoved.title')}</>;
     case 'CONTENT_UNAVAILABLE':
       return <>{t('contentUnavailable.title')}</>;
     case 'CAMPAIGN_ENDING':
-      return <>{t.rich('campaignEnding.title', { campaignName: String(p.campaignName ?? ''), ...RICH_TAGS })}</>;
+      return (
+        <>
+          {t.rich('campaignEnding.title', {
+            campaignName: String(p.campaignName ?? ''),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
     case 'SHIPMENT_FAILED':
-      return <>{t.rich('shipmentFailed.title', { influencerName: String(p.influencerName ?? ''), ...RICH_TAGS })}</>;
+      return (
+        <>
+          {t.rich('shipmentFailed.title', {
+            influencerName: String(p.influencerName ?? ''),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
     case 'SHIPMENT_RETURNED':
-      return <>{t.rich('shipmentReturned.title', { influencerName: String(p.influencerName ?? ''), ...RICH_TAGS })}</>;
+      return (
+        <>
+          {t.rich('shipmentReturned.title', {
+            influencerName: String(p.influencerName ?? ''),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
     case 'LOGISTICS_ADDRESS_ISSUE':
-      return <>{t.rich('logisticsAddressIssue.title', { influencerName: String(p.influencerName ?? ''), ...RICH_TAGS })}</>;
+      return (
+        <>
+          {t.rich('logisticsAddressIssue.title', {
+            influencerName: String(p.influencerName ?? ''),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
     case 'USAGE_RIGHT_EXPIRING':
-      return <>{t.rich('usageRightExpiring.title', { brandName: String(p.brandName ?? ''), ...RICH_TAGS })}</>;
+      return (
+        <>
+          {t.rich('usageRightExpiring.title', {
+            brandName: String(p.brandName ?? ''),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
     case 'UGC_AWAITING_REVIEW':
-      return <>{t.rich('ugcAwaitingReview.title', { influencerName: String(p.influencerName ?? ''), ...RICH_TAGS })}</>;
+      return (
+        <>
+          {t.rich('ugcAwaitingReview.title', {
+            influencerName: String(p.influencerName ?? ''),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
     case 'UNASSIGNED_CONTENT':
       return <>{t('unassignedContent.title', { count: Number(p.count ?? 0) })}</>;
     case 'CAMPAIGN_MISSING_OWNER':
       return <>{t('campaignMissingOwner.title', { count: Number(p.count ?? 0) })}</>;
+    case 'CREATOR_LICENCE':
+      return (
+        <>
+          {t.rich('creatorLicence.title', {
+            campaignName: String(p.campaignName ?? ''),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
     default:
       // Reserved kinds dashboard.service.ts never emits today (SYNC_FAILURE,
       // OVER_BUDGET, MISSING_LINK, CREATOR_MISSING_INFO, INTEGRITY_ISSUE) —
@@ -103,15 +161,38 @@ export function AttentionItemDescription({ item }: { item: AttentionItemDTO }) {
                 influencerName: String(p.influencerName ?? ''),
                 ...RICH_TAGS,
               })
-            : t('contentUnavailable.descriptionNoInfluencer', { platform: String(p.platform ?? '') })}
+            : t('contentUnavailable.descriptionNoInfluencer', {
+                platform: String(p.platform ?? ''),
+              })}
         </>
       );
     case 'CAMPAIGN_ENDING':
-      return <>{t.rich('campaignEnding.description', { endDate: shortDate(String(p.endDate ?? '')), ...RICH_TAGS })}</>;
+      return (
+        <>
+          {t.rich('campaignEnding.description', {
+            endDate: shortDate(String(p.endDate ?? '')),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
     case 'SHIPMENT_FAILED':
-      return <>{t.rich('shipmentFailed.description', { campaignName: String(p.campaignName ?? ''), ...RICH_TAGS })}</>;
+      return (
+        <>
+          {t.rich('shipmentFailed.description', {
+            campaignName: String(p.campaignName ?? ''),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
     case 'SHIPMENT_RETURNED':
-      return <>{t.rich('shipmentReturned.description', { campaignName: String(p.campaignName ?? ''), ...RICH_TAGS })}</>;
+      return (
+        <>
+          {t.rich('shipmentReturned.description', {
+            campaignName: String(p.campaignName ?? ''),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
     case 'LOGISTICS_ADDRESS_ISSUE':
       return (
         <>
@@ -133,11 +214,32 @@ export function AttentionItemDescription({ item }: { item: AttentionItemDTO }) {
         </>
       );
     case 'UGC_AWAITING_REVIEW':
-      return <>{t.rich('ugcAwaitingReview.description', { campaignName: String(p.campaignName ?? ''), ...RICH_TAGS })}</>;
+      return (
+        <>
+          {t.rich('ugcAwaitingReview.description', {
+            campaignName: String(p.campaignName ?? ''),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
     case 'UNASSIGNED_CONTENT':
       return <>{t('unassignedContent.description')}</>;
     case 'CAMPAIGN_MISSING_OWNER':
       return <>{t('campaignMissingOwner.description')}</>;
+    case 'CREATOR_LICENCE': {
+      const missing = Number(p.missing ?? 0);
+      const expiring = Number(p.expiring ?? 0);
+      return (
+        <>
+          {[
+            missing ? t('creatorLicence.missing', { count: missing }) : null,
+            expiring ? t('creatorLicence.expiring', { count: expiring }) : null,
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        </>
+      );
+    }
     default:
       return <>{item.description}</>;
   }

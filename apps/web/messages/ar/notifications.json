@@ -35,7 +35,8 @@
     "MENTION": "إشارة",
     "REPLY": "رد",
     "IMPORTANT_MESSAGE": "رسالة مهمة",
-    "LOGISTICS_ADDRESS_ISSUE": "مشكلة في العنوان"
+    "LOGISTICS_ADDRESS_ISSUE": "مشكلة في العنوان",
+    "LICENCE_EXPIRING": "رخصة مؤثر تقترب من الانتهاء"
   },
   "emailSettings": "إعدادات البريد"
 }

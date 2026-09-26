@@ -534,5 +534,43 @@
     "addNumber": "Add a number on their profile",
     "loggedToast": "Logged on the creator's timeline",
     "logFailedToast": "WhatsApp opened, but the message couldn't be logged."
+  },
+  "licences": {
+    "title": "Advertising licences",
+    "description": "The creator's licence to advertise in each country. Campaigns aimed at a country that needs one check their creators against these.",
+    "add": "Add licence",
+    "edit": "Edit licence",
+    "remove": "Remove licence",
+    "empty": "No licences recorded yet.",
+    "valid": "Valid",
+    "expired": "Expired",
+    "expiresInDays": "{count, plural, one {Expires in # day} other {Expires in # days}}",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No end date recorded",
+    "optional": "Optional",
+    "addTitle": "Add a licence",
+    "editTitle": "Edit licence",
+    "dialogDescription": "{name}'s licence to advertise in one country. A renewal: change the number or the end date here.",
+    "removeTitle": "Remove this licence?",
+    "removeDescription": "The licence for {country} is removed. Campaigns in {country} will show this creator as unlicensed.",
+    "addedToast": "Licence saved",
+    "updatedToast": "Licence updated",
+    "removedToast": "Licence removed",
+    "datesError": "The end date must be after the issue date.",
+    "fields": {
+      "country": "Country",
+      "countryPlaceholder": "Choose a country",
+      "authority": "Issued by",
+      "authorityPlaceholder": "e.g. Mawthooq, UAE Media Council",
+      "number": "Licence number",
+      "issuedAt": "Issued on",
+      "expiresAt": "Valid until",
+      "expiresAtHint": "Leave empty if it has no end date",
+      "document": "Scanned licence",
+      "upload": "Upload a photo or PDF",
+      "uploading": "Uploading…",
+      "removeDocument": "Remove the file",
+      "notes": "Notes"
+    }
   }
 }

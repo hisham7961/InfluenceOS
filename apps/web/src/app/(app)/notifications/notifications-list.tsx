@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl';
 import { isThisWeek, isToday, isYesterday, parseISO } from 'date-fns';
 import {
   AtSign,
+  BadgeCheck,
   Bell,
   CalendarClock,
   CheckCheck,
@@ -59,6 +60,7 @@ const CATEGORY_ICON: Record<NotificationCategory, LucideIcon> = {
   REPLY: MessageSquareReply,
   IMPORTANT_MESSAGE: Pin,
   LOGISTICS_ADDRESS_ISSUE: MapPin,
+  LICENCE_EXPIRING: BadgeCheck,
 };
 
 const CATEGORY_TONE: Record<NotificationCategory, Tone> = {
@@ -78,6 +80,7 @@ const CATEGORY_TONE: Record<NotificationCategory, Tone> = {
   REPLY: 'info',
   IMPORTANT_MESSAGE: 'warning',
   LOGISTICS_ADDRESS_ISSUE: 'warning',
+  LICENCE_EXPIRING: 'warning',
 };
 
 const TONE_ICON_CLASS: Record<Tone, string> = {
@@ -91,7 +94,10 @@ const TONE_ICON_CLASS: Record<Tone, string> = {
 
 /** Buckets a notification's timestamp into a section label, newest-first.
  * Reuses `common.today`/`common.yesterday` rather than duplicating them. */
-function bucketFor(createdAt: string, labels: { today: string; yesterday: string; thisWeek: string; earlier: string }): string {
+function bucketFor(
+  createdAt: string,
+  labels: { today: string; yesterday: string; thisWeek: string; earlier: string },
+): string {
   const d = parseISO(createdAt);
   if (isToday(d)) return labels.today;
   if (isYesterday(d)) return labels.yesterday;
@@ -197,7 +203,9 @@ export function NotificationsList() {
           <TabsList>
             <TabsTrigger value="all">{t('tabs.all')}</TabsTrigger>
             <TabsTrigger value="unread">
-              {unreadCount > 0 ? t('tabs.unreadWithCount', { count: unreadCount > 99 ? '99+' : unreadCount }) : t('tabs.unread')}
+              {unreadCount > 0
+                ? t('tabs.unreadWithCount', { count: unreadCount > 99 ? '99+' : unreadCount })
+                : t('tabs.unread')}
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -218,18 +226,24 @@ export function NotificationsList() {
         <EmptyState
           icon={Inbox}
           title={t('empty.title')}
-          description={filter === 'unread' ? t('empty.descriptionUnread') : t('empty.descriptionAll')}
+          description={
+            filter === 'unread' ? t('empty.descriptionUnread') : t('empty.descriptionAll')
+          }
         />
       ) : (
         <div className="space-y-6">
           {groups.map((group, idx) => (
             <section key={`${group.bucket}-${idx}`}>
-              <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="text-muted-foreground mb-2 px-1 text-xs font-semibold uppercase tracking-wide">
                 {group.bucket}
               </p>
-              <Card className="divide-y divide-border overflow-hidden">
+              <Card className="divide-border divide-y overflow-hidden">
                 {group.items.map((notification) => (
-                  <NotificationRow key={notification.id} notification={notification} onClick={handleRowClick} />
+                  <NotificationRow
+                    key={notification.id}
+                    notification={notification}
+                    onClick={handleRowClick}
+                  />
                 ))}
               </Card>
             </section>
@@ -237,7 +251,9 @@ export function NotificationsList() {
         </div>
       )}
 
-      {items.length > 0 ? <PageFooter pagination={query.data?.pagination} onPageChange={setPage} /> : null}
+      {items.length > 0 ? (
+        <PageFooter pagination={query.data?.pagination} onPageChange={setPage} />
+      ) : null}
     </div>
   );
 }
@@ -259,12 +275,15 @@ function NotificationRow({
     <div
       className={cn(
         'flex items-start gap-3.5 p-4 transition-colors',
-        notification.targetUrl && 'cursor-pointer hover:bg-surface-muted',
+        notification.targetUrl && 'hover:bg-surface-muted cursor-pointer',
         !notification.isRead && 'bg-brand-soft/30',
       )}
     >
       <span
-        className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', TONE_ICON_CLASS[tone])}
+        className={cn(
+          'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+          TONE_ICON_CLASS[tone],
+        )}
         aria-label={t(`categories.${notification.category}`)}
       >
         <Icon className="h-5 w-5" />
@@ -272,17 +291,22 @@ function NotificationRow({
       <div className="min-w-0 flex-1 space-y-0.5">
         <div className="flex items-center gap-2">
           {/* The server writes notifications in English; st() shows the Arabic from the serverText catalog (anything not in it stays as stored). */}
-          <p className={cn('truncate text-sm leading-snug', !notification.isRead && 'font-semibold')}>
+          <p
+            className={cn('truncate text-sm leading-snug', !notification.isRead && 'font-semibold')}
+          >
             {st(notification.title)}
           </p>
           {!notification.isRead ? (
-            <span className="h-2 w-2 shrink-0 rounded-full bg-brand" aria-label={t('unreadIndicator')} />
+            <span
+              className="bg-brand h-2 w-2 shrink-0 rounded-full"
+              aria-label={t('unreadIndicator')}
+            />
           ) : null}
         </div>
         {notification.body ? (
-          <p className="line-clamp-2 text-sm text-muted-foreground">{st(notification.body)}</p>
+          <p className="text-muted-foreground line-clamp-2 text-sm">{st(notification.body)}</p>
         ) : null}
-        <p className="text-xs text-muted-foreground">{relativeTime(notification.createdAt)}</p>
+        <p className="text-muted-foreground text-xs">{relativeTime(notification.createdAt)}</p>
       </div>
     </div>
   );
@@ -304,7 +328,7 @@ function NotificationRow({
 
 function NotificationsSkeleton() {
   return (
-    <Card className="divide-y divide-border overflow-hidden">
+    <Card className="divide-border divide-y overflow-hidden">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="flex items-start gap-3.5 p-4">
           <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />

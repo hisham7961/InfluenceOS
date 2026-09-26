@@ -23,7 +23,9 @@
     "type": "Type",
     "quantity": "Quantity",
     "dueDate": "Due date",
-    "title": "Title"
+    "title": "Title",
+    "marketCountries": "Countries",
+    "marketCountriesHint": "Where the posts are aimed. Creators need a valid advertising licence in the countries that require one."
   },
   "errors": {
     "generic": "Something went wrong. Please try again."
@@ -1035,5 +1037,13 @@
       "brand": "Brand name",
       "disclosure": "Marked as ad"
     }
+  },
+  "licences": {
+    "ok": "Licensed",
+    "okTitle": "Valid licence for {countries}",
+    "missing": "No licence: {country}",
+    "expired": "Licence expired: {country}",
+    "endsDuring": "Licence ends {date}: {country}",
+    "noCountriesHint": "Set this campaign's countries (Edit campaign) to check that each creator has a valid advertising licence there."
   }
 }
