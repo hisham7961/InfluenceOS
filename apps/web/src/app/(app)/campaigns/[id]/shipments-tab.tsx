@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -190,14 +189,12 @@ function StatusCell({ shipment }: { shipment: ProductShipmentDTO }) {
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
-  const router = useRouter();
   const queryClient = useQueryClient();
   const update = useMutation({
     mutationFn: (status: (typeof SHIPMENT_STATUSES)[number]) => api.shipments.updateStatus(shipment.id, { status }),
     onSuccess: () => {
       toast.success(t('shipments.statusUpdatedToast'));
       queryClient.invalidateQueries();
-      router.refresh();
     },
     onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
@@ -240,7 +237,6 @@ function CreateShipmentDialog({
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [campaignInfluencerId, setCampaignInfluencerId] = React.useState('');
   const [deliverableId, setDeliverableId] = React.useState('');
@@ -335,7 +331,6 @@ function CreateShipmentDialog({
     onSuccess: () => {
       toast.success(t('shipments.createdToast'));
       queryClient.invalidateQueries();
-      router.refresh();
       onOpenChange(false);
     },
     onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),

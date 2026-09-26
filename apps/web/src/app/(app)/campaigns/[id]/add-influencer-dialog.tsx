@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -44,7 +43,6 @@ export function AddInfluencerDialog({
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
-  const router = useRouter();
   const queryClient = useQueryClient();
 
   const [open, setOpen] = React.useState(false);
@@ -81,7 +79,6 @@ export function AddInfluencerDialog({
     onSuccess: (ci) => {
       toast.success(t('addInfluencerDialog.addedToast', { name: ci.influencer.displayName }));
       queryClient.invalidateQueries();
-      router.refresh();
       resetAndClose();
     },
     onError: (e) => toast.error(errorMessage(e, t('errors.generic'))),

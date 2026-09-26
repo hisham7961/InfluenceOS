@@ -451,7 +451,16 @@
       "influencers": "Influencers",
       "influencersCompletedHint": "{count} completed",
       "publishedContent": "Published Content"
-    }
+    },
+    "groups": {
+      "overview": "Overview",
+      "roster": "Roster",
+      "content": "Content",
+      "approvals": "Approvals",
+      "logistics": "Logistics & budget",
+      "collaboration": "Collaboration"
+    },
+    "trendsTitle": "Results by month or week"
   },
   "shipments": {
     "loadErrorTitle": "Couldn't load shipments",

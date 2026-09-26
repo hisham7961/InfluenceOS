@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -530,7 +529,6 @@ function ConvertCandidateDialog({
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [dealType, setDealType] = React.useState<DealType>('PAID');
   const [fee, setFee] = React.useState('');
@@ -565,7 +563,6 @@ function ConvertCandidateDialog({
       toast.success(t('sourcing.convertedToast', { name: candidate.influencer.displayName }));
       onConverted();
       queryClient.invalidateQueries();
-      router.refresh();
       onOpenChange(false);
     },
     onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),

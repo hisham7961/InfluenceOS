@@ -451,7 +451,16 @@
       "influencers": "المؤثرون",
       "influencersCompletedHint": "اكتمل {count}",
       "publishedContent": "المحتوى المنشور"
-    }
+    },
+    "groups": {
+      "overview": "نظرة عامة",
+      "roster": "قائمة المؤثرين",
+      "content": "المحتوى",
+      "approvals": "الموافقات",
+      "logistics": "الشحن والميزانية",
+      "collaboration": "التعاون"
+    },
+    "trendsTitle": "النتائج شهريًا أو أسبوعيًا"
   },
   "shipments": {
     "loadErrorTitle": "تعذّر تحميل الشحنات",

@@ -17,6 +17,7 @@ import { formatCurrency } from '@/lib/format';
 import { BrandEditDialog } from './brand-edit-dialog';
 import { BrandNotesCard } from './brand-notes-card';
 import { UsageRightsCard } from './usage-rights-card';
+import { TrendsPanel } from '@/components/reports/trends-panel';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +25,20 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
   const { slug } = await params;
   const api = getServerApi();
   const t = await getTranslations('brands');
+
+  // The usage rights and the first page of content are asked for alongside
+  // the dashboard (P2.8); only when the address used a slug are they asked
+  // for again by id. A failure in either must not take down the page.
+  const load = (brandId: string) =>
+    Promise.all([
+      // Usage-rights ledger (W3-2).
+      api.brands.usageRights(brandId).catch(() => []),
+      // Brand content (Content Command Center pass, item 19) — the SAME
+      // PublishedContent feed and ContentCard/ContentViewer every other content
+      // surface uses, just brandId-scoped; no second content model.
+      api.content.feed({ brandId, limit: CONTENT_GRID_PAGE_SIZE, page: 1 }).catch(() => undefined),
+    ]);
+  const early = load(slug);
 
   let dashboard: BrandDashboardDTO;
   try {
@@ -35,15 +50,7 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
 
   const { brand } = dashboard;
   const stats = brand.stats;
-  // Usage-rights ledger (W3-2) — a failure here must not
-  // take down the whole brand workspace.
-  const usageRights = await api.brands.usageRights(brand.id).catch(() => []);
-  // Brand content (Content Command Center pass, item 19) — the SAME
-  // PublishedContent feed and ContentCard/ContentViewer every other content
-  // surface uses, just brandId-scoped; no second content model.
-  const brandContent = await api.content
-    .feed({ brandId: brand.id, limit: CONTENT_GRID_PAGE_SIZE, page: 1 })
-    .catch(() => undefined);
+  const [usageRights, brandContent] = brand.id === slug ? await early : await load(brand.id);
 
   return (
     <div>
@@ -136,6 +143,11 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
 
       {/* Brand-scoped Mission Control */}
       <MissionControl data={dashboard} brandId={brand.id} />
+
+      {/* Month- or week-by-month results for this brand (P2.7), loaded on the client. */}
+      <section className="mt-8">
+        <TrendsPanel brandId={brand.id} title={t('detail.trendsTitle')} />
+      </section>
 
       <section className="mt-8">
         <SectionHeader

@@ -86,9 +86,14 @@ describe('app routes (P2.6)', () => {
   });
 
   it('the campaign tabs are the ones the workspace has', () => {
-    const workspace = fs.readFileSync(path.join(appDir, '(app)/campaigns/[id]/workspace.tsx'), 'utf8');
-    const tabs = new Set([...workspace.matchAll(/TabsTrigger value="([a-z-]+)"/g)].map((m) => m[1]));
+    // The workspace's areas list their views (P2.8): `views: ['overview', 'performance']`.
+    const groups = fs.readFileSync(path.join(appDir, '(app)/campaigns/[id]/workspace-groups.ts'), 'utf8');
+    const tabs = new Set(
+      [...groups.matchAll(/views: \[([^\]]*)\]/g)].flatMap((m) => [...m[1]!.matchAll(/'([a-z-]+)'/g)].map((x) => x[1])),
+    );
+    expect(tabs.size).toBeGreaterThan(10);
     expect(CAMPAIGN_TABS.filter((t) => !tabs.has(t))).toEqual([]);
+    expect([...tabs].filter((t) => !(CAMPAIGN_TABS as readonly string[]).includes(t!))).toEqual([]);
   });
 
   it('every link literal in the domain and worker opens a real page', () => {

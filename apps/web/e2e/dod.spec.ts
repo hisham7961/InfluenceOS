@@ -72,6 +72,8 @@ test('operator can run a campaign end-to-end through the browser', async ({ page
   await expect(page.getByRole('heading', { name: CAMPAIGN })).toBeVisible();
 
   // 5. Add our influencer to the campaign (PAID is the default deal type).
+  // The campaign workspace groups its views into six areas (P2.8).
+  await page.getByRole('tab', { name: 'Roster' }).click();
   await page.getByRole('tab', { name: 'Influencers' }).click();
   await page.getByRole('button', { name: 'Add influencer' }).click();
   const addInf = page.getByRole('dialog');
@@ -114,6 +116,8 @@ test('operator can run a campaign end-to-end through the browser', async ({ page
   // Let the list hydrate first: a click that lands mid-hydration can be lost.
   await page.waitForLoadState('networkidle');
   await page.getByRole('link', { name: CAMPAIGN }).click();
+  // The campaign workspace groups its views into six areas (P2.8).
+  await page.getByRole('tab', { name: 'Collaboration' }).click();
   await page.getByRole('tab', { name: 'Files' }).click();
   const fileName = `brief-${STAMP}.txt`;
   await page.setInputFiles('input[type="file"]', {

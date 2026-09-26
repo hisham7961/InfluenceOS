@@ -22,7 +22,8 @@
     "content": "Content",
     "viewInLiveContent": "View in Live Content",
     "noContentTitle": "No content yet",
-    "noContentDescription": "Published content for {name} will appear here."
+    "noContentDescription": "Published content for {name} will appear here.",
+    "trendsTitle": "Results by month or week"
   },
   "edit": {
     "title": "Edit brand",

@@ -72,6 +72,8 @@ test('operator drives the full content-association + logistics workflow through 
   await page.getByRole('link', { name: CAMPAIGN }).click();
   await expect(page.getByRole('heading', { name: CAMPAIGN })).toBeVisible();
 
+  // The campaign workspace groups its views into six areas (P2.8).
+  await page.getByRole('tab', { name: 'Roster' }).click();
   await page.getByRole('tab', { name: 'Influencers' }).click();
   await page.getByRole('button', { name: 'Add influencer' }).click();
   const addInf = page.getByRole('dialog');
@@ -114,6 +116,8 @@ test('operator drives the full content-association + logistics workflow through 
   await submitDialog.getByRole('button', { name: /submit for review/i }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
 
+  // The campaign workspace groups its views into six areas (P2.8).
+  await page.getByRole('tab', { name: 'Approvals' }).click();
   await page.getByRole('tab', { name: 'Submissions' }).click();
   await page.getByRole('button', { name: 'Review' }).click();
   const reviewDialog = page.getByRole('dialog');
@@ -173,6 +177,8 @@ test('operator drives the full content-association + logistics workflow through 
   // Let the list hydrate first: a click that lands mid-hydration can be lost.
   await page.waitForLoadState('networkidle');
   await page.getByRole('link', { name: CAMPAIGN }).click();
+  // The campaign workspace groups its views into six areas (P2.8).
+  await page.getByRole('tab', { name: 'Logistics & budget' }).click();
   await page.getByRole('tab', { name: 'Shipments' }).click();
   await page.getByRole('button', { name: 'Create shipment' }).click();
   const shipDialog = page.getByRole('dialog');

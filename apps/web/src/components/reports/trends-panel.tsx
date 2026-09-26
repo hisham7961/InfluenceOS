@@ -41,15 +41,25 @@ function Toggle<T extends string>({ value, options, onChange }: { value: T; opti
 
 /**
  * Week- or month-by-month results (P2.7): the last 12 of either, for
- * everything in scope, one brand or one creator.
+ * everything in scope, one brand, one campaign or one creator.
  */
-export function TrendsPanel({ brandId, influencerId, title }: { brandId?: string; influencerId?: string; title?: string }) {
+export function TrendsPanel({
+  brandId,
+  campaignId,
+  influencerId,
+  title,
+}: {
+  brandId?: string;
+  campaignId?: string;
+  influencerId?: string;
+  title?: string;
+}) {
   const t = useTranslations('reports');
   const [bucket, setBucket] = React.useState<TrendBucket>('month');
   const [metric, setMetric] = React.useState<TrendMetric>('posts');
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['trends', brandId ?? null, influencerId ?? null, bucket],
-    queryFn: () => api.reports.trends({ brandId, influencerId, bucket }),
+    queryKey: ['trends', brandId ?? null, campaignId ?? null, influencerId ?? null, bucket],
+    queryFn: () => api.reports.trends({ brandId, campaignId, influencerId, bucket }),
   });
 
   const showsMoney = Boolean(data && data.currencies.length > 0 && data.points.some((p) => p.paid !== null));

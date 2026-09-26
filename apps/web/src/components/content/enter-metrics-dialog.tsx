@@ -37,6 +37,7 @@ export function invalidateMetricQueries(qc: ReturnType<typeof useQueryClient>) {
         root === 'content-summary' ||
         root === 'campaign-efficiency' ||
         root === 'campaign-content' ||
+        root === 'trends' ||
         root === 'content' ||
         root === 'dashboard-global'
       );

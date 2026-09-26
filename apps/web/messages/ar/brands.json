@@ -22,7 +22,8 @@
     "content": "المحتوى",
     "viewInLiveContent": "عرض في المحتوى المنشور",
     "noContentTitle": "لا يوجد محتوى بعد",
-    "noContentDescription": "سيظهر هنا المحتوى المنشور الخاص بـ{name}."
+    "noContentDescription": "سيظهر هنا المحتوى المنشور الخاص بـ{name}.",
+    "trendsTitle": "النتائج شهريًا أو أسبوعيًا"
   },
   "edit": {
     "title": "تعديل العلامة التجارية",

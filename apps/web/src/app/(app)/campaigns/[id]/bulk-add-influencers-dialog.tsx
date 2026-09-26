@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -50,7 +49,6 @@ export function BulkAddInfluencersDialog({
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
-  const router = useRouter();
   const queryClient = useQueryClient();
 
   const [open, setOpen] = React.useState(false);
@@ -109,7 +107,6 @@ export function BulkAddInfluencersDialog({
       const failedSuffix = res.failed > 0 ? t('bulkAddInfluencersDialog.failedSuffix', { count: res.failed }) : '';
       toast.success(t('bulkAddInfluencersDialog.addedToast', { count: res.added, failedSuffix }));
       queryClient.invalidateQueries();
-      router.refresh();
       resetAndClose();
     },
     onError: (e) => toast.error(errorMessage(e, t('errors.generic'))),

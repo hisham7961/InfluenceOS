@@ -108,6 +108,8 @@ test('operator drives Comments, Mentions, Campaign/Team Chat, Trends, Creator 36
 
   // Roster the influencer onto the campaign (Influencers tab → Add influencer,
   // a search-and-pick flow, not a plain dropdown).
+  // The campaign workspace groups its views into six areas (P2.8).
+  await page.getByRole('tab', { name: 'Roster' }).click();
   await page.getByRole('tab', { name: 'Influencers' }).click();
   await page.getByRole('button', { name: 'Add influencer' }).click();
   const rosterDialog = page.getByRole('dialog');

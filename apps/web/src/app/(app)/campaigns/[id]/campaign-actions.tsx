@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -51,7 +50,6 @@ export function CampaignActions({ campaign }: { campaign: CampaignDetailDTO }) {
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = React.useState(false);
 
@@ -60,7 +58,6 @@ export function CampaignActions({ campaign }: { campaign: CampaignDetailDTO }) {
     onSuccess: () => {
       toast.success(t('actions.statusUpdatedToast'));
       queryClient.invalidateQueries();
-      router.refresh();
     },
     onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
@@ -115,7 +112,6 @@ function EditCampaignDialog({
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
-  const router = useRouter();
   const queryClient = useQueryClient();
 
   const [name, setName] = React.useState(campaign.name);
@@ -201,7 +197,6 @@ function EditCampaignDialog({
     onSuccess: () => {
       toast.success(t('actions.updatedToast'));
       queryClient.invalidateQueries();
-      router.refresh();
       onOpenChange(false);
     },
     onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),

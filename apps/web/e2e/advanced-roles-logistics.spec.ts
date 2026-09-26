@@ -170,6 +170,8 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   await expect(page.getByRole('dialog')).toBeHidden();
   const campaignId = page.url().split('/campaigns/')[1]!.split(/[/?]/)[0]!;
 
+  // The campaign workspace groups its views into six areas (P2.8).
+  await page.getByRole('tab', { name: 'Roster' }).click();
   await page.getByRole('tab', { name: 'Influencers' }).click();
   for (const name of [SARA, KHALED]) {
     await page.getByRole('button', { name: 'Add influencer' }).click();
@@ -180,6 +182,8 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
     await expect(page.getByRole('dialog')).toBeHidden();
   }
 
+  // The campaign workspace groups its views into six areas (P2.8).
+  await page.getByRole('tab', { name: 'Logistics & budget' }).click();
   await page.getByRole('tab', { name: 'Shipments' }).click();
   // Sara/KW — deliberately no phone, drives the Address Clarification flow.
   await page.getByRole('button', { name: 'Create shipment' }).click();

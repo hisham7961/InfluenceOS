@@ -99,6 +99,7 @@ test('Content Command Center: per-user review state, Timeline grouping, Review M
   // auto-navigates to the content detail page — and that page marks Seen on
   // mount (item 5), which would immediately disqualify it from Review Mode.
   await page.goto(campaignUrl);
+  await page.getByRole('tab', { name: 'Content', exact: true }).click();
   await page.getByRole('tab', { name: 'Live Content' }).click();
   await page.getByRole('button', { name: 'Add content' }).click();
   const content2Dialog = page.getByRole('dialog');

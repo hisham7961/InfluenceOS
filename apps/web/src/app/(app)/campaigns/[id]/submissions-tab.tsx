@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -221,7 +220,6 @@ function SubmissionReviewDialog({
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const { relativeTime } = useLocalizedFormat();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [note, setNote] = React.useState('');
   const [comment, setComment] = React.useState('');
@@ -247,7 +245,6 @@ function SubmissionReviewDialog({
             : t('submissions.approvedToPostToast'),
       );
       queryClient.invalidateQueries();
-      router.refresh();
       onOpenChange(false);
     },
     onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
@@ -261,7 +258,6 @@ function SubmissionReviewDialog({
     onSuccess: () => {
       setComment('');
       queryClient.invalidateQueries();
-      router.refresh();
     },
     onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
