@@ -1,4 +1,5 @@
-import { expect, request as playwrightRequest, test, type Page } from '@playwright/test';
+import { request as playwrightRequest, type Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
  * P3.1 — Sales & ROI in the campaign workspace: give a creator a promo code

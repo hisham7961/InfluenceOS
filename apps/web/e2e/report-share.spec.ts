@@ -1,4 +1,5 @@
-import { expect, request as playwrightRequest, test, type Page } from '@playwright/test';
+import { request as playwrightRequest, type Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
  * P3.3 — the client report shared by link: made from the report page in
@@ -37,8 +38,6 @@ test('Client report link: made in Arabic, opened without signing in, downloaded,
   const campaign = ((await list.json()) as { data: { id: string; name: string }[] }).data[0]!;
 
   await page.goto(`/campaigns/${campaign.id}/report?lang=en`);
-  // Let the page hydrate first: a click that lands mid-hydration can be lost.
-  await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: 'Share link' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByText('Share this report by link')).toBeVisible();

@@ -6,6 +6,7 @@ import { Toaster } from 'sonner';
 import { isRtl } from '@/i18n/direction';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ServerTextBridge } from '@/components/common/server-text-bridge';
+import { NavigationWatchdog } from '@/components/common/navigation-watchdog';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // Toasts sit at the reading end of the top bar (top-left in Arabic).
@@ -29,6 +30,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ServerTextBridge />
+      <NavigationWatchdog />
       <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
       <Toaster
         position={rtl ? 'top-left' : 'top-right'}

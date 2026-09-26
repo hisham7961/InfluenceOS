@@ -35,6 +35,15 @@ validated baseline. No staging or production environment has been deployed.
   through the production compose file.
 - `docs/OWNER_DECISIONS_AR.md`: every item decided; what still needs the
   owner is listed at the top.
+- **Link clicks that did nothing** — Next.js 15.5 sometimes fetches the next
+  page and then drops it (about 1 in 5 clicks from Reports to Rate
+  benchmarks). A safety net now loads the page the ordinary way if the address
+  hasn't changed 5 seconds after a link click; working navigations are
+  untouched. Tab icon added.
+- **E2E** — every `page.goto` waits for the page to settle before the test acts
+  (`e2e/fixtures.ts`); clicks made while React was still taking over were
+  being lost. The exec-dashboard check no longer matches "Posts published" in
+  the "Since yesterday" list.
 
 ### Freeze candidate — release readiness gate (this pass)
 

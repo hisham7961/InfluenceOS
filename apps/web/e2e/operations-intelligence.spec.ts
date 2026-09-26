@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
  * Browser verification of the Operations Intelligence, Creator 360 & Team
@@ -180,9 +181,6 @@ test('operator drives Comments, Mentions, Campaign/Team Chat, Trends, Creator 36
   await page.goto(`${campaignUrl}?tab=discussion`);
   await expect(page.getByRole('tab', { name: 'Discussion' })).toHaveAttribute('data-state', 'active');
   await expect(page.getByText('Campaign Chat')).toBeVisible();
-  // Let the chat hydrate first: text typed into inert markup never reaches
-  // React, so Send would stay disabled.
-  await page.waitForLoadState('networkidle');
   const campaignMessage = `Let's brief the creator on tone — ${STAMP}`;
   await page.getByPlaceholder(/Message the team about this campaign/i).fill(campaignMessage);
   await page.getByRole('button', { name: 'Send' }).click();
@@ -316,7 +314,11 @@ test('Executive dashboard shows budget KPIs, Today/Since-yesterday, Brands and T
 
   // P2.7: results for a period against the one before, and the trends chart.
   await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible();
-  await expect(page.getByText('Posts published', { exact: true })).toBeVisible();
+  // Scoped to the Results section: "Since yesterday" can list "Posts published" too.
+  const results = page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: 'Results' }) });
+  await expect(results.getByText('Posts published', { exact: true })).toBeVisible();
   await expect(page.getByText(/compared with/)).toBeVisible();
   await expect(page.getByText('Trends', { exact: true })).toBeVisible();
   await page.getByRole('tab', { name: 'This year' }).click();

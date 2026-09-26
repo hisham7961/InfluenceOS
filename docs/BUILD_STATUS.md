@@ -96,5 +96,15 @@ Living status of the InfluenceOS implementation. Legend: ✅ done & verified ·
   payload), `/brands?q=…` and dropping `?tab` on a creator profile; `/reports`,
   `/campaigns`, `/content` and the directories are fine. Where it mattered the UI
   avoids it: the owner dashboard and client report reload the page, and the
-  campaign workspace rewrites the address with `history.replaceState`. A Next.js
-  upgrade is the likely real fix (not done — needs a decision).
+  campaign workspace rewrites the address with `history.replaceState`. Plain
+  link clicks hit it too (measured: about 1 in 5 from Reports to Rate
+  benchmarks — the page's data arrives, then the request is dropped), so every
+  page has a safety net (`components/common/navigation-watchdog.tsx`): if the
+  address hasn't changed 5 seconds after a link click, the page loads the
+  ordinary way. A Next.js upgrade is the likely real fix (not done yet).
+- A click in the first moment after a page loads, while React is still taking
+  over the server-rendered page, can be lost (the link doesn't navigate, the
+  dialog doesn't open); a second click works. Measured: about 1 in 12 clicks
+  made straight after the load event, none once the page settled. People rarely
+  click that fast, tests always do — so every E2E `page.goto` waits for the page
+  to settle first (`apps/web/e2e/fixtures.ts`).

@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
  * P3.7 — rate benchmarks: past confirmed bookings of creators on the same
@@ -80,8 +81,6 @@ test('Rate benchmarks: beside the fee when booking, and the platform × size pag
 
     // Booking a fourth: the usual fee shows beside the fee field.
     await page.goto(`/campaigns/${campaign.id}?tab=influencers`);
-    // Let the page hydrate first: a click that lands mid-hydration can be lost.
-    await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: 'Add influencer' }).first().click();
     const add = page.getByRole('dialog', { name: 'Add influencer to campaign' });
     await add.getByPlaceholder('Search by name or @username…').fill(`${tag} D`);
