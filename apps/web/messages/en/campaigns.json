@@ -1067,5 +1067,28 @@
     "expired": "Licence expired: {country}",
     "endsDuring": "Licence ends {date}: {country}",
     "noCountriesHint": "Set this campaign's countries (Edit campaign) to check that each creator has a valid advertising licence there."
+  },
+  "aiWriting": {
+    "scriptTitle": "Draft with AI",
+    "scriptNextTitle": "Draft the next version with AI",
+    "scriptHint": "A first draft from the campaign brief, filled into the form below for you to edit. Nothing is saved until you save.",
+    "instructionsLabel": "Anything to add for the AI",
+    "instructionsPlaceholder": "Optional: tone, selling points, what to avoid…",
+    "languageLabel": "Language of the draft",
+    "scriptButton": "Write the draft",
+    "writing": "Writing…",
+    "scriptDrafted": "Draft filled in — check and edit it before saving.",
+    "reviewButton": "Suggest notes with AI",
+    "reviewAgain": "Suggest again",
+    "reviewing": "Reading the draft…",
+    "looksReady": "Nothing to change.",
+    "needsChanges": "Needs changes.",
+    "captionMissing": "The caption is missing:",
+    "adDisclosure": "an ad disclosure",
+    "useNotes": "Use as the review note",
+    "reviewDisclaimer": "Suggestions only — the AI can't watch videos or open links, and the decision is yours.",
+    "summaryButton": "Write with AI",
+    "summaryWritten": "Summary written from the report's figures — check it before saving.",
+    "remaining": "{count, plural, =0 {No AI requests left this month.} one {# AI request left this month.} other {# AI requests left this month.}}"
   }
 }

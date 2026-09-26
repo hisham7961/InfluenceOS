@@ -2768,6 +2768,43 @@ export interface AiSettingsDTO {
   updatedAt: string | null;
 }
 
+/** A first draft of a script version from the brief (P3.5) — for the team to edit. */
+export interface ScriptDraftDTO {
+  body: string;
+  captionSuggestion: string | null;
+  talkingPoints: string[];
+  dos: string[];
+  donts: string[];
+  /** Without "#"; always includes the deliverable's required hashtags. */
+  hashtags: string[];
+  /** Without "@"; always includes the deliverable's required mentions. */
+  mentions: string[];
+  remaining: number | null;
+}
+
+/** Suggested notes on a creator's draft (P3.5) — for the reviewer to use or not. */
+export interface DraftReviewDTO {
+  /** One sentence on the draft overall. */
+  summary: string;
+  /** Specific, actionable notes, most important first. */
+  notes: string[];
+  /** Whether the AI sees nothing that needs changing. The reviewer decides. */
+  looksReady: boolean;
+  /** What the caption check found (from the rules, not the AI). */
+  caption: {
+    missingHashtags: string[];
+    missingMentions: string[];
+    disclosureMissing: boolean;
+  };
+  remaining: number | null;
+}
+
+/** A short summary of a campaign's results for the client report (P3.5). */
+export interface ReportSummaryDraftDTO {
+  summary: string;
+  remaining: number | null;
+}
+
 /**
  * Numbers read from an insights screenshot (P3.2) — suggestions only; nothing
  * is saved until a person checks them and saves. A number the screenshot

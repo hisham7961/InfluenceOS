@@ -44,6 +44,9 @@ import type {
   AiSettingsDTO,
   AiStatusDTO,
   MetricsReadDTO,
+  ScriptDraftDTO,
+  DraftReviewDTO,
+  ReportSummaryDraftDTO,
   PayablesPageDTO,
   PaymentDTO,
   PaymentsPageDTO,
@@ -770,6 +773,13 @@ export function createClient(config: ClientConfig) {
       settings: () => http.get<AiSettingsDTO>(`${V}/platform/ai`),
       updateSettings: (body: In<typeof requests.aiSettingsUpdateSchema>) =>
         http.patch<AiSettingsDTO>(`${V}/platform/ai`, body),
+      /** Writing help (P3.5) — suggestions only; nothing is saved. */
+      draftScript: (campaignId: string, body: In<typeof requests.scriptDraftRequestSchema>) =>
+        http.post<ScriptDraftDTO>(`${V}/campaigns/${campaignId}/scripts/ai-draft`, body),
+      reviewDraft: (submissionId: string, body: In<typeof requests.draftReviewRequestSchema>) =>
+        http.post<DraftReviewDTO>(`${V}/submissions/${submissionId}/ai-review`, body),
+      summarizeReport: (campaignId: string, body: In<typeof requests.reportSummaryRequestSchema>) =>
+        http.post<ReportSummaryDraftDTO>(`${V}/campaigns/${campaignId}/report/ai-summary`, body),
     },
 
     // Audience insights (P3.7): who follows each of a creator's accounts.

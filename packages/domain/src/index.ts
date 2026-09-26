@@ -53,6 +53,7 @@ import { makeWorkService } from './services/work.service';
 import { makeAudienceService } from './services/audience.service';
 import { makeBenchmarkService } from './services/benchmark.service';
 import { makeAiService } from './services/ai.service';
+import { makeAiWritingService } from './services/ai-writing.service';
 
 export function createServices(ctx: DomainContext) {
   return {
@@ -87,6 +88,7 @@ export function createServices(ctx: DomainContext) {
     audience: makeAudienceService(ctx),
     benchmarks: makeBenchmarkService(ctx),
     ai: makeAiService(ctx),
+    aiWriting: makeAiWritingService(ctx),
     scripts: makeScriptService(ctx),
     content: makeContentService(ctx),
     expenses: makeExpenseService(ctx),

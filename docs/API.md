@@ -659,6 +659,9 @@ hands out is checked against the web app's pages by a test
 | GET | `/api/v1/platform/ai` | AI settings (P3.2): switch, model and where it comes from, key source and last four characters (never the key), monthly limit, feature switches, this month's use by feature. **(admin)** |
 | PATCH | `/api/v1/platform/ai` | Change them: `enabled`, `model` (null clears), `apiKey` (stored encrypted; null removes), `monthlyLimit`, `readScreenshots`, `writingHelp`. Turning AI on without a key and a model is refused (422). **(admin)** |
 | GET | `/api/v1/ai/status` | For everyone: whether AI is available, which features are on, and requests left this month. |
+| POST | `/api/v1/campaigns/:id/scripts/ai-draft` | AI writing help (P3.5): a first draft of a script version — `{ scriptId?, deliverableId?, instructions?, language }`. Uses the campaign brief, the deliverable's requirements and (for `scriptId`) the script's current text and brand feedback; the deliverable's required hashtags and mentions are always kept. Returns body, caption suggestion, talking points, dos/don'ts, hashtags, mentions. Nothing is saved. Needs CAMPAIGNS_MANAGE and scope. |
+| POST | `/api/v1/submissions/:id/ai-review` | AI writing help: suggested review notes on a creator's draft — `{ language }`. Uses the brief, the approved script, the caption check (returned as `caption`) and the draft's caption, notes and image (videos and links aren't opened). Returns `summary`, `notes`, `looksReady`. Needs UGC_REVIEW and scope. |
+| POST | `/api/v1/campaigns/:id/report/ai-summary` | AI writing help: a short summary for the client report — `{ language }` — from the same figures the reader's report shows (no costs without FINANCE_VIEW). Not saved: put it in `reportSummary` with `PATCH /campaigns/:id`. Needs CAMPAIGNS_MANAGE and scope. |
 
 ### Client Config
 

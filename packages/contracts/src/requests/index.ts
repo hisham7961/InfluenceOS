@@ -1716,6 +1716,26 @@ export const aiSettingsUpdateSchema = z.object({
 });
 export type AiSettingsUpdate = z.infer<typeof aiSettingsUpdateSchema>;
 
+/** The language an AI suggestion is written in. */
+const aiLanguage = z.enum(['en', 'ar']).default('en');
+
+/** AI writing help (P3.5): a first draft of a script from the campaign brief. */
+export const scriptDraftRequestSchema = z.object({
+  /** Draft a new version of this script (its deliverables' requirements and current text are used). */
+  scriptId: cuid.optional(),
+  /** Or write for this deliverable (its platform, type and required tags). */
+  deliverableId: cuid.optional(),
+  /** Anything to add: tone, the product's selling points, what to avoid. */
+  instructions: z.string().trim().max(2000).optional(),
+  language: aiLanguage,
+});
+
+/** AI writing help (P3.5): suggested review notes on a creator's draft. */
+export const draftReviewRequestSchema = z.object({ language: aiLanguage });
+
+/** AI writing help (P3.5): a short summary for the client report. */
+export const reportSummaryRequestSchema = z.object({ language: aiLanguage });
+
 /** Read a post's numbers from one of its attached insights screenshots. */
 export const readMetricsScreenshotSchema = z.object({
   attachmentId: cuid,

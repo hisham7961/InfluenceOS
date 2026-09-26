@@ -40,6 +40,7 @@ import { useLocalizedFormat } from '@/lib/format';
 import { WhatsAppDialog } from '@/components/influencers/whatsapp-dialog';
 import { DeliverableCaptionCheck } from '@/components/content/caption-check';
 import { errorMessage } from '@/lib/errors';
+import { AiDraftReview } from '@/components/ai/ai-writing';
 
 const OPEN_STATUSES = new Set(['IN_REVIEW', 'CHANGES_REQUESTED']);
 
@@ -462,11 +463,16 @@ export function SubmissionReviewDialog({
             </Button>
           </div>
 
+          <AiDraftReview
+            submissionId={submission.id}
+            onUse={(n) => setNote((cur) => (cur.trim() ? `${cur.trim()}\n${n}` : n))}
+          />
           <Textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder={t('submissions.decisionNotePlaceholder')}
-            rows={2}
+            rows={note.includes('\n') ? 5 : 2}
+            dir="auto"
           />
           {whatsapp && creatorName ? (
             <WhatsAppDialog

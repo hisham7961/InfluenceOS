@@ -52,6 +52,7 @@ only in the web app**. The API is the product core; the web is one client.
 | Suggested creators | ✅ | ✅ | ✅ | /campaigns |
 | Rate benchmarks | ✅ | ✅ | ✅ | /reports/benchmarks |
 | Read metrics from an insights screenshot (AI) | ✅ | ✅ | ✅ | /content |
+| AI writing help | ✅ | ✅ | ✅ | /campaigns |
 | Caption check | ✅ | ✅ | ✅ | /campaigns |
 | My work and approvals | ✅ | ✅ | ✅ | /my-work |
 
@@ -75,4 +76,4 @@ administration surface).
 6. Request/response contracts stable · 7. Media represented independently of web UI ·
 8. Filtering/pagination server-side · 9. API tests exist · 10. No web-only server behavior.
 
-Total documented endpoints: 170.
+Total documented endpoints: 173.

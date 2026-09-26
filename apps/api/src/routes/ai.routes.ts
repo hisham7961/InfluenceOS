@@ -8,9 +8,9 @@ const idParam = z.object({ id: z.string() });
 const aiLimit = { rateLimit: { max: 20, timeWindow: '1 minute' } };
 
 /**
- * AI assistance (P3.2): whether it's on for the app, the admin settings
- * (switch, key, model, monthly limit), and reading a post's numbers from its
- * insights screenshot.
+ * AI assistance (P3.2 / P3.5): whether it's on for the app, the admin
+ * settings (switch, key, model, monthly limit), reading a post's numbers from
+ * its insights screenshot, and writing help.
  */
 export async function aiRoutes(app: FastifyInstance): Promise<void> {
   const r = app.withTypeProvider<ZodTypeProvider>();
@@ -63,5 +63,52 @@ export async function aiRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (req) => servicesFor(req).ai.readScreenshot(req.params.id, req.body),
+  );
+
+  // Writing help (P3.5): suggestions for the team to edit — nothing is saved.
+  r.post(
+    '/campaigns/:id/scripts/ai-draft',
+    {
+      preHandler: [requireAuth],
+      config: aiLimit,
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'AI: a first draft of a script version from the campaign brief (nothing is saved)',
+        params: idParam,
+        body: requests.scriptDraftRequestSchema,
+      },
+    },
+    async (req) => servicesFor(req).aiWriting.draftScript(req.params.id, req.body),
+  );
+
+  r.post(
+    '/submissions/:id/ai-review',
+    {
+      preHandler: [requireAuth],
+      config: aiLimit,
+      schema: {
+        tags: ['Deliverables'],
+        summary: "AI: suggested review notes on a creator's draft (nothing is saved)",
+        params: idParam,
+        body: requests.draftReviewRequestSchema,
+      },
+    },
+    async (req) => servicesFor(req).aiWriting.reviewDraft(req.params.id, req.body.language),
+  );
+
+  r.post(
+    '/campaigns/:id/report/ai-summary',
+    {
+      preHandler: [requireAuth],
+      config: aiLimit,
+      schema: {
+        tags: ['Campaigns'],
+        summary:
+          "AI: a short summary of the campaign's results for the client report (nothing is saved)",
+        params: idParam,
+        body: requests.reportSummaryRequestSchema,
+      },
+    },
+    async (req) => servicesFor(req).aiWriting.summarizeReport(req.params.id, req.body.language),
   );
 }

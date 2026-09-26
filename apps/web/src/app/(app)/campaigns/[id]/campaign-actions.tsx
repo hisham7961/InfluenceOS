@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { errorMessage } from '@/lib/errors';
+import { AiReportSummaryButton } from '@/components/ai/ai-writing';
 
 /** Sentinel for "no objective" in the Select (Radix forbids an empty-string value). */
 const NONE = 'none';
@@ -382,9 +383,12 @@ function EditCampaignDialog({
             <Textarea
               value={reportSummary}
               onChange={(e) => setReportSummary(e.target.value)}
-              rows={3}
+              rows={reportSummary.length > 200 ? 6 : 3}
               dir="auto"
             />
+            <div className="flex justify-end">
+              <AiReportSummaryButton campaignId={campaign.id} onWritten={setReportSummary} />
+            </div>
           </Field>
         </div>
 

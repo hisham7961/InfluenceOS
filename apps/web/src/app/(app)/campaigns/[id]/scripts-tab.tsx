@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { CheckCircle2, ChevronDown, ChevronRight, FileText, Plus } from 'lucide-react';
-import type { ScriptDTO, ScriptVersionDTO, ScriptVersionStatus } from '@influenceos/contracts';
+import type { ScriptDraftDTO, ScriptDTO, ScriptVersionDTO, ScriptVersionStatus } from '@influenceos/contracts';
 import { SCRIPT_VERSION_STATUS_TONE } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { errorMessage } from '@/lib/errors';
+import { AiScriptDraft } from '@/components/ai/ai-writing';
 import { splitList } from './workspace-shared';
 
 // ---------------------------------------------------------------------------
@@ -373,6 +374,7 @@ function ScriptApprovalBar({
 /** Shared editable state for a single script version's main fields. */
 function useScriptVersionFields() {
   const [body, setBody] = React.useState('');
+  const [captionSuggestion, setCaptionSuggestion] = React.useState('');
   const [talkingPoints, setTalkingPoints] = React.useState('');
   const [dos, setDos] = React.useState('');
   const [donts, setDonts] = React.useState('');
@@ -381,6 +383,7 @@ function useScriptVersionFields() {
 
   function reset() {
     setBody('');
+    setCaptionSuggestion('');
     setTalkingPoints('');
     setDos('');
     setDonts('');
@@ -388,9 +391,21 @@ function useScriptVersionFields() {
     setMentions('');
   }
 
+  /** Fill the form in from an AI draft (P3.5), for the team to edit. */
+  function applyDraft(d: ScriptDraftDTO) {
+    setBody(d.body);
+    setCaptionSuggestion(d.captionSuggestion ?? '');
+    setTalkingPoints(d.talkingPoints.join('\n'));
+    setDos(d.dos.join('\n'));
+    setDonts(d.donts.join('\n'));
+    setHashtags(d.hashtags.map((h) => `#${h}`).join(', '));
+    setMentions(d.mentions.map((m) => `@${m}`).join(', '));
+  }
+
   function buildVersion() {
     return {
       body: body.trim() || null,
+      captionSuggestion: captionSuggestion.trim() || null,
       talkingPoints: splitList(talkingPoints),
       dos: splitList(dos),
       donts: splitList(donts),
@@ -402,6 +417,8 @@ function useScriptVersionFields() {
   return {
     body,
     setBody,
+    captionSuggestion,
+    setCaptionSuggestion,
     talkingPoints,
     setTalkingPoints,
     dos,
@@ -413,6 +430,7 @@ function useScriptVersionFields() {
     mentions,
     setMentions,
     reset,
+    applyDraft,
     buildVersion,
   };
 }
@@ -428,6 +446,14 @@ function ScriptVersionFields({ fields }: { fields: ReturnType<typeof useScriptVe
           onChange={(e) => f.setBody(e.target.value)}
           rows={4}
           placeholder={t('workspace.scripts.scriptBodyPlaceholder')}
+        />
+      </Field>
+      <Field label={t('workspace.scripts.captionSuggestionLabel')} hint={t('fields.optionalHint')}>
+        <Textarea
+          value={f.captionSuggestion}
+          onChange={(e) => f.setCaptionSuggestion(e.target.value)}
+          rows={2}
+          dir="auto"
         />
       </Field>
       <Field label={t('workspace.scripts.talkingPoints')} hint={t('workspace.scripts.commaSeparatedHint')}>
@@ -529,6 +555,7 @@ function NewScriptDialog({
               placeholder={t('workspace.scripts.titlePlaceholder')}
             />
           </Field>
+          <AiScriptDraft campaignId={campaignId} onDraft={fields.applyDraft} />
           <ScriptVersionFields fields={fields} />
         </div>
 
@@ -589,6 +616,9 @@ function AddScriptVersionDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {script?.campaignId ? (
+          <AiScriptDraft campaignId={script.campaignId} scriptId={script.id} onDraft={fields.applyDraft} />
+        ) : null}
         <ScriptVersionFields fields={fields} />
 
         <DialogFooter>

@@ -132,3 +132,48 @@ test('AI settings: off by default, turned on with a key and model, then offered 
     await page.request.delete(`${V}/influencers/${creator.id}`);
   }
 });
+
+test('AI writing help: the buttons show only while writing help is on', async ({ page }) => {
+  test.setTimeout(120_000);
+  await signIn(page);
+  await page.request.patch(`${V}/platform/ai`, {
+    data: { enabled: true, apiKey: KEY, model: 'e2e-test-model', writingHelp: true },
+  });
+  const tag = `AI W E2E ${Date.now()}`;
+  const brand = await post<{ id: string }>(page, '/brands', { name: `${tag} Brand` });
+  const campaign = await post<{ id: string }>(page, '/campaigns', {
+    brandId: brand.id,
+    name: `${tag} Campaign`,
+  });
+
+  try {
+    // A new script offers an AI first draft, in either language.
+    await page.goto(`/campaigns/${campaign.id}?tab=scripts`);
+    await page.getByRole('button', { name: 'New script' }).first().click();
+    let dialog = page.getByRole('dialog');
+    await expect(dialog.getByText('Draft with AI')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Write the draft' })).toBeVisible();
+    await expect(dialog.getByRole('combobox', { name: 'Language of the draft' })).toBeVisible();
+    await expect(dialog.getByText('Caption suggestion')).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    // The client report summary can be written with AI.
+    await page.getByRole('button', { name: 'Edit campaign' }).click();
+    dialog = page.getByRole('dialog', { name: 'Edit campaign' });
+    await expect(dialog.getByText('Summary for the client')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Write with AI' })).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    // Writing help off: no buttons.
+    await page.request.patch(`${V}/platform/ai`, { data: { writingHelp: false } });
+    await page.goto(`/campaigns/${campaign.id}?tab=scripts`);
+    await page.getByRole('button', { name: 'New script' }).first().click();
+    await expect(page.getByRole('dialog').getByText('Caption suggestion')).toBeVisible();
+    await expect(
+      page.getByRole('dialog').getByRole('button', { name: 'Write the draft' }),
+    ).toHaveCount(0);
+  } finally {
+    await page.request.patch(`${V}/platform/ai`, { data: { writingHelp: true } });
+    await aiOff(page);
+  }
+});

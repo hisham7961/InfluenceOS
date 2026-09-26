@@ -47,16 +47,29 @@ In **Enter metrics** (a post's numbers), once a screenshot is attached:
 API: `GET /api/v1/ai/status`, `GET|PATCH /api/v1/platform/ai` (admin),
 `POST /api/v1/content/:id/metrics/read-screenshot { attachmentId, locale }`.
 
-## Next: writing help (P3.5)
+## Built: writing help (P3.5)
 
-Same switch, key and limit, under "Writing help":
+Same switch, key and limit, under "Writing help". Only people who could do
+the thing by hand see the button.
 
-- **Script draft** — a first draft of a script version from the campaign and
-  deliverable brief (body, talking points, dos and don'ts, hashtags,
-  mentions), filled into the form for the team to edit.
-- **Draft review notes** — suggested notes on a creator's submitted draft
-  against the approved script and the caption rules, for the reviewer.
-- **Report summary** — a short summary of a campaign's results for the client
-  report, filled into the summary box for editing.
+- **Script draft** — in "New script" and "Add version": "Write the draft"
+  writes a first draft from the campaign brief (with the deliverable's
+  platform, format and requirements, and — for a new version — the script's
+  current text and the brand's feedback), in Arabic or English, with a
+  caption suggestion. The deliverable's required hashtags and mentions are
+  always kept. It fills the form; the team edits and saves. Needs
+  CAMPAIGNS_MANAGE.
+- **Draft review notes** — in a creator's draft review: "Suggest notes with
+  AI" reads the brief, the approved script, the caption check and the draft's
+  caption, notes and image (it can't watch videos or open links) and suggests
+  specific notes, which one click puts in the review note. The reviewer
+  decides. Needs UGC_REVIEW.
+- **Report summary** — in "Edit campaign": "Write with AI" writes the client
+  report's summary from the same figures the reader's report shows (no costs
+  without finance access). Needs CAMPAIGNS_MANAGE.
 
 Nothing is sent to creators or clients automatically.
+
+API: `POST /api/v1/campaigns/:id/scripts/ai-draft`,
+`POST /api/v1/submissions/:id/ai-review`,
+`POST /api/v1/campaigns/:id/report/ai-summary`.

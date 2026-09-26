@@ -915,6 +915,26 @@ export const FEATURES: FeatureEntry[] = [
     deepLink: '/content',
   },
   {
+    key: 'ai_writing_help',
+    name: 'AI writing help',
+    description:
+      "Suggestions from Claude for the team to edit — nothing is saved until they save: a first draft of a script version from the campaign brief (and the deliverable's requirements and the script's current text), in Arabic or English, always keeping the required hashtags and mentions; suggested review notes on a creator's draft from the brief, the approved script and the caption check (the reviewer decides); and a short summary for the client report from the figures the reader may see (no costs without finance access). Only when an admin has turned writing help on.",
+    module: 'Campaigns',
+    classification: 'SHARED',
+    apiStatus: 'READY',
+    webStatus: 'READY',
+    mobileReady: true,
+    permissions: ALL,
+    flag: null,
+    minApiVersion: 'v1',
+    apiEndpoints: [
+      'POST /api/v1/campaigns/:id/scripts/ai-draft',
+      'POST /api/v1/submissions/:id/ai-review',
+      'POST /api/v1/campaigns/:id/report/ai-summary',
+    ],
+    deepLink: '/campaigns',
+  },
+  {
     key: 'caption_check',
     name: 'Caption check',
     description:

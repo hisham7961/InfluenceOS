@@ -6,7 +6,7 @@ Every major capability, its backend/API/web status, and whether it is **Mobile R
 (business logic server-side, documented API, server-side auth + permissions, stable
 contracts, media represented independently of the web UI — spec addendum §37).
 
-**Coverage:** 48 features · API ready 47 · Web ready 48 · Mobile ready 43 · Admin-desktop-only 5 · **Mobile readiness 100%** (of SHARED features).
+**Coverage:** 49 features · API ready 48 · Web ready 49 · Mobile ready 44 · Admin-desktop-only 5 · **Mobile readiness 100%** (of SHARED features).
 
 | Feature | Module | Class | API | Web | Mobile Ready | Roles | Flag |
 |---|---|---|---|---|:---:|---|---|
@@ -56,6 +56,7 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Rate benchmarks | Reports | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | AI assistance settings | Settings | ADMIN_DESKTOP_ONLY | READY | READY | — | ADMIN | — |
 | Read metrics from an insights screenshot (AI) | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| AI writing help | Campaigns | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Caption check | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | My work and approvals | Dashboard | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 
@@ -364,6 +365,12 @@ contracts, media represented independently of the web UI — spec addendum §37)
 
 - `GET /api/v1/ai/status`
 - `POST /api/v1/content/:id/metrics/read-screenshot`
+
+### AI writing help
+
+- `POST /api/v1/campaigns/:id/scripts/ai-draft`
+- `POST /api/v1/submissions/:id/ai-review`
+- `POST /api/v1/campaigns/:id/report/ai-summary`
 
 ### Caption check
 
