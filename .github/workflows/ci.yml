@@ -123,10 +123,9 @@ jobs:
           docker exec minio sh -c 'mc alias set smoke http://localhost:9000 minioadmin minioadmin && mc mb --ignore-existing smoke/smoke && mc ls smoke'
       # A deploy host runs `docker compose pull`: one missing or auth-gated
       # image there aborts the whole update (the quay.io MinIO outage did
-      # exactly that). Reported as warnings, not a failure, while the compose
-      # defaults still point at quay.io (switching them is an owner decision).
+      # exactly that). Every compose default — MinIO included, now the GHCR
+      # build — must be pullable, so this blocks.
       - name: Every production compose image is pullable
-        continue-on-error: true
         run: |
           export POSTGRES_PASSWORD=x AUTH_SECRET=0123456789012345678901234567890123 \
             S3_PUBLIC_ENDPOINT=https://files.example.com MINIO_ROOT_USER=k MINIO_ROOT_PASSWORD=s \
@@ -139,9 +138,25 @@ jobs:
           } | grep -E '[:@]' | sort -u )
           FAILED=0
           for img in $IMAGES; do
-            if docker manifest inspect "$img" >/dev/null 2>&1; then echo "OK      $img"; else echo "::warning::Cannot pull $img"; FAILED=1; fi
+            if docker manifest inspect "$img" >/dev/null 2>&1; then echo "OK      $img"; else echo "::error::Cannot pull $img"; FAILED=1; fi
           done
           exit $FAILED
+      # The production compose MinIO service as a deploy host runs it: it
+      # turns healthy (the compose healthcheck) and the bucket set-up step (mc
+      # from the same image) completes.
+      - name: Compose MinIO turns healthy and creates the bucket
+        run: |
+          docker rm -f minio >/dev/null 2>&1 || true
+          export POSTGRES_PASSWORD=x AUTH_SECRET=0123456789012345678901234567890123 \
+            S3_PUBLIC_ENDPOINT=https://files.example.com MINIO_ROOT_USER=minioadmin MINIO_ROOT_PASSWORD=minioadmin \
+            WEB_ORIGIN=https://app.example.com NEXT_PUBLIC_APP_URL=https://app.example.com \
+            SITE_ADDRESS=app.example.com BOOTSTRAP_ADMIN_EMAIL=a@b.c BOOTSTRAP_ADMIN_PASSWORD=pw
+          unset MINIO_IMAGE
+          C="docker compose -p miniocheck -f docker-compose.full.yml"
+          $C up -d --wait --wait-timeout 90 minio || { $C logs minio; exit 1; }
+          $C run --rm minio-setup
+          $C exec -T minio sh -c 'mc alias set chk http://localhost:9000 minioadmin minioadmin >/dev/null && mc ls chk/influenceos'
+          $C down -v
 
   build:
     name: Lint · Typecheck · Tests (incl. MinIO) · Build

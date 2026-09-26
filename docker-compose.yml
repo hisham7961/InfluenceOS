@@ -41,11 +41,10 @@ services:
       retries: 10
 
   minio:
-    # Single object-storage pin, overridable via MINIO_IMAGE. Default is a
-    # CORS-capable release served from quay.io (Docker Hub anonymous pulls of
-    # `minio/minio` are denied on CI runners). Requires an AVX-capable CPU;
-    # legacy hosts override MINIO_IMAGE with an older release (see .env.example).
-    image: ${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2024-10-13T13-34-11Z}
+    # Single object-storage pin, overridable via MINIO_IMAGE. Default: MinIO +
+    # mc built from the upstream release tags by CI (docker/minio/) into this
+    # repo's public GHCR package. Works on CPUs without AVX (see .env.example).
+    image: ${MINIO_IMAGE:-ghcr.io/hisham7961/influenceos-minio:RELEASE.2022-10-24T18-35-07Z}
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}

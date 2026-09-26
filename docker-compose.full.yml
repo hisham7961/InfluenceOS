@@ -63,10 +63,12 @@ services:
       retries: 10
 
   minio:
-    # Overridable object-storage pin (MINIO_IMAGE); CORS-capable quay.io default
-    # avoids Docker Hub anonymous-pull denial. Legacy (no-AVX) hosts override
-    # MINIO_IMAGE with an older release — see .env.example.
-    image: ${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2024-10-13T13-34-11Z}
+    # MinIO + mc built from the upstream release tags by CI (docker/minio/) and
+    # published to this repo's public GHCR package (the archived project is no
+    # longer served anonymously elsewhere). Same release the production server
+    # runs (works without AVX, supports CORS). Override MINIO_IMAGE only to pin
+    # a different build — see .env.example.
+    image: ${MINIO_IMAGE:-ghcr.io/hisham7961/influenceos-minio:RELEASE.2022-10-24T18-35-07Z}
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -83,14 +85,15 @@ services:
     volumes:
       - miniodata:/data
     healthcheck:
-      test: ['CMD', 'mc', 'ready', 'local']
+      # curl ships in the default image; `mc ready` covers an official image override.
+      test: ['CMD-SHELL', 'curl -sf http://localhost:9000/minio/health/live || mc ready local']
       interval: 10s
       timeout: 5s
       retries: 5
 
   # Create the PRIVATE bucket (no `mc anonymous set` — objects stay private).
   minio-setup:
-    image: ${MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2024-10-08T09-37-26Z}
+    image: ${MINIO_MC_IMAGE:-ghcr.io/hisham7961/influenceos-minio:RELEASE.2022-10-24T18-35-07Z}
     depends_on:
       minio:
         condition: service_healthy
