@@ -22,6 +22,7 @@ import { SyncAvatarButton } from './sync-avatar-button';
 import { CreatorSnapshot } from './creator-snapshot';
 import { CONTENT_GRID_PAGE_SIZE } from '@/components/content/content-page-size';
 import { WhatsAppDialog } from '@/components/influencers/whatsapp-dialog';
+import { AddToCampaignButton } from '@/components/campaigns/add-to-campaign-dialog';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,6 +112,7 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
           </div>
 
           <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col">
+            <AddToCampaignButton influencer={{ id: influencer.id, displayName: influencer.displayName }} variant="default" />
             <InfluencerEditDialog influencer={influencer} />
             <SyncAvatarButton influencer={influencer} />
             <InfluencerDeleteButton influencer={influencer} />

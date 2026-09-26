@@ -14,6 +14,7 @@ import type {
   BulkResultDTO,
   CalendarEventDTO,
   CampaignCandidateDTO,
+  DeliverableTemplateResultDTO,
   CapabilityPreviewLineDTO,
   CampaignDetailDTO,
   CampaignEfficiencyDTO,
@@ -158,6 +159,13 @@ export function createClient(config: ClientConfig) {
         http.post<UsageRightDTO>(`${V}/usage-rights/${usageRightId}/revoke`, {}),
     },
 
+    usageRights: {
+      get: (id: string) => http.get<UsageRightDTO>(`${V}/usage-rights/${id}`),
+      /** Edit terms or extend: a later `expiresAt` extends the right. */
+      update: (id: string, body: In<typeof requests.usageRightUpdateSchema>) =>
+        http.patch<UsageRightDTO>(`${V}/usage-rights/${id}`, body),
+    },
+
     influencers: {
       list: (params?: QueryParams) =>
         http.get<Paginated<InfluencerSummaryDTO>>(`${V}/influencers`, { query: params }),
@@ -281,6 +289,11 @@ export function createClient(config: ClientConfig) {
         http.post<BulkPreviewDTO>(`${V}/campaigns/${id}/candidates/import/preview`, body),
       importCandidates: (id: string, body: In<typeof requests.candidateCsvImportSchema>) =>
         http.post<BulkResultDTO>(`${V}/campaigns/${id}/candidates/import`, body),
+      addCandidate: (id: string, body: In<typeof requests.candidateCreateSchema>) =>
+        http.post<CampaignCandidateDTO>(`${V}/campaigns/${id}/candidates`, body),
+      /** Add the same deliverables to every creator on the roster, or to the ones listed. */
+      applyDeliverableTemplate: (id: string, body: In<typeof requests.deliverableTemplateSchema>) =>
+        http.post<DeliverableTemplateResultDTO>(`${V}/campaigns/${id}/deliverable-template`, body),
       // Bulk-add many influencers to a campaign roster at once (W3-4 web
       // surface, gap #6) — preview is a dry run that never writes.
       previewRosterAdd: (id: string, body: In<typeof requests.bulkRosterAddSchema>) =>
@@ -314,6 +327,19 @@ export function createClient(config: ClientConfig) {
       efficiency: (idOrSlug: string) => http.get<CampaignEfficiencyDTO>(`${V}/campaigns/${idOrSlug}/efficiency`),
       addExpense: (id: string, body: Omit<In<typeof requests.expenseCreateSchema>, 'campaignId'>) =>
         http.post<ExpenseDTO>(`${V}/campaigns/${id}/expenses`, { ...body, campaignId: id }),
+    },
+
+    // Sourcing: one candidate — edit, decide (shortlist/approve/reject/reconsider),
+    // convert an approved or shortlisted one into a roster row, or remove.
+    candidates: {
+      get: (id: string) => http.get<CampaignCandidateDTO>(`${V}/candidates/${id}`),
+      update: (id: string, body: In<typeof requests.candidateUpdateSchema>) =>
+        http.patch<CampaignCandidateDTO>(`${V}/candidates/${id}`, body),
+      decide: (id: string, body: In<typeof requests.candidateDecisionSchema>) =>
+        http.post<CampaignCandidateDTO>(`${V}/candidates/${id}/decision`, body),
+      convert: (id: string, body: In<typeof requests.candidateConvertSchema>) =>
+        http.post<CampaignCandidateDTO>(`${V}/candidates/${id}/convert`, body),
+      remove: (id: string) => http.del<void>(`${V}/candidates/${id}`),
     },
 
     campaignInfluencers: {

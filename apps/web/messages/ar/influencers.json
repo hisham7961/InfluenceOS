@@ -84,7 +84,8 @@
       "skipBadge": "سيتم تخطيه",
       "applyButton": "تطبيق على {count}",
       "updatedToast": "تم تحديث {count} من المؤثرين.",
-      "updatedWithFailuresToast": "تم تحديث {count} من المؤثرين. فشل تحديث {failed}."
+      "updatedWithFailuresToast": "تم تحديث {count} من المؤثرين. فشل تحديث {failed}.",
+      "addToCampaign": "إضافة إلى حملة"
     }
   },
   "form": {

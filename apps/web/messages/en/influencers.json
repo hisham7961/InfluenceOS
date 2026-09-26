@@ -84,7 +84,8 @@
       "skipBadge": "Skip",
       "applyButton": "Apply to {count}",
       "updatedToast": "Updated {count} {count, plural, one {creator} other {creators}}.",
-      "updatedWithFailuresToast": "Updated {count} {count, plural, one {creator} other {creators}}. {failed} failed."
+      "updatedWithFailuresToast": "Updated {count} {count, plural, one {creator} other {creators}}. {failed} failed.",
+      "addToCampaign": "Add to campaign"
     }
   },
   "form": {

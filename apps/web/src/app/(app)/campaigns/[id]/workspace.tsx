@@ -224,7 +224,7 @@ export function Workspace({ campaign, influencers, costs, scripts }: WorkspacePr
       </TabsContent>
 
       <TabsContent value="sourcing">
-        <SourcingTab campaignId={campaign.id} />
+        <SourcingTab campaignId={campaign.id} currency={campaign.currency} />
       </TabsContent>
 
       <TabsContent value="influencers">

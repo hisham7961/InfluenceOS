@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Loader2, Tag, UserCog, X } from 'lucide-react';
+import { Loader2, Megaphone, Tag, UserCog, X } from 'lucide-react';
 import { RELATIONSHIP_STATUSES } from '@influenceos/shared';
 import type { BulkPreviewDTO, requests } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AddToCampaignDialog } from '@/components/campaigns/add-to-campaign-dialog';
 
 type BulkInfluencerRequest = requests.BulkInfluencerRequest;
 type Action = BulkInfluencerRequest['action'];
@@ -29,7 +30,16 @@ function errorMessage(e: unknown, fallback: string): string {
  * Always shows a real preview (the exact per-row outcome the server
  * computed, never a guess) before the admin-only execute step.
  */
-export function BulkActionBar({ selected, onClear }: { selected: string[]; onClear: () => void }) {
+export function BulkActionBar({
+  selected,
+  people,
+  onClear,
+}: {
+  selected: string[];
+  /** Names of the selected creators (when known), for "Add to campaign". */
+  people?: { id: string; displayName: string }[];
+  onClear: () => void;
+}) {
   const t = useTranslations('influencers');
   const tc = useTranslations('common');
   const te = useTranslations('enums');
@@ -39,6 +49,7 @@ export function BulkActionBar({ selected, onClear }: { selected: string[]; onCle
   const [status, setStatus] = React.useState<(typeof RELATIONSHIP_STATUSES)[number]>('ACTIVE');
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [preview, setPreview] = React.useState<BulkPreviewDTO | null>(null);
+  const [addToCampaignOpen, setAddToCampaignOpen] = React.useState(false);
   const queryClient = useQueryClient();
 
   const directory = useQuery({ queryKey: ['team-directory'], queryFn: () => api.users.directory() });
@@ -88,6 +99,10 @@ export function BulkActionBar({ selected, onClear }: { selected: string[]; onCle
     <>
       <div className="sticky bottom-4 z-10 mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-3 shadow-card">
         <Badge tone="accent">{t('directory.bulkActions.selectedBadge', { count: selected.length })}</Badge>
+
+        <Button type="button" size="sm" variant="subtle" onClick={() => setAddToCampaignOpen(true)}>
+          <Megaphone className="h-3.5 w-3.5" /> {t('directory.bulkActions.addToCampaign')}
+        </Button>
 
         <Select value={action} onValueChange={(v) => setAction(v as Action)}>
           <SelectTrigger className="h-9 w-44">
@@ -157,6 +172,13 @@ export function BulkActionBar({ selected, onClear }: { selected: string[]; onCle
           <X className="h-4 w-4" />
         </Button>
       </div>
+
+      <AddToCampaignDialog
+        influencers={selected.map((id) => people?.find((p) => p.id === id) ?? { id, displayName: '' })}
+        open={addToCampaignOpen}
+        onOpenChange={setAddToCampaignOpen}
+        onDone={onClear}
+      />
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">

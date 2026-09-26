@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
-import { Building2, Plus } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import type { BrandSummaryDTO } from '@influenceos/contracts';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
+import { AddBrandButton } from '@/components/brands/add-brand-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,11 +27,7 @@ export default async function BrandsPage() {
         title={t('list.title')}
         description={t('list.description')}
         actions={
-          isAdmin ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border bg-surface-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">
-              <Plus className="h-3.5 w-3.5" /> {t('list.addBrandHint')}
-            </span>
-          ) : null
+isAdmin ? <AddBrandButton label={t('list.addBrand')} /> : null
         }
       />
 

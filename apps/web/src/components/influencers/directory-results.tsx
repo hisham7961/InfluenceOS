@@ -9,6 +9,7 @@ import type { InfluencerSummaryDTO } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
 import { InfluencerCard } from '@/components/influencers/influencer-card';
 import { BulkActionBar } from '@/components/influencers/bulk-action-bar';
+import { AddToCampaignButton } from '@/components/campaigns/add-to-campaign-dialog';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { PlatformIcon } from '@/components/ui/platform-badge';
@@ -112,7 +113,11 @@ export function DirectoryResults({ influencers }: { influencers: InfluencerSumma
       )}
 
       {view === 'table' ? (
-        <BulkActionBar selected={Array.from(selected)} onClear={() => setSelected(new Set())} />
+        <BulkActionBar
+          selected={Array.from(selected)}
+          people={influencers.filter((i) => selected.has(i.id)).map((i) => ({ id: i.id, displayName: i.displayName }))}
+          onClear={() => setSelected(new Set())}
+        />
       ) : null}
 
       <PreviewDrawer influencerId={previewId} onClose={() => setPreviewId(null)} />
@@ -266,6 +271,7 @@ function DirectoryTable({
 
 function PreviewDrawer({ influencerId, onClose }: { influencerId: string | null; onClose: () => void }) {
   const t = useTranslations('influencers');
+  const tCommon = useTranslations('common');
   const { data, isLoading } = useQuery({
     queryKey: ['influencer-preview', influencerId],
     queryFn: () => api.influencers.get(influencerId as string),
@@ -277,6 +283,8 @@ function PreviewDrawer({ influencerId, onClose }: { influencerId: string | null;
       <SheetContent side="end" className="w-full sm:max-w-md">
         {isLoading || !data ? (
           <div className="space-y-4">
+            {/* Screen readers still get a title while the profile loads. */}
+            <SheetTitle className="sr-only">{tCommon('loading')}</SheetTitle>
             <Skeleton className="h-16 w-16 rounded-2xl" />
             <Skeleton className="h-6 w-40" />
             <Skeleton className="h-24 w-full rounded-xl" />
@@ -333,9 +341,15 @@ function PreviewDrawer({ influencerId, onClose }: { influencerId: string | null;
               </div>
             </div>
 
-            <Button asChild className="w-full">
-              <Link href={`/influencers/${data.id}`}>{t('directory.results.preview.viewFullProfile')}</Link>
-            </Button>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button asChild className="w-full">
+                <Link href={`/influencers/${data.id}`}>{t('directory.results.preview.viewFullProfile')}</Link>
+              </Button>
+              <AddToCampaignButton
+                influencer={{ id: data.id, displayName: data.displayName }}
+                className="h-10 w-full text-sm"
+              />
+            </div>
           </div>
         )}
       </SheetContent>
