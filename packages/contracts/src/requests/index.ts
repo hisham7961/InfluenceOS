@@ -27,6 +27,8 @@ import {
   CAPABILITIES,
   LOGISTICS_ISSUE_TYPES,
   COUNTRY_CODES,
+  NOTIFICATION_CATEGORIES,
+  DIGEST_FREQUENCIES,
 } from '@influenceos/shared';
 import { offsetQuerySchema, pageNumberSchema } from '../pagination';
 
@@ -1124,6 +1126,14 @@ export const markReadSchema = z.object({
   ids: z.array(cuid).min(1).max(200).optional(),
   all: z.boolean().optional(),
 });
+export const notificationSettingsSchema = z
+  .object({
+    digestFrequency: z.enum(DIGEST_FREQUENCIES).optional(),
+    emailCategories: z.array(z.enum(NOTIFICATION_CATEGORIES)).max(NOTIFICATION_CATEGORIES.length).optional(),
+  })
+  .refine((v) => v.digestFrequency !== undefined || v.emailCategories !== undefined, {
+    message: 'Choose a summary frequency and/or the notifications to email.',
+  });
 
 // --- Activity feed ---------------------------------------------------------
 export const activityFilterSchema = z.object({

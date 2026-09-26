@@ -36,5 +36,6 @@
     "REPLY": "Reply",
     "IMPORTANT_MESSAGE": "Important message",
     "LOGISTICS_ADDRESS_ISSUE": "Address issue"
-  }
+  },
+  "emailSettings": "Email settings"
 }

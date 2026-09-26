@@ -65,6 +65,8 @@ import type {
   MonitoringEventDTO,
   NoteDTO,
   NotificationDTO,
+  NotificationSettingsDTO,
+  DigestDTO,
   Paginated,
   PlatformStatusDTO,
   ProductShipmentDTO,
@@ -579,6 +581,11 @@ export function createClient(config: ClientConfig) {
       unreadCount: () => http.get<{ count: number }>(`${V}/notifications/unread-count`),
       markRead: (body: In<typeof requests.markReadSchema>) =>
         http.post<{ updated: number }>(`${V}/notifications/read`, body),
+      settings: () => http.get<NotificationSettingsDTO>(`${V}/notifications/settings`),
+      updateSettings: (body: In<typeof requests.notificationSettingsSchema>) =>
+        http.patch<NotificationSettingsDTO>(`${V}/notifications/settings`, body),
+      digestPreview: () => http.get<DigestDTO>(`${V}/notifications/digest-preview`),
+      sendTestEmail: () => http.post<{ sentTo: string }>(`${V}/notifications/test-email`, {}),
     },
 
     activity: {

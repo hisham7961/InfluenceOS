@@ -2,9 +2,15 @@ import http from 'node:http';
 import { prisma } from '@influenceos/database';
 import {
   alertAdmins,
+  appUrlFromEnv,
   diskUsage,
+  dispatchNotificationEmails,
+  emailConfigFromEnv,
   recordSyncHealth,
   refreshProviderCredentialOverrides,
+  sendDueDigests,
+  smtpMailer,
+  type EmailRunOptions,
   type UploadCleanupResult,
 } from '@influenceos/domain';
 import { Queue, Worker, type Job } from 'bullmq';
@@ -82,6 +88,10 @@ const stats = {
   lastMaintenanceAt: null as string | null,
   /** Content still due / accounts still stale after the last sweep queued its batch. */
   backlog: { dueContent: 0, staleAccounts: 0 },
+  /** Email (P2.6): on once SMTP_URL is set. */
+  email: 'off' as 'on' | 'off' | 'misconfigured',
+  emailsSent: 0,
+  emailFailures: 0,
 };
 
 // Whether Redis is currently reachable — drives the /health verdict (WK-03).
@@ -313,8 +323,56 @@ function startHealth() {
     .listen(HEALTH_PORT, () => console.log(`Worker health on http://localhost:${HEALTH_PORT}/health`));
 }
 
+// Email (P2.6): notifications people chose to get by email, and the morning
+// (or Sunday) summary. Runs every couple of minutes on its own timer so an
+// alert doesn't wait for the half-hourly sweep; without SMTP_URL it only
+// marks new notifications as handled.
+const EMAIL_INTERVAL_MS = Number(process.env.EMAIL_INTERVAL_MS) || 2 * 60 * 1000;
+let emailTimer: NodeJS.Timeout | null = null;
+let emailRunning = false;
+
+function startEmail() {
+  let options: EmailRunOptions = { mailer: null, from: '', appUrl: appUrlFromEnv() };
+  try {
+    const config = emailConfigFromEnv();
+    if (config) {
+      options = { mailer: smtpMailer(config), from: config.from, appUrl: config.appUrl };
+      stats.email = 'on';
+      console.log(`[email] on — sending through ${config.smtp.host}:${config.smtp.port}, links to ${config.appUrl}`);
+    } else {
+      console.log('[email] off (SMTP_URL not set) — notifications stay in the app');
+    }
+  } catch (e) {
+    stats.email = 'misconfigured';
+    console.error(`[email] off — the email settings are not valid: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const tick = async () => {
+    if (emailRunning) return;
+    emailRunning = true;
+    try {
+      const instant = await dispatchNotificationEmails(prisma, options);
+      const digests = await sendDueDigests(prisma, options);
+      stats.emailsSent += instant.sent + digests.sent;
+      stats.emailFailures += instant.failed + digests.failed;
+      if (instant.sent || instant.failed || digests.sent || digests.failed) {
+        console.log(
+          `[email] sent ${instant.sent} alerts and ${digests.sent} summaries` +
+            (instant.failed || digests.failed ? `, ${instant.failed + digests.failed} failed (retried later)` : ''),
+        );
+      }
+    } catch (e) {
+      console.error('[email] run failed', e);
+    } finally {
+      emailRunning = false;
+    }
+  };
+  emailTimer = setInterval(() => void tick(), EMAIL_INTERVAL_MS);
+  void tick();
+}
+
 async function main() {
   startHealth();
+  startEmail();
   // Load admin-stored (encrypted) provider credentials so worker syncs use the
   // same effective keys as the API (INT-4). No-op when none are stored.
   await refreshProviderCredentialOverrides(prisma).catch(() => undefined);
@@ -341,6 +399,7 @@ async function shutdown(signal: string) {
   try {
     if (inlineTimer) clearInterval(inlineTimer);
     if (redisPingTimer) clearInterval(redisPingTimer);
+    if (emailTimer) clearInterval(emailTimer);
     // Closing Workers drains active jobs before resolving.
     await Promise.all(workers.map((w) => w.close()));
     await Promise.all(queues.map((q) => q.close()));

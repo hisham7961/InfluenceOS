@@ -199,6 +199,14 @@ through the `serverText` catalog, not by translating on the fly:
   reads the server source and fails when the server gains a message the
   catalog doesn't have; `--missing` prints them as JSON to add (en + ar).
 
+
+Emails (P2.6) use the same catalog: the worker loads
+`apps/web/messages/<locale>/serverText.json` and `enums.json` at run time
+(`packages/domain/src/lib/email/i18n.ts`) and renders each notification in the
+recipient's language, so adding a catalog entry covers the screen and the
+inbox at once. The summary email's own wording lives in
+`packages/domain/src/lib/email/templates.ts` (English and Arabic side by side).
+
 ## Routing
 
 Locale is presentation-only. There is no `/ar/...` URL prefix and no

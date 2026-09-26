@@ -261,5 +261,17 @@
   "n_deliverable_overdue": "تأخر المحتوى المطلوب",
   "n_deliverable_due_soon": "اقتراب موعد تسليم المحتوى المطلوب",
   "n_campaign_ending_soon": "اقتراب انتهاء الحملة",
-  "n_usage_rights_expiring_soon": "اقتراب انتهاء حقوق الاستخدام"
+  "n_usage_rights_expiring_soon": "اقتراب انتهاء حقوق الاستخدام",
+  "n_deliverables_overdue": "محتوى مطلوب متأخر",
+  "n_one_deliverable_past_due": "{influencerName}: {type} لحملة {campaignName} تجاوز تاريخ استحقاقه.",
+  "n_count_deliverables_past_due": "{count} من المحتوى المطلوب في {campaignName} تجاوز تاريخ استحقاقه.",
+  "n_deliverables_due_soon": "محتوى مطلوب يقترب موعده",
+  "n_count_deliverables_due_2_days": "{count} من المحتوى المطلوب في {campaignName} مستحق خلال اليومين القادمين.",
+  "n_one_deliverable_due_today": "{influencerName}: {type} لحملة {campaignName} مستحق اليوم.",
+  "n_one_deliverable_due_tomorrow": "{influencerName}: {type} لحملة {campaignName} مستحق غدًا.",
+  "n_one_deliverable_due_in_days": "{influencerName}: {type} لحملة {campaignName} مستحق خلال {days} أيام.",
+  "e_email_settings_not_valid": "إعدادات البريد غير صحيحة: {value}",
+  "e_email_not_set_up": "البريد الإلكتروني غير مُعدّ على هذا الخادم بعد.",
+  "e_test_email_just_sent": "أُرسلت رسالة تجريبية للتو. حاول مرة أخرى بعد دقيقة.",
+  "e_mail_server_refused_test": "رفض خادم البريد الرسالة التجريبية: {value}"
 }

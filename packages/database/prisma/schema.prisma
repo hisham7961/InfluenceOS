@@ -381,6 +381,12 @@ enum NotificationChannel {
   EMAIL
 }
 
+enum DigestFrequency {
+  DAILY
+  WEEKLY
+  OFF
+}
+
 enum NotificationDeliveryStatus {
   PENDING
   SENT
@@ -405,18 +411,18 @@ enum MobilePlatform {
 // ===========================================================================
 
 model User {
-  id                   String       @id @default(cuid())
-  email                String       @unique
+  id                   String                 @id @default(cuid())
+  email                String                 @unique
   name                 String
   passwordHash         String
-  role                 UserRole     @default(STAFF)
+  role                 UserRole               @default(STAFF)
   /// Advanced Roles pass — optional finer-grained profile layered on top of
   /// `role` (see the RoleProfile doc comment). Null = legacy behavior.
   roleProfile          RoleProfile?
   avatarUrl            String?
-  locale               String       @default("en")
-  theme                String       @default("system")
-  isActive             Boolean      @default(true)
+  locale               String                 @default("en")
+  theme                String                 @default("system")
+  isActive             Boolean                @default(true)
   lastLoginAt          DateTime?
   /// Preferred content discovery layout (Timeline/By Brand/Grid/Masonry/Feed) —
   /// same scalar-on-User preference pattern as locale/theme, not a new
@@ -426,13 +432,21 @@ model User {
   /// only on an explicit ack from the client, never on lastLoginAt alone — a
   /// user can log in without ever opening Mission Control's What's New panel.
   lastWhatsNewViewedAt DateTime?
+  /// Email summary of what needs attention (P2.6): every morning, every
+  /// Sunday morning, or never (Kuwait time). Only sent once the server has
+  /// email set up (SMTP_URL).
+  digestFrequency      DigestFrequency        @default(DAILY)
+  /// Notification kinds this user also gets by email as they happen.
+  emailCategories      NotificationCategory[] @default([CONTENT_REMOVED, MENTION])
+  /// When the last summary email went out (so each is sent once).
+  lastDigestAt         DateTime?
   // Time-boxed brute-force protection (in addition to the per-IP route limit):
   // consecutive failures raise the counter; crossing the threshold sets a short
   // lockout window; a successful login clears both.
-  failedLoginAttempts  Int          @default(0)
+  failedLoginAttempts  Int                    @default(0)
   lockedUntil          DateTime?
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
 
   ownedCampaigns          Campaign[]               @relation("CampaignOwner")
   activities              ActivityLog[]            @relation("ActivityActor")
@@ -466,6 +480,7 @@ model User {
   createdLogisticsIssues  LogisticsIssue[]         @relation("LogisticsIssueCreator")
   assignedLogisticsIssues LogisticsIssue[]         @relation("LogisticsIssueAssignee")
   resolvedLogisticsIssues LogisticsIssue[]         @relation("LogisticsIssueResolver")
+  notificationReads       NotificationRead[]
 
   @@index([role])
   @@index([roleProfile])
@@ -1024,6 +1039,11 @@ model Deliverable {
   requiresProduct      Boolean           @default(false)
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
+  /// When the worker last reminded someone this was overdue / due soon
+  /// (P2.6): one reminder per deliverable, repeated every few days while
+  /// it stays overdue, and again if the due date moves.
+  overdueRemindedAt    DateTime?
+  dueSoonRemindedAt    DateTime?
 
   campaignInfluencer CampaignInfluencer      @relation(fields: [campaignInfluencerId], references: [id], onDelete: Cascade)
   scriptReference    ScriptReference?        @relation(fields: [scriptReferenceId], references: [id])
@@ -1600,6 +1620,11 @@ model Notification {
   influencerId       String?
   campaignId         String?
   publishedContentId String?
+  /// Identifies what the notification is about (e.g. one campaign's end
+  /// date, one licence's expiry) so the worker never sends it twice.
+  dedupeKey          String?
+  /// When the email step looked at this notification (null = not yet).
+  emailCheckedAt     DateTime?
   createdAt          DateTime             @default(now())
 
   user             User?                  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1608,15 +1633,35 @@ model Notification {
   campaign         Campaign?              @relation(fields: [campaignId], references: [id])
   publishedContent PublishedContent?      @relation(fields: [publishedContentId], references: [id])
   deliveries       NotificationDelivery[]
+  reads            NotificationRead[]
 
   @@index([userId])
   @@index([isRead, createdAt])
   @@index([category])
+  @@index([dedupeKey])
+  @@index([emailCheckedAt, createdAt])
+}
+
+/// Who has read a team-wide notification (one with no userId). Each person
+/// has their own read state, so one person's "mark all read" never clears
+/// the alert for everyone else (P2.6). A notification addressed to one user
+/// keeps using its own isRead/readAt.
+model NotificationRead {
+  userId         String
+  notificationId String
+  readAt         DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@id([userId, notificationId])
+  @@index([notificationId])
 }
 
 /// Independent delivery channel record so notification logic never needs to be
-/// rewritten when PUSH/EMAIL are added for mobile (spec addendum §22). The
-/// current product only produces IN_APP deliveries.
+/// rewritten when PUSH/EMAIL are added for mobile (spec addendum §22). IN_APP
+/// is written with the notification; EMAIL rows (target = the recipient's
+/// user id) are written by the worker's email step (P2.6).
 model NotificationDelivery {
   id             String                     @id @default(cuid())
   notificationId String
@@ -1624,6 +1669,7 @@ model NotificationDelivery {
   status         NotificationDeliveryStatus @default(SENT)
   target         String?
   error          String?
+  attempts       Int                        @default(0)
   createdAt      DateTime                   @default(now())
   deliveredAt    DateTime?
 

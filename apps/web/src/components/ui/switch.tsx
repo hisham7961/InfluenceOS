@@ -18,7 +18,8 @@ export const Switch = React.forwardRef<
   >
     <SwitchPrimitive.Thumb
       className={cn(
-        'pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-white shadow ring-0 transition-transform data-[state=checked]:translate-x-4',
+        // The thumb slides toward the end of the track: right in English, left in Arabic.
+        'pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-white shadow ring-0 transition-transform data-[state=checked]:translate-x-4 rtl:data-[state=checked]:-translate-x-4',
       )}
     />
   </SwitchPrimitive.Root>

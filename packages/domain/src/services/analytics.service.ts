@@ -19,6 +19,7 @@ import { moneyNumberOr0, percentOf, sumMoney, toDecimal, toMoneyNumber } from '.
 import { computeCostSummary } from '../lib/progress';
 import { loadCreatorResults, postCostPerView } from '../lib/creator-results';
 import { deliveredWhere, dueWithinWhere, overdueWhere } from '../lib/deliverable-rules';
+import { removedSinceWhere } from '../lib/digest';
 import { loadCampaignMoney, participationMoney, sumCampaignMoney, EMPTY_CAMPAIGN_MONEY } from '../lib/spend';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
 
@@ -209,7 +210,9 @@ export function makeAnalyticsService(ctx: DomainContext) {
       prisma.campaign.count({ where: { createdAt: { gte: dayAgo }, ...campBrand } }),
       prisma.campaign.count({ where: { status: 'COMPLETED', updatedAt: { gte: dayAgo }, ...campBrand } }),
       prisma.campaignInfluencer.count({ where: { createdAt: { gte: dayAgo }, ...ciBrand } }),
-      prisma.publishedContent.count({ where: { availabilityStatus: { in: [...REMOVED_CONTENT] }, lastCheckedAt: { gte: dayAgo }, ...pcBrand } }),
+      // Posts that went down in the last day (a recorded status change), not
+      // every post still down that happened to be re-checked.
+      prisma.publishedContent.count({ where: { AND: [removedSinceWhere(dayAgo), pcBrand] } }),
       prisma.deliverable.findMany({
         where: { AND: [overdueWhere(now), delBrand] },
         select: { campaignInfluencer: { select: { campaign: { select: { brandId: true } } } } },

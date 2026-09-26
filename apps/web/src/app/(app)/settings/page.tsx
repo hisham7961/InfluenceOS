@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import {
   ArrowRight,
+  BellRing,
   Database,
   Flag,
   KeyRound,
@@ -85,6 +86,13 @@ export default async function SettingsPage() {
           icon={KeyRound}
           title={t('hub.cards.security.title')}
           description={t('hub.cards.security.description')}
+        />
+
+        <NavCard
+          href="/settings/notifications"
+          icon={BellRing}
+          title={t('hub.cards.notifications.title')}
+          description={t('hub.cards.notifications.description')}
         />
 
         <NavCard

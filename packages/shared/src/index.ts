@@ -21,6 +21,8 @@ export * from './utils/content-status';
 export * from './utils/content-review-state';
 export * from './utils/search-rank';
 export * from './utils/load-fixtures';
+export * from './utils/app-routes';
+export * from './utils/server-text';
 export * as providers from './providers';
 export * as metrics from './metrics';
 

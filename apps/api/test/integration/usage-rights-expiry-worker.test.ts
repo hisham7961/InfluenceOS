@@ -8,7 +8,8 @@ import { generateNotifications } from '../../../worker/src/processors.ts';
  * W3-2 — the worker's license-expiry pass. An ACTIVE license past its expiry is
  * swept to EXPIRED (the stored ledger stays truthful); an ACTIVE license inside
  * the 14-day window raises exactly one USAGE_RIGHT_EXPIRING notification, keyed
- * by targetUrl so a second pass does not duplicate it.
+ * by licence and expiry date so a second pass does not duplicate it, linking
+ * to the brand's usage-rights card (P2.6 — the old link was a 404).
  */
 describe('W3-2 — worker usage-rights expiry sweep + alert', () => {
   let prisma: import('@influenceos/database').PrismaClient;
@@ -36,8 +37,7 @@ describe('W3-2 — worker usage-rights expiry sweep + alert', () => {
   });
 
   afterAll(async () => {
-    const targetUrl = `/brands/${brandId}/usage-rights/${expiringId}`;
-    await prisma.notification.deleteMany({ where: { targetUrl } }).catch(() => undefined);
+    await prisma.notification.deleteMany({ where: { brandId } }).catch(() => undefined);
     await prisma.brand.delete({ where: { id: brandId } }).catch(() => undefined); // cascades usage rights
     await prisma.$disconnect();
   });
@@ -48,17 +48,20 @@ describe('W3-2 — worker usage-rights expiry sweep + alert', () => {
     const lapsed = await prisma.usageRight.findUnique({ where: { id: lapsedId } });
     expect(lapsed?.status).toBe('EXPIRED');
 
-    const targetUrl = `/brands/${brandId}/usage-rights/${expiringId}`;
-    const afterFirst = await prisma.notification.count({
-      where: { category: 'USAGE_RIGHT_EXPIRING', targetUrl },
-    });
-    expect(afterFirst).toBe(1);
+    const alerts = await prisma.notification.findMany({ where: { category: 'USAGE_RIGHT_EXPIRING', brandId } });
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]!.targetUrl).toBe(`/brands/${brandId}#usage-rights`);
+    expect(alerts[0]!.dedupeKey).toMatch(new RegExp(`^usage-right-expiring:${expiringId}:\\d{4}-\\d{2}-\\d{2}$`));
 
-    // A second pass must not duplicate the alert (targetUrl dedup within ~20h).
+    // A second pass must not duplicate the alert.
     await generateNotifications();
-    const afterSecond = await prisma.notification.count({
-      where: { category: 'USAGE_RIGHT_EXPIRING', targetUrl },
-    });
+    const afterSecond = await prisma.notification.count({ where: { category: 'USAGE_RIGHT_EXPIRING', brandId } });
     expect(afterSecond).toBe(1);
+
+    // Extending the licence warns again when the new date comes near.
+    await prisma.usageRight.update({ where: { id: expiringId }, data: { expiresAt: new Date(Date.now() + 9 * day) } });
+    await generateNotifications();
+    const afterExtend = await prisma.notification.count({ where: { category: 'USAGE_RIGHT_EXPIRING', brandId } });
+    expect(afterExtend).toBe(2);
   });
 });

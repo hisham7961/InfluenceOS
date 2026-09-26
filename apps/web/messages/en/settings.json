@@ -39,6 +39,10 @@
       "featureFlags": {
         "title": "Feature Flags",
         "description": "Roll out experimental capabilities and control feature availability."
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Morning summary email and which alerts reach your inbox."
       }
     },
     "darkTheme": "Dark theme",
@@ -388,11 +392,26 @@
       "body": "The directory, campaigns, content, reports and the <emphasis>influencer CSV/JSON export</emphasis> all run out of the box. Everything below is <emphasis>optional</emphasis> — each key upgrades one social platform from manual entry to automatic fetching. You're currently auto-fetching {active} of {total} platforms."
     },
     "section": {
-      "core": { "title": "Core requirements", "hint": "Required to run at all — already satisfied if you can see this page." },
-      "storage": { "title": "File storage", "hint": "For attachments and images." },
-      "social": { "title": "Social integrations", "hint": "All optional. Each upgrades one platform from manual to auto-fetch." },
-      "creatorConnections": { "title": "Creator connections (Instagram / TikTok post metrics)", "hint": "Read a creator's OWN post/video metrics." },
-      "verify": { "title": "Verify it works", "hint": "Confirm a platform is live end to end." }
+      "core": {
+        "title": "Core requirements",
+        "hint": "Required to run at all — already satisfied if you can see this page."
+      },
+      "storage": {
+        "title": "File storage",
+        "hint": "For attachments and images."
+      },
+      "social": {
+        "title": "Social integrations",
+        "hint": "All optional. Each upgrades one platform from manual to auto-fetch."
+      },
+      "creatorConnections": {
+        "title": "Creator connections (Instagram / TikTok post metrics)",
+        "hint": "Read a creator's OWN post/video metrics."
+      },
+      "verify": {
+        "title": "Verify it works",
+        "hint": "Confirm a platform is live end to end."
+      }
     },
     "running": "Running",
     "core": {
@@ -457,7 +476,9 @@
       "SNAPCHAT": {
         "headline": "Manual",
         "unlocks": "No public profile/content API. Snapchat is URL/manual-based; availability is a best-effort link check only.",
-        "steps": ["Nothing to configure — data is entered manually."]
+        "steps": [
+          "Nothing to configure — data is entered manually."
+        ]
       }
     },
     "keyNotes": {
@@ -483,5 +504,45 @@
     "verify": {
       "body": "After adding a key, the platform card above flips to <strong>Auto-fetch active</strong>. To prove the fetch path, add an influencer from a real profile URL — a result marked <strong>Official API</strong> (not Manual) with real numbers confirms it. The Integrations screen also has a per-platform “test connection”."
     }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "description": "Get a summary by email and choose which alerts also arrive in your inbox.",
+    "notConfiguredTitle": "Email isn't set up on this server yet",
+    "notConfiguredBody": "You can choose your settings now; they start working once an admin adds the mail server (SMTP_URL). Until then notifications stay in the app.",
+    "summaryTitle": "Summary email",
+    "summaryDescription": "What is late, due, waiting for review, taken down or expiring — for your brands and countries. Sent only when something needs attention.",
+    "frequency": {
+      "DAILY": "Every morning",
+      "WEEKLY": "Sunday mornings",
+      "OFF": "Off"
+    },
+    "frequencyHint": {
+      "DAILY": "8:00 Kuwait time",
+      "WEEKLY": "8:00 Kuwait time, once a week",
+      "OFF": "No summary emails"
+    },
+    "lastSent": "Last summary: {when}",
+    "sendTest": "Send me a test email",
+    "testSent": "Test email sent to {email}.",
+    "testFailed": "The test email could not be sent.",
+    "saved": "Saved.",
+    "saveFailed": "Could not save your notification settings.",
+    "previewTitle": "Your summary right now",
+    "previewDescription": "What the next summary would contain if it went out now.",
+    "previewMine": "Your campaigns and creators",
+    "previewTeam": "Whole team",
+    "previewEmpty": "Nothing needs attention right now — no summary would be sent.",
+    "sections": {
+      "overdue": "Overdue",
+      "dueSoon": "Due today or tomorrow",
+      "reviews": "Drafts waiting for review",
+      "removed": "Posts taken down (last 24 hours)",
+      "expiring": "Usage rights expiring"
+    },
+    "andMore": "and {count} more",
+    "unpaid": "Still owed: {count} fees and expenses —",
+    "instantTitle": "Also email me right away when",
+    "instantDescription": "These arrive as they happen, in addition to the app. Team-wide alerts only reach you for your brands and countries."
   }
 }

@@ -63,6 +63,13 @@ const schema = z
     // them on anywhere.
     API_DOCS: z.enum(['on', 'off']).optional(),
 
+    // Email (P2.6, optional): the morning summary and alerts people choose to
+    // get by email. Without SMTP_URL nothing is emailed. The worker sends;
+    // the API only uses it for "Send a test email".
+    SMTP_URL: z.string().optional(),
+    MAIL_FROM: z.string().optional(),
+    APP_URL: z.string().optional(),
+
     // Release metadata (surfaced on /health and Platform status; never secrets)
     APP_VERSION: z.string().optional(),
     GIT_SHA: z.string().optional(),
@@ -80,6 +87,14 @@ const schema = z
           message: 'In production, AUTH_SECRET must be a strong, non-default value of at least 32 characters.',
         });
       }
+    }
+
+    if (env.SMTP_URL && !/^smtps?:\/\/[^\s]+$/i.test(env.SMTP_URL.trim())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SMTP_URL'],
+        message: 'SMTP_URL must look like smtps://user:password@smtp.example.com:465 or smtp://user:password@host:587.',
+      });
     }
 
     // If S3 storage is selected, its connection details must be present.

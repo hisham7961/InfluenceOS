@@ -261,5 +261,17 @@
   "n_deliverable_overdue": "Deliverable overdue",
   "n_deliverable_due_soon": "Deliverable due soon",
   "n_campaign_ending_soon": "Campaign ending soon",
-  "n_usage_rights_expiring_soon": "Usage rights expiring soon"
+  "n_usage_rights_expiring_soon": "Usage rights expiring soon",
+  "n_deliverables_overdue": "Deliverables overdue",
+  "n_one_deliverable_past_due": "{influencerName}: {type} for {campaignName} is past its due date.",
+  "n_count_deliverables_past_due": "{count} deliverables in {campaignName} are past their due date.",
+  "n_deliverables_due_soon": "Deliverables due soon",
+  "n_count_deliverables_due_2_days": "{count} deliverables in {campaignName} are due in the next 2 days.",
+  "n_one_deliverable_due_today": "{influencerName}: {type} for {campaignName} is due today.",
+  "n_one_deliverable_due_tomorrow": "{influencerName}: {type} for {campaignName} is due tomorrow.",
+  "n_one_deliverable_due_in_days": "{influencerName}: {type} for {campaignName} is due in {days} days.",
+  "e_email_settings_not_valid": "Email settings are not valid: {value}",
+  "e_email_not_set_up": "Email is not set up on this server yet.",
+  "e_test_email_just_sent": "A test email was just sent. Try again in a minute.",
+  "e_mail_server_refused_test": "The mail server refused the test email: {value}"
 }

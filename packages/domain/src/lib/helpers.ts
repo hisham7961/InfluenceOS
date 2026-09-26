@@ -58,6 +58,8 @@ export interface NotificationInput {
   influencerId?: string | null;
   campaignId?: string | null;
   publishedContentId?: string | null;
+  /** What the notification is about, so a reminder is never sent twice (P2.6). */
+  dedupeKey?: string | null;
 }
 
 /**
@@ -80,6 +82,7 @@ export async function createNotification(
       influencerId: input.influencerId ?? null,
       campaignId: input.campaignId ?? null,
       publishedContentId: input.publishedContentId ?? null,
+      dedupeKey: input.dedupeKey ?? null,
       deliveries: { create: { channel: 'IN_APP', status: 'SENT', deliveredAt: new Date() } },
     },
   });

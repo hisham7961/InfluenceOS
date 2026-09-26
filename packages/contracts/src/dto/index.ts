@@ -13,6 +13,7 @@ import type {
   ExpenseType,
   IntegrationStatus,
   NotificationCategory,
+  DigestFrequency,
   ParticipationStatus,
   PaymentStatus,
   PaymentMethod,
@@ -1029,6 +1030,62 @@ export interface NotificationDTO {
   targetUrl: string | null;
   isRead: boolean;
   createdAt: string;
+}
+
+/** Your email settings for notifications (P2.6). */
+export interface NotificationSettingsDTO {
+  /** The summary email: every morning (8:00 Kuwait), Sunday mornings, or never. */
+  digestFrequency: DigestFrequency;
+  /** Kinds of notification also emailed as they happen. */
+  emailCategories: NotificationCategory[];
+  /** Whether this server can send email (SMTP_URL is set). */
+  emailConfigured: boolean;
+  /** The address emails go to (your sign-in email). */
+  email: string;
+  lastDigestAt: string | null;
+}
+
+/** One line of the summary email. */
+export interface DigestItemDTO {
+  id: string;
+  /** Where the line links to in the app. */
+  link: string;
+  influencerName: string | null;
+  campaignName: string | null;
+  brandName: string | null;
+  /** Per section: the deliverable type, the post's status or the usage type. */
+  kind: string | null;
+  platform: Platform | null;
+  /** Due date, submitted/removed time or expiry date. */
+  at: string | null;
+}
+
+export interface DigestSectionDTO {
+  total: number;
+  /** The first few (up to 8); `total` counts them all. */
+  items: DigestItemDTO[];
+}
+
+/**
+ * What the summary email holds for one person (P2.6): what is late or due,
+ * drafts waiting for review, posts taken down, licences running out and —
+ * for people with finance access — what is still owed. Scoped to the
+ * person's brands and countries.
+ */
+export interface DigestDTO {
+  generatedAt: string;
+  /** Start of the period "taken down" counts from. */
+  since: string;
+  /** True when deadline and review lists are narrowed to campaigns/creators you own. */
+  onlyMine: boolean;
+  overdue: DigestSectionDTO;
+  dueSoon: DigestSectionDTO;
+  reviews: DigestSectionDTO;
+  removed: DigestSectionDTO;
+  expiringRights: DigestSectionDTO;
+  /** Still owed to creators and suppliers, per currency (finance access only). */
+  unpaid: { count: number; totals: { currency: string; amount: string }[] } | null;
+  isEmpty: boolean;
 }
 
 // --- Activity --------------------------------------------------------------

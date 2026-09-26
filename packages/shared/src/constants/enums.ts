@@ -236,6 +236,10 @@ export const NOTIFICATION_CATEGORIES = [
 ] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
+/** How often the email summary goes out (P2.6): every morning, Sunday mornings, or never. */
+export const DIGEST_FREQUENCIES = ['DAILY', 'WEEKLY', 'OFF'] as const;
+export type DigestFrequency = (typeof DIGEST_FREQUENCIES)[number];
+
 /** Category for a shared Trend/Inspiration item (Operations Intelligence pass). */
 export const INSPIRATION_CATEGORIES = [
   'TREND',

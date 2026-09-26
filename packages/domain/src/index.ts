@@ -112,6 +112,21 @@ export { diskUsage, type DiskUsage } from './lib/disk';
 export { resealStoredSecrets, type ResealResult } from './lib/reseal';
 export { alertAdmins, recordSyncHealth, SYNC_FAILURE_THRESHOLD, type AdminAlert, type PlatformSyncHealth } from './lib/ops-alerts';
 export { deliveredWhere, outstandingWhere, countedWhere, overdueWhere, dueWithinWhere } from './lib/deliverable-rules';
+export { runReminders, OVERDUE_REPEAT_DAYS } from './lib/reminders';
+export { buildDigest, removedSinceWhere, REMOVED_CONTENT_STATUSES } from './lib/digest';
+export { emailConfigFromEnv, appUrlFromEnv, smtpMailer, type EmailConfig, type Mailer } from './lib/email/config';
+export { parseSmtpUrl, sendSmtp, buildMime, type MailMessage, type SmtpConfig } from './lib/email/smtp';
+export {
+  dispatchNotificationEmails,
+  sendDueDigests,
+  digestPeriodStart,
+  DIGEST_HOUR_KUWAIT,
+  __resetDigestRetries,
+  type EmailRunOptions,
+} from './lib/email/dispatch';
+export { renderDigestEmail, renderNotificationEmail, renderTestEmail } from './lib/email/templates';
+export { serverText as emailServerText, resetEmailCatalogs } from './lib/email/i18n';
+export { __setTestEmailTransport } from './services/notification.service';
 export {
   CONTENT_CLAIM_LEASE_MS,
   ACCOUNT_STALE_AFTER_MS,

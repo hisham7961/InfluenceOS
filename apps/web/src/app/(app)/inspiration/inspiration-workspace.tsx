@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
@@ -406,7 +407,9 @@ function InspirationDetail({ item, onClose }: { item: InspirationItemDTO; onClos
 
 export function InspirationWorkspace({ brands }: { brands: BrandSummaryDTO[] }) {
   const [addOpen, setAddOpen] = React.useState(false);
-  const [selected, setSelected] = React.useState<string | null>(null);
+  // Notifications and mentions link here with ?item=<id> to open one item.
+  const searchParams = useSearchParams();
+  const [selected, setSelected] = React.useState<string | null>(() => searchParams.get('item'));
   const [category, setCategory] = React.useState<InspirationCategory | typeof CATEGORY_ALL>(CATEGORY_ALL);
   const [pinnedOnly, setPinnedOnly] = React.useState(false);
   const t = useTranslations('inspiration');
@@ -423,7 +426,15 @@ export function InspirationWorkspace({ brands }: { brands: BrandSummaryDTO[] }) 
   });
 
   const items = query.data?.data ?? [];
-  const detail = items.find((i) => i.id === selected) ?? null;
+  const listed = items.find((i) => i.id === selected) ?? null;
+  // An item opened from a link may be older than the loaded page.
+  const single = useQuery({
+    queryKey: ['inspiration', 'item', selected],
+    queryFn: () => api.inspiration.get(selected!),
+    enabled: !!selected && !listed && !query.isLoading,
+    retry: false,
+  });
+  const detail = listed ?? (single.data && single.data.id === selected ? single.data : null);
 
   return (
     <div className="space-y-4">

@@ -1,6 +1,7 @@
 import { requests, type AttachmentKind, type ConversationUnreadDTO, type MentionRefDTO, type NoteDTO } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
+import { appRoutes } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor, requireOwnerOrAdmin } from '../lib/authz';
@@ -153,7 +154,7 @@ export function makeNoteService(ctx: DomainContext) {
     if (input.inspirationItemId) {
       const item = await prisma.inspirationItem.findUnique({ where: { id: input.inspirationItemId }, select: { id: true, brandId: true, title: true } });
       if (!item) throw AppError.notFound('Inspiration item');
-      return { brandId: item.brandId, campaignId: null, link: `/inspiration/${item.id}`, label: item.title ?? 'a trend' };
+      return { brandId: item.brandId, campaignId: null, link: appRoutes.inspiration(item.id), label: item.title ?? 'a trend' };
     }
     if (input.channel === 'logistics') {
       // Restricted to people who actually DO logistics work (LOGISTICS_MANAGE),

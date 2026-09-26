@@ -36,5 +36,6 @@
     "REPLY": "رد",
     "IMPORTANT_MESSAGE": "رسالة مهمة",
     "LOGISTICS_ADDRESS_ISSUE": "مشكلة في العنوان"
-  }
+  },
+  "emailSettings": "إعدادات البريد"
 }

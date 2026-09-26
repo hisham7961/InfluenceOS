@@ -364,7 +364,7 @@ describe('Security & Authorization Freeze Gate §37/46/47 — content, saved vie
       expect(Object.keys(notif!).sort()).toEqual(['body', 'category', 'createdAt', 'id', 'isRead', 'targetUrl', 'title'].sort());
     });
 
-    it("revoking the actor's access to the notification's brand afterward leaves the old notification listed, but its deep link now 404s — never a 'trusted because it's from a notification' bypass", async () => {
+    it("revoking the actor's access to the notification's brand afterward hides that team-wide notification and its deep link 404s — never a 'trusted because it's from a notification' bypass", async () => {
       // Confirm the deep link's target works BEFORE revocation.
       expect((await app.inject({ method: 'GET', url: `/api/v1/content/${notifContentId}`, headers: notifStaff.auth })).statusCode).toBe(200);
 
@@ -372,14 +372,16 @@ describe('Security & Authorization Freeze Gate §37/46/47 — content, saved vie
       // genuinely brand-scoped rather than reverting to unscoped).
       await setBrandAccess(app, admin, notifStaff.userId, [brandD]);
 
-      // The old, already-delivered notification is still listed — it is
-      // never retroactively deleted just because scope changed.
+      // NEW_CONTENT is a team-wide notification. Since P2.6 team-wide
+      // notifications follow the reader's CURRENT brand scope (their text
+      // can name brands, creators and campaigns), so it is no longer listed
+      // — and it no longer counts as unread.
       const after = (
         await app.inject({ method: 'GET', url: '/api/v1/notifications', headers: notifStaff.auth })
       ).json() as CursorPage<NotificationDTO>;
-      expect(after.data.some((n) => n.targetUrl === `/content/${notifContentId}`)).toBe(true);
+      expect(after.data.some((n) => n.targetUrl === `/content/${notifContentId}`)).toBe(false);
 
-      // ...but following that deep link now enforces CURRENT scope on the
+      // ...and following the old deep link enforces CURRENT scope on the
       // target resource and denies it, exactly like any other direct-ID
       // reach — the notification's prior existence grants nothing.
       expect((await app.inject({ method: 'GET', url: `/api/v1/content/${notifContentId}`, headers: notifStaff.auth })).statusCode).toBe(404);

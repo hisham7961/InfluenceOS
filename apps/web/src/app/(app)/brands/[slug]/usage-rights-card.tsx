@@ -24,7 +24,7 @@ export async function UsageRightsCard({ brandId, rights }: { brandId: string; ri
   const expiring = rights.filter((r) => r.effectiveStatus === 'EXPIRING_SOON').length;
 
   return (
-    <Card className="mt-6 overflow-hidden">
+    <Card id="usage-rights" className="mt-6 scroll-mt-20 overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2">
           <ShieldCheck className="size-5 text-muted-foreground" aria-hidden /> {t('usageRights.title')}

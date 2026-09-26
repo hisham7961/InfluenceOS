@@ -484,6 +484,18 @@ their participation to dropped instead, so the payment history stays.
 | GET | `/api/v1/notifications` | List notifications for the current actor. Cursor-paginated; `?unreadOnly=`. |
 | GET | `/api/v1/notifications/unread-count` | Unread notification count → `{ count }`. |
 | POST | `/api/v1/notifications/read` | Mark notifications read, by `ids[]` or `all: true` → `{ updated }`. |
+| GET | `/api/v1/notifications/settings` | Your email settings → `NotificationSettingsDTO` (`digestFrequency` DAILY/WEEKLY/OFF, `emailCategories`, `emailConfigured`, `email`, `lastDigestAt`). |
+| PATCH | `/api/v1/notifications/settings` | Change `digestFrequency` and/or `emailCategories` (notification kinds also emailed as they happen). |
+| GET | `/api/v1/notifications/digest-preview` | What your summary email would hold now → `DigestDTO` (overdue, due soon, drafts to review, posts taken down in 24h, usage rights expiring; money owed with finance access). Scoped to your brands/countries; narrowed to campaigns/creators you own when you own any. |
+| POST | `/api/v1/notifications/test-email` | Send yourself a test email → `{ sentTo }`; 409 when email isn't set up (no `SMTP_URL`) or one was sent in the last minute. |
+
+Read state is per person (P2.6): a notification addressed to you carries its
+own `isRead`; a team-wide one (no recipient) is read for you once you mark it,
+without changing it for anyone else. Team-wide notifications are listed only
+when you can see their brand and their creator's country. Reminder links go
+to the relevant tab (`/campaigns/:id?tab=deliverables`); every link the server
+hands out is checked against the web app's pages by a test
+(`packages/shared/src/__tests__/app-routes.test.ts`).
 
 ### Activity
 
