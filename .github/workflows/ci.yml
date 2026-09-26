@@ -120,7 +120,7 @@ jobs:
           for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break || sleep 1; done
           curl -sf http://localhost:9000/minio/health/live || { docker logs minio; exit 1; }
           docker exec minio mc --version
-          docker exec minio sh -c 'mc alias set t http://localhost:9000 minioadmin minioadmin && mc mb --ignore-existing t/smoke && mc ls t'
+          docker exec minio sh -c 'mc alias set smoke http://localhost:9000 minioadmin minioadmin && mc mb --ignore-existing smoke/smoke && mc ls smoke'
       # A deploy host runs `docker compose pull`: one missing or auth-gated
       # image there aborts the whole update (the quay.io MinIO outage did
       # exactly that). Reported as warnings, not a failure, while the compose
