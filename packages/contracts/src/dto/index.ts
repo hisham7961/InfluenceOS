@@ -32,6 +32,8 @@ import type {
   LogisticsIssueType,
   LogisticsIssueStatus,
   AddressHealth,
+  ReportPeriod,
+  TrendBucket,
 } from '../enums';
 import type { OffsetPagination } from '../pagination';
 
@@ -1525,7 +1527,17 @@ export interface LeaderboardEntryDTO {
   completionRate: number | null;
   totalPaid: number | null;
   tier: CreatorTier;
+  /**
+   * Results and reliability, not just volume (P2.7): published × 4 +
+   * campaigns × 3 + repeat × 4 + on-time rate × 20 + log10(median views + 1) × 6.
+   */
   score: number;
+  /** Median latest views of their posts, or null when none has numbers. */
+  medianViews: number | null;
+  /** Median engagement rate (%) of their posts. */
+  medianEngagementRate: number | null;
+  /** Share of deliverables posted by the due day (0–1), or null with none to judge. */
+  onTimeRate: number | null;
 }
 
 /** Ranked creator performance leaderboard (W6-2). */
@@ -1550,6 +1562,13 @@ export interface SpendVsBudgetDTO {
   campaignsOverBudget: number;
   /** Fees/expenses recorded but not yet (fully) paid — UNPAID + PARTIALLY_PAID (Operations Intelligence). */
   unpaidSpend: number;
+  /**
+   * Campaigns run in more than one currency (P2.7). The numbers above are
+   * then the main currency's (most budget); every currency is in byCurrency.
+   * Draft and cancelled campaigns are left out.
+   */
+  mixed: boolean;
+  byCurrency: SpendVsBudgetLineDTO[];
 }
 
 /** What happened "today" — the current calendar day in Kuwait (W6-3). */
@@ -1591,14 +1610,104 @@ export interface ExecBrandRollupDTO {
   overBudget: boolean;
   overdueDeliverables: number;
   contentAlerts: number;
+  /** Currency of the spend/budget figures (the brand's main one when mixed). */
+  currency: string;
+  mixed: boolean;
   /** overdueDeliverables + contentAlerts + (overBudget ? 1 : 0) — the sort key. */
   issueCount: number;
+}
+
+/** Results for one period (P2.7). Numbers come from posts that went up in it. */
+export interface PeriodKpisDTO {
+  postsPublished: number;
+  /** Latest views of those posts; null when none has numbers yet. */
+  views: number | null;
+  engagements: number | null;
+  /** engagements / views, as a % (3.5 = 3.5%). */
+  engagementRate: number | null;
+  /** Deliverables posted in the period, and the share posted by their due day. */
+  deliverablesDelivered: number;
+  onTimeRate: number | null;
+  /** Creators with at least one post in the period. */
+  activeCreators: number;
+  campaignsStarted: number;
+  /** Payments made in the period, per currency (null without finance access). */
+  paid: CurrencyTotalDTO[] | null;
+  /** Paid ÷ views, when everything was paid in one currency. */
+  costPerView: { currency: string; value: number } | null;
+}
+
+export interface ExecPeriodDTO {
+  period: ReportPeriod;
+  /** First and last day (Kuwait, inclusive). */
+  from: string;
+  to: string;
+  previousFrom: string;
+  previousTo: string;
+  current: PeriodKpisDTO;
+  previous: PeriodKpisDTO;
+}
+
+/** Spend against budget in one currency. */
+export interface SpendVsBudgetLineDTO {
+  currency: string;
+  plannedBudget: number;
+  totalSpend: number;
+  remaining: number;
+  budgetUsedPercent: number | null;
+  unpaidSpend: number;
+  campaigns: number;
+}
+
+/** Week- or month-by-month results (P2.7). */
+export interface TrendPointDTO {
+  /** First day of the week (Sunday) or month, Kuwait. */
+  start: string;
+  postsPublished: number;
+  views: number | null;
+  engagements: number | null;
+  deliverablesDelivered: number;
+  /** Paid in the bucket per currency (null without finance access). */
+  paid: CurrencyTotalDTO[] | null;
+}
+
+export interface TrendsDTO {
+  bucket: TrendBucket;
+  from: string;
+  to: string;
+  /** Currencies that appear in `paid`, most paid first. */
+  currencies: string[];
+  points: TrendPointDTO[];
+}
+
+/** A creator's results over time (P2.7), within what the reader can see. */
+export interface CreatorPerformanceDTO {
+  influencerId: string;
+  posts: number;
+  postsLast90Days: number;
+  medianViews: number | null;
+  medianViewsLast90Days: number | null;
+  medianEngagementRate: number | null;
+  totalViews: number | null;
+  lastPostedAt: string | null;
+  campaigns: number;
+  brands: number;
+  /** Share of brands that worked with them more than once (0–1). */
+  rebookRate: number | null;
+  onTimeRate: number | null;
+  averageDelayDays: number | null;
+  /** Paid to them, per currency (null without finance access). */
+  paid: CurrencyTotalDTO[] | null;
+  costPerView: { currency: string; value: number } | null;
+  byPlatform: { platform: Platform; posts: number; medianViews: number | null; medianEngagementRate: number | null }[];
 }
 
 /** Executive overview answering the 5 outstanding exec questions (W6-3). */
 export interface ExecDashboardDTO {
   currency: string;
   spendVsBudget: SpendVsBudgetDTO;
+  /** Results this period vs the one before (P2.7). */
+  period: ExecPeriodDTO;
   today: ExecTodayDTO;
   digest: ExecDigestDTO;
   /** Per-brand health, most-troubled first. */

@@ -81,7 +81,7 @@ describe('W6-2 — creator performance leaderboard', () => {
     expect(s.repeatCollaborations).toBe(1);
     expect(s.deliverablesPublished).toBe(2);
     expect(s.completionRate).toBe(1);
-    expect(s.tier).toBe('BRONZE'); // 2 published < 3
+    expect(s.tier).toBe('BRONZE'); // score under 30 (no views or on-time data)
     expect(s.score).toBeGreaterThan(0);
 
     const w = board.entries.find((e) => e.influencerId === weak)!;

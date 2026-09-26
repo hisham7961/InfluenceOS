@@ -20,6 +20,8 @@ import { InfluencerEditDialog } from './influencer-edit-dialog';
 import { InfluencerDeleteButton } from './influencer-delete-button';
 import { SyncAvatarButton } from './sync-avatar-button';
 import { CreatorSnapshot } from './creator-snapshot';
+import { CreatorPerformance } from './creator-performance';
+import { TrendsPanel } from '@/components/reports/trends-panel';
 import { CONTENT_GRID_PAGE_SIZE } from '@/components/content/content-page-size';
 import { WhatsAppDialog } from '@/components/influencers/whatsapp-dialog';
 import { AddToCampaignButton } from '@/components/campaigns/add-to-campaign-dialog';
@@ -40,12 +42,13 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
     throw e;
   }
 
-  const [contentFeed, notes, brandRelationships, snapshot, reliability] = await Promise.all([
+  const [contentFeed, notes, brandRelationships, snapshot, reliability, performance] = await Promise.all([
     api.content.feed({ influencerId: id, limit: CONTENT_GRID_PAGE_SIZE, page: 1 }),
     api.influencers.notes(id),
     api.influencers.brandRelationships(id),
     api.influencers.snapshot(id),
     api.influencers.reliability(id),
+    api.influencers.performance(id),
   ]);
 
   const contact = influencer.contact;
@@ -178,6 +181,13 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
       </div>
 
       <CreatorSnapshot influencerId={id} snapshot={snapshot} reliability={reliability} />
+
+      <CreatorPerformance performance={performance} />
+      {performance.posts > 0 ? (
+        <div className="mb-6">
+          <TrendsPanel influencerId={id} title={t('detail.performance.trendsTitle')} />
+        </div>
+      ) : null}
 
       <CreatorConnections influencerId={influencer.id} />
 

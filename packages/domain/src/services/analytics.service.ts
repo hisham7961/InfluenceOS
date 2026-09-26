@@ -1,4 +1,12 @@
-import { METRICS_FRESHNESS_DAYS, businessToday, isDeliverableDelivered, metrics } from '@influenceos/shared';
+import {
+  METRICS_FRESHNESS_DAYS,
+  businessToday,
+  isDeliverableDelivered,
+  median,
+  metrics,
+  overdueAfter,
+  resolvePeriod,
+} from '@influenceos/shared';
 import {
   requests,
   type CampaignEfficiencyDTO,
@@ -10,6 +18,8 @@ import {
   type ExecDashboardDTO,
   type LeaderboardEntryDTO,
   type MetricSourceCountDTO,
+  type SpendVsBudgetLineDTO,
+  type TrendsDTO,
 } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
@@ -22,9 +32,14 @@ import { deliveredWhere, dueWithinWhere, overdueWhere } from '../lib/deliverable
 import { removedSinceWhere } from '../lib/digest';
 import { loadCampaignMoney, participationMoney, sumCampaignMoney, EMPTY_CAMPAIGN_MONEY } from '../lib/spend';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
+import { hasCapability } from '../lib/capabilities';
+import { loadPostMetrics } from '../lib/post-metrics';
+import { defaultTrendRange, periodKpis, trendPoints } from '../lib/results';
+import { memo } from '../lib/memo';
 
 type LeaderboardQuery = z.infer<typeof requests.leaderboardQuerySchema>;
 type ExecDashboardQuery = z.infer<typeof requests.execDashboardQuerySchema>;
+type TrendsQuery = z.infer<typeof requests.trendsQuerySchema>;
 
 // Content that has left the feed (a brand-health alert).
 const REMOVED_CONTENT = ['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BROKEN_LINK'] as const;
@@ -33,12 +48,35 @@ const REMOVED_CONTENT = ['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BROKEN_LINK'] as 
 // participation never inflates a creator's standing (consistent with DB-10).
 const COMMITTED = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'] as const;
 
-/** Deterministic performance score and tier from delivered work (W6-2). */
-function tierFor(published: number): CreatorTier {
-  if (published >= 8) return 'GOLD';
-  if (published >= 3) return 'SILVER';
-  if (published >= 1) return 'BRONZE';
-  return 'NEW';
+/**
+ * Tier from the score (P2.7: results and reliability, not only volume). A
+ * creator who hasn't delivered anything yet is NEW whatever else is known.
+ */
+function tierFor(score: number, published: number): CreatorTier {
+  if (published < 1) return 'NEW';
+  if (score >= 60) return 'GOLD';
+  if (score >= 30) return 'SILVER';
+  return 'BRONZE';
+}
+
+/**
+ * The leaderboard score (P2.7): delivered work and repeat business, how
+ * reliably they post on time, and how many people see their posts.
+ */
+export function creatorScore(e: {
+  deliverablesPublished: number;
+  campaigns: number;
+  repeatCollaborations: number;
+  onTimeRate: number | null;
+  medianViews: number | null;
+}): number {
+  return Math.round(
+    e.deliverablesPublished * 4 +
+      e.campaigns * 3 +
+      e.repeatCollaborations * 4 +
+      (e.onTimeRate ?? 0) * 20 +
+      Math.log10((e.medianViews ?? 0) + 1) * 6,
+  );
 }
 
 export function makeAnalyticsService(ctx: DomainContext) {
@@ -73,10 +111,27 @@ export function makeAnalyticsService(ctx: DomainContext) {
           select: { displayName: true, primaryUsername: true, category: true, avatarOverrideUrl: true, resolvedAvatarUrl: true },
         },
         campaign: { select: { brandId: true } },
-        deliverables: { select: { status: true, type: true } },
+        deliverables: { select: { status: true, type: true, dueDate: true, publishedAt: true } },
       },
       take: 5000,
     });
+
+    // Results: every post by these creators the reader can see, with its
+    // latest numbers (one query).
+    const creatorIds = [...new Set(rows.map((r) => r.influencerId))];
+    const posts = creatorIds.length
+      ? await loadPostMetrics(prisma, {
+          influencerId: { in: creatorIds },
+          ...(query.brandId ? { brandId: query.brandId } : scope ? { brandId: { in: scope } } : {}),
+        })
+      : [];
+    const postsBy = new Map<string, typeof posts>();
+    for (const p of posts) {
+      if (!p.influencerId) continue;
+      const list = postsBy.get(p.influencerId) ?? [];
+      list.push(p);
+      postsBy.set(p.influencerId, list);
+    }
 
     type Acc = {
       influencerId: string;
@@ -89,6 +144,8 @@ export function makeAnalyticsService(ctx: DomainContext) {
       deliverablesTotal: number;
       deliverablesPublished: number;
       paid: Prisma.Decimal[];
+      onTime: number;
+      judged: number;
     };
     const byInfluencer = new Map<string, Acc>();
 
@@ -106,6 +163,8 @@ export function makeAnalyticsService(ctx: DomainContext) {
           deliverablesTotal: 0,
           deliverablesPublished: 0,
           paid: [],
+          onTime: 0,
+          judged: 0,
         };
         byInfluencer.set(r.influencerId, acc);
       }
@@ -114,6 +173,11 @@ export function makeAnalyticsService(ctx: DomainContext) {
       const planned = r.deliverables.filter((d) => d.status !== 'CANCELLED');
       acc.deliverablesTotal += planned.length;
       acc.deliverablesPublished += planned.filter(isDeliverableDelivered).length;
+      for (const d of planned) {
+        if (!d.dueDate || !d.publishedAt) continue;
+        acc.judged += 1;
+        if (d.publishedAt < overdueAfter(d.dueDate)) acc.onTime += 1;
+      }
       // Part payments count as paid too (what was actually paid).
       const paidPart = participationMoney(r).paid;
       if (paidPart.gt(0)) acc.paid.push(paidPart);
@@ -121,7 +185,17 @@ export function makeAnalyticsService(ctx: DomainContext) {
 
     const entries: LeaderboardEntryDTO[] = [...byInfluencer.values()].map((a) => {
       const repeatCollaborations = Math.max(0, a.campaigns - 1);
-      const score = a.deliverablesPublished * 10 + a.campaigns * 5 + repeatCollaborations * 3;
+      const mine = postsBy.get(a.influencerId) ?? [];
+      const medianViews = median(mine.map((p) => p.views).filter((v): v is number => v != null));
+      const medianEngagementRate = median(mine.map((p) => p.engagementRate).filter((v): v is number => v != null));
+      const onTimeRate = a.judged ? Math.round((a.onTime / a.judged) * 1000) / 1000 : null;
+      const score = creatorScore({
+        deliverablesPublished: a.deliverablesPublished,
+        campaigns: a.campaigns,
+        repeatCollaborations,
+        onTimeRate,
+        medianViews,
+      });
       return {
         influencerId: a.influencerId,
         displayName: a.displayName,
@@ -135,8 +209,11 @@ export function makeAnalyticsService(ctx: DomainContext) {
         deliverablesPublished: a.deliverablesPublished,
         completionRate: a.deliverablesTotal > 0 ? a.deliverablesPublished / a.deliverablesTotal : null,
         totalPaid: a.paid.length ? moneyNumberOr0(sumMoney(a.paid)) : null,
-        tier: tierFor(a.deliverablesPublished),
+        tier: tierFor(score, a.deliverablesPublished),
         score,
+        medianViews: medianViews == null ? null : Math.round(medianViews),
+        medianEngagementRate: medianEngagementRate == null ? null : Math.round(medianEngagementRate * 100) / 100,
+        onTimeRate,
       };
     });
 
@@ -156,6 +233,10 @@ export function makeAnalyticsService(ctx: DomainContext) {
    * per-brand or per-campaign fan-out.
    */
   async function executiveDashboard(query: ExecDashboardQuery): Promise<ExecDashboardDTO> {
+    return memo(`exec:${ctx.actor?.id ?? 'system'}:${JSON.stringify(query)}`, () => computeExecutiveDashboard(query));
+  }
+
+  async function computeExecutiveDashboard(query: ExecDashboardQuery): Promise<ExecDashboardDTO> {
     const scope = await scopedBrandIds(ctx);
     // A single-brand filter must sit inside the caller's scope, else it is
     // indistinguishable from a brand that does not exist (least privilege).
@@ -177,7 +258,11 @@ export function makeAnalyticsService(ctx: DomainContext) {
 
     const [brands, campaigns] = await Promise.all([
       prisma.brand.findMany({ where: brandIds ? { id: { in: brandIds } } : {}, select: { id: true, name: true, slug: true }, orderBy: { name: 'asc' } }),
-      prisma.campaign.findMany({ where: campBrand, select: { id: true, brandId: true, status: true, plannedBudget: true } }),
+      // Draft and cancelled campaigns aren't money anyone has committed.
+      prisma.campaign.findMany({
+        where: { ...campBrand, status: { notIn: ['DRAFT', 'CANCELLED'] } },
+        select: { id: true, brandId: true, status: true, plannedBudget: true, currency: true },
+      }),
     ]);
     const campaignIds = campaigns.map((c) => c.id);
 
@@ -223,27 +308,47 @@ export function makeAnalyticsService(ctx: DomainContext) {
       prisma.deliverableSubmission.count({ where: { status: 'IN_REVIEW', deliverable: delBrand } }),
     ]);
 
-    // Aggregate spend / budget, per brand and overall, from the grouped rows.
-    let totalBudget = new Prisma.Decimal(0);
-    let totalSpend = new Prisma.Decimal(0);
+    // Spend against budget per currency — overall and per brand. Amounts in
+    // different currencies are never added together (P2.7).
+    type Line = { budget: Prisma.Decimal; spend: Prisma.Decimal; unpaid: Prisma.Decimal; campaigns: number };
+    const emptyLine = (): Line => ({ budget: new Prisma.Decimal(0), spend: new Prisma.Decimal(0), unpaid: new Prisma.Decimal(0), campaigns: 0 });
+    const totals = new Map<string, Line>();
+    const brandLines = new Map<string, Map<string, Line>>();
     let campaignsOverBudget = 0;
     const activeByBrand = new Map<string, number>();
-    const budgetByBrand = new Map<string, Prisma.Decimal>();
-    const spendByBrand = new Map<string, Prisma.Decimal>();
     for (const c of campaigns) {
       const budget = toDecimal(c.plannedBudget) ?? new Prisma.Decimal(0);
-      const spend = (moneyByCampaign.get(c.id) ?? EMPTY_CAMPAIGN_MONEY).totalSpend;
-      totalBudget = totalBudget.plus(budget);
-      totalSpend = totalSpend.plus(spend);
-      if (budget.gt(0) && spend.gt(budget)) campaignsOverBudget += 1;
+      const money = moneyByCampaign.get(c.id) ?? EMPTY_CAMPAIGN_MONEY;
+      const ccy = c.currency || 'KWD';
+      if (budget.gt(0) && money.totalSpend.gt(budget)) campaignsOverBudget += 1;
       if (c.status === 'ACTIVE') activeByBrand.set(c.brandId, (activeByBrand.get(c.brandId) ?? 0) + 1);
-      budgetByBrand.set(c.brandId, (budgetByBrand.get(c.brandId) ?? new Prisma.Decimal(0)).plus(budget));
-      spendByBrand.set(c.brandId, (spendByBrand.get(c.brandId) ?? new Prisma.Decimal(0)).plus(spend));
+      const perBrand = brandLines.get(c.brandId) ?? new Map<string, Line>();
+      brandLines.set(c.brandId, perBrand);
+      for (const map of [totals, perBrand]) {
+        const line = map.get(ccy) ?? emptyLine();
+        line.budget = line.budget.plus(budget);
+        line.spend = line.spend.plus(money.totalSpend);
+        line.unpaid = line.unpaid.plus(money.unpaid);
+        line.campaigns += 1;
+        map.set(ccy, line);
+      }
     }
-
-    // Outstanding = everything still owed on these campaigns, part payments
-    // counted for what's left (same rule as each campaign's cost summary).
-    const unpaidSpend = sumCampaignMoney(moneyByCampaign.values(), 'unpaid');
+    const toLine = (currency: string, l: Line): SpendVsBudgetLineDTO => ({
+      currency,
+      plannedBudget: moneyNumberOr0(l.budget),
+      totalSpend: moneyNumberOr0(l.spend),
+      remaining: l.budget.minus(l.spend).toNumber(),
+      budgetUsedPercent: percentOf(l.spend, l.budget),
+      unpaidSpend: moneyNumberOr0(l.unpaid),
+      campaigns: l.campaigns,
+    });
+    // Main currency first: the most budget, then the most spend.
+    const byCurrency = (m: Map<string, Line>) =>
+      [...m.entries()]
+        .map(([ccy, l]) => toLine(ccy, l))
+        .sort((a, b) => b.plannedBudget - a.plannedBudget || b.totalSpend - a.totalSpend || a.currency.localeCompare(b.currency));
+    const overall = byCurrency(totals);
+    const main = overall[0] ?? toLine('KWD', emptyLine());
 
     const overdueByBrand = new Map<string, number>();
     for (const d of overdueRows) {
@@ -256,9 +361,9 @@ export function makeAnalyticsService(ctx: DomainContext) {
     }
 
     const rollup: ExecBrandRollupDTO[] = brands.map((b) => {
-      const budget = budgetByBrand.get(b.id) ?? new Prisma.Decimal(0);
-      const spend = spendByBrand.get(b.id) ?? new Prisma.Decimal(0);
-      const overBudget = budget.gt(0) && spend.gt(budget);
+      const lines = byCurrency(brandLines.get(b.id) ?? new Map());
+      const line = lines[0] ?? toLine(main.currency, emptyLine());
+      const overBudget = lines.some((l) => l.plannedBudget > 0 && l.totalSpend > l.plannedBudget);
       const overdueDeliverables = overdueByBrand.get(b.id) ?? 0;
       const contentAlerts = alertsByBrand.get(b.id) ?? 0;
       return {
@@ -266,27 +371,49 @@ export function makeAnalyticsService(ctx: DomainContext) {
         brandName: b.name,
         slug: b.slug,
         activeCampaigns: activeByBrand.get(b.id) ?? 0,
-        totalSpend: moneyNumberOr0(spend),
-        plannedBudget: moneyNumberOr0(budget),
-        budgetUsedPercent: percentOf(spend, budget),
+        totalSpend: line.totalSpend,
+        plannedBudget: line.plannedBudget,
+        budgetUsedPercent: line.budgetUsedPercent,
         overBudget,
         overdueDeliverables,
         contentAlerts,
+        currency: line.currency,
+        mixed: lines.length > 1,
         issueCount: overdueDeliverables + contentAlerts + (overBudget ? 1 : 0),
       };
     });
     rollup.sort((a, b) => b.issueCount - a.issueCount || b.totalSpend - a.totalSpend || a.brandName.localeCompare(b.brandName));
 
+    // Results this period vs the one before (P2.7). Payments need finance access.
+    const resolved = resolvePeriod(query.period, now, { from: query.from, to: query.to });
+    const canSeeMoney = await hasCapability(ctx, 'FINANCE_VIEW');
+    const resultsScope = { brandIds };
+    const [current, previous] = await Promise.all([
+      periodKpis(ctx, resultsScope, resolved.from, resolved.to, canSeeMoney),
+      periodKpis(ctx, resultsScope, resolved.previousFrom, resolved.previousTo, canSeeMoney),
+    ]);
+
     return {
-      currency: 'KWD',
+      currency: main.currency,
       spendVsBudget: {
-        currency: 'KWD',
-        plannedBudget: moneyNumberOr0(totalBudget),
-        totalSpend: moneyNumberOr0(totalSpend),
-        remaining: totalBudget.minus(totalSpend).toNumber(),
-        budgetUsedPercent: percentOf(totalSpend, totalBudget),
+        currency: main.currency,
+        plannedBudget: main.plannedBudget,
+        totalSpend: main.totalSpend,
+        remaining: main.remaining,
+        budgetUsedPercent: main.budgetUsedPercent,
         campaignsOverBudget,
-        unpaidSpend: moneyNumberOr0(unpaidSpend),
+        unpaidSpend: main.unpaidSpend,
+        mixed: overall.length > 1,
+        byCurrency: overall,
+      },
+      period: {
+        period: resolved.period,
+        from: resolved.fromKey,
+        to: resolved.toKey,
+        previousFrom: resolved.previousFromKey,
+        previousTo: resolved.previousToKey,
+        current,
+        previous,
       },
       today: {
         contentPublished: todayContent,
@@ -478,7 +605,42 @@ export function makeAnalyticsService(ctx: DomainContext) {
     };
   }
 
-  return { creatorLeaderboard, executiveDashboard, campaignEfficiency };
+  /**
+   * Week- or month-by-month results (P2.7) for the reader's brands, one brand,
+   * one campaign or one creator: posts, views, engagements, deliverables
+   * delivered and (finance access) payments.
+   */
+  async function trends(query: TrendsQuery): Promise<TrendsDTO> {
+    const scope = await scopedBrandIds(ctx);
+    if (query.brandId && isBrandOutOfScope(scope, query.brandId)) throw AppError.notFound('Brand');
+    if (query.campaignId) {
+      const c = await prisma.campaign.findUnique({ where: { id: query.campaignId }, select: { brandId: true } });
+      if (!c || isBrandOutOfScope(scope, c.brandId)) throw AppError.notFound('Campaign');
+    }
+    const range = defaultTrendRange(query.bucket);
+    let fromKey = query.from ?? range.fromKey;
+    let toKey = query.to ?? range.toKey;
+    if (fromKey > toKey) [fromKey, toKey] = [toKey, fromKey];
+    const canSeeMoney = await hasCapability(ctx, 'FINANCE_VIEW');
+    return memo(`trends:${ctx.actor?.id ?? 'system'}:${JSON.stringify(query)}`, () =>
+      trendPoints(
+        ctx,
+        { brandIds: query.brandId ? [query.brandId] : scope, campaignId: query.campaignId, influencerId: query.influencerId },
+        fromKey,
+        toKey,
+        query.bucket,
+        canSeeMoney,
+      ),
+    );
+  }
+
+  return {
+    creatorLeaderboard: (query: LeaderboardQuery) =>
+      memo(`leaderboard:${ctx.actor?.id ?? 'system'}:${JSON.stringify(query)}`, () => creatorLeaderboard(query)),
+    executiveDashboard,
+    campaignEfficiency,
+    trends,
+  };
 }
 
 export type AnalyticsService = ReturnType<typeof makeAnalyticsService>;

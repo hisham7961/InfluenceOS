@@ -65,6 +65,9 @@ import type {
   MonitoringEventDTO,
   NoteDTO,
   NotificationDTO,
+  TrendsDTO,
+  CreatorPerformanceDTO,
+  ReportPeriod,
   NotificationSettingsDTO,
   DigestDTO,
   Paginated,
@@ -249,6 +252,7 @@ export function createClient(config: ClientConfig) {
       // Creator 360 (Operations Intelligence pass).
       snapshot: (id: string) => http.get<CreatorSnapshotDTO>(`${V}/influencers/${id}/snapshot`),
       reliability: (id: string) => http.get<CreatorReliabilityDTO>(`${V}/influencers/${id}/reliability`),
+      performance: (id: string) => http.get<CreatorPerformanceDTO>(`${V}/influencers/${id}/performance`),
       timeline: (id: string, params?: QueryParams) =>
         http.get<CursorPage<CreatorTimelineItemDTO>>(`${V}/influencers/${id}/timeline`, { query: params }),
       // Every submission across this creator's campaigns (Creator 360 UGC tab,
@@ -571,8 +575,10 @@ export function createClient(config: ClientConfig) {
       leaderboard: (params?: QueryParams) =>
         http.get<CreatorLeaderboardDTO>(`${V}/reports/leaderboard`, { query: params }),
       // Executive overview: spend-vs-budget, today, since-yesterday, cross-brand (W6-3).
-      execDashboard: (brandId?: string) =>
-        http.get<ExecDashboardDTO>(`${V}/reports/exec-dashboard`, { query: { brandId } }),
+      execDashboard: (params?: { brandId?: string; period?: ReportPeriod; from?: string; to?: string }) =>
+        http.get<ExecDashboardDTO>(`${V}/reports/exec-dashboard`, { query: params }),
+      // Week- or month-by-month results (P2.7).
+      trends: (params?: QueryParams) => http.get<TrendsDTO>(`${V}/reports/trends`, { query: params }),
     },
 
     notifications: {

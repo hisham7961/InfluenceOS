@@ -23,6 +23,7 @@ export * from './utils/search-rank';
 export * from './utils/load-fixtures';
 export * from './utils/app-routes';
 export * from './utils/server-text';
+export * from './utils/periods';
 export * as providers from './providers';
 export * as metrics from './metrics';
 

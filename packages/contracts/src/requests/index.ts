@@ -29,6 +29,8 @@ import {
   COUNTRY_CODES,
   NOTIFICATION_CATEGORIES,
   DIGEST_FREQUENCIES,
+  REPORT_PERIODS,
+  TREND_BUCKETS,
 } from '@influenceos/shared';
 import { offsetQuerySchema, pageNumberSchema } from '../pagination';
 
@@ -1235,10 +1237,27 @@ export const leaderboardQuerySchema = z.object({
 export type LeaderboardQuery = z.infer<typeof leaderboardQuerySchema>;
 
 // --- Executive dashboard (W6-3) --------------------------------------------
+const dayKey = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2026-10-01.');
 export const execDashboardQuerySchema = z.object({
   /** Narrow the whole overview to a single brand (must be in the caller's scope). */
   brandId: cuid.optional(),
+  /** Period for the results section (P2.7), compared with the one before it. */
+  period: z.enum(REPORT_PERIODS).default('month'),
+  /** First and last day (Kuwait) for period=custom. */
+  from: dayKey.optional(),
+  to: dayKey.optional(),
 });
+
+/** Week- or month-by-month results (P2.7). Defaults to the last 12 buckets. */
+export const trendsQuerySchema = z.object({
+  brandId: cuid.optional(),
+  campaignId: cuid.optional(),
+  influencerId: cuid.optional(),
+  bucket: z.enum(TREND_BUCKETS).default('month'),
+  from: dayKey.optional(),
+  to: dayKey.optional(),
+});
+export type TrendsQuery = z.infer<typeof trendsQuerySchema>;
 export type ExecDashboardQuery = z.infer<typeof execDashboardQuerySchema>;
 
 // --- Saved views / segments (W3-6) -----------------------------------------

@@ -31,14 +31,18 @@
   },
   "exec": {
     "title": "Executive dashboard",
-    "description": "Spend vs budget, what happened today, what changed since yesterday, and where each brand and creator stands — updated live.",
+    "description": "Results for the period you pick against the one before, trends, spend vs budget, today, what changed since yesterday, and where each brand and creator stands.",
     "spendVsBudget": {
       "plannedBudget": "Planned budget",
       "totalSpend": "Total spend",
       "remaining": "Remaining",
       "budgetUsed": "Budget used",
       "unpaidSpend": "Unpaid spend",
-      "campaignsOverBudget": "{count, plural, one {# campaign over budget.} other {# campaigns over budget.}}"
+      "campaignsOverBudget": "{count, plural, one {# campaign over budget.} other {# campaigns over budget.}}",
+      "title": "Spend vs budget",
+      "mixedNote": "Campaigns run in more than one currency. The cards above show {currency}; every currency is listed here.",
+      "currency": "Currency",
+      "campaigns": "Campaigns"
     },
     "today": {
       "title": "Today",
@@ -73,7 +77,9 @@
         "overdue": "Overdue",
         "alerts": "Alerts",
         "issues": "Issues"
-      }
+      },
+      "mixed": "Mixed currencies",
+      "mixedHint": "Spend and budget are in {currency}, this brand's main currency."
     },
     "leaderboard": {
       "title": "Top creators",
@@ -85,16 +91,68 @@
         "published": "Published",
         "completion": "Completion",
         "tier": "Tier",
-        "score": "Score"
+        "score": "Score",
+        "medianViews": "Typical views",
+        "engagement": "Engagement",
+        "onTime": "On time"
       },
       "tier": {
         "GOLD": "Gold",
         "SILVER": "Silver",
         "BRONZE": "Bronze",
         "NEW": "New"
-      }
+      },
+      "scoreHint": "Ranked by delivered work, repeat bookings, on-time posting and typical views — not volume alone."
     },
-    "generatedAt": "Generated {time}."
+    "generatedAt": "Generated {time}.",
+    "period": {
+      "options": {
+        "month": "This month",
+        "quarter": "This quarter",
+        "year": "This year",
+        "last30": "Last 30 days",
+        "custom": "Custom"
+      },
+      "apply": "Apply"
+    },
+    "results": {
+      "title": "Results",
+      "range": "{from} – {to} · compared with {previousFrom} – {previousTo}",
+      "vsPrevious": "vs previous period",
+      "previously": "Previously {value}",
+      "postsPublished": "Posts published",
+      "activeCreators": "{count, plural, =0 {No creator posted} one {# creator posted} other {# creators posted}}",
+      "views": "Views",
+      "engagementRate": "Engagement rate",
+      "deliverablesDelivered": "Deliverables delivered",
+      "onTimeRate": "Delivered on time",
+      "campaignsStarted": "Campaigns started",
+      "paid": "Paid",
+      "alsoPaid": "Also {amounts}",
+      "costPer1000Views": "Cost per 1,000 views",
+      "costPerViewHint": "Needs views, and payments in one currency"
+    },
+    "trends": {
+      "title": "Trends",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "metrics": {
+        "posts": "Posts",
+        "views": "Views",
+        "paid": "Paid"
+      },
+      "series": {
+        "posts": "Posts published",
+        "delivered": "Deliverables delivered",
+        "views": "Views",
+        "paid": "Paid ({currency})"
+      },
+      "weekOf": "Week of {date}",
+      "emptyTitle": "Nothing to chart yet",
+      "emptyDescription": "Trends appear once posts go up, deliverables are delivered or payments are made.",
+      "errorTitle": "Couldn't load trends",
+      "errorDescription": "Refresh the page to try again."
+    }
   },
   "calendar": {
     "title": "Calendar",

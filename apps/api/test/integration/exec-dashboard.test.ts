@@ -52,9 +52,18 @@ describe('W6-3 — executive dashboard rollups', () => {
     // An open deliverable that is overdue (a brand-health issue).
     await app.inject({ method: 'POST', url: `/api/v1/campaign-influencers/${ci1}/deliverables`, headers: auth, payload: { platform: 'INSTAGRAM', type: 'POST', dueDate: twoDaysAgo } });
 
-    // C2 — DRAFT, budget 100, a PAID fee of 500 → this campaign is over its budget.
-    const c2 = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Exec C2 ${Date.now()}`, plannedBudget: 100, currency: 'KWD' } }));
+    // C2 — PLANNING, budget 100, a fee of 500 → this campaign is over its budget.
+    const c2 = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Exec C2 ${Date.now()}`, plannedBudget: 100, currency: 'KWD', status: 'PLANNING' } }));
     await app.inject({ method: 'POST', url: `/api/v1/campaigns/${c2}/influencers`, headers: auth, payload: { influencerId: inf2, dealType: 'PAID', agreedCost: 500, currency: 'KWD', paymentStatus: 'UNPAID' } });
+
+    // Draft and cancelled campaigns aren't committed money (P2.7): left out.
+    for (const status of ['DRAFT', 'CANCELLED']) {
+      const c = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Exec ${status} ${Date.now()}`, plannedBudget: 9000, currency: 'KWD', status } }));
+      await app.inject({ method: 'POST', url: `/api/v1/campaigns/${c}/influencers`, headers: auth, payload: { influencerId: inf2, dealType: 'PAID', agreedCost: 4000, currency: 'KWD' } });
+    }
+    // A Saudi campaign: its riyals are never added to the dinars.
+    const c3 = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Exec SAR ${Date.now()}`, plannedBudget: 600, currency: 'SAR', status: 'ACTIVE' } }));
+    await app.inject({ method: 'POST', url: `/api/v1/campaigns/${c3}/influencers`, headers: auth, payload: { influencerId: inf1, dealType: 'PAID', agreedCost: 250, currency: 'SAR' } });
   });
 
   afterAll(async () => {
@@ -78,6 +87,13 @@ describe('W6-3 — executive dashboard rollups', () => {
     expect(dash.spendVsBudget.remaining).toBe(300);
     expect(dash.spendVsBudget.budgetUsedPercent).toBe(73); // round(800 / 1100 * 100)
     expect(dash.spendVsBudget.campaignsOverBudget).toBe(1);
+    // Per currency: KWD is the main one (most budget); SAR on its own line.
+    expect(dash.spendVsBudget.currency).toBe('KWD');
+    expect(dash.spendVsBudget.mixed).toBe(true);
+    expect(dash.spendVsBudget.byCurrency.map((l) => [l.currency, l.plannedBudget, l.totalSpend, l.campaigns])).toEqual([
+      ['KWD', 1100, 800, 2],
+      ['SAR', 600, 250, 1],
+    ]);
 
     // Today: C1 starts and ends today; one deliverable is due today. No content.
     expect(dash.today.campaignsStarting).toBe(1);
@@ -85,10 +101,11 @@ describe('W6-3 — executive dashboard rollups', () => {
     expect(dash.today.deliverablesDue).toBe(1);
     expect(dash.today.contentPublished).toBe(0);
 
-    // Since yesterday: both campaigns created, one deliverable completed, two roster adds.
-    expect(dash.digest.campaignsCreated).toBe(2);
+    // Since yesterday: every campaign created (drafts included — they were
+    // created), one deliverable completed, every roster add.
+    expect(dash.digest.campaignsCreated).toBe(5);
     expect(dash.digest.deliverablesCompleted).toBe(1);
-    expect(dash.digest.rosterAdditions).toBe(2);
+    expect(dash.digest.rosterAdditions).toBe(5);
     expect(dash.digest.contentRemoved).toBe(0);
     expect(typeof dash.digest.since).toBe('string');
 
@@ -96,7 +113,9 @@ describe('W6-3 — executive dashboard rollups', () => {
     expect(dash.brands).toHaveLength(1);
     const b = dash.brands[0]!;
     expect(b.brandId).toBe(brandId);
-    expect(b.activeCampaigns).toBe(1); // only C1 is ACTIVE
+    expect(b.activeCampaigns).toBe(2); // C1 and the SAR campaign
+    expect(b.currency).toBe('KWD');
+    expect(b.mixed).toBe(true);
     expect(b.totalSpend).toBe(800);
     expect(b.plannedBudget).toBe(1100);
     expect(b.overBudget).toBe(false); // 800 < 1100 at the brand level (though C2 alone is over)

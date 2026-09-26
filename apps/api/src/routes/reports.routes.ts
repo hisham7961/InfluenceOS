@@ -46,10 +46,23 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       preHandler: [requireAuth],
       schema: {
         tags: ['Reports'],
-        summary: 'Executive overview: spend-vs-budget, today, since-yesterday digest, cross-brand rollup (W6-3)',
+        summary: 'Executive overview: spend vs budget per currency, results this period vs the one before, today, since yesterday, cross-brand rollup',
         querystring: requests.execDashboardQuerySchema,
       },
     },
     async (req) => servicesFor(req).analytics.executiveDashboard(req.query),
+  );
+
+  r.get(
+    '/reports/trends',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Reports'],
+        summary: 'Week- or month-by-month results (posts, views, engagements, deliverables, payments with finance access), Kuwait time',
+        querystring: requests.trendsQuerySchema,
+      },
+    },
+    async (req) => servicesFor(req).analytics.trends(req.query),
   );
 }

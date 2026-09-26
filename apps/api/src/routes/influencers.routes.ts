@@ -252,6 +252,19 @@ export async function influencerRoutes(app: FastifyInstance): Promise<void> {
   );
 
   r.get(
+    '/influencers/:id/performance',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Influencers'],
+        summary: 'Results over time: median views/engagement (90 days and all time, per platform), on-time and rebook rates, paid and cost per view (finance access)',
+        params: idParam,
+      },
+    },
+    async (req) => servicesFor(req).creator360.performance(req.params.id),
+  );
+
+  r.get(
     '/influencers/:id/timeline',
     {
       preHandler: [requireAuth],

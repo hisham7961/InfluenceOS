@@ -451,6 +451,26 @@
     "files": {
       "title": "Files",
       "description": "The creator's own paperwork: media kit, ID, bank letter. A campaign's agreement is on that campaign's roster."
+    },
+    "performance": {
+      "title": "Results over time",
+      "empty": "No posts or campaigns yet — results show here once they post.",
+      "posts": "Posts",
+      "last90Days": "{value} in the last 90 days",
+      "medianViews": "Typical views (median)",
+      "totalViews": "{value} views in total",
+      "medianEngagement": "Typical engagement (median)",
+      "lastPosted": "Last posted",
+      "never": "Never",
+      "rebooked": "Brands that booked again",
+      "brandsCampaigns": "{brands, plural, one {# brand} other {# brands}} · {campaigns, plural, one {# campaign} other {# campaigns}}",
+      "onTime": "Posted on time",
+      "averageDelay": "Late posts average {days} days late",
+      "paid": "Paid to them",
+      "costPer1000Views": "Cost per 1,000 views",
+      "byPlatform": "By platform",
+      "platformLine": "{posts, plural, one {# post} other {# posts}} · typical {views} views",
+      "trendsTitle": "Their results by month or week"
     }
   },
   "errors": {

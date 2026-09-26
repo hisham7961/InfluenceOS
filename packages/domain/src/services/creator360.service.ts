@@ -1,5 +1,6 @@
 import {
   buildOffsetPagination,
+  type CreatorPerformanceDTO,
   type CreatorReliabilityDTO,
   type CursorPage,
   type CreatorSnapshotDTO,
@@ -12,6 +13,7 @@ import {
   businessDateKey,
   businessDaysBetween,
   isDeliverableOutstanding,
+  median,
   overdueAfter,
 } from '@influenceos/shared';
 import type { DomainContext } from '../context';
@@ -23,6 +25,8 @@ import { resolveScopeCurrency, sumMoney, toDecimal } from '../lib/money';
 import { participationMoney } from '../lib/spend';
 import { isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 import { submissionInclude, toSubmissionDTO } from './submission.service';
+import { hasCapability } from '../lib/capabilities';
+import { loadPostMetrics, sumKnown } from '../lib/post-metrics';
 
 /** submissions()'s return shape — the real DeliverableSubmissionDTO fields
  *  (mirrors submission.service.ts's toDTO exactly) plus just enough campaign
@@ -480,7 +484,92 @@ export function makeCreator360Service(ctx: DomainContext) {
     return { data: page, nextCursor, hasMore };
   }
 
-  return { snapshot, reliability, submissions, timeline };
+  /**
+   * A creator's results over time (P2.7): how their posts do (median views
+   * and engagement, last 90 days vs all time, per platform), how reliably
+   * they post on time, how often brands book them again, and — with finance
+   * access — what they were paid and the cost per view. Only posts and
+   * campaigns in the reader's brands count.
+   */
+  async function performance(influencerId: string): Promise<CreatorPerformanceDTO> {
+    requireActor(ctx);
+    await assertVisible(influencerId);
+    const brandScope = await scopedBrandIds(ctx);
+    const brandFilter = brandScope ? { brandId: { in: brandScope } } : {};
+    const cutoff = new Date(Date.now() - 90 * 864e5);
+
+    const [posts, participations, rel, canSeeMoney] = await Promise.all([
+      loadPostMetrics(prisma, { influencerId, ...brandFilter }),
+      prisma.campaignInfluencer.findMany({
+        where: {
+          influencerId,
+          participationStatus: { in: ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'] },
+          ...(brandScope ? { campaign: { brandId: { in: brandScope } } } : {}),
+        },
+        select: { campaign: { select: { brandId: true } } },
+      }),
+      reliability(influencerId),
+      hasCapability(ctx, 'FINANCE_VIEW'),
+    ]);
+    const payments = canSeeMoney
+      ? await prisma.payment.findMany({
+          where: {
+            voidedAt: null,
+            campaignInfluencer: { influencerId },
+            ...(brandScope ? { campaign: { brandId: { in: brandScope } } } : {}),
+          },
+          select: { currency: true, amount: true },
+        })
+      : null;
+
+    const known = (xs: (number | null)[]) => xs.filter((v): v is number => v != null);
+    const roundOr = (v: number | null, digits = 0) => (v == null ? null : Math.round(v * 10 ** digits) / 10 ** digits);
+    const recent = posts.filter((p) => p.postedAt >= cutoff);
+    const totalViews = sumKnown(posts.map((p) => p.views));
+
+    const perBrand = new Map<string, number>();
+    for (const p of participations) perBrand.set(p.campaign.brandId, (perBrand.get(p.campaign.brandId) ?? 0) + 1);
+    const rebooked = [...perBrand.values()].filter((n) => n > 1).length;
+
+    let paid: CreatorPerformanceDTO['paid'] = null;
+    if (payments) {
+      const by = new Map<string, Prisma.Decimal>();
+      for (const p of payments) by.set(p.currency, (by.get(p.currency) ?? new Prisma.Decimal(0)).plus(p.amount));
+      paid = [...by.entries()].map(([currency, amount]) => ({ currency, amount: Number(amount.toFixed(3)) })).sort((a, b) => b.amount - a.amount);
+    }
+
+    const platforms = new Map<string, typeof posts>();
+    for (const p of posts) platforms.set(p.platform, [...(platforms.get(p.platform) ?? []), p]);
+
+    return {
+      influencerId,
+      posts: posts.length,
+      postsLast90Days: recent.length,
+      medianViews: roundOr(median(known(posts.map((p) => p.views)))),
+      medianViewsLast90Days: roundOr(median(known(recent.map((p) => p.views)))),
+      medianEngagementRate: roundOr(median(known(posts.map((p) => p.engagementRate))), 2),
+      totalViews,
+      lastPostedAt: posts.length ? new Date(Math.max(...posts.map((p) => p.postedAt.getTime()))).toISOString() : null,
+      campaigns: participations.length,
+      brands: perBrand.size,
+      rebookRate: perBrand.size ? Math.round((rebooked / perBrand.size) * 1000) / 1000 : null,
+      onTimeRate: rel.sampleSize ? Math.round((rel.onTime / rel.sampleSize) * 1000) / 1000 : null,
+      averageDelayDays: rel.averageDelayDays,
+      paid,
+      costPerView:
+        paid && paid.length === 1 && totalViews ? { currency: paid[0]!.currency, value: Math.round((paid[0]!.amount / totalViews) * 1_000_000) / 1_000_000 } : null,
+      byPlatform: [...platforms.entries()]
+        .map(([platform, list]) => ({
+          platform: list[0]!.platform,
+          posts: list.length,
+          medianViews: roundOr(median(known(list.map((p) => p.views)))),
+          medianEngagementRate: roundOr(median(known(list.map((p) => p.engagementRate))), 2),
+        }))
+        .sort((a, b) => b.posts - a.posts),
+    };
+  }
+
+  return { snapshot, reliability, submissions, timeline, performance };
 }
 
 export type Creator360Service = ReturnType<typeof makeCreator360Service>;

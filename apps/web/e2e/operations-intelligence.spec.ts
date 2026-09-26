@@ -308,4 +308,14 @@ test('Executive dashboard shows budget KPIs, Today/Since-yesterday, Brands and T
   await expect(page.getByText('Since yesterday', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Brands' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Top creators' })).toBeVisible();
+
+  // P2.7: results for a period against the one before, and the trends chart.
+  await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible();
+  await expect(page.getByText('Posts published', { exact: true })).toBeVisible();
+  await expect(page.getByText(/compared with/)).toBeVisible();
+  await expect(page.getByText('Trends', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'This year' }).click();
+  await page.waitForURL(/period=year/);
+  await expect(page.getByRole('tab', { name: 'This year' })).toHaveAttribute('data-state', 'active');
+  await expect(page.getByText(new RegExp(`Jan 1, ${new Date().getFullYear()} –`))).toBeVisible();
 });

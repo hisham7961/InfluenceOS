@@ -56,6 +56,8 @@ export interface StatCardTrend {
   value: number;
   /** Trailing context, e.g. "vs last 30 days". */
   label?: string;
+  /** A rise is bad news (e.g. cost per view): colour it red, a fall green. */
+  invert?: boolean;
 }
 
 export interface StatCardProps {
@@ -96,6 +98,7 @@ export function StatCard({
 }: StatCardProps) {
   const Icon = icon ?? (iconName ? STAT_ICONS[iconName] : undefined);
   const isPositiveTrend = trend !== undefined ? trend.value >= 0 : null;
+  const isGoodTrend = trend?.invert ? !isPositiveTrend : isPositiveTrend;
   const TrendIcon = isPositiveTrend ? ArrowUpRight : ArrowDownRight;
 
   const card = (
@@ -115,8 +118,20 @@ export function StatCard({
           ) : null}
         </div>
 
-        <div className="text-3xl font-semibold tracking-tight text-foreground">
-          {formatted != null ? <LtrText block>{formatted}</LtrText> : <AnimatedNumber value={value} format={format} />}
+        <div
+          className={cn(
+            'min-w-0 font-semibold tracking-tight text-foreground',
+            // Long values (money with its currency) shrink, and wrap only at the space
+            // after the currency code, instead of being cut off.
+            formatted && formatted.length > 11 ? 'text-xl' : formatted && formatted.length > 8 ? 'text-2xl' : 'text-3xl',
+          )}
+        >
+          {formatted != null ? (
+            // Intl puts a no-break space after the currency code; a plain one lets it wrap there.
+            <LtrText block>{formatted.replace(/\u00a0/g, ' ')}</LtrText>
+          ) : (
+            <AnimatedNumber value={value} format={format} />
+          )}
         </div>
 
         {hint || trend ? (
@@ -125,12 +140,14 @@ export function StatCard({
               <span
                 className={cn(
                   'inline-flex items-center gap-0.5 font-medium',
-                  isPositiveTrend ? 'text-success' : 'text-danger',
+                  isGoodTrend ? 'text-success' : 'text-danger',
                 )}
               >
                 <TrendIcon className="size-3.5" aria-hidden="true" />
-                {isPositiveTrend ? '+' : ''}
-                {trend.value}%
+                <LtrText>
+                  {isPositiveTrend ? '+' : ''}
+                  {trend.value}%
+                </LtrText>
               </span>
             ) : null}
             {trend?.label ? <span className="text-muted-foreground">{trend.label}</span> : null}
