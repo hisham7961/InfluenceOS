@@ -31,4 +31,18 @@ export async function scriptRoutes(app: FastifyInstance): Promise<void> {
       return servicesFor(req).scripts.addVersion(req.params.id, req.body);
     },
   );
+
+  r.post(
+    '/scripts/:id/versions/:version/status',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Scripts'],
+        summary: "Move a script version through the brand's approval (sent, changes requested, approved)",
+        params: z.object({ id: z.string(), version: z.coerce.number().int().positive() }),
+        body: requests.scriptVersionStatusSchema,
+      },
+    },
+    async (req) => servicesFor(req).scripts.setVersionStatus(req.params.id, req.params.version, req.body),
+  );
 }

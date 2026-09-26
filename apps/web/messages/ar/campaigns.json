@@ -113,7 +113,9 @@
     "targetMarketPlaceholder": "مثال: الكويت، دول مجلس التعاون الخليجي",
     "enterNameError": "أدخل اسم الحملة.",
     "invalidBudgetError": "أدخل ميزانية صحيحة.",
-    "updatedToast": "تم تحديث الحملة"
+    "updatedToast": "تم تحديث الحملة",
+    "draftReviewLabel": "اعتماد المسودات قبل النشر",
+    "draftReviewHint": "كل محتوى مطلوب (وليس UGC فقط) يُرسَل كمسودة — الملف والتعليق التوضيحي — ويُعتمد قبل نشره."
   },
   "workspace": {
     "backToCampaigns": "العودة إلى الحملات",
@@ -222,7 +224,10 @@
       "paidAmountHint": "كم دُفع من الأجر",
       "invalidPaidAmount": "أدخل مبلغًا مدفوعًا صحيحًا.",
       "dateContactedLabel": "أول تواصل",
-      "expectedPublishLabel": "موعد النشر المتوقع"
+      "expectedPublishLabel": "موعد النشر المتوقع",
+      "filesAriaLabel": "الاتفاقية والملفات لـ {name}",
+      "filesTitle": "{name} — الاتفاقية والملفات",
+      "filesDescription": "الاتفاقية الموقّعة والفواتير وأي ملف آخر يخص هذا المؤثر في هذه الحملة."
     },
     "deliverables": {
       "addDeliverable": "إضافة محتوى مطلوب",
@@ -284,7 +289,17 @@
       "removeTemplateRow": "إزالة هذا السطر",
       "applyEveryone": "جميع مؤثري الحملة ({count})",
       "applyButton": "إضافة لـ {count}",
-      "appliedToast": "تمت إضافة {created} محتوى مطلوب لـ {creators} مؤثر"
+      "appliedToast": "تمت إضافة {created} محتوى مطلوب لـ {creators} مؤثر",
+      "scriptApproved": "النص معتمد (النسخة {version})",
+      "scriptNotApproved": "النص لم يُعتمد بعد",
+      "submitDraftDialogDescriptionPost": "بعد اعتمادها يصبح النشر مسموحًا، وتُحتسب مُسلَّمة عندما يُنشر المنشور.",
+      "draftFileLabel": "ملف المسودة",
+      "draftFileHint": "الفيديو أو الصورة كما ستُنشر.",
+      "uploadDraft": "رفع ملف",
+      "uploadingDraft": "جارٍ الرفع… {percent}%",
+      "removeDraftFile": "إزالة الملف",
+      "captionLabel": "التعليق التوضيحي",
+      "captionHint": "التعليق الذي سيُنشر معها."
     },
     "scripts": {
       "countForCampaign": "{count, plural, zero {# نص} one {نص واحد} two {نصان} few {# نصوص} many {# نصًا} other {# نص}} لهذه الحملة",
@@ -322,7 +337,19 @@
       "versionAddedToast": "تمت إضافة النسخة",
       "addVersionDescriptionNamed": "نسخة جديدة من \"{title}\".",
       "addVersionDescriptionGeneric": "إضافة نسخة نص جديدة.",
-      "addingVersion": "جارٍ الإضافة…"
+      "addingVersion": "جارٍ الإضافة…",
+      "approvedVersionChip": "النسخة {version} معتمدة",
+      "approvalLabel": "اعتماد العلامة التجارية",
+      "markSent": "أُرسل للعلامة التجارية",
+      "backToDraft": "إرجاع إلى مسودة",
+      "markChanges": "العلامة تطلب تعديلات",
+      "markApproved": "وافقت العلامة التجارية",
+      "followThisVersion": "المؤثرون يلتزمون بهذه النسخة.",
+      "changesDialogTitle": "ما التعديلات التي تطلبها العلامة التجارية؟",
+      "changesDialogDescription": "تُحفظ على النسخة {version}. أضف نسخة جديدة بالتعديلات.",
+      "changesNotePlaceholder": "مثال: ذكر السعر في أول 3 ثوانٍ",
+      "statusUpdatedToast": "تم تحديث حالة النص.",
+      "versionsLabel": "النسخ"
     },
     "expenses": {
       "removedToast": "تمت إزالة المصروف",
@@ -562,7 +589,13 @@
     "decisionNotePlaceholder": "ملاحظة القرار (اختياري)…",
     "rejectButton": "رفض",
     "requestChangesButton": "طلب تعديلات",
-    "approveButton": "اعتماد"
+    "approveButton": "اعتماد",
+    "hasFile": "فيها ملف مسودة",
+    "approvedToPostToast": "تم الاعتماد — النشر مسموح.",
+    "captionLabel": "التعليق التوضيحي",
+    "copyCaption": "نسخ التعليق التوضيحي",
+    "captionCopied": "تم نسخ التعليق التوضيحي.",
+    "downloadFile": "تنزيل {name}"
   },
   "card": {
     "deliverablesLabel": "المحتوى المطلوب",

@@ -173,6 +173,14 @@ export const SUBMISSION_STATUSES = [
 ] as const;
 export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
 
+/**
+ * Where one version of a script is in the brand's approval: written
+ * (DRAFT), sent to the brand, sent back with changes, or approved — the
+ * approved version is the one creators should follow.
+ */
+export const SCRIPT_VERSION_STATUSES = ['DRAFT', 'SENT_TO_BRAND', 'CHANGES_REQUESTED', 'APPROVED'] as const;
+export type ScriptVersionStatus = (typeof SCRIPT_VERSION_STATUSES)[number];
+
 /** A reviewer's decision on a submission. */
 export const SUBMISSION_DECISIONS = ['APPROVE', 'REQUEST_CHANGES', 'REJECT'] as const;
 export type SubmissionDecision = (typeof SUBMISSION_DECISIONS)[number];
@@ -343,6 +351,7 @@ export const PARTICIPATION_STATUS_LABELS = labelMap(PARTICIPATION_STATUSES);
 export const DELIVERABLE_TYPE_LABELS = labelMap(DELIVERABLE_TYPES, { UGC: 'UGC' });
 export const DELIVERABLE_STATUS_LABELS = labelMap(DELIVERABLE_STATUSES);
 export const SUBMISSION_STATUS_LABELS = labelMap(SUBMISSION_STATUSES);
+export const SCRIPT_VERSION_STATUS_LABELS = labelMap(SCRIPT_VERSION_STATUSES);
 export const USAGE_RIGHT_TYPE_LABELS = labelMap(USAGE_RIGHT_TYPES);
 export const USAGE_RIGHT_STATUS_LABELS = labelMap(USAGE_RIGHT_STATUSES);
 export const USAGE_RIGHT_EFFECTIVE_STATUS_LABELS = labelMap(USAGE_RIGHT_EFFECTIVE_STATUSES);
@@ -415,6 +424,13 @@ export const SUBMISSION_STATUS_TONE: Record<SubmissionStatus, Tone> = {
   CHANGES_REQUESTED: 'warning',
   APPROVED: 'success',
   REJECTED: 'danger',
+};
+
+export const SCRIPT_VERSION_STATUS_TONE: Record<ScriptVersionStatus, Tone> = {
+  DRAFT: 'neutral',
+  SENT_TO_BRAND: 'info',
+  CHANGES_REQUESTED: 'warning',
+  APPROVED: 'success',
 };
 
 export const CONTENT_STATUS_TONE: Record<ContentStatus, Tone> = {

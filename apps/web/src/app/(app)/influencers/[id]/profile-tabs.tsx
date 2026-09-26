@@ -25,6 +25,7 @@ import { StatCard } from '@/components/ui/stat-card';
 import { PagedContentGrid } from '@/components/content/paged-content-grid';
 import { AddContentFlow } from '@/components/content/add-content-flow';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
+import { AttachmentsPanel } from '@/components/common/attachments-panel';
 import { formatCurrency, useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { NotesPanel } from './notes-panel';
@@ -102,6 +103,7 @@ export function ProfileTabs({
         <TabsTrigger value="costs">{t('detail.tabs.costs')}</TabsTrigger>
         <TabsTrigger value="notes">{t('detail.tabs.notes')}</TabsTrigger>
         <TabsTrigger value="brands">{t('detail.tabs.brands')}</TabsTrigger>
+        <TabsTrigger value="files">{t('detail.tabs.files')}</TabsTrigger>
       </TabsList>
 
       {/* Overview */}
@@ -315,6 +317,20 @@ export function ProfileTabs({
       {/* Brands */}
       <TabsContent value="brands">
         <BrandRelationshipsPanel influencerId={influencer.id} relationships={brandRelationships} />
+      </TabsContent>
+
+      {/* Files: the creator's own paperwork (media kit, ID, bank letter). A
+          campaign's agreement sits on that campaign's roster row. */}
+      <TabsContent value="files">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('detail.files.title')}</CardTitle>
+            <p className="text-sm text-muted-foreground">{t('detail.files.description')}</p>
+          </CardHeader>
+          <CardContent>
+            <AttachmentsPanel target={{ influencerId: influencer.id }} compact />
+          </CardContent>
+        </Card>
       </TabsContent>
     </Tabs>
   );

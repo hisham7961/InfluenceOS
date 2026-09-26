@@ -31,12 +31,24 @@ test.describe.configure({ mode: 'serial' });
 
 async function signIn(page: Page, email: string, password: string) {
   for (let attempt = 1; attempt <= 2; attempt++) {
+    // A retry after a half-finished sign-in must start signed out, or /login
+    // just redirects home and the form never appears.
+    if (attempt > 1) await page.context().clearCookies();
     await page.goto('/login');
     await page.getByPlaceholder('you@company.com').fill(email);
     await page.getByPlaceholder('••••••••').fill(password);
     await page.getByRole('button', { name: /sign in/i }).click();
     try {
       await page.waitForURL(/\/$/, { timeout: 30_000 });
+      // Shared accounts carry their saved language into every sign-in; these
+      // checks read English, so put the account back to English if needed.
+      if ((await page.locator('html').getAttribute('lang')) !== 'en') {
+        await page.request.patch('/api/bff/api/v1/auth/me/preferences', { data: { locale: 'en' } });
+        await page.evaluate(() => {
+          document.cookie = 'locale=en; path=/; max-age=31536000; samesite=lax';
+        });
+        await page.reload();
+      }
       await expect(page.getByRole('heading', { name: 'Mission Control' })).toBeVisible({ timeout: 25_000 });
       return;
     } catch (e) {
@@ -110,6 +122,8 @@ test('operator drives Comments, Mentions, Campaign/Team Chat, Trends, Creator 36
   const contentDialog = page.getByRole('dialog');
   await contentDialog.getByPlaceholder(/youtube\.com\/watch/i).fill(`https://www.youtube.com/watch?v=${videoId(1)}`);
   await contentDialog.getByRole('combobox').nth(1).click();
+  // The campaign picker searches as you type (it lists the newest first).
+  await page.getByPlaceholder('Type a name…').fill(CAMPAIGN);
   await page.getByRole('option', { name: new RegExp(CAMPAIGN) }).click();
   await contentDialog.getByRole('button', { name: 'Add content' }).click();
   await page.waitForURL(/\/content\//);

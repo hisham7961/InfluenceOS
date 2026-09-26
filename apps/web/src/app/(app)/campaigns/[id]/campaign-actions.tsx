@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Field, Input, Textarea } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 /** Sentinel for "no objective" in the Select (Radix forbids an empty-string value). */
 const NONE = 'none';
@@ -126,6 +127,7 @@ function EditCampaignDialog({
   const [targetMarket, setTargetMarket] = React.useState(campaign.targetMarket ?? '');
   const [description, setDescription] = React.useState(campaign.description ?? '');
   const [brief, setBrief] = React.useState(campaign.brief ?? '');
+  const [draftReview, setDraftReview] = React.useState(campaign.draftReview);
 
   // Reset the form to the campaign each time the dialog is opened.
   React.useEffect(() => {
@@ -140,6 +142,7 @@ function EditCampaignDialog({
       setTargetMarket(campaign.targetMarket ?? '');
       setDescription(campaign.description ?? '');
       setBrief(campaign.brief ?? '');
+      setDraftReview(campaign.draftReview);
     }
   }, [open, campaign]);
 
@@ -162,6 +165,7 @@ function EditCampaignDialog({
         targetMarket: targetMarket.trim() || null,
         description: description.trim() || null,
         brief: brief.trim() || null,
+        draftReview,
       });
     },
     onSuccess: () => {
@@ -246,6 +250,13 @@ function EditCampaignDialog({
           <Field label={t('newForm.creativeBriefLabel')} hint={t('fields.optionalHint')} className="col-span-2">
             <Textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={3} />
           </Field>
+          <label className="col-span-2 flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">{t('actions.draftReviewLabel')}</span>
+              <span className="block text-xs text-muted-foreground">{t('actions.draftReviewHint')}</span>
+            </span>
+            <Switch checked={draftReview} onCheckedChange={setDraftReview} aria-label={t('actions.draftReviewLabel')} />
+          </label>
         </div>
 
         <DialogFooter>

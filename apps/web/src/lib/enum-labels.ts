@@ -26,6 +26,7 @@ export type EnumFamily =
   | 'deliverableType'
   | 'deliverableStatus'
   | 'submissionStatus'
+  | 'scriptVersionStatus'
   | 'usageRightType'
   | 'usageRightStatus'
   | 'usageRightEffectiveStatus'

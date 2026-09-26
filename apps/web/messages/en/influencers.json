@@ -247,7 +247,8 @@
       "shipmentHistory": "Shipment History",
       "costs": "Costs",
       "notes": "Notes",
-      "brands": "Brands"
+      "brands": "Brands",
+      "files": "Files"
     },
     "overview": {
       "aboutTitle": "About",
@@ -446,6 +447,10 @@
       "range90d": "90D",
       "rangeAll": "All",
       "tooltipFollowers": "Followers"
+    },
+    "files": {
+      "title": "Files",
+      "description": "The creator's own paperwork: media kit, ID, bank letter. A campaign's agreement is on that campaign's roster."
     }
   },
   "errors": {

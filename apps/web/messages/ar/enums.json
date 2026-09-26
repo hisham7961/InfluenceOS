@@ -233,5 +233,11 @@
     "DISABLED": "معطّل",
     "NOT_CONFIGURED": "غير مهيأ",
     "ERROR": "خطأ"
+  },
+  "scriptVersionStatus": {
+    "DRAFT": "مسودة",
+    "SENT_TO_BRAND": "أُرسل للعلامة التجارية",
+    "CHANGES_REQUESTED": "مطلوب تعديلات",
+    "APPROVED": "وافقت عليه العلامة التجارية"
   }
 }

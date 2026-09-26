@@ -5,27 +5,31 @@ import {
 } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
+import { APPROVAL_COMPLETES_TYPES } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor, requireCapability } from '../lib/authz';
 import { createNotification, iso, logActivity } from '../lib/helpers';
 import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
+import { attachmentSelect, toAttachmentDTO } from './attachment.service';
 
 type SubmissionCreate = z.infer<typeof requests.submissionCreateSchema>;
 type SubmissionReview = z.infer<typeof requests.submissionReviewSchema>;
 type SubmissionCommentInput = z.infer<typeof requests.submissionCommentSchema>;
 
-const submissionInclude = {
+export const submissionInclude = {
   submittedBy: { select: { name: true } },
   reviewedBy: { select: { name: true } },
+  attachment: { select: attachmentSelect },
   comments: { orderBy: { createdAt: 'asc' }, include: { author: { select: { name: true } } } },
 } satisfies Prisma.DeliverableSubmissionInclude;
 
 type Row = Prisma.DeliverableSubmissionGetPayload<{ include: typeof submissionInclude }>;
 
 // A reviewer's decision maps to the submission's new review status and the
-// deliverable's resulting status. APPROVE completes the deliverable — a UGC
-// deliverable reaches this without ever having a public social URL (W3-1).
+// deliverable's resulting status. APPROVE completes a UGC deliverable (it is
+// handed over, never posted); for any other type an approved draft is cleared
+// to post, and it is delivered once the post is up (shared deliverable-rules).
 const DECISION_MAP = {
   APPROVE: { submission: 'APPROVED', deliverable: 'APPROVED' },
   REQUEST_CHANGES: { submission: 'CHANGES_REQUESTED', deliverable: 'CHANGES_REQUESTED' },
@@ -36,7 +40,7 @@ function toCommentDTO(c: Row['comments'][number]): SubmissionCommentDTO {
   return { id: c.id, authorName: c.author?.name ?? null, body: c.body, createdAt: c.createdAt.toISOString() };
 }
 
-function toDTO(s: Row): DeliverableSubmissionDTO {
+export async function toSubmissionDTO(s: Row): Promise<DeliverableSubmissionDTO> {
   return {
     id: s.id,
     deliverableId: s.deliverableId,
@@ -44,6 +48,8 @@ function toDTO(s: Row): DeliverableSubmissionDTO {
     status: s.status,
     notes: s.notes,
     assetUrl: s.assetUrl,
+    caption: s.caption,
+    attachment: s.attachment ? await toAttachmentDTO(s.attachment) : null,
     submittedByName: s.submittedBy?.name ?? null,
     reviewedByName: s.reviewedBy?.name ?? null,
     reviewedAt: iso(s.reviewedAt),
@@ -124,7 +130,7 @@ export function makeSubmissionService(ctx: DomainContext) {
     await assertSubmissionInScope(submissionId);
     const row = await prisma.deliverableSubmission.findUnique({ where: { id: submissionId }, include: submissionInclude });
     if (!row) throw AppError.notFound('Submission');
-    return toDTO(row);
+    return toSubmissionDTO(row);
   }
 
   async function listForDeliverable(deliverableId: string): Promise<DeliverableSubmissionDTO[]> {
@@ -134,7 +140,7 @@ export function makeSubmissionService(ctx: DomainContext) {
       orderBy: { version: 'asc' },
       include: submissionInclude,
     });
-    return rows.map(toDTO);
+    return Promise.all(rows.map(toSubmissionDTO));
   }
 
   /** Every submission across a campaign's deliverables — the review queue for
@@ -156,12 +162,18 @@ export function makeSubmissionService(ctx: DomainContext) {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: submissionInclude,
     });
-    return rows.map(toDTO);
+    return Promise.all(rows.map(toSubmissionDTO));
   }
 
   async function create(deliverableId: string, input: SubmissionCreate): Promise<DeliverableSubmissionDTO> {
     const actor = requireActor(ctx);
     const { campaignId, influencerId } = await deliverableContext(deliverableId);
+    if (input.attachmentId) {
+      // Only a file uploaded to this very deliverable — never someone else's
+      // file picked up by id.
+      const file = await prisma.attachment.findUnique({ where: { id: input.attachmentId }, select: { deliverableId: true } });
+      if (!file || file.deliverableId !== deliverableId) throw AppError.badRequest('That file was not uploaded to this deliverable.');
+    }
     const last = await prisma.deliverableSubmission.findFirst({
       where: { deliverableId },
       orderBy: { version: 'desc' },
@@ -177,6 +189,8 @@ export function makeSubmissionService(ctx: DomainContext) {
           status: 'IN_REVIEW',
           notes: input.notes ?? null,
           assetUrl: input.assetUrl ?? null,
+          caption: input.caption ?? null,
+          attachmentId: input.attachmentId ?? null,
           submittedById: actor.id,
         },
         include: submissionInclude,
@@ -207,7 +221,7 @@ export function makeSubmissionService(ctx: DomainContext) {
       );
       return sub;
     });
-    return toDTO(created);
+    return toSubmissionDTO(created);
   }
 
   async function review(submissionId: string, input: SubmissionReview): Promise<DeliverableSubmissionDTO> {
@@ -247,9 +261,11 @@ export function makeSubmissionService(ctx: DomainContext) {
         where: { id: existing.deliverableId },
         data: {
           status: target.deliverable,
-          // Approval is the completion event — stamp publishedAt so progress and
-          // freshness reflect it, without needing a public post (UGC).
-          ...(input.decision === 'APPROVE'
+          // For UGC, approval is the completion event — stamp publishedAt so
+          // progress and freshness reflect it without a public post. Any other
+          // type is only cleared to post; its post sets publishedAt later.
+          ...(input.decision === 'APPROVE' &&
+          (APPROVAL_COMPLETES_TYPES as readonly string[]).includes(existing.deliverable.type)
             ? { publishedAt: existing.deliverable.publishedAt ?? new Date() }
             : {}),
         },
@@ -283,7 +299,7 @@ export function makeSubmissionService(ctx: DomainContext) {
       );
       return sub;
     });
-    return toDTO(updated);
+    return toSubmissionDTO(updated);
   }
 
   async function addComment(submissionId: string, input: SubmissionCommentInput): Promise<DeliverableSubmissionDTO> {

@@ -429,6 +429,7 @@ model User {
   activities              ActivityLog[]            @relation("ActivityActor")
   notes                   Note[]
   scriptVersions          ScriptReferenceVersion[]
+  reviewedScriptVersions  ScriptReferenceVersion[] @relation("ScriptVersionReviewer")
   attachments             Attachment[]
   expenses                CampaignExpense[]
   notifications           Notification[]
@@ -761,6 +762,8 @@ model Campaign {
   targetMarket  String?
   ownerId       String?
   internalNotes String?
+  /// Every deliverable goes through a draft review before posting (UGC always does).
+  draftReview   Boolean            @default(false)
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
@@ -816,6 +819,7 @@ model CampaignInfluencer {
   publishedContent PublishedContent[]
   expenses         CampaignExpense[]
   shipments        ProductShipment[]
+  attachments      Attachment[]
 
   @@unique([campaignId, influencerId])
   @@index([campaignId])
@@ -1026,6 +1030,10 @@ model DeliverableSubmission {
   notes         String?
   /// Link to the draft/owned asset (never a required public post).
   assetUrl      String?
+  /// The caption the creator plans to post with it.
+  caption       String?
+  /// The draft file uploaded to the deliverable, if one was.
+  attachmentId  String?
   submittedById String?
   reviewedById  String?
   reviewedAt    DateTime?
@@ -1034,6 +1042,7 @@ model DeliverableSubmission {
   updatedAt     DateTime         @updatedAt
 
   deliverable Deliverable         @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  attachment  Attachment?         @relation(fields: [attachmentId], references: [id], onDelete: SetNull)
   submittedBy User?               @relation("SubmissionSubmitter", fields: [submittedById], references: [id])
   reviewedBy  User?               @relation("SubmissionReviewer", fields: [reviewedById], references: [id])
   comments    SubmissionComment[]
@@ -1041,6 +1050,7 @@ model DeliverableSubmission {
   @@unique([deliverableId, version])
   @@index([deliverableId])
   @@index([status])
+  @@index([attachmentId])
 }
 
 /// A threaded review comment on a submission (the review conversation).
@@ -1062,12 +1072,14 @@ model SubmissionComment {
 // ===========================================================================
 
 model ScriptReference {
-  id             String   @id @default(cuid())
-  campaignId     String?
-  title          String
-  currentVersion Int      @default(1)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String   @id @default(cuid())
+  campaignId      String?
+  title           String
+  currentVersion  Int      @default(1)
+  /// The version the brand approved (the one creators should follow), if any.
+  approvedVersion Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   campaign         Campaign?                @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   versions         ScriptReferenceVersion[]
@@ -1078,8 +1090,15 @@ model ScriptReference {
   @@index([campaignId])
 }
 
+enum ScriptVersionStatus {
+  DRAFT
+  SENT_TO_BRAND
+  CHANGES_REQUESTED
+  APPROVED
+}
+
 model ScriptReferenceVersion {
-  id                String   @id @default(cuid())
+  id                String              @id @default(cuid())
   scriptReferenceId String
   version           Int
   body              String?
@@ -1093,10 +1112,16 @@ model ScriptReferenceVersion {
   referenceLinks    String[]
   internalComments  String?
   createdById       String?
-  createdAt         DateTime @default(now())
+  createdAt         DateTime            @default(now())
+  /// Where this version is in the brand's approval: draft → sent to brand → approved (or changes requested).
+  status            ScriptVersionStatus @default(DRAFT)
+  reviewedById      String?
+  reviewedAt        DateTime?
+  reviewNote        String?
 
   scriptReference ScriptReference @relation(fields: [scriptReferenceId], references: [id], onDelete: Cascade)
   createdBy       User?           @relation(fields: [createdById], references: [id])
+  reviewedBy      User?           @relation("ScriptVersionReviewer", fields: [reviewedById], references: [id])
 
   @@unique([scriptReferenceId, version])
   @@index([scriptReferenceId])
@@ -1244,34 +1269,39 @@ model CampaignExpense {
 // ===========================================================================
 
 model Attachment {
-  id                 String   @id @default(cuid())
-  fileName           String
-  mimeType           String
-  sizeBytes          Int
-  storageKey         String   @unique
-  url                String?
-  kind               String?
-  influencerId       String?
-  campaignId         String?
-  deliverableId      String?
-  scriptReferenceId  String?
-  noteId             String?
-  publishedContentId String?
-  uploadedById       String?
-  createdAt          DateTime @default(now())
+  id                   String   @id @default(cuid())
+  fileName             String
+  mimeType             String
+  sizeBytes            Int
+  storageKey           String   @unique
+  url                  String?
+  kind                 String?
+  influencerId         String?
+  campaignId           String?
+  deliverableId        String?
+  scriptReferenceId    String?
+  noteId               String?
+  publishedContentId   String?
+  /// A roster row's own files (the creator's agreement for that campaign).
+  campaignInfluencerId String?
+  uploadedById         String?
+  createdAt            DateTime @default(now())
 
-  campaign         Campaign?         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  influencer       Influencer?       @relation(fields: [influencerId], references: [id], onDelete: Cascade)
-  deliverable      Deliverable?      @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
-  scriptReference  ScriptReference?  @relation(fields: [scriptReferenceId], references: [id], onDelete: Cascade)
-  note             Note?             @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  publishedContent PublishedContent? @relation(fields: [publishedContentId], references: [id], onDelete: Cascade)
-  uploadedBy       User?             @relation(fields: [uploadedById], references: [id])
+  campaign           Campaign?               @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignInfluencer CampaignInfluencer?     @relation(fields: [campaignInfluencerId], references: [id], onDelete: Cascade)
+  submissions        DeliverableSubmission[]
+  influencer         Influencer?             @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  deliverable        Deliverable?            @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  scriptReference    ScriptReference?        @relation(fields: [scriptReferenceId], references: [id], onDelete: Cascade)
+  note               Note?                   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  publishedContent   PublishedContent?       @relation(fields: [publishedContentId], references: [id], onDelete: Cascade)
+  uploadedBy         User?                   @relation(fields: [uploadedById], references: [id])
 
   @@index([influencerId])
   @@index([campaignId])
   @@index([deliverableId])
   @@index([publishedContentId])
+  @@index([campaignInfluencerId])
 }
 
 model Tag {

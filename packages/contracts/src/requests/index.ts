@@ -15,6 +15,7 @@ import {
   PRIORITIES,
   RELATIONSHIP_STATUSES,
   SUBMISSION_DECISIONS,
+  SCRIPT_VERSION_STATUSES,
   USAGE_RIGHT_TYPES,
   CANDIDATE_DECISIONS,
   SHIPMENT_STATUSES,
@@ -406,6 +407,8 @@ export const campaignCreateSchema = z.object({
   targetMarket: optionalString,
   ownerId: cuid.optional().nullable(),
   internalNotes: optionalString,
+  /** Every deliverable needs its draft approved before posting (UGC always does). */
+  draftReview: z.boolean().optional(),
 });
 export const campaignUpdateSchema = campaignCreateSchema.partial().omit({ brandId: true });
 export type CampaignCreateInput = z.infer<typeof campaignCreateSchema>;
@@ -480,6 +483,10 @@ export const submissionCreateSchema = z.object({
   notes: optionalString,
   // Link to the draft/owned asset — never a required public post. Scheme-guarded.
   assetUrl: safeUrl,
+  /** The caption the creator plans to post with it. */
+  caption: optionalString,
+  /** A file already uploaded to this deliverable (POST /files with target.deliverableId). */
+  attachmentId: cuid.optional().nullable(),
 });
 export const submissionReviewSchema = z.object({
   decision: z.enum(SUBMISSION_DECISIONS),
@@ -717,6 +724,12 @@ export const scriptCreateSchema = z
   })
   .merge(scriptVersionSchema);
 export const scriptVersionCreateSchema = scriptVersionSchema;
+/** Move one script version through the brand's approval. */
+export const scriptVersionStatusSchema = z.object({
+  status: z.enum(SCRIPT_VERSION_STATUSES),
+  note: optionalString,
+});
+export type ScriptVersionStatusInput = z.infer<typeof scriptVersionStatusSchema>;
 export type ScriptCreateInput = z.infer<typeof scriptCreateSchema>;
 
 // --- Published content -----------------------------------------------------
@@ -871,6 +884,8 @@ export const attachmentTargetSchema = z.object({
   influencerId: cuid.optional().nullable(),
   noteId: cuid.optional().nullable(),
   publishedContentId: cuid.optional().nullable(),
+  /** A roster row: that creator's agreement and paperwork for the campaign. */
+  campaignInfluencerId: cuid.optional().nullable(),
 });
 export const attachmentListQuerySchema = attachmentTargetSchema;
 export type AttachmentTarget = z.infer<typeof attachmentTargetSchema>;

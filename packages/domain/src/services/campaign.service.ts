@@ -216,6 +216,7 @@ export function makeCampaignService(ctx: DomainContext) {
       internalNotes: c.internalNotes,
       owner: c.owner ? { id: c.owner.id, name: c.owner.name } : null,
       publishedContentCount,
+      draftReview: c.draftReview,
       createdAt: c.createdAt.toISOString(),
     };
   }
@@ -253,6 +254,7 @@ export function makeCampaignService(ctx: DomainContext) {
         targetMarket: input.targetMarket ?? null,
         ownerId: input.ownerId ?? ctx.actor?.id ?? null,
         internalNotes: input.internalNotes ?? null,
+        draftReview: input.draftReview ?? false,
       },
     });
     await logActivity(ctx, {
@@ -305,6 +307,7 @@ export function makeCampaignService(ctx: DomainContext) {
         targetMarket: input.targetMarket === undefined ? undefined : input.targetMarket,
         ownerId: input.ownerId === undefined ? undefined : input.ownerId,
         internalNotes: input.internalNotes === undefined ? undefined : input.internalNotes,
+        draftReview: input.draftReview ?? undefined,
       },
     });
 

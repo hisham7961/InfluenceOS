@@ -66,6 +66,8 @@ test('operator can run a campaign end-to-end through the browser', async ({ page
 
   // 4. Open the campaign workspace.
   await page.goto('/campaigns');
+  // Let the list hydrate first: a click that lands mid-hydration can be lost.
+  await page.waitForLoadState('networkidle');
   await page.getByRole('link', { name: CAMPAIGN }).click();
   await expect(page.getByRole('heading', { name: CAMPAIGN })).toBeVisible();
 
@@ -93,6 +95,8 @@ test('operator can run a campaign end-to-end through the browser', async ({ page
   // Link to the campaign (optional select) — the second combobox (the first
   // is Influencer, unlocked in Quick Add since neither is preselected here).
   await contentDialog.getByRole('combobox').nth(1).click();
+  // The campaign picker searches as you type (it lists the newest first).
+  await page.getByPlaceholder('Type a name…').fill(CAMPAIGN);
   await page.getByRole('option', { name: new RegExp(CAMPAIGN) }).click();
   await contentDialog.getByRole('button', { name: /add content/i }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
@@ -107,6 +111,8 @@ test('operator can run a campaign end-to-end through the browser', async ({ page
 
   // 10. Attachments: upload → list → delete, in the campaign Files tab.
   await page.goto('/campaigns');
+  // Let the list hydrate first: a click that lands mid-hydration can be lost.
+  await page.waitForLoadState('networkidle');
   await page.getByRole('link', { name: CAMPAIGN }).click();
   await page.getByRole('tab', { name: 'Files' }).click();
   const fileName = `brief-${STAMP}.txt`;

@@ -17,12 +17,29 @@ const videoId = (n: number) => (STAMP.toString(36) + n.toString(36) + 'zzzzzzzzz
 
 test.describe.configure({ mode: 'serial' });
 
+/**
+ * This account is shared by several specs, and its saved language follows it
+ * into every sign-in. Put it back to English (account and cookie) so one run
+ * that stopped halfway through the Arabic test can't turn every later test
+ * Arabic.
+ */
+async function useEnglish(page: Page) {
+  await page.request.patch('/api/bff/api/v1/auth/me/preferences', { data: { locale: 'en' } });
+  await page.evaluate(() => {
+    document.cookie = 'locale=en; path=/; max-age=31536000; samesite=lax';
+  });
+}
+
 async function signIn(page: Page) {
   await page.goto('/login');
   await page.getByPlaceholder('you@company.com').fill(ADMIN.email);
   await page.getByPlaceholder('••••••••').fill(ADMIN.password);
   await page.getByRole('button', { name: /sign in/i }).click();
   await page.waitForURL(/\/$/);
+  if ((await page.locator('html').getAttribute('lang')) !== 'en') {
+    await useEnglish(page);
+    await page.reload();
+  }
   await expect(page.getByRole('heading', { name: 'Mission Control' })).toBeVisible();
 }
 
@@ -60,6 +77,8 @@ test('Content Command Center: per-user review state, Timeline grouping, Review M
   const content1Dialog = page.getByRole('dialog');
   await content1Dialog.getByPlaceholder(/youtube\.com\/watch/i).fill(`https://www.youtube.com/watch?v=${videoId(1)}`);
   await content1Dialog.getByRole('combobox').nth(1).click();
+  // The campaign picker searches as you type (it lists the newest first).
+  await page.getByPlaceholder('Type a name…').fill(CAMPAIGN);
   await page.getByRole('option', { name: new RegExp(CAMPAIGN) }).click();
   await content1Dialog.getByRole('button', { name: 'Add content' }).click();
   await page.waitForURL(/\/content\//);
@@ -128,34 +147,38 @@ test('Content Command Center: per-user review state, Timeline grouping, Review M
 });
 
 test('RTL: Timeline and Mission Control render correctly in Arabic', async ({ page }) => {
+  test.slow();
   await signIn(page);
+  try {
+    // Force a known starting locale — the assertions below assume an LTR
+    // baseline to toggle away from.
+    await useEnglish(page);
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+    // The toggle is a client button: let the page finish loading (and
+    // hydrate) before clicking it, or the click can land on inert markup.
+    await page.waitForLoadState('networkidle');
 
-  // Force a known starting locale — this shared test account's persisted
-  // preference (User.locale) can be left on 'ar' by an earlier run of this
-  // very test (or a stray manual toggle), and the assertions below assume
-  // an LTR baseline to toggle away from.
-  await page.evaluate(() => {
-    document.cookie = 'locale=en; path=/; max-age=31536000; samesite=lax';
-  });
-  await page.reload();
-  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+    await page.getByRole('button', { name: 'Toggle language' }).click();
+    await page.waitForFunction(() => document.documentElement.dir === 'rtl');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    // Full Arabic translation (Localization pass) means the heading itself is
+    // now translated, not just the layout direction — "مركز العمليات" is the
+    // canonical Arabic for "Mission Control" (messages/ar/dashboard.json).
+    await expect(page.getByRole('heading', { name: 'مركز العمليات' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Toggle language' }).click();
-  await page.waitForFunction(() => document.documentElement.dir === 'rtl');
-  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-  // Full Arabic translation (Localization pass) means the heading itself is
-  // now translated, not just the layout direction — "مركز العمليات" is the
-  // canonical Arabic for "Mission Control" (messages/ar/dashboard.json).
-  await expect(page.getByRole('heading', { name: 'مركز العمليات' })).toBeVisible();
+    await page.goto('/content');
+    await expect(page.getByRole('heading', { name: 'المحتوى المنشور' })).toBeVisible();
 
-  await page.goto('/content');
-  await expect(page.getByRole('heading', { name: 'المحتوى المنشور' })).toBeVisible();
-
-  // Switch back to English so later runs aren't affected. The toggle
-  // button's own accessible name is translated too (correct a11y behavior),
-  // so it now reads its Arabic label while the page is in RTL.
-  await page.getByRole('button', { name: 'تبديل اللغة' }).click();
-  await page.waitForFunction(() => document.documentElement.dir === 'ltr');
+    // Switch back with the toggle too. Its accessible name is translated
+    // (correct a11y behavior), so it reads its Arabic label in RTL.
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('button', { name: 'تبديل اللغة' }).click();
+    await page.waitForFunction(() => document.documentElement.dir === 'ltr');
+  } finally {
+    // Whatever happened above, never leave the shared account in Arabic.
+    await useEnglish(page).catch(() => undefined);
+  }
 });
 
 test('Mobile viewport: Live Content has no horizontal overflow', async ({ page }) => {

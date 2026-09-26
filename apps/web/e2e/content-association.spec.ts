@@ -67,6 +67,8 @@ test('operator drives the full content-association + logistics workflow through 
   await expect(page.getByRole('dialog')).toBeHidden();
 
   await page.goto('/campaigns');
+  // Let the list hydrate first: a click that lands mid-hydration can be lost.
+  await page.waitForLoadState('networkidle');
   await page.getByRole('link', { name: CAMPAIGN }).click();
   await expect(page.getByRole('heading', { name: CAMPAIGN })).toBeVisible();
 
@@ -121,6 +123,7 @@ test('operator drives the full content-association + logistics workflow through 
 
   // --- SCENARIO A — influencer-only content via the Influencer 360 page ------
   await page.goto('/influencers');
+  await page.waitForLoadState('networkidle');
   await page.getByRole('link', { name: INFLUENCER }).click();
   await expect(page.getByRole('heading', { name: INFLUENCER })).toBeVisible();
   await page.getByRole('tab', { name: 'Content' }).click();
@@ -167,6 +170,8 @@ test('operator drives the full content-association + logistics workflow through 
 
   // --- Logistics (WF-12/13) — create a shipment with product line items ------
   await page.goto('/campaigns');
+  // Let the list hydrate first: a click that lands mid-hydration can be lost.
+  await page.waitForLoadState('networkidle');
   await page.getByRole('link', { name: CAMPAIGN }).click();
   await page.getByRole('tab', { name: 'Shipments' }).click();
   await page.getByRole('button', { name: 'Create shipment' }).click();

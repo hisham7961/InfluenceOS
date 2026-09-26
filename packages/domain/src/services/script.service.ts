@@ -1,9 +1,9 @@
-import { requests, type ScriptDTO, type ScriptVersionDTO } from '@influenceos/contracts';
+import { requests, type ScriptDTO, type ScriptVersionDTO, type ScriptVersionStatus } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireCapability } from '../lib/authz';
-import { logActivity } from '../lib/helpers';
+import { createNotification, iso, logActivity } from '../lib/helpers';
 import { makeCampaignService } from './campaign.service';
 
 /*
@@ -15,6 +15,7 @@ import { makeCampaignService } from './campaign.service';
 
 type ScriptCreate = z.infer<typeof requests.scriptCreateSchema>;
 type ScriptVersionInput = z.infer<typeof requests.scriptVersionSchema>;
+type ScriptVersionStatusInput = z.infer<typeof requests.scriptVersionStatusSchema>;
 
 interface ScriptVersionLike {
   id: string;
@@ -31,6 +32,10 @@ interface ScriptVersionLike {
   internalComments: string | null;
   createdAt: Date;
   createdBy: { name: string } | null;
+  status: ScriptVersionStatus;
+  reviewedAt: Date | null;
+  reviewNote: string | null;
+  reviewedBy: { name: string } | null;
 }
 
 function toScriptVersionDTO(v: ScriptVersionLike): ScriptVersionDTO {
@@ -49,6 +54,10 @@ function toScriptVersionDTO(v: ScriptVersionLike): ScriptVersionDTO {
     internalComments: v.internalComments,
     createdByName: v.createdBy?.name ?? null,
     createdAt: v.createdAt.toISOString(),
+    status: v.status,
+    reviewedByName: v.reviewedBy?.name ?? null,
+    reviewedAt: iso(v.reviewedAt),
+    reviewNote: v.reviewNote,
   };
 }
 
@@ -57,6 +66,7 @@ interface ScriptLike {
   title: string;
   campaignId: string | null;
   currentVersion: number;
+  approvedVersion: number | null;
   updatedAt: Date;
   versions: ScriptVersionLike[];
 }
@@ -67,6 +77,7 @@ function toScriptDTO(s: ScriptLike): ScriptDTO {
     title: s.title,
     campaignId: s.campaignId,
     currentVersion: s.currentVersion,
+    approvedVersion: s.approvedVersion,
     versions: s.versions.map(toScriptVersionDTO),
     updatedAt: s.updatedAt.toISOString(),
   };
@@ -74,8 +85,16 @@ function toScriptDTO(s: ScriptLike): ScriptDTO {
 
 const versionsInclude = {
   orderBy: { version: 'desc' },
-  include: { createdBy: { select: { name: true } } },
+  include: { createdBy: { select: { name: true } }, reviewedBy: { select: { name: true } } },
 } as const;
+
+/** What each move through the brand's approval is called in the activity log. */
+const STATUS_VERB: Record<ScriptVersionStatus, string> = {
+  DRAFT: 'moved back to draft',
+  SENT_TO_BRAND: 'sent to the brand',
+  CHANGES_REQUESTED: 'marked as sent back by the brand with changes',
+  APPROVED: 'marked as approved by the brand',
+};
 
 export function makeScriptService(ctx: DomainContext) {
   const { prisma } = ctx;
@@ -86,10 +105,20 @@ export function makeScriptService(ctx: DomainContext) {
       include: { versions: versionsInclude },
     });
     if (!script) throw AppError.notFound('Script');
+    // A campaign's script is that campaign's brand's: a brand-limited user
+    // can't read another brand's script by guessing its id.
+    if (script.campaignId) {
+      await makeCampaignService(ctx)
+        .assertInScope(script.campaignId)
+        .catch(() => {
+          throw AppError.notFound('Script');
+        });
+    }
     return toScriptDTO(script);
   }
 
   async function listForCampaign(campaignId: string): Promise<ScriptDTO[]> {
+    await makeCampaignService(ctx).assertInScope(campaignId);
     const scripts = await prisma.scriptReference.findMany({
       where: { campaignId },
       orderBy: { updatedAt: 'desc' },
@@ -192,7 +221,69 @@ export function makeScriptService(ctx: DomainContext) {
     return detail(id);
   }
 
-  return { create, addVersion, detail, listForCampaign };
+  /**
+   * Move one version through the brand's approval: sent to the brand, sent
+   * back with changes (the note says what), or approved. The approved
+   * version becomes the one creators follow; taking approval away from it
+   * clears that.
+   */
+  async function setVersionStatus(id: string, version: number, input: ScriptVersionStatusInput): Promise<ScriptDTO> {
+    const actor = await requireCapability(ctx, 'CAMPAIGNS_MANAGE');
+    const script = await prisma.scriptReference.findUnique({ where: { id } });
+    if (!script) throw AppError.notFound('Script');
+    if (script.campaignId) await makeCampaignService(ctx).assertInScope(script.campaignId);
+    const row = await prisma.scriptReferenceVersion.findUnique({
+      where: { scriptReferenceId_version: { scriptReferenceId: id, version } },
+      select: { id: true, status: true },
+    });
+    if (!row) throw AppError.notFound('Script version');
+
+    const reset = input.status === 'DRAFT';
+    const approvedVersion =
+      input.status === 'APPROVED' ? version : script.approvedVersion === version ? null : script.approvedVersion;
+    await prisma.$transaction(async (tx) => {
+      await tx.scriptReferenceVersion.update({
+        where: { id: row.id },
+        data: {
+          status: input.status,
+          reviewedById: reset ? null : actor.id,
+          reviewedAt: reset ? null : new Date(),
+          reviewNote: reset ? null : (input.note ?? null),
+        },
+      });
+      if (approvedVersion !== script.approvedVersion) {
+        await tx.scriptReference.update({ where: { id }, data: { approvedVersion } });
+      }
+      await logActivity(
+        ctx,
+        {
+          type: 'SCRIPT_UPDATED',
+          message: `${actor.name}: version ${version} of the script "${script.title}" ${STATUS_VERB[input.status]}.`,
+          campaignId: script.campaignId,
+          meta: { scriptReferenceId: id, version, status: input.status },
+        },
+        tx,
+      );
+      if (input.status === 'APPROVED' || input.status === 'CHANGES_REQUESTED') {
+        await createNotification(
+          ctx,
+          {
+            category: 'GENERAL',
+            title:
+              input.status === 'APPROVED'
+                ? `Script approved: ${script.title} (v${version})`
+                : `Changes requested on the script ${script.title} (v${version})`,
+            body: input.note ?? null,
+            campaignId: script.campaignId,
+          },
+          tx,
+        );
+      }
+    });
+    return detail(id);
+  }
+
+  return { create, addVersion, detail, listForCampaign, setVersionStatus };
 }
 
 export type ScriptService = ReturnType<typeof makeScriptService>;

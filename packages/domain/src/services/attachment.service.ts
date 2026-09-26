@@ -54,7 +54,7 @@ export function maxUploadBytes(): number {
   return (Number(process.env.MAX_UPLOAD_MB) || 50) * 1024 * 1024;
 }
 
-const selectRow = {
+export const attachmentSelect = {
   id: true,
   fileName: true,
   mimeType: true,
@@ -65,32 +65,53 @@ const selectRow = {
   deliverableId: true,
   scriptReferenceId: true,
   influencerId: true,
+  noteId: true,
+  publishedContentId: true,
+  campaignInfluencerId: true,
   createdAt: true,
   uploadedBy: { select: { name: true } },
 } as const;
 
-type Row = Prisma.AttachmentGetPayload<{ select: typeof selectRow }>;
+const selectRow = attachmentSelect;
+export type AttachmentRow = Prisma.AttachmentGetPayload<{ select: typeof attachmentSelect }>;
+type Row = AttachmentRow;
 
 const SIGNED_URL_TTL = 600; // 10 minutes for download URLs
+
+/** An attachment row as the API returns it, with a short-lived download link. */
+export async function toAttachmentDTO(row: AttachmentRow): Promise<AttachmentDTO> {
+  const kind = (row.kind ?? 'other') as AttachmentKind;
+  return {
+    id: row.id,
+    fileName: row.fileName,
+    mimeType: row.mimeType,
+    sizeBytes: row.sizeBytes,
+    kind,
+    downloadUrl: await resolveAttachmentDownloadUrl(row.id, row.storageKey, row.fileName, SIGNED_URL_TTL),
+    isImage: kind === 'image',
+    uploadedByName: row.uploadedBy?.name ?? null,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+/** The one target a stored attachment row points at, in scopeFor()'s order. */
+function targetOf(row: Row): Target {
+  return {
+    campaignId: row.campaignId,
+    deliverableId: row.deliverableId,
+    scriptReferenceId: row.scriptReferenceId,
+    influencerId: row.influencerId,
+    noteId: row.noteId,
+    publishedContentId: row.publishedContentId,
+    campaignInfluencerId: row.campaignInfluencerId,
+  };
+}
 
 export function makeAttachmentService(ctx: DomainContext) {
   const { prisma } = ctx;
   const storage = getStorage(process.env);
 
-  async function toDTO(row: Row): Promise<AttachmentDTO> {
-    const kind = (row.kind ?? 'other') as AttachmentKind;
-    return {
-      id: row.id,
-      fileName: row.fileName,
-      mimeType: row.mimeType,
-      sizeBytes: row.sizeBytes,
-      kind,
-      downloadUrl: await resolveAttachmentDownloadUrl(row.id, row.storageKey, row.fileName, SIGNED_URL_TTL),
-      isImage: kind === 'image',
-      uploadedByName: row.uploadedBy?.name ?? null,
-      createdAt: row.createdAt.toISOString(),
-    };
-  }
+  const toDTO = toAttachmentDTO;
 
   function scopeFor(target: Target): { scope: string; where: Prisma.AttachmentWhereInput } {
     if (target.campaignId) return { scope: `campaign/${target.campaignId}`, where: { campaignId: target.campaignId } };
@@ -99,7 +120,11 @@ export function makeAttachmentService(ctx: DomainContext) {
     if (target.influencerId) return { scope: `influencer/${target.influencerId}`, where: { influencerId: target.influencerId } };
     if (target.noteId) return { scope: `note/${target.noteId}`, where: { noteId: target.noteId } };
     if (target.publishedContentId) return { scope: `content/${target.publishedContentId}`, where: { publishedContentId: target.publishedContentId } };
-    throw AppError.badRequest('An attachment must be linked to a campaign, deliverable, script, influencer, note, or content item.');
+    if (target.campaignInfluencerId)
+      return { scope: `roster/${target.campaignInfluencerId}`, where: { campaignInfluencerId: target.campaignInfluencerId } };
+    throw AppError.badRequest(
+      'An attachment must be linked to a campaign, deliverable, script, influencer, note, content item, or roster row.',
+    );
   }
 
   async function assertTargetExists(target: Target): Promise<void> {
@@ -110,6 +135,8 @@ export function makeAttachmentService(ctx: DomainContext) {
     if (target.noteId && !(await prisma.note.count({ where: { id: target.noteId } }))) throw AppError.notFound('Note');
     if (target.publishedContentId && !(await prisma.publishedContent.count({ where: { id: target.publishedContentId } })))
       throw AppError.notFound('Content');
+    if (target.campaignInfluencerId && !(await prisma.campaignInfluencer.count({ where: { id: target.campaignInfluencerId } })))
+      throw AppError.notFound('Campaign influencer');
   }
 
   /**
@@ -176,7 +203,50 @@ export function makeAttachmentService(ctx: DomainContext) {
       return { campaignId: null, influencerId: null };
     }
 
+    if (target.campaignInfluencerId) {
+      // A roster row is both: the campaign's brand scope and the creator's
+      // country scope apply (the agreement is that creator's paperwork).
+      const ci = await prisma.campaignInfluencer.findUnique({
+        where: { id: target.campaignInfluencerId },
+        select: { campaignId: true, influencerId: true },
+      });
+      return { campaignId: ci?.campaignId ?? null, influencerId: ci?.influencerId ?? null };
+    }
+
     return { campaignId: null, influencerId: null };
+  }
+
+  /** The creator's country is outside the actor's country scope. */
+  async function influencerOutOfCountryScope(influencerId: string): Promise<boolean> {
+    const countryScope = await scopedCountryCodes(ctx);
+    if (!countryScope) return false;
+    const influencer = await prisma.influencer.findUnique({ where: { id: influencerId }, select: { countryCode: true } });
+    return !influencer || isCountryOutOfScope(countryScope, influencer.countryCode);
+  }
+
+  /**
+   * Read access to a target's files: the same brand and country scope as the
+   * thing they're attached to. A brand-limited user can't list or open the
+   * files of another brand's campaign, deliverable, script, post or roster
+   * row by guessing its id; a country-limited user can't open a creator's
+   * files outside their countries. Notes on other contexts (brand, shipment,
+   * channel) resolve to neither and stay as note.service allows.
+   */
+  async function assertReadScope(target: Target): Promise<void> {
+    if (target.publishedContentId) {
+      const pc = await prisma.publishedContent.findUnique({
+        where: { id: target.publishedContentId },
+        select: { brandId: true, influencerId: true },
+      });
+      if (!pc) throw AppError.notFound('Content');
+      const brandScope = await scopedBrandIds(ctx);
+      if (pc.brandId && isBrandOutOfScope(brandScope, pc.brandId)) throw AppError.notFound('Content');
+      if (pc.influencerId && (await influencerOutOfCountryScope(pc.influencerId))) throw AppError.notFound('Content');
+      return;
+    }
+    const { campaignId, influencerId } = await resolveTargetContext(target);
+    if (campaignId) await makeCampaignService(ctx).assertInScope(campaignId);
+    if (influencerId && (await influencerOutOfCountryScope(influencerId))) throw AppError.notFound('Influencer');
   }
 
   function validateMeta(mimeType: string, sizeBytes: number): AttachmentKind {
@@ -250,6 +320,8 @@ export function makeAttachmentService(ctx: DomainContext) {
         // Capability grants WHAT; brand scope grants WHERE — both required.
         await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
         await makeCampaignService(ctx).assertInScope(campaignId);
+        // A roster row also carries its creator's country scope.
+        if (influencerId && (await influencerOutOfCountryScope(influencerId))) throw AppError.notFound('Influencer');
       } else if (influencerId) {
         await requireCapability(ctx, 'INFLUENCERS_MANAGE');
         const influencer = await prisma.influencer.findUnique({
@@ -286,6 +358,7 @@ export function makeAttachmentService(ctx: DomainContext) {
         influencerId: input.target.influencerId ?? null,
         noteId: input.target.noteId ?? null,
         publishedContentId: input.target.publishedContentId ?? null,
+        campaignInfluencerId: input.target.campaignInfluencerId ?? null,
       },
     });
 
@@ -347,6 +420,7 @@ export function makeAttachmentService(ctx: DomainContext) {
           influencerId: ticket.target.influencerId ?? null,
           noteId: ticket.target.noteId ?? null,
           publishedContentId: ticket.target.publishedContentId ?? null,
+          campaignInfluencerId: ticket.target.campaignInfluencerId ?? null,
           uploadedById: ticket.actorId,
         },
         select: selectRow,
@@ -373,6 +447,7 @@ export function makeAttachmentService(ctx: DomainContext) {
 
   async function list(target: Target): Promise<AttachmentDTO[]> {
     const { where } = scopeFor(target);
+    await assertReadScope(target);
     const rows = await prisma.attachment.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -384,6 +459,9 @@ export function makeAttachmentService(ctx: DomainContext) {
   async function get(id: string): Promise<AttachmentDTO> {
     const row = await prisma.attachment.findUnique({ where: { id }, select: selectRow });
     if (!row) throw AppError.notFound('Attachment');
+    await assertReadScope(targetOf(row)).catch(() => {
+      throw AppError.notFound('Attachment');
+    });
     return toDTO(row);
   }
 

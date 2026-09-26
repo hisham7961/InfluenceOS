@@ -342,7 +342,7 @@ requires `role === 'ADMIN'`.
 | GET | `/api/v1/campaigns` | List/filter campaigns. Offset-paginated. |
 | POST | `/api/v1/campaigns` | Create a campaign. |
 | GET | `/api/v1/campaigns/:idOrSlug` | Get a campaign by id or slug. |
-| PATCH | `/api/v1/campaigns/:id` | Update a campaign. |
+| PATCH | `/api/v1/campaigns/:id` | Update a campaign. `draftReview: true` puts every deliverable (not only UGC) through a draft review before posting. |
 | GET | `/api/v1/campaigns/:id/influencers` | Influencers on a campaign. Each row carries `results`: posts live / total / planned, latest views and engagements, engagement rate, and the creator's own spend (fee + expenses recorded against them, gift purchases excluded) with cost per view and per engagement. |
 | GET | `/api/v1/campaigns/:idOrSlug/efficiency` | Campaign spend efficiency (CPV/CPM/CPE), metric freshness and sources, `perContent` (each post's estimated CPV from its own creator's spend) and `perCreator` (the roster's `results` side by side). |
 | POST | `/api/v1/campaigns/:id/influencers` | Add an influencer to a campaign. |
@@ -358,7 +358,7 @@ requires `role === 'ADMIN'`.
 | PATCH | `/api/v1/deliverables/:id` | Update a deliverable. |
 | DELETE | `/api/v1/deliverables/:id` | Remove a deliverable. |
 | GET | `/api/v1/deliverables/:id/submissions` | Submissions filed against a deliverable. |
-| POST | `/api/v1/deliverables/:id/submissions` | Submit a draft for review → `201`. UGC deliverables complete on approval without any public URL. |
+| POST | `/api/v1/deliverables/:id/submissions` | Submit a draft for review → `201`: `attachmentId` (a file uploaded to this deliverable via `POST /files` with `target.deliverableId`), `caption`, `assetUrl`, `notes` (all optional: an empty one records a draft shared outside the app). Approving completes UGC without any public URL; any other type is then cleared to post (`APPROVED`, no `publishedAt`) and is delivered once the post is live. Rows carry `caption` and `attachment` (with a short-lived download link). |
 | GET | `/api/v1/submissions/:id` | Submission detail. |
 | POST | `/api/v1/submissions/:id/review` | Review a submission (approve / request changes / reject). |
 | POST | `/api/v1/submissions/:id/comments` | Add a threaded review comment → `201`. |
@@ -391,6 +391,18 @@ PII (phone/address/delivery instructions) is redacted server-side for the
 | GET | `/api/v1/scripts/:id` | Script detail with version history. |
 | POST | `/api/v1/scripts` | Create a script reference (with its first version). |
 | POST | `/api/v1/scripts/:id/versions` | Add a new version to a script reference. |
+| POST | `/api/v1/scripts/:id/versions/:version/status` | Brand approval of one version: `{ status: DRAFT \| SENT_TO_BRAND \| CHANGES_REQUESTED \| APPROVED, note? }`. The approved version becomes the script's `approvedVersion` (the one creators follow); moving it off `APPROVED` clears that. Versions carry `status`, `reviewedByName`, `reviewedAt`, `reviewNote`. |
+
+### Files
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/v1/files` | Start a two-phase signed upload for one target: `campaignId`, `deliverableId`, `scriptReferenceId`, `influencerId`, `noteId`, `publishedContentId` or `campaignInfluencerId` (a roster row: that creator's agreement and paperwork for the campaign). |
+| PUT | `/api/v1/files/blob?token=…` | Local-driver upload proxy (S3 uploads go straight to the presigned URL). |
+| POST | `/api/v1/files/complete` | Confirm the upload and create the record (idempotent). |
+| GET | `/api/v1/files?<target>=<id>` | Files on a target. Same brand and country scope as the target itself: another brand's campaign, deliverable, script, post or roster row, or a creator outside the user's countries → `404`. |
+| GET | `/api/v1/files/:id` | One file (same scope rule). |
+| DELETE | `/api/v1/files/:id` | Remove a file (uploader or admin). |
 
 ### Content
 

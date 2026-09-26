@@ -233,5 +233,11 @@
     "DISABLED": "Disabled",
     "NOT_CONFIGURED": "Not Configured",
     "ERROR": "Error"
+  },
+  "scriptVersionStatus": {
+    "DRAFT": "Draft",
+    "SENT_TO_BRAND": "Sent to brand",
+    "CHANGES_REQUESTED": "Changes requested",
+    "APPROVED": "Approved by brand"
   }
 }

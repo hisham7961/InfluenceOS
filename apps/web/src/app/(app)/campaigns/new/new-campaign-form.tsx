@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Field, Input, Textarea } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { CampaignStatusBadge } from '@/components/ui/status-badges';
@@ -46,6 +47,7 @@ interface FormState {
   targetMarket: string;
   description: string;
   brief: string;
+  draftReview: boolean;
 }
 
 const initialState: FormState = {
@@ -60,6 +62,7 @@ const initialState: FormState = {
   targetMarket: '',
   description: '',
   brief: '',
+  draftReview: false,
 };
 
 function errorMessage(e: unknown, fallback: string): string {
@@ -95,6 +98,7 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
         targetMarket: form.targetMarket.trim() || undefined,
         description: form.description.trim() || undefined,
         brief: form.brief.trim() || undefined,
+        draftReview: form.draftReview,
       });
     },
     onSuccess: (campaign) => {
@@ -273,6 +277,17 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
                 rows={5}
               />
             </Field>
+            <label className="flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">{t('actions.draftReviewLabel')}</span>
+                <span className="block text-xs text-muted-foreground">{t('actions.draftReviewHint')}</span>
+              </span>
+              <Switch
+                checked={form.draftReview}
+                onCheckedChange={(v) => set('draftReview', v)}
+                aria-label={t('actions.draftReviewLabel')}
+              />
+            </label>
           </CardContent>
           <CardFooter className="justify-end gap-3 border-t border-border pt-5">
             <Button

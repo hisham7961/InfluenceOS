@@ -433,6 +433,9 @@ export function createClient(config: ClientConfig) {
       create: (body: In<typeof requests.scriptCreateSchema>) => http.post<ScriptDTO>(`${V}/scripts`, body),
       addVersion: (id: string, body: In<typeof requests.scriptVersionSchema>) =>
         http.post<ScriptDTO>(`${V}/scripts/${id}/versions`, body),
+      /** Sent to the brand, changes requested, approved (or back to draft). */
+      setVersionStatus: (id: string, version: number, body: In<typeof requests.scriptVersionStatusSchema>) =>
+        http.post<ScriptDTO>(`${V}/scripts/${id}/versions/${version}/status`, body),
     },
 
     content: {

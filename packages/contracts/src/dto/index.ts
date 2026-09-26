@@ -20,6 +20,7 @@ import type {
   RelationshipStatus,
   ShipmentStatus,
   SubmissionStatus,
+  ScriptVersionStatus,
   UsageRightEffectiveStatus,
   UsageRightStatus,
   UsageRightType,
@@ -349,6 +350,8 @@ export interface CampaignDetailDTO extends CampaignSummaryDTO {
   internalNotes: string | null;
   owner: { id: string; name: string } | null;
   publishedContentCount: number;
+  /** Every deliverable needs its draft approved before it is posted (UGC always does). */
+  draftReview: boolean;
   createdAt: string;
 }
 
@@ -387,6 +390,10 @@ export interface DeliverableSubmissionDTO {
   status: SubmissionStatus;
   notes: string | null;
   assetUrl: string | null;
+  /** The caption the creator plans to post with it. */
+  caption: string | null;
+  /** The draft file uploaded to the deliverable, when there is one. */
+  attachment: AttachmentDTO | null;
   submittedByName: string | null;
   reviewedByName: string | null;
   reviewedAt: string | null;
@@ -661,6 +668,12 @@ export interface ScriptVersionDTO {
   internalComments: string | null;
   createdByName: string | null;
   createdAt: string;
+  /** Where this version is in the brand's approval. */
+  status: ScriptVersionStatus;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  /** What the brand asked to change, or a note on the approval. */
+  reviewNote: string | null;
 }
 
 export interface ScriptDTO {
@@ -668,6 +681,8 @@ export interface ScriptDTO {
   title: string;
   campaignId: string | null;
   currentVersion: number;
+  /** The version the brand approved — the one creators should follow — if any. */
+  approvedVersion: number | null;
   versions: ScriptVersionDTO[];
   updatedAt: string;
 }

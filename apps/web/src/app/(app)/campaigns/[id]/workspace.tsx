@@ -26,6 +26,7 @@ import {
   Megaphone,
   MessageSquare,
   Package,
+  Paperclip,
   Pencil,
   Percent as PercentIcon,
   Plus,
@@ -35,12 +36,15 @@ import {
   Trash2,
   TrendingUp,
   Truck,
+  Upload,
   Users,
   Wallet,
+  X,
 } from 'lucide-react';
 import { EnterMetricsDialog } from '@/components/content/enter-metrics-dialog';
 import { BulkMetricsDialog } from '@/components/content/bulk-metrics-dialog';
 import type {
+  AttachmentDTO,
   CampaignDetailDTO,
   CampaignEfficiencyDTO,
   CampaignInfluencerDTO,
@@ -61,6 +65,8 @@ import type {
   Platform,
   ProductShipmentDTO,
   ScriptDTO,
+  ScriptVersionDTO,
+  ScriptVersionStatus,
 } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import {
@@ -72,10 +78,12 @@ import {
   PAYMENT_STATUSES,
   PLATFORM_META,
   PLATFORMS,
+  SCRIPT_VERSION_STATUS_TONE,
   isDeliverableOutstanding,
   isDeliverableOverdue,
 } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
+import { uploadAttachment } from '@/lib/upload';
 import { useConversationUnread } from '@/lib/use-conversation-unread';
 import { enumLabel } from '@/lib/enum-labels';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
@@ -796,6 +804,7 @@ function InfluencerRow({
   const [editOpen, setEditOpen] = React.useState(false);
   const [removeOpen, setRemoveOpen] = React.useState(false);
   const [linkOpen, setLinkOpen] = React.useState(false);
+  const [filesOpen, setFilesOpen] = React.useState(false);
 
   const remove = useMutation({
     mutationFn: () => api.campaignInfluencers.remove(ci.id),
@@ -925,6 +934,16 @@ function InfluencerRow({
               type="button"
               variant="ghost"
               size="icon-sm"
+              aria-label={t('workspace.influencers.filesAriaLabel', { name: ci.influencer.displayName })}
+              title={t('workspace.influencers.filesAriaLabel', { name: ci.influencer.displayName })}
+              onClick={() => setFilesOpen(true)}
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
               aria-label={t('workspace.influencers.editAriaLabel', { name: ci.influencer.displayName })}
               onClick={() => setEditOpen(true)}
             >
@@ -982,6 +1001,15 @@ function InfluencerRow({
 
       <EditInfluencerDialog ci={ci} open={editOpen} onOpenChange={setEditOpen} />
       <LinkExistingContentDialog ci={ci} campaign={campaign} open={linkOpen} onOpenChange={setLinkOpen} />
+      <Dialog open={filesOpen} onOpenChange={setFilesOpen}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('workspace.influencers.filesTitle', { name: ci.influencer.displayName })}</DialogTitle>
+            <DialogDescription>{t('workspace.influencers.filesDescription')}</DialogDescription>
+          </DialogHeader>
+          {filesOpen ? <AttachmentsPanel target={{ campaignInfluencerId: ci.id }} compact /> : null}
+        </DialogContent>
+      </Dialog>
       <ConfirmDialog
         open={removeOpen}
         onOpenChange={setRemoveOpen}
@@ -1351,6 +1379,10 @@ function DeliverableRow({
   const [commentsOpen, setCommentsOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
   const typeLabel = enumLabel(tEnums, 'deliverableType', deliverable.type);
+  const scripts = React.useContext(CampaignScriptsContext);
+  const script = deliverable.scriptReferenceId ? scripts.find((s) => s.id === deliverable.scriptReferenceId) : undefined;
+  // UGC is always reviewed as a draft; other types when the campaign asks for it.
+  const draftReview = deliverable.type === 'UGC' || campaign.draftReview;
 
   const updateStatus = useMutation({
     mutationFn: (status: DeliverableStatus) => api.deliverables.update(deliverable.id, { status }),
@@ -1394,6 +1426,21 @@ function DeliverableRow({
         {deliverable.quantity > 1 ? ` ×${deliverable.quantity}` : ''}
       </span>
 
+      {script ? (
+        <Badge
+          tone={script.approvedVersion != null ? 'success' : 'warning'}
+          className="inline-flex max-w-[16rem] items-center gap-1"
+          title={script.title}
+        >
+          <FileText className="h-3 w-3 shrink-0" />
+          <span className="truncate">
+            {script.approvedVersion != null
+              ? t('workspace.deliverables.scriptApproved', { version: script.approvedVersion })
+              : t('workspace.deliverables.scriptNotApproved')}
+          </span>
+        </Badge>
+      ) : null}
+
       {deliverable.dueDate ? (
         <span className={cn('flex items-center gap-1 text-xs', isOverdue ? 'font-medium text-danger' : 'text-muted-foreground')}>
           <Clock className="h-3.5 w-3.5" /> {t('workspace.deliverables.dueLabel', { date: shortDate(deliverable.dueDate) })}
@@ -1415,7 +1462,7 @@ function DeliverableRow({
       <Button type="button" variant="ghost" size="sm" onClick={() => setAddContentOpen(true)}>
         <Plus className="h-3.5 w-3.5" /> {t('workspace.liveContent.addContent')}
       </Button>
-      {deliverable.type === 'UGC' ? (
+      {draftReview ? (
         <Button type="button" variant="ghost" size="sm" onClick={() => setSubmitDraftOpen(true)}>
           <FileText className="h-3.5 w-3.5" /> {t('workspace.deliverables.submitDraft')}
         </Button>
@@ -1521,6 +1568,7 @@ function DeliverableRow({
 
       <SubmitDraftDialog
         deliverableId={deliverable.id}
+        deliverableType={deliverable.type}
         open={submitDraftOpen}
         onOpenChange={setSubmitDraftOpen}
       />
@@ -1630,16 +1678,19 @@ function DeliverableShipmentsAction({
 }
 
 /**
- * UGC drafts go through DeliverableSubmission review, never PublishedContent —
- * no public URL is required to complete this workflow (submission.service.ts
- * review()'s APPROVE path never creates a PublishedContent row).
+ * A draft goes through DeliverableSubmission review, never PublishedContent:
+ * the file itself (uploaded to the deliverable), the caption they plan to
+ * post, a link, notes. Approving completes UGC; any other type is then
+ * cleared to post and is delivered once the post is live.
  */
 function SubmitDraftDialog({
   deliverableId,
+  deliverableType,
   open,
   onOpenChange,
 }: {
   deliverableId: string;
+  deliverableType: DeliverableType;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -1647,18 +1698,52 @@ function SubmitDraftDialog({
   const tCommon = useTranslations('common');
   const router = useRouter();
   const queryClient = useQueryClient();
+  const fileRef = React.useRef<HTMLInputElement>(null);
   const [assetUrl, setAssetUrl] = React.useState('');
+  const [caption, setCaption] = React.useState('');
   const [notes, setNotes] = React.useState('');
+  const [file, setFile] = React.useState<AttachmentDTO | null>(null);
+  const [progress, setProgress] = React.useState<number | null>(null);
 
   React.useEffect(() => {
     if (open) {
       setAssetUrl('');
+      setCaption('');
       setNotes('');
+      setFile(null);
+      setProgress(null);
     }
   }, [open]);
 
+  async function pick(chosen: File | undefined) {
+    if (!chosen) return;
+    setProgress(0);
+    try {
+      const uploaded = await uploadAttachment(chosen, { deliverableId }, setProgress);
+      setFile(uploaded);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : tCommon('somethingWentWrong'));
+    } finally {
+      setProgress(null);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
+
+  function dropFile() {
+    const current = file;
+    setFile(null);
+    // Not submitted: take the upload back off the deliverable.
+    if (current) api.files.remove(current.id).catch(() => undefined);
+  }
+
   const submit = useMutation({
-    mutationFn: () => api.deliverables.submit(deliverableId, { assetUrl: assetUrl.trim() || undefined, notes: notes.trim() || undefined }),
+    mutationFn: () =>
+      api.deliverables.submit(deliverableId, {
+        assetUrl: assetUrl.trim() || undefined,
+        caption: caption.trim() || undefined,
+        notes: notes.trim() || undefined,
+        attachmentId: file?.id,
+      }),
     onSuccess: () => {
       toast.success(t('workspace.deliverables.draftSubmittedToast'));
       queryClient.invalidateQueries();
@@ -1668,26 +1753,68 @@ function SubmitDraftDialog({
     onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
+  const uploading = progress != null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t('workspace.deliverables.submitDraftDialogTitle')}</DialogTitle>
-          <DialogDescription>{t('workspace.deliverables.submitDraftDialogDescription')}</DialogDescription>
+          <DialogDescription>
+            {deliverableType === 'UGC'
+              ? t('workspace.deliverables.submitDraftDialogDescription')
+              : t('workspace.deliverables.submitDraftDialogDescriptionPost')}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          <Field label={t('workspace.deliverables.draftFileLabel')} hint={t('workspace.deliverables.draftFileHint')}>
+            <input
+              ref={fileRef}
+              type="file"
+              className="hidden"
+              accept="video/*,image/*,application/pdf"
+              onChange={(e) => pick(e.target.files?.[0])}
+            />
+            {file ? (
+              <div className="flex min-w-0 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+                <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate">
+                  <BidiText>{file.fileName}</BidiText>
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('workspace.deliverables.removeDraftFile')}
+                  onClick={dropFile}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <Button type="button" variant="outline" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                {uploading ? <Spinner className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+                {uploading
+                  ? t('workspace.deliverables.uploadingDraft', { percent: Math.round((progress ?? 0) * 100) })
+                  : t('workspace.deliverables.uploadDraft')}
+              </Button>
+            )}
+          </Field>
+          <Field label={t('workspace.deliverables.captionLabel')} hint={t('workspace.deliverables.captionHint')}>
+            <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={3} dir="auto" />
+          </Field>
           <Field label={t('workspace.deliverables.assetLinkLabel')} hint={t('workspace.deliverables.assetLinkHint')}>
-            <Input value={assetUrl} onChange={(e) => setAssetUrl(e.target.value)} placeholder="https://drive.google.com/…" />
+            <Input value={assetUrl} onChange={(e) => setAssetUrl(e.target.value)} placeholder="https://drive.google.com/…" dir="ltr" />
           </Field>
           <Field label={t('fields.notes')} hint={t('workspace.deliverables.notesReviewerHint')}>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </Field>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {tCommon('cancel')}
           </Button>
-          <Button disabled={submit.isPending} onClick={() => submit.mutate()}>
+          <Button disabled={submit.isPending || uploading} onClick={() => submit.mutate()}>
             {submit.isPending ? t('workspace.deliverables.submitting') : t('workspace.deliverables.submitForReview')}
           </Button>
         </DialogFooter>
@@ -2161,7 +2288,7 @@ function DeliverableDialog({
 
 type TagTone = 'success' | 'danger' | 'info' | 'neutral' | 'accent';
 
-function TagList({ label, items, tone }: { label: string; items: string[]; tone: TagTone }) {
+function TagList({ label, items, tone, ltr = false }: { label: string; items: string[]; tone: TagTone; ltr?: boolean }) {
   if (items.length === 0) return null;
   return (
     <div>
@@ -2169,7 +2296,8 @@ function TagList({ label, items, tone }: { label: string; items: string[]; tone:
       <div className="flex flex-wrap gap-1.5">
         {items.map((item, i) => (
           <Badge key={`${item}-${i}`} tone={tone}>
-            {item}
+            {/* #tag and @handle keep their sign in front in Arabic too. */}
+            {ltr ? <LtrText>{item}</LtrText> : item}
           </Badge>
         ))}
       </div>
@@ -2177,9 +2305,15 @@ function TagList({ label, items, tone }: { label: string; items: string[]; tone:
   );
 }
 
-function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: ScriptDTO[] }) {
+function ScriptsTab({ campaignId, scripts: serverScripts }: { campaignId: string; scripts: ScriptDTO[] }) {
   const t = useTranslations('campaigns');
+  const tEnums = useTranslations('enums');
   const { relativeTime } = useLocalizedFormat();
+  // A status move shows at once from the API's answer; the page refresh that
+  // follows brings the server copy back in.
+  const [updated, setUpdated] = React.useState<Record<string, ScriptDTO>>({});
+  React.useEffect(() => setUpdated({}), [serverScripts]);
+  const scripts = serverScripts.map((s) => updated[s.id] ?? s);
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
   const [newOpen, setNewOpen] = React.useState(false);
   const [addVersionFor, setAddVersionFor] = React.useState<ScriptDTO | null>(null);
@@ -2237,6 +2371,16 @@ function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: Scri
                           relative: relativeTime(script.updatedAt),
                         })}
                       </p>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {current ? (
+                          <Badge tone={SCRIPT_VERSION_STATUS_TONE[current.status]}>
+                            {enumLabel(tEnums, 'scriptVersionStatus', current.status)}
+                          </Badge>
+                        ) : null}
+                        {script.approvedVersion != null && script.approvedVersion !== current?.version ? (
+                          <Badge tone="success">{t('workspace.scripts.approvedVersionChip', { version: script.approvedVersion })}</Badge>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                   {isOpen ? (
@@ -2252,6 +2396,11 @@ function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: Scri
 
               {isOpen && current ? (
                 <div className="space-y-4 border-t border-border p-5">
+                <ScriptApprovalBar
+                  script={script}
+                  version={current}
+                  onUpdated={(next) => setUpdated((prev) => ({ ...prev, [next.id]: next }))}
+                />
                 {current.body ? (
                   <div>
                     <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -2276,13 +2425,15 @@ function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: Scri
                   <TagList label={t('workspace.scripts.requiredClaims')} items={current.requiredClaims} tone="neutral" />
                   <TagList
                     label={t('workspace.scripts.hashtags')}
-                    items={current.hashtags.map((h) => `#${h}`)}
+                    items={current.hashtags.map((h) => `#${h.replace(/^#+/, '')}`)}
                     tone="accent"
+                    ltr
                   />
                   <TagList
                     label={t('workspace.scripts.mentions')}
-                    items={current.mentions.map((m) => `@${m}`)}
+                    items={current.mentions.map((m) => `@${m.replace(/^@+/, '')}`)}
                     tone="accent"
+                    ltr
                   />
                 </div>
 
@@ -2321,6 +2472,28 @@ function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: Scri
                     {t('workspace.scripts.writtenBy', { name: current.createdByName })}
                   </p>
                 ) : null}
+
+                {script.versions.length > 1 ? (
+                  <div>
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t('workspace.scripts.versionsLabel')}
+                    </p>
+                    <ul className="space-y-1.5">
+                      {script.versions.map((v) => (
+                        <li key={v.id} className="flex flex-wrap items-center gap-2 text-sm">
+                          <span className="tabular-nums font-medium">v{v.version}</span>
+                          <Badge tone={SCRIPT_VERSION_STATUS_TONE[v.status]}>
+                            {enumLabel(tEnums, 'scriptVersionStatus', v.status)}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">{relativeTime(v.reviewedAt ?? v.createdAt)}</span>
+                          {v.reviewNote ? (
+                            <span className="w-full ps-7 text-xs text-muted-foreground">{v.reviewNote}</span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             ) : null}
               </Card>
@@ -2336,6 +2509,120 @@ function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: Scri
           if (!nextOpen) setAddVersionFor(null);
         }}
       />
+    </div>
+  );
+}
+
+/**
+ * Where this version is with the brand, and the moves from there: sent to
+ * the brand, the brand approved it (it becomes the version creators follow),
+ * or the brand wants changes (with what they said).
+ */
+function ScriptApprovalBar({
+  script,
+  version,
+  onUpdated,
+}: {
+  script: ScriptDTO;
+  version: ScriptVersionDTO;
+  onUpdated: (script: ScriptDTO) => void;
+}) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
+  const { relativeTime } = useLocalizedFormat();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [changesOpen, setChangesOpen] = React.useState(false);
+  const [note, setNote] = React.useState('');
+
+  const move = useMutation({
+    mutationFn: (body: { status: ScriptVersionStatus; note?: string }) =>
+      api.scripts.setVersionStatus(script.id, version.version, body),
+    onSuccess: (next) => {
+      onUpdated(next);
+      toast.success(t('workspace.scripts.statusUpdatedToast'));
+      setChangesOpen(false);
+      queryClient.invalidateQueries();
+      router.refresh();
+    },
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
+  });
+
+  const s = version.status;
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-surface-muted/50 px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t('workspace.scripts.approvalLabel')}
+        </span>
+        <Badge tone={SCRIPT_VERSION_STATUS_TONE[s]}>{enumLabel(tEnums, 'scriptVersionStatus', s)}</Badge>
+        {version.reviewedByName && version.reviewedAt ? (
+          <span className="text-xs text-muted-foreground">
+            <BidiText>{version.reviewedByName}</BidiText> · {relativeTime(version.reviewedAt)}
+          </span>
+        ) : null}
+        <div className="ms-auto flex flex-wrap gap-1.5">
+          {s === 'DRAFT' || s === 'CHANGES_REQUESTED' ? (
+            <Button size="sm" variant="outline" disabled={move.isPending} onClick={() => move.mutate({ status: 'SENT_TO_BRAND' })}>
+              {t('workspace.scripts.markSent')}
+            </Button>
+          ) : null}
+          {s === 'SENT_TO_BRAND' ? (
+            <Button size="sm" variant="ghost" disabled={move.isPending} onClick={() => move.mutate({ status: 'DRAFT' })}>
+              {t('workspace.scripts.backToDraft')}
+            </Button>
+          ) : null}
+          {s === 'SENT_TO_BRAND' || s === 'APPROVED' ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={move.isPending}
+              onClick={() => {
+                setNote('');
+                setChangesOpen(true);
+              }}
+            >
+              {t('workspace.scripts.markChanges')}
+            </Button>
+          ) : null}
+          {s !== 'APPROVED' ? (
+            <Button size="sm" disabled={move.isPending} onClick={() => move.mutate({ status: 'APPROVED' })}>
+              <CheckCircle2 className="h-3.5 w-3.5" /> {t('workspace.scripts.markApproved')}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {version.reviewNote ? <p className="whitespace-pre-wrap text-sm text-foreground">{version.reviewNote}</p> : null}
+      {s === 'APPROVED' ? (
+        <p className="text-xs text-muted-foreground">{t('workspace.scripts.followThisVersion')}</p>
+      ) : null}
+
+      <Dialog open={changesOpen} onOpenChange={setChangesOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('workspace.scripts.changesDialogTitle')}</DialogTitle>
+            <DialogDescription>{t('workspace.scripts.changesDialogDescription', { version: version.version })}</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+            placeholder={t('workspace.scripts.changesNotePlaceholder')}
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setChangesOpen(false)}>
+              {tCommon('cancel')}
+            </Button>
+            <Button
+              disabled={move.isPending}
+              onClick={() => move.mutate({ status: 'CHANGES_REQUESTED', note: note.trim() || undefined })}
+            >
+              {tCommon('save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

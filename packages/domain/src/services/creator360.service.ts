@@ -22,6 +22,7 @@ import { toActivityDTO } from '../lib/mappers';
 import { resolveScopeCurrency, sumMoney, toDecimal } from '../lib/money';
 import { participationMoney } from '../lib/spend';
 import { isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
+import { submissionInclude, toSubmissionDTO } from './submission.service';
 
 /** submissions()'s return shape — the real DeliverableSubmissionDTO fields
  *  (mirrors submission.service.ts's toDTO exactly) plus just enough campaign
@@ -277,9 +278,7 @@ export function makeCreator360Service(ctx: DomainContext) {
         },
       },
       include: {
-        submittedBy: { select: { name: true } },
-        reviewedBy: { select: { name: true } },
-        comments: { orderBy: { createdAt: 'asc' }, include: { author: { select: { name: true } } } },
+        ...submissionInclude,
         deliverable: {
           select: {
             campaignInfluencer: { select: { campaignId: true, campaign: { select: { name: true } } } },
@@ -289,23 +288,13 @@ export function makeCreator360Service(ctx: DomainContext) {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
 
-    return rows.map((s) => ({
-      id: s.id,
-      deliverableId: s.deliverableId,
-      version: s.version,
-      status: s.status,
-      notes: s.notes,
-      assetUrl: s.assetUrl,
-      submittedByName: s.submittedBy?.name ?? null,
-      reviewedByName: s.reviewedBy?.name ?? null,
-      reviewedAt: iso(s.reviewedAt),
-      reviewNote: s.reviewNote,
-      createdAt: s.createdAt.toISOString(),
-      updatedAt: s.updatedAt.toISOString(),
-      comments: s.comments.map((c) => ({ id: c.id, authorName: c.author?.name ?? null, body: c.body, createdAt: c.createdAt.toISOString() })),
-      campaignId: s.deliverable.campaignInfluencer.campaignId,
-      campaignName: s.deliverable.campaignInfluencer.campaign.name,
-    }));
+    return Promise.all(
+      rows.map(async (s) => ({
+        ...(await toSubmissionDTO(s)),
+        campaignId: s.deliverable.campaignInfluencer.campaignId,
+        campaignName: s.deliverable.campaignInfluencer.campaign.name,
+      })),
+    );
   }
 
   /** Cursor is the ISO timestamp of the oldest item already shown — merges five

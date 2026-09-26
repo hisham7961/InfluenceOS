@@ -113,7 +113,9 @@
     "targetMarketPlaceholder": "e.g. Kuwait, GCC",
     "enterNameError": "Enter a campaign name.",
     "invalidBudgetError": "Enter a valid budget.",
-    "updatedToast": "Campaign updated"
+    "updatedToast": "Campaign updated",
+    "draftReviewLabel": "Approve drafts before posting",
+    "draftReviewHint": "Every deliverable (not only UGC) is submitted as a draft — file and caption — and approved before it goes live."
   },
   "workspace": {
     "backToCampaigns": "Back to Campaigns",
@@ -222,7 +224,10 @@
       "paidAmountHint": "How much of the fee has been paid",
       "invalidPaidAmount": "Enter a valid amount paid.",
       "dateContactedLabel": "First contacted",
-      "expectedPublishLabel": "Expected to post on"
+      "expectedPublishLabel": "Expected to post on",
+      "filesAriaLabel": "Agreement and files for {name}",
+      "filesTitle": "{name} — agreement and files",
+      "filesDescription": "The signed agreement, invoices and anything else for this creator on this campaign."
     },
     "deliverables": {
       "addDeliverable": "Add deliverable",
@@ -284,7 +289,17 @@
       "removeTemplateRow": "Remove this line",
       "applyEveryone": "Everyone on the campaign ({count})",
       "applyButton": "Add to {count, plural, one {# creator} other {# creators}}",
-      "appliedToast": "{created, plural, one {# deliverable} other {# deliverables}} added for {creators, plural, one {# creator} other {# creators}}"
+      "appliedToast": "{created, plural, one {# deliverable} other {# deliverables}} added for {creators, plural, one {# creator} other {# creators}}",
+      "scriptApproved": "Script v{version} approved",
+      "scriptNotApproved": "Script not approved yet",
+      "submitDraftDialogDescriptionPost": "Once approved it's cleared to post; it counts as delivered when the post is live.",
+      "draftFileLabel": "Draft file",
+      "draftFileHint": "The video or image as it will be posted.",
+      "uploadDraft": "Upload file",
+      "uploadingDraft": "Uploading… {percent}%",
+      "removeDraftFile": "Remove file",
+      "captionLabel": "Caption",
+      "captionHint": "What they plan to post with it."
     },
     "scripts": {
       "countForCampaign": "{count, plural, one {# script} other {# scripts}} for this campaign",
@@ -322,7 +337,19 @@
       "versionAddedToast": "Version added",
       "addVersionDescriptionNamed": "A new version of \"{title}\".",
       "addVersionDescriptionGeneric": "Add a new script version.",
-      "addingVersion": "Adding…"
+      "addingVersion": "Adding…",
+      "approvedVersionChip": "v{version} approved",
+      "approvalLabel": "Brand approval",
+      "markSent": "Sent to brand",
+      "backToDraft": "Back to draft",
+      "markChanges": "Brand wants changes",
+      "markApproved": "Brand approved",
+      "followThisVersion": "Creators follow this version.",
+      "changesDialogTitle": "What does the brand want changed?",
+      "changesDialogDescription": "Saved on version {version}. Add a new version with the changes.",
+      "changesNotePlaceholder": "e.g. Say the price in the first 3 seconds",
+      "statusUpdatedToast": "Script status updated.",
+      "versionsLabel": "Versions"
     },
     "expenses": {
       "removedToast": "Expense removed",
@@ -562,7 +589,13 @@
     "decisionNotePlaceholder": "Decision note (optional)…",
     "rejectButton": "Reject",
     "requestChangesButton": "Request changes",
-    "approveButton": "Approve"
+    "approveButton": "Approve",
+    "hasFile": "Has a draft file",
+    "approvedToPostToast": "Approved — cleared to post.",
+    "captionLabel": "Caption",
+    "copyCaption": "Copy caption",
+    "captionCopied": "Caption copied.",
+    "downloadFile": "Download {name}"
   },
   "card": {
     "deliverablesLabel": "Deliverables",

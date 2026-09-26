@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ClipboardCheck, ExternalLink } from 'lucide-react';
+import { ClipboardCheck, Copy, Download, ExternalLink, Paperclip } from 'lucide-react';
 import type { CampaignInfluencerDTO, DeliverableSubmissionDTO } from '@influenceos/contracts';
 import { SUBMISSION_STATUS_TONE, type SubmissionDecision } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
+import { toBrowserUrl } from '@/lib/upload';
 import { enumLabel } from '@/lib/enum-labels';
 import { BidiText } from '@/components/common/bidi-text';
 import { Card } from '@/components/ui/card';
@@ -136,7 +137,14 @@ export function SubmissionsTab({
                         </span>
                       </span>
                     </TableCell>
-                    <TableCell align="end" className="tabular-nums">v{s.version}</TableCell>
+                    <TableCell align="end" className="tabular-nums">
+                      <span className="inline-flex items-center gap-1">
+                        {s.attachment ? (
+                          <Paperclip className="h-3.5 w-3.5 text-muted-foreground" aria-label={t('submissions.hasFile')} />
+                        ) : null}
+                        v{s.version}
+                      </span>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {s.submittedByName ? <BidiText>{s.submittedByName}</BidiText> : '—'} · {relativeTime(s.createdAt)}
                     </TableCell>
@@ -164,6 +172,7 @@ export function SubmissionsTab({
       <SubmissionReviewDialog
         submission={reviewing}
         creatorName={reviewing ? byDeliverable.get(reviewing.deliverableId)?.creator : undefined}
+        deliverableType={reviewing ? byDeliverable.get(reviewing.deliverableId)?.type : undefined}
         whatsapp={(() => {
           const d = reviewing ? byDeliverable.get(reviewing.deliverableId) : undefined;
           return d
@@ -193,12 +202,14 @@ export function SubmissionsTab({
 function SubmissionReviewDialog({
   submission,
   creatorName,
+  deliverableType,
   whatsapp,
   open,
   onOpenChange,
 }: {
   submission: DeliverableSubmissionDTO | null;
   creatorName?: string;
+  deliverableType?: string;
   /** Who to message about changes, and what about. */
   whatsapp?: {
     influencerId: string;
@@ -231,7 +242,13 @@ function SubmissionReviewDialog({
       return api.submissions.review(submission.id, { decision, note: note.trim() || undefined });
     },
     onSuccess: (_, decision) => {
-      toast.success(decision === 'APPROVE' ? t('submissions.approvedToast') : t('submissions.feedbackSentToast'));
+      toast.success(
+        decision !== 'APPROVE'
+          ? t('submissions.feedbackSentToast')
+          : deliverableType === 'UGC'
+            ? t('submissions.approvedToast')
+            : t('submissions.approvedToPostToast'),
+      );
       queryClient.invalidateQueries();
       router.refresh();
       onOpenChange(false);
@@ -267,6 +284,34 @@ function SubmissionReviewDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {submission.attachment ? <DraftPreview file={submission.attachment} /> : null}
+          {submission.caption ? (
+            <div className="rounded-lg border border-border bg-surface-muted p-3">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t('submissions.captionLabel')}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('submissions.copyCaption')}
+                  title={t('submissions.copyCaption')}
+                  onClick={() => {
+                    navigator.clipboard
+                      .writeText(submission.caption ?? '')
+                      .then(() => toast.success(t('submissions.captionCopied')))
+                      .catch(() => undefined);
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <p className="whitespace-pre-wrap text-sm" dir="auto">
+                {submission.caption}
+              </p>
+            </div>
+          ) : null}
           {submission.assetUrl ? (
             <a
               href={submission.assetUrl}
@@ -276,7 +321,7 @@ function SubmissionReviewDialog({
             >
               {t('submissions.openAsset')} <ExternalLink className="h-3.5 w-3.5" />
             </a>
-          ) : (
+          ) : submission.attachment ? null : (
             <p className="text-sm text-muted-foreground">{t('submissions.noAssetLink')}</p>
           )}
           {submission.notes ? <p className="text-sm text-foreground">{submission.notes}</p> : null}
@@ -355,5 +400,30 @@ function SubmissionReviewDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** The draft file itself: plays a video, shows an image, links anything else. */
+function DraftPreview({ file }: { file: NonNullable<DeliverableSubmissionDTO['attachment']> }) {
+  const t = useTranslations('campaigns');
+  const url = toBrowserUrl(file.downloadUrl);
+  return (
+    <div className="space-y-1.5">
+      {file.kind === 'video' ? (
+        <video src={url} controls playsInline className="max-h-[50dvh] w-full rounded-lg bg-black object-contain" />
+      ) : file.kind === 'image' ? (
+        // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL, not an optimisable asset
+        <img src={url} alt={file.fileName} className="max-h-[50dvh] w-full rounded-lg bg-surface-muted object-contain" />
+      ) : null}
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-brand hover:underline"
+      >
+        <Download className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{t('submissions.downloadFile', { name: file.fileName })}</span>
+      </a>
+    </div>
   );
 }
