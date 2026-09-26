@@ -164,5 +164,31 @@
     "storyUploadFailed": "The Story was created, but the file upload failed.",
     "retryUpload": "Retry upload",
     "addStory": "Add Story"
+  },
+  "metricsEntry": {
+    "open": "Enter metrics",
+    "title": "Enter this post's numbers",
+    "description": "For platforms without an automatic feed (Snapchat, TikTok, Stories), copy the numbers from the creator's insights.",
+    "fields": {
+      "views": "Views",
+      "likes": "Likes",
+      "comments": "Comments",
+      "shares": "Shares",
+      "saves": "Saves"
+    },
+    "invalidNumber": "Numbers only (12400, 12.4k or 1.2m)",
+    "asOf": "Numbers as of",
+    "hint": "Leave a box empty if the platform doesn't show it. You can type 12.4k or 1.2m.",
+    "screenshot": "Insights screenshot (optional, kept with the post)",
+    "saved": "Metrics saved.",
+    "history": "{count, plural, one {# earlier entry} other {# earlier entries}}",
+    "bulkOpen": "Enter metrics for all posts",
+    "bulkTitle": "Enter metrics for the whole campaign",
+    "bulkDescription": "Every post in this campaign, with the numbers already on record. Change what's new — only changed rows are saved.",
+    "bulkEmpty": "This campaign has no posts yet.",
+    "post": "Post",
+    "bulkChanged": "{count, plural, =0 {No changes yet} one {# post changed} other {# posts changed}}",
+    "bulkSaved": "{count, plural, one {Saved numbers for # post.} other {Saved numbers for # posts.}}",
+    "missingChip": "No metrics"
   }
 }

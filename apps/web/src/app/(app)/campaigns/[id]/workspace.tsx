@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   AlertCircle,
+  BarChart3,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -34,6 +35,8 @@ import {
   Users,
   Wallet,
 } from 'lucide-react';
+import { EnterMetricsDialog } from '@/components/content/enter-metrics-dialog';
+import { BulkMetricsDialog } from '@/components/content/bulk-metrics-dialog';
 import type {
   CampaignDetailDTO,
   CampaignEfficiencyDTO,
@@ -2484,6 +2487,7 @@ function MetricsFreshnessBanner({ efficiency }: { efficiency: CampaignEfficiency
 function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; contentFeed: PublishedContentDTO[] }) {
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
+  const tContent = useTranslations('content');
   const { relativeTime } = useLocalizedFormat();
   // Efficiency (CPV/CPM/CPE + rollups + freshness) is computed server-side
   // (W6-1 / ARCH-01) — the browser renders these numbers, it never derives them.
@@ -2574,11 +2578,12 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0">
           <CardTitle>{t('workspace.performance.contentPerformanceTitle')}</CardTitle>
+          <BulkMetricsDialog campaignId={campaignId} />
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-border text-start text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-5 py-3 font-medium">{t('workspace.performance.contentHeader')}</th>
@@ -2592,6 +2597,7 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
                     <InfoTooltip text={t('workspace.performance.estCpvTooltip')} />
                   </span>
                 </th>
+                <th className="px-3 py-3" aria-label={tCommon('actions')} />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -2626,6 +2632,16 @@ function PerformanceTab({ campaignId, contentFeed }: { campaignId: string; conte
                     </td>
                     <td className="px-5 py-3 tabular-nums">
                       <LtrText>{eff?.costPerView != null ? formatCurrency(eff.costPerView, currency) : tCommon('na')}</LtrText>
+                    </td>
+                    <td className="px-3 py-3 text-end">
+                      <EnterMetricsDialog
+                        content={c}
+                        trigger={
+                          <Button type="button" variant="ghost" size="icon-sm" aria-label={tContent('metricsEntry.open')}>
+                            <BarChart3 className="h-4 w-4" />
+                          </Button>
+                        }
+                      />
                     </td>
                   </tr>
                 );

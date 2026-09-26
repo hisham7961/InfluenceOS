@@ -127,9 +127,17 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
         </div>
         {content.caption ? <p className="line-clamp-1 text-xs text-muted-foreground">{content.caption}</p> : null}
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <Metric icon={Eye} value={m?.views} na={tCommon('na')} />
-          <Metric icon={Heart} value={m?.likes} na={tCommon('na')} />
-          <Metric icon={MessageCircle} value={m?.comments} na={tCommon('na')} />
+          {m ? (
+            <>
+              <Metric icon={Eye} value={m.views} na={tCommon('na')} />
+              <Metric icon={Heart} value={m.likes} na={tCommon('na')} />
+              <Metric icon={MessageCircle} value={m.comments} na={tCommon('na')} />
+            </>
+          ) : (
+            // No numbers at all yet — typically Snapchat, TikTok or a Story,
+            // which have to be typed in (open the post → Enter metrics).
+            <span className="rounded-full bg-warning/10 px-2 py-0.5 font-medium text-warning">{t('metricsEntry.missingChip')}</span>
+          )}
           <span className="ms-auto">{relativeTime(content.publishedAt ?? content.detectedAt)}</span>
         </div>
       </div>

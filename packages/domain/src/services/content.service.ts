@@ -421,6 +421,10 @@ export function makeContentService(ctx: DomainContext) {
       where.campaignId = { not: null };
       where.influencerId = { not: null };
     }
+    if (filter.metrics === 'missing') {
+      where.metricSnapshots = { none: {} };
+      if (!filter.status) where.availabilityStatus = { notIn: REMOVED_STATUSES };
+    }
 
     // Current-user review state (Content Command Center pass) — filtered via
     // the SAME UserContentState relation the card/viewer read, so "New 18" in
@@ -713,6 +717,8 @@ export function makeContentService(ctx: DomainContext) {
       saves?: number | null;
     },
     source: 'MANUAL' | 'OFFICIAL_API',
+    capturedAt: Date = new Date(),
+    db: Prisma.TransactionClient | typeof prisma = prisma,
   ) {
     const values = {
       views: m.views ?? null,
@@ -723,15 +729,15 @@ export function makeContentService(ctx: DomainContext) {
       saves: m.saves ?? null,
     };
     const engagementRate = computeEngagementRate(values);
-    await prisma.$transaction([
-      prisma.contentMetricSnapshot.create({
-        data: { publishedContentId: id, ...values, engagementRate, source },
-      }),
-      prisma.publishedContent.update({
-        where: { id },
-        data: { lastMetricsSyncAt: new Date() },
-      }),
-    ]);
+    await db.contentMetricSnapshot.create({
+      data: { publishedContentId: id, ...values, engagementRate, source, capturedAt },
+    });
+    // "Last metrics" moves forward only: back-dated numbers (an old insights
+    // screenshot) join the history without pretending to be the newest.
+    await db.publishedContent.updateMany({
+      where: { id, OR: [{ lastMetricsSyncAt: null }, { lastMetricsSyncAt: { lt: capturedAt } }] },
+      data: { lastMetricsSyncAt: capturedAt },
+    });
   }
 
   /** Manual metric entry for platforms with no official metrics API. */
@@ -744,8 +750,41 @@ export function makeContentService(ctx: DomainContext) {
     // out-of-scope call never leaves a side effect behind even though it's
     // ultimately rejected.
     await assertContentInScope({ brandId: existing.brandId, influencerId: existing.influencerId });
-    await recordMetrics(id, input, 'MANUAL');
+    const { capturedAt, ...values } = input;
+    await prisma.$transaction((tx) => recordMetrics(id, values, 'MANUAL', capturedAt ?? new Date(), tx));
     return loadDTO(id);
+  }
+
+  /**
+   * End-of-campaign entry: numbers for many posts of one campaign in one go.
+   * Every post must belong to the campaign (and the caller's scope); rows with
+   * no number at all are skipped rather than recorded as an empty snapshot.
+   */
+  async function addManualMetricsBulk(
+    campaignId: string,
+    input: z.infer<typeof requests.campaignMetricsBulkSchema>,
+  ): Promise<{ recorded: number; skipped: number }> {
+    await requireCapability(ctx, 'CONTENT_MANAGE');
+    const ids = [...new Set(input.entries.map((e) => e.contentId))];
+    const rows = await prisma.publishedContent.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, campaignId: true, brandId: true, influencerId: true },
+    });
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    for (const id of ids) {
+      const row = byId.get(id);
+      if (!row || row.campaignId !== campaignId) throw AppError.notFound('Content');
+      await assertContentInScope(row);
+    }
+    const capturedAt = input.capturedAt ?? new Date();
+    const keys = ['views', 'likes', 'comments', 'shares', 'reposts', 'saves'] as const;
+    const withNumbers = input.entries.filter((e) => keys.some((k) => e[k] != null));
+    await prisma.$transaction(async (tx) => {
+      for (const { contentId, ...values } of withNumbers) {
+        await recordMetrics(contentId, values, 'MANUAL', capturedAt, tx);
+      }
+    });
+    return { recorded: withNumbers.length, skipped: input.entries.length - withNumbers.length };
   }
 
   /**
@@ -957,7 +996,7 @@ export function makeContentService(ctx: DomainContext) {
       ],
     };
 
-    const [new_, seen, reviewed, reviewLater, unassigned, alerts, todayRows, brands, newByBrand, alertsByBrand, latestByBrand] =
+    const [new_, seen, reviewed, reviewLater, unassigned, alerts, missingMetrics, todayRows, brands, newByBrand, alertsByBrand, latestByBrand] =
       await Promise.all([
         prisma.publishedContent.count({ where: { ...scopeWhere, viewerStates: { none: { userId: actor.id } } } }),
         prisma.publishedContent.count({
@@ -969,6 +1008,9 @@ export function makeContentService(ctx: DomainContext) {
         }),
         prisma.publishedContent.count({ where: { ...scopeWhere, campaignId: null, influencerId: null } }),
         prisma.publishedContent.count({ where: { ...scopeWhere, availabilityStatus: { in: REMOVED_STATUSES } } }),
+        prisma.publishedContent.count({
+          where: { ...scopeWhere, availabilityStatus: { notIn: REMOVED_STATUSES }, metricSnapshots: { none: {} } },
+        }),
         prisma.publishedContent.findMany({
           where: { ...scopeWhere, ...todayWhere },
           select: {
@@ -1041,6 +1083,7 @@ export function makeContentService(ctx: DomainContext) {
       reviewLater,
       unassigned,
       alerts,
+      missingMetrics,
       today: { total: todayRows.length, new: todayNew, seen: todaySeen, reviewed: todayReviewed, alerts: todayAlerts, brandsActive: brandsActiveTodaySet.size },
       brands: brandSummaries,
     };
@@ -1057,6 +1100,7 @@ export function makeContentService(ctx: DomainContext) {
     metricsHistory,
     monitoring,
     addManualMetrics,
+    addManualMetricsBulk,
     refresh,
     mapRow,
     relIncludeFor,

@@ -57,10 +57,13 @@ export function AttachmentsPanel({
   target,
   title,
   compact = false,
+  inline = false,
 }: {
   target: AttachmentTarget;
   title?: string;
   compact?: boolean;
+  /** Tucked inside another form: a one-line drop zone and no empty state. */
+  inline?: boolean;
 }) {
   const t = useTranslations('common');
   const queryClient = useQueryClient();
@@ -107,8 +110,8 @@ export function AttachmentsPanel({
   const attachments = data ?? [];
 
   return (
-    <div className="space-y-4">
-      {!compact ? (
+    <div className={inline ? 'space-y-2' : 'space-y-4'}>
+      {!compact && !inline ? (
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title ?? t('files')}</h3>
           <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
@@ -141,13 +144,14 @@ export function AttachmentsPanel({
           if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
         }}
         className={cn(
-          'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-surface-muted/40 px-6 py-8 text-center transition-colors hover:border-brand/50 hover:bg-surface-muted',
+          'flex cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-surface-muted/40 text-center transition-colors hover:border-brand/50 hover:bg-surface-muted',
+          inline ? 'px-4 py-3' : 'flex-col px-6 py-8',
           dragging && 'border-brand bg-brand-soft/40',
         )}
       >
-        <Upload className="h-6 w-6 text-muted-foreground" />
+        <Upload className={inline ? 'h-4 w-4 text-muted-foreground' : 'h-6 w-6 text-muted-foreground'} />
         <p className="text-sm font-medium">{t('dropFilesHere')}</p>
-        <p className="text-xs text-muted-foreground">{t('acceptedFileTypes')}</p>
+        {inline ? null : <p className="text-xs text-muted-foreground">{t('acceptedFileTypes')}</p>}
       </div>
 
       {uploads.length > 0 ? (
@@ -177,7 +181,7 @@ export function AttachmentsPanel({
           ))}
         </div>
       ) : attachments.length === 0 && uploads.length === 0 ? (
-        <EmptyState icon={Paperclip} title={t('noFilesYet')} description={t('noFilesDescription')} className="border-0" />
+        inline ? null : <EmptyState icon={Paperclip} title={t('noFilesYet')} description={t('noFilesDescription')} className="border-0" />
       ) : (
         <div className="grid gap-2 sm:grid-cols-2">
           {attachments.map((a) => (

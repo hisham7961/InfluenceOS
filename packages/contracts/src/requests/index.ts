@@ -736,6 +736,13 @@ export const publishedContentUpdateSchema = z.object({
   publishedAt: isoDate,
 });
 
+/** When the numbers were read (e.g. the date on an insights screenshot); no
+ *  later than a day from now, so a mistyped year can't become "latest". */
+const metricsAsOf = z.coerce
+  .date()
+  .refine((d) => d.getTime() <= Date.now() + 864e5, { message: 'The date can’t be in the future.' })
+  .optional();
+
 export const contentMetricSchema = z.object({
   views: z.coerce.number().int().min(0).optional().nullable(),
   likes: z.coerce.number().int().min(0).optional().nullable(),
@@ -743,6 +750,16 @@ export const contentMetricSchema = z.object({
   shares: z.coerce.number().int().min(0).optional().nullable(),
   reposts: z.coerce.number().int().min(0).optional().nullable(),
   saves: z.coerce.number().int().min(0).optional().nullable(),
+  capturedAt: metricsAsOf,
+});
+
+/** End-of-campaign entry: numbers for many posts of one campaign at once. */
+export const campaignMetricsBulkSchema = z.object({
+  capturedAt: metricsAsOf,
+  entries: z
+    .array(contentMetricSchema.omit({ capturedAt: true }).extend({ contentId: cuid }))
+    .min(1)
+    .max(300),
 });
 
 export const contentFilterSchema = z.object({
@@ -759,6 +776,8 @@ export const contentFilterSchema = z.object({
   // Derived assignment status (see contentAssociationStatus in @influenceos/shared)
   // filtered server-side so pagination stays correct — never a stored column.
   assignment: z.enum(['FULLY_LINKED', 'CAMPAIGN_LINKED', 'INFLUENCER_LINKED', 'UNASSIGNED']).optional(),
+  /** `missing`: posts (still up) that have no numbers at all yet. */
+  metrics: z.enum(['missing']).optional(),
   // Current-user review state (Content Command Center pass) — filtered
   // server-side against UserContentState scoped to the caller, so pagination
   // stays correct and one user's filter can never leak another's state.

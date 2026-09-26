@@ -412,6 +412,9 @@ export function createClient(config: ClientConfig) {
       monitoring: (id: string) => http.get<MonitoringEventDTO[]>(`${V}/content/${id}/monitoring`),
       addMetrics: (id: string, body: In<typeof requests.contentMetricSchema>) =>
         http.post<PublishedContentDTO>(`${V}/content/${id}/metrics`, body),
+      /** End-of-campaign entry: numbers for many posts of one campaign. */
+      addMetricsBulk: (campaignId: string, body: In<typeof requests.campaignMetricsBulkSchema>) =>
+        http.post<{ recorded: number; skipped: number }>(`${V}/campaigns/${campaignId}/content-metrics`, body),
       refresh: (id: string) => http.post<PublishedContentDTO>(`${V}/content/${id}/refresh`),
       // Content Command Center — per-user counts + brand aggregation, and the
       // seen/reviewed/review-later mutation the Viewer and card actions send.

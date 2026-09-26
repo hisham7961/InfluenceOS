@@ -754,6 +754,8 @@ export interface ContentSummaryDTO {
   reviewLater: number;
   unassigned: number;
   alerts: number;
+  /** Posts still up that have no numbers yet (typically Snapchat, TikTok, Stories). */
+  missingMetrics: number;
   today: ContentDailySummaryDTO;
   brands: BrandContentSummaryDTO[];
 }

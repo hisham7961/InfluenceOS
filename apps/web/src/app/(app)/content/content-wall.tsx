@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
@@ -66,6 +67,8 @@ interface WallFilters {
   assignment: ContentAssociationStatus | '';
   reviewState: 'NEW' | 'SEEN' | 'REVIEWED' | 'REVIEW_LATER' | '';
   alertsOnly: boolean;
+  /** Only posts that have no numbers yet. */
+  metricsMissing: boolean;
   today: boolean;
   q: string;
 }
@@ -79,9 +82,34 @@ const EMPTY_FILTERS: WallFilters = {
   assignment: '',
   reviewState: '',
   alertsOnly: false,
+  metricsMissing: false,
   today: false,
   q: '',
 };
+
+const ASSIGNMENTS: ContentAssociationStatus[] = ['FULLY_LINKED', 'CAMPAIGN_LINKED', 'INFLUENCER_LINKED', 'UNASSIGNED'];
+
+/** Starting filters from the address, so links from Data Quality, the
+ *  dashboard or a campaign open the wall already filtered. */
+function filtersFromUrl(params: URLSearchParams | null): WallFilters {
+  if (!params) return EMPTY_FILTERS;
+  const assignment = params.get('assignment') as ContentAssociationStatus | null;
+  const review = params.get('reviewState');
+  return {
+    ...EMPTY_FILTERS,
+    brandId: params.get('brandId') ?? '',
+    campaignId: params.get('campaignId') ?? '',
+    influencerId: params.get('influencerId') ?? '',
+    platform: params.get('platform') ?? '',
+    status: params.get('status') ?? '',
+    assignment: assignment && ASSIGNMENTS.includes(assignment) ? assignment : '',
+    reviewState: review === 'NEW' || review === 'SEEN' || review === 'REVIEWED' || review === 'REVIEW_LATER' ? review : '',
+    alertsOnly: params.get('alerts') === '1',
+    metricsMissing: params.get('metrics') === 'missing',
+    today: params.get('today') === '1',
+    q: params.get('q') ?? '',
+  };
+}
 
 function todayBounds() {
   const start = new Date();
@@ -97,6 +125,7 @@ function chipFromFilters(f: WallFilters): ChipKey {
   if (f.reviewState === 'REVIEW_LATER') return 'reviewLater';
   if (f.assignment === 'UNASSIGNED') return 'unassigned';
   if (f.alertsOnly) return 'alerts';
+  if (f.metricsMissing) return 'noMetrics';
   if (f.today) return 'today';
   return 'all';
 }
@@ -125,8 +154,9 @@ export function ContentWall({
   const t = useTranslations('content');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
-  const [filters, setFilters] = React.useState<WallFilters>(EMPTY_FILTERS);
-  const [searchInput, setSearchInput] = React.useState('');
+  const searchParams = useSearchParams();
+  const [filters, setFilters] = React.useState<WallFilters>(() => filtersFromUrl(searchParams));
+  const [searchInput, setSearchInput] = React.useState(() => searchParams?.get('q') ?? '');
   const [layout, setLayoutState] = React.useState<Layout>(
     initialLayout && (VALID_LAYOUTS as string[]).includes(initialLayout) ? (initialLayout as Layout) : 'timeline',
   );
@@ -154,6 +184,7 @@ export function ContentWall({
       filters.assignment ||
       filters.reviewState ||
       filters.alertsOnly ||
+      filters.metricsMissing ||
       filters.today ||
       filters.q,
   );
@@ -181,6 +212,7 @@ export function ContentWall({
         assignment: filters.assignment || undefined,
         reviewState: filters.reviewState || undefined,
         alertsOnly: filters.alertsOnly || undefined,
+        metrics: filters.metricsMissing ? ('missing' as const) : undefined,
         from: filters.today ? todayStart.toISOString() : undefined,
         to: filters.today ? todayEnd.toISOString() : undefined,
         q: filters.q || undefined,
@@ -252,7 +284,14 @@ export function ContentWall({
 
   function selectChip(chip: ChipKey) {
     setFilters((f) => {
-      const base: WallFilters = { ...f, reviewState: '', assignment: f.assignment === 'UNASSIGNED' ? '' : f.assignment, alertsOnly: false, today: false };
+      const base: WallFilters = {
+        ...f,
+        reviewState: '',
+        assignment: f.assignment === 'UNASSIGNED' ? '' : f.assignment,
+        alertsOnly: false,
+        metricsMissing: false,
+        today: false,
+      };
       switch (chip) {
         case 'new':
           return { ...base, reviewState: 'NEW' };
@@ -266,6 +305,8 @@ export function ContentWall({
           return { ...base, assignment: 'UNASSIGNED', campaignId: '', influencerId: '' };
         case 'alerts':
           return { ...base, alertsOnly: true };
+        case 'noMetrics':
+          return { ...base, metricsMissing: true };
         case 'today':
           return { ...base, today: true };
         default:
@@ -287,6 +328,7 @@ export function ContentWall({
           reviewLater: summary.data?.reviewLater,
           unassigned: summary.data?.unassigned,
           alerts: summary.data?.alerts,
+          noMetrics: summary.data?.missingMetrics,
           today: summary.data?.today.total,
         }}
         onSelect={selectChip}

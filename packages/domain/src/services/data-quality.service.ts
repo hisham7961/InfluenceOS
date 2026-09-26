@@ -209,6 +209,7 @@ export function makeDataQualityService(ctx: DomainContext) {
       shipmentMissingCountry,
       campaignsNoOwner,
       contentUnassigned,
+      contentNoMetrics,
     ] = await Promise.all([
       prisma.influencer.count({ where: { ...influencerBrandWhere, socialAccounts: { none: {} } } }),
       prisma.influencer.count({ where: { ...influencerBrandWhere, email: null, mobile: null, whatsapp: null } }),
@@ -269,6 +270,18 @@ export function makeDataQualityService(ctx: DomainContext) {
       // a divergent definition, and linked to that item's exact (already
       // working) destination — /content?assignment=UNASSIGNED.
       prisma.publishedContent.count({ where: { ...contentBrandWhere, campaignId: null, influencerId: null } }),
+      // 9. Live posts with no numbers after 3 days — mostly Snapchat, TikTok
+      // and Stories, which have no metrics API and must be typed in. A stricter
+      // cut of the wall's "No metrics" chip (that one counts every post still
+      // up, from day one), linked to the same filtered wall.
+      prisma.publishedContent.count({
+        where: {
+          ...contentBrandWhere,
+          availabilityStatus: 'LIVE',
+          detectedAt: { lt: new Date(Date.now() - 3 * 864e5) },
+          metricSnapshots: { none: {} },
+        },
+      }),
     ]);
 
     // 4. Missing any social account already exists as 'influencer-no-social'
@@ -366,6 +379,13 @@ export function makeDataQualityService(ctx: DomainContext) {
         'needsAttention',
         contentUnassigned,
         '/content?assignment=UNASSIGNED',
+      ),
+      mkFinding(
+        'content-no-metrics',
+        'Live posts with no views or engagement entered after 3 days',
+        'incomplete',
+        contentNoMetrics,
+        '/content?metrics=missing',
       ),
     ];
 

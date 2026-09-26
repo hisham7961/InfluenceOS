@@ -4,9 +4,9 @@ import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/cn';
 import { enumLabel } from '@/lib/enum-labels';
 
-export type ChipKey = 'all' | 'new' | 'seen' | 'reviewed' | 'reviewLater' | 'unassigned' | 'alerts' | 'today';
+export type ChipKey = 'all' | 'new' | 'seen' | 'reviewed' | 'reviewLater' | 'unassigned' | 'alerts' | 'noMetrics' | 'today';
 
-const ORDER: ChipKey[] = ['all', 'new', 'seen', 'reviewed', 'reviewLater', 'unassigned', 'alerts', 'today'];
+const ORDER: ChipKey[] = ['all', 'new', 'seen', 'reviewed', 'reviewLater', 'unassigned', 'alerts', 'noMetrics', 'today'];
 
 /**
  * Fast operational chips (item 8) — counts come from GET /content/summary
@@ -38,6 +38,7 @@ export function ContentFilterChips({
     reviewLater: t('reviewMode.reviewLater'),
     unassigned: enumLabel(tEnums, 'contentAssociationStatus', 'UNASSIGNED'),
     alerts: t('feed.summary.alerts'),
+    noMetrics: t('metricsEntry.missingChip'),
     today: tCommon('today'),
   };
 

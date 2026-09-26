@@ -1,6 +1,7 @@
 'use client';
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -31,6 +32,7 @@ import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { SocialContentPlayer } from './social-content-player';
+import { EnterMetricsDialog, invalidateMetricQueries } from './enter-metrics-dialog';
 import { CommentThread } from '@/components/collaboration/comment-thread';
 import { ActivityFeed } from '@/components/common/activity-feed';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
@@ -331,11 +333,18 @@ function ManagerCallout({ contentId }: { contentId: string }) {
   );
 }
 
-export function ContentDetails({ content }: { content: PublishedContentDTO }) {
+export function ContentDetails({ content: incoming }: { content: PublishedContentDTO }) {
   const t = useTranslations('content');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
   const { dateTime, relativeTime } = useLocalizedFormat();
+  // Numbers just typed in show at once, before the list behind the viewer
+  // has re-fetched.
+  const [saved, setSaved] = React.useState<PublishedContentDTO | null>(null);
+  const content =
+    saved?.id === incoming.id
+      ? { ...incoming, metrics: saved.metrics, lastMetricsSyncAt: saved.lastMetricsSyncAt }
+      : incoming;
   const monitoring = useQuery({
     queryKey: ['content', content.id, 'monitoring'],
     queryFn: () => api.content.monitoring(content.id),
@@ -421,16 +430,17 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
         </div>
       ) : null}
 
-      {!content.isStory ? (
-        <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
+        {!content.isStory ? (
           <Button asChild variant="secondary" size="sm" className="flex-1">
             <a href={content.originalUrl} target="_blank" rel="noopener noreferrer">
               {tCommon('openOriginal')} <ExternalLink className="h-3.5 w-3.5" />
             </a>
           </Button>
-          <RefreshButton id={content.id} />
-        </div>
-      ) : null}
+        ) : null}
+        <EnterMetricsDialog content={content} onSaved={setSaved} />
+        {!content.isStory ? <RefreshButton id={content.id} onRefreshed={setSaved} /> : null}
+      </div>
 
       {/* Factual system history (ActivityLog) — reuses the SAME ActivityFeed the
           Campaign workspace's Activity tab shows, scoped to this content's own
@@ -463,13 +473,22 @@ export function ContentDetails({ content }: { content: PublishedContentDTO }) {
   );
 }
 
-function RefreshButton({ id }: { id: string }) {
+function RefreshButton({ id, onRefreshed }: { id: string; onRefreshed?: (c: PublishedContentDTO) => void }) {
   const tCommon = useTranslations('common');
+  const qc = useQueryClient();
+  const router = useRouter();
   const [loading, setLoading] = React.useState(false);
   async function refresh() {
     setLoading(true);
     try {
-      await api.content.refresh(id);
+      // The result used to be thrown away, so a refresh changed nothing on
+      // screen until the page was reloaded.
+      const updated = await api.content.refresh(id);
+      onRefreshed?.(updated);
+      invalidateMetricQueries(qc);
+      router.refresh();
+    } catch (e) {
+      toast.error(errorMessage(e, tCommon('somethingWentWrong')));
     } finally {
       setLoading(false);
     }
