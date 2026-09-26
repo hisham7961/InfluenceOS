@@ -142,20 +142,32 @@ jobs:
           done
           exit $FAILED
       # The production compose MinIO service as a deploy host runs it: it
-      # turns healthy (the compose healthcheck) and the bucket set-up step (mc
-      # from the same image) completes.
-      - name: Compose MinIO turns healthy and creates the bucket
+      # turns healthy (the compose healthcheck), the bucket set-up step (mc
+      # from the same image) completes, and the app's own login it makes can
+      # read and write the app's bucket but nothing else.
+      - name: Compose MinIO turns healthy, creates the bucket and the app login
         run: |
           docker rm -f minio >/dev/null 2>&1 || true
           export POSTGRES_PASSWORD=x AUTH_SECRET=0123456789012345678901234567890123 \
             S3_PUBLIC_ENDPOINT=https://files.example.com MINIO_ROOT_USER=minioadmin MINIO_ROOT_PASSWORD=minioadmin \
             WEB_ORIGIN=https://app.example.com NEXT_PUBLIC_APP_URL=https://app.example.com \
-            SITE_ADDRESS=app.example.com BOOTSTRAP_ADMIN_EMAIL=a@b.c BOOTSTRAP_ADMIN_PASSWORD=pw
+            SITE_ADDRESS=app.example.com BOOTSTRAP_ADMIN_EMAIL=a@b.c BOOTSTRAP_ADMIN_PASSWORD=pw \
+            MINIO_APP_USER=influenceos-app MINIO_APP_PASSWORD=ci-app-secret-0123
           unset MINIO_IMAGE
           C="docker compose -p miniocheck -f docker-compose.full.yml"
           $C up -d --wait --wait-timeout 90 minio || { $C logs minio; exit 1; }
           $C run --rm minio-setup
+          $C run --rm minio-setup   # a second deploy must pass too
           $C exec -T minio sh -c 'mc alias set chk http://localhost:9000 minioadmin minioadmin >/dev/null && mc ls chk/influenceos'
+          $C exec -T minio sh -ec '
+            mc alias set app http://localhost:9000 influenceos-app ci-app-secret-0123 >/dev/null
+            echo ok > /tmp/x
+            mc cp /tmp/x app/influenceos/ci-check.txt
+            mc cat app/influenceos/ci-check.txt
+            mc rm app/influenceos/ci-check.txt
+            if mc mb app/not-allowed 2>/dev/null; then echo "app login could create a bucket"; exit 1; fi
+            if mc admin info app >/dev/null 2>&1; then echo "app login has admin rights"; exit 1; fi
+            echo "app login: bucket only"'
           $C down -v
 
   build:
@@ -249,6 +261,19 @@ jobs:
         run: pnpm db:generate
       - name: Apply migrations
         run: pnpm db:deploy
+      # The least-privilege app login the deploy makes from APP_DB_USER /
+      # APP_DB_PASSWORD: made twice (a second deploy must pass too), then it
+      # can read and write rows but not change the schema or the migrations.
+      - name: App database login (rows only)
+        run: |
+          export APP_DB_USER=influenceos_app APP_DB_PASSWORD=ci-app-password-0123456789
+          pnpm --filter @influenceos/database exec tsx prisma/app-role.ts
+          pnpm --filter @influenceos/database exec tsx prisma/app-role.ts
+          export PGPASSWORD=$APP_DB_PASSWORD
+          psql -h localhost -U influenceos_app -d influenceos_test -tAc 'SELECT count(*) FROM "User"'
+          if psql -h localhost -U influenceos_app -d influenceos_test -c 'CREATE TABLE ci_nope (id int)' 2>/dev/null; then echo "app login can change the schema"; exit 1; fi
+          if psql -h localhost -U influenceos_app -d influenceos_test -c 'DELETE FROM "_prisma_migrations" WHERE false' 2>/dev/null; then echo "app login can edit migrations"; exit 1; fi
+          echo "app login: rows only"
 
       # A schema.prisma change without its migration (or a hand-edited
       # migration) would deploy a database that doesn't match the code.

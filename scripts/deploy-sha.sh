@@ -10,6 +10,8 @@
 #   scripts/deploy-sha.sh --status      show what is running and the deploy history
 #
 # Each deploy:
+#   0. reports files edited by hand on this server and compose override files
+#      that aren't in the repository (scripts/server-changes.sh);
 #   1. checks the SHA looks like a commit and its images exist in the registry;
 #   2. takes a database copy first (scripts/backup.sh --db-only), unless
 #      SKIP_BACKUP=1;
@@ -63,6 +65,9 @@ case "${1:-}" in
 esac
 
 [[ "$TARGET" =~ ^[0-9a-f]{7,40}$ ]] || die "'$TARGET' is not a commit SHA (7–40 hex characters)."
+
+# --- 0. Anything changed by hand on this server? (reported, not blocking) ----
+[ -x scripts/server-changes.sh ] && scripts/server-changes.sh || true
 
 # --- 1. The images exist -----------------------------------------------------
 export IMAGE_TAG="$TARGET"

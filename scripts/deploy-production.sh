@@ -25,6 +25,7 @@
 #   COMPOSE_FILE (default docker-compose.full.yml)
 #   HEALTH_URL   (default http://localhost:4000)  — API base for health gating
 #   SKIP_BACKUP=1 to skip the pre-deploy backup (NOT recommended)
+#   ALLOW_LOCAL_CHANGES=1 to deploy although repository files were edited here
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -40,6 +41,15 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.full.yml}"
 HEALTH_URL="${HEALTH_URL:-http://localhost:4000}"
+
+# --- 0. Hand-made changes on this server -----------------------------------
+# A repository file edited here would be overwritten by (or block) the
+# checkout below, so stop and say which — ALLOW_LOCAL_CHANGES=1 to go on
+# anyway. Local override files are listed but don't stop the deploy.
+if ! scripts/server-changes.sh --strict; then
+  [ "${ALLOW_LOCAL_CHANGES:-0}" = "1" ] || die "Files from the repository were edited on this server (listed above). Move the change into the repository or .env, or rerun with ALLOW_LOCAL_CHANGES=1."
+  log "Going on with local changes (ALLOW_LOCAL_CHANGES=1)."
+fi
 
 # --- 1. Check out the exact revision --------------------------------------
 log "Fetching and checking out $TARGET"

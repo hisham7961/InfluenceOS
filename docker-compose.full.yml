@@ -12,7 +12,10 @@
 # use the internal service DNS name.
 x-app-env: &app-env
   NODE_ENV: production
-  DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/influenceos
+  # The app's login. With APP_DB_USER + APP_DB_PASSWORD in .env it's a
+  # rows-only login (made by the `migrate` one-shot); otherwise the owner.
+  # Migrations always use the owner (DIRECT_DATABASE_URL).
+  DATABASE_URL: postgresql://${APP_DB_USER:-postgres}:${APP_DB_PASSWORD:-${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}}@postgres:5432/influenceos
   DIRECT_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/influenceos
   REDIS_URL: redis://redis:6379
   AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required (min 16 chars)}
@@ -21,8 +24,11 @@ x-app-env: &app-env
   S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
   S3_REGION: us-east-1
   S3_BUCKET: influenceos
-  S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
-  S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+  # With MINIO_APP_USER + MINIO_APP_PASSWORD in .env the app uses a login
+  # that can only read and write the app's bucket (made by `minio-setup`);
+  # otherwise the MinIO root login.
+  S3_ACCESS_KEY_ID: ${MINIO_APP_USER:-${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}}
+  S3_SECRET_ACCESS_KEY: ${MINIO_APP_PASSWORD:-${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}}
   S3_FORCE_PATH_STYLE: 'true'
   MAX_UPLOAD_MB: '50'
   # Where the API probes the worker's health for the status page (internal DNS).
@@ -102,18 +108,41 @@ services:
       timeout: 5s
       retries: 5
 
-  # Create the PRIVATE bucket (no `mc anonymous set` — objects stay private).
+  # Create the PRIVATE bucket (no `mc anonymous set` — objects stay private),
+  # and — when MINIO_APP_USER / MINIO_APP_PASSWORD are set — the app's own
+  # login that can only read and write that bucket.
   minio-setup:
     image: ${INFLUENCEOS_MC_IMAGE:-ghcr.io/hisham7961/influenceos-minio:RELEASE.2022-10-24T18-35-07Z}
     depends_on:
       minio:
         condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      until (mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}) do echo 'waiting for minio'; sleep 2; done;
-      mc mb --ignore-existing local/influenceos;
-      exit 0;
-      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      MINIO_APP_USER: ${MINIO_APP_USER:-}
+      MINIO_APP_PASSWORD: ${MINIO_APP_PASSWORD:-}
+      BUCKET: influenceos
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" >/dev/null; do echo 'waiting for minio'; sleep 2; done
+        mc mb --ignore-existing "local/$$BUCKET"
+        if [ -n "$$MINIO_APP_USER" ] && [ -n "$$MINIO_APP_PASSWORD" ]; then
+          cat > /tmp/app-policy.json <<POLICY
+        {"Version":"2012-10-17","Statement":[
+          {"Effect":"Allow","Action":["s3:GetBucketLocation","s3:ListBucket","s3:ListBucketMultipartUploads"],"Resource":["arn:aws:s3:::$$BUCKET"]},
+          {"Effect":"Allow","Action":["s3:GetObject","s3:PutObject","s3:DeleteObject","s3:AbortMultipartUpload","s3:ListMultipartUploadParts"],"Resource":["arn:aws:s3:::$$BUCKET/*"]}
+        ]}
+        POLICY
+          mc admin user add local "$$MINIO_APP_USER" "$$MINIO_APP_PASSWORD"
+          mc admin policy add local influenceos-app /tmp/app-policy.json
+          mc admin policy set local influenceos-app "user=$$MINIO_APP_USER"
+          echo "MinIO app login $$MINIO_APP_USER is ready (bucket $$BUCKET only)."
+        elif [ -n "$$MINIO_APP_USER$$MINIO_APP_PASSWORD" ]; then
+          echo 'Set both MINIO_APP_USER and MINIO_APP_PASSWORD (or neither).' >&2
+          exit 1
+        fi
 
   # One-shot: apply migrations, then bootstrap a first admin (idempotent).
   migrate:
@@ -122,6 +151,10 @@ services:
       dockerfile: docker/Dockerfile.api
     environment:
       <<: *app-env
+      # Migrations, the app's own login and the first admin run as the owner.
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/influenceos
+      APP_DB_USER: ${APP_DB_USER:-}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-info@influence-op.com}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?BOOTSTRAP_ADMIN_PASSWORD is required in production}
     depends_on:
@@ -130,6 +163,7 @@ services:
     command: >
       /bin/sh -c "
       pnpm --filter @influenceos/database exec prisma migrate deploy &&
+      pnpm --filter @influenceos/database exec tsx prisma/app-role.ts &&
       pnpm --filter @influenceos/database exec tsx prisma/bootstrap.ts
       "
     restart: 'no'

@@ -382,14 +382,17 @@ use to trigger a re-auth/refresh flow.
   `AUTH_SECRET` is still the old one. Values sealed under the old key keep
   opening until then; the script is safe to run twice.
 - **Least-privilege database and storage accounts (recommended).** The stack
-  runs the app as the Postgres owner and MinIO root by default. For a tighter
-  setup, `deploy/postgres/app-role.sql` creates an `influenceos_app` role that
-  can read and write the tables but not drop them or change the schema; point
-  `DATABASE_URL` at it and keep the owner only in `DIRECT_DATABASE_URL`, which
-  migrations use. For object storage, create a MinIO user limited to the
-  `influenceos` bucket (steps in `docs/OBJECT_STORAGE.md` §11) and use it for
-  `S3_ACCESS_KEY_ID` /
-  `S3_SECRET_ACCESS_KEY` instead of the root account.
+  runs the app as the Postgres owner and MinIO root by default. Set
+  `APP_DB_USER` + `APP_DB_PASSWORD` in `.env` and the next deploy's `migrate`
+  one-shot makes (or updates) that login with `prisma/app-role.ts`: it can
+  read and write rows but not change the schema, truncate, or edit the
+  migrations table, and tables later migrations add get the same rights; the
+  compose files then give the app that login, while migrations keep the owner
+  (`DIRECT_DATABASE_URL`). Set `MINIO_APP_USER` + `MINIO_APP_PASSWORD` and
+  `minio-setup` makes a MinIO login limited to the app's bucket and the app
+  uses it instead of root. Both are checked in CI (made twice; rows-only /
+  bucket-only). Without these values nothing changes.
+  `deploy/postgres/app-role.sql` does the same for a database outside compose.
 - **Optional-by-design provider credentials.** Every social-provider credential is
   optional; when absent, the corresponding adapter advertises reduced capabilities
   instead of failing (`.env.example`: *"The product works fully in manual-fallback

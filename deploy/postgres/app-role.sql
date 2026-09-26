@@ -1,5 +1,10 @@
 -- InfluenceOS — a least-privilege database role for the running app (P2.4).
 --
+-- With the compose files you don't need this: set APP_DB_USER and
+-- APP_DB_PASSWORD in .env and the `migrate` one-shot makes the login
+-- (packages/database/prisma/app-role.ts). This file is for a database run
+-- outside compose.
+--
 -- The app (API + worker) only needs to read and write rows. Migrations need to
 -- change the schema, so they keep using the owner account. Run this once as
 -- the owner (postgres), then:
