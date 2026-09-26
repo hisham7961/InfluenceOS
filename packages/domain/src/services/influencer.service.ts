@@ -222,6 +222,14 @@ export function makeInfluencerService(ctx: DomainContext) {
     );
   }
 
+  /** Newest first by default; `sort` may pick name or last updated (P2.8). */
+  function influencerOrder(filter: { sort?: string; order?: 'asc' | 'desc' }): Prisma.InfluencerOrderByWithRelationInput[] {
+    const dir = filter.order ?? 'desc';
+    const by: Prisma.InfluencerOrderByWithRelationInput =
+      filter.sort === 'name' ? { displayName: dir } : filter.sort === 'updatedAt' ? { updatedAt: dir } : { createdAt: dir };
+    return [by, { id: dir }];
+  }
+
   async function list(filter: InfluencerFilter): Promise<Paginated<InfluencerSummaryDTO>> {
     const where = await buildWhere(filter);
     const [total, rows] = await Promise.all([
@@ -229,7 +237,7 @@ export function makeInfluencerService(ctx: DomainContext) {
       prisma.influencer.findMany({
         where,
         include: summaryInclude,
-        orderBy: [{ createdAt: 'desc' }],
+        orderBy: influencerOrder(filter),
         skip: (filter.page - 1) * filter.pageSize,
         take: filter.pageSize,
       }),
@@ -286,7 +294,8 @@ export function makeInfluencerService(ctx: DomainContext) {
     const rows = await prisma.influencer.findMany({
       where,
       include: exportInclude,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      // The same order as the screen, so the file matches it.
+      orderBy: influencerOrder(filter),
       take: EXPORT_MAX_ROWS,
     });
     return rows.map((r) => {

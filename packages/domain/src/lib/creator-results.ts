@@ -56,9 +56,7 @@ export async function loadCreatorResults(
         id: true,
         influencerId: true,
         availabilityStatus: true,
-        metricSnapshots: {
-          orderBy: { capturedAt: 'desc' },
-          take: 1,
+        latestSnapshot: {
           select: { views: true, likes: true, comments: true, shares: true, saves: true, reposts: true, engagementRate: true },
         },
       },
@@ -70,7 +68,7 @@ export async function loadCreatorResults(
   ]);
 
   const postMetrics: CampaignPostMetrics[] = posts.map((p) => {
-    const snap = p.metricSnapshots[0] ?? null;
+    const snap = p.latestSnapshot ?? null;
     return {
       id: p.id,
       influencerId: p.influencerId,

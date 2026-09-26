@@ -41,7 +41,22 @@
     "emptyFilteredTitle": "No campaigns match your filters",
     "emptyFilteredDescription": "Try a different search term or clear your filters to see everything.",
     "paginationSummary": "Page {page} of {totalPages} · {count, plural, one {# campaign} other {# campaigns}}",
-    "goToPage": "Go to page {page}"
+    "goToPage": "Go to page {page}",
+    "myCampaigns": "My campaigns",
+    "chips": {
+      "search": "Search: {q}",
+      "oneBrand": "One brand",
+      "ownedBySomeone": "Owned by a teammate",
+      "noOwner": "No owner"
+    },
+    "sort": {
+      "newest": "Newest first",
+      "oldest": "Oldest first",
+      "startingFirst": "Starting soonest",
+      "startingLast": "Starting latest",
+      "endingFirst": "Ending soonest",
+      "nameAsc": "Name A–Z"
+    }
   },
   "addInfluencerDialog": {
     "trigger": "Add influencer",

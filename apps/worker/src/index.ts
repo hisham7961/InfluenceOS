@@ -6,6 +6,7 @@ import {
   diskUsage,
   dispatchNotificationEmails,
   emailConfigFromEnv,
+  pruneHistory,
   recordSyncHealth,
   refreshProviderCredentialOverrides,
   sendDueDigests,
@@ -92,6 +93,8 @@ const stats = {
   email: 'off' as 'on' | 'off' | 'misconfigured',
   emailsSent: 0,
   emailFailures: 0,
+  /** Old history thinned out (P2.8): routine check events and older snapshots. */
+  historyPruned: { checkEvents: 0, contentSnapshots: 0, followerSnapshots: 0 },
 };
 
 // Whether Redis is currently reachable — drives the /health verdict (WK-03).
@@ -149,6 +152,18 @@ async function runMaintenance(enqueue: (kind: Kind, id: string) => Promise<void>
         );
       }
       if (res.restored) console.log(`[maintenance] restored ${res.restored} quarantined files whose records came back`);
+    }
+
+    // History retention (P2.8), in the same hourly slot: routine check
+    // events and the older half-hourly snapshots thinned to one a day.
+    const pruned = await pruneHistory(prisma).catch((e) => {
+      console.error('[maintenance] history retention failed', e);
+      return null;
+    });
+    if (pruned) {
+      stats.historyPruned.checkEvents += pruned.checkEvents;
+      stats.historyPruned.contentSnapshots += pruned.contentSnapshots;
+      stats.historyPruned.followerSnapshots += pruned.followerSnapshots;
     }
   }
 

@@ -24,7 +24,16 @@
       "countryPlaceholder": "دولة المؤثر",
       "cityPlaceholder": "المدينة",
       "cityAriaLabel": "التصفية حسب المدينة",
-      "reset": "إعادة التعيين"
+      "reset": "إعادة التعيين",
+      "followersLabel": "المتابعون",
+      "followersAny": "أي عدد متابعين",
+      "followersBetween": "{min}–{max} متابع",
+      "followersAtLeast": "{min}+ متابع",
+      "followersUnder": "أقل من {max} متابع",
+      "categoryPlaceholder": "الفئة…",
+      "categoryAriaLabel": "التصفية حسب الفئة",
+      "ownerLabel": "المسؤول",
+      "ownerAnyone": "أي مسؤول"
     },
     "countryStrip": {
       "ariaLabel": "التصفية حسب الدولة",
@@ -86,6 +95,24 @@
       "updatedToast": "تم تحديث {count} من المؤثرين.",
       "updatedWithFailuresToast": "تم تحديث {count} من المؤثرين. فشل تحديث {failed}.",
       "addToCampaign": "إضافة إلى حملة"
+    },
+    "chips": {
+      "search": "بحث: {q}",
+      "city": "المدينة: {city}",
+      "category": "الفئة: {category}",
+      "ownedByMe": "مسؤوليتي",
+      "noOwner": "بلا مسؤول",
+      "ownedBySomeone": "مسؤولية زميل",
+      "missingCountry": "بلا دولة",
+      "missingPhone": "بلا رقم هاتف",
+      "missingSocial": "بلا حسابات تواصل"
+    },
+    "sort": {
+      "newest": "الأحدث أولًا",
+      "oldest": "الأقدم أولًا",
+      "nameAsc": "الاسم أ–ي",
+      "nameDesc": "الاسم ي–أ",
+      "updated": "آخر تحديث"
     }
   },
   "form": {

@@ -44,3 +44,26 @@ export async function deleteUser(userId: string): Promise<void> {
   await prisma.user.delete({ where: { id: userId } }).catch(() => undefined);
   await prisma.$disconnect();
 }
+
+/**
+ * The typed API client (the same one the web and mobile apps use) talking to
+ * the in-process app through `app.inject` — no port, no network (P2.8). Tests
+ * read like the apps' own calls and break when a route and its client drift.
+ */
+export async function clientFor(app: FastifyInstance, headers: Record<string, string>) {
+  const { createClient } = await import('@influenceos/api-client');
+  const viaInject: typeof fetch = async (input, init) => {
+    const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+    const res = await app.inject({
+      method: (init?.method ?? 'GET') as 'GET',
+      url: url.pathname + url.search,
+      headers: Object.fromEntries(new Headers(init?.headers).entries()),
+      payload: typeof init?.body === 'string' ? init.body : undefined,
+    });
+    const outHeaders = new Headers();
+    for (const [k, v] of Object.entries(res.headers)) if (v != null) outHeaders.set(k, Array.isArray(v) ? v.join(', ') : String(v));
+    const empty = res.statusCode === 204 || res.statusCode === 304;
+    return new Response(empty ? null : res.rawPayload, { status: res.statusCode, headers: outHeaders });
+  };
+  return createClient({ baseUrl: 'http://api.test', fetch: viaInject, headers, credentials: 'omit' });
+}

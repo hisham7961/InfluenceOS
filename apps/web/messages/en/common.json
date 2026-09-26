@@ -134,5 +134,12 @@
     "reference": "Reference: {id}",
     "notFoundTitle": "Page not found",
     "notFoundBody": "This page doesn't exist, or the item was deleted or moved."
+  },
+  "listControls": {
+    "sort": "Sort",
+    "sortBy": "Sort: {option}",
+    "activeFilters": "Active filters",
+    "removeFilter": "Remove filter: {filter}",
+    "clearAll": "Clear all"
   }
 }

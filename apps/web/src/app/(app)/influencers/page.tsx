@@ -46,6 +46,9 @@ export default async function InfluencersPage({
     relationshipStatus: sp.relationshipStatus || undefined,
     minFollowers: sp.minFollowers ? Number(sp.minFollowers) : undefined,
     maxFollowers: sp.maxFollowers ? Number(sp.maxFollowers) : undefined,
+    ownerId: sp.ownerId || undefined,
+    sort: sp.sort || undefined,
+    order: sp.order === 'asc' ? 'asc' : sp.order === 'desc' ? 'desc' : undefined,
     // Data Quality Center deep-links (e.g. /influencers?missingCountry=true)
     // — not UI filter chips, just real server-side filters a finding row
     // links straight into.
@@ -58,7 +61,20 @@ export default async function InfluencersPage({
   });
 
   const hasFilters = Boolean(
-    sp.q || sp.platform || sp.country || sp.countryCode || sp.city || sp.category || sp.relationshipStatus || sp.minFollowers || sp.maxFollowers,
+    sp.q ||
+      sp.platform ||
+      sp.country ||
+      sp.countryCode ||
+      sp.city ||
+      sp.category ||
+      sp.relationshipStatus ||
+      sp.minFollowers ||
+      sp.maxFollowers ||
+      sp.ownerId ||
+      sp.missingCountry ||
+      sp.missingOwner ||
+      sp.missingPhone ||
+      sp.missingSocial,
   );
 
   return (
@@ -81,6 +97,9 @@ export default async function InfluencersPage({
                 relationshipStatus: sp.relationshipStatus,
                 minFollowers: sp.minFollowers,
                 maxFollowers: sp.maxFollowers,
+                ownerId: sp.ownerId,
+                sort: sp.sort,
+                order: sp.order,
                 missingCountry: sp.missingCountry === 'true' ? 'true' : undefined,
                 missingOwner: sp.missingOwner === 'true' ? 'true' : undefined,
                 missingPhone: sp.missingPhone === 'true' ? 'true' : undefined,

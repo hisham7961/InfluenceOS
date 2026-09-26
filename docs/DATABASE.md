@@ -44,6 +44,13 @@ shape and the rules behind it.
    `capturedAt`; nothing is updated in place, so growth/trend charts and historical
    accuracy are preserved. `ContentMonitoringEvent` is the same pattern for availability
    checks.
+   Each `PublishedContent` also points at its newest snapshot (`latestSnapshotId`), kept
+   current by a database trigger on `ContentMetricSnapshot` (insert/update/delete), so
+   screens read one row instead of every snapshot a post ever had (P2.8).
+   **Retention (P2.8):** the worker thins history once an hour — routine `CHECK_OK`
+   events after 30 days, failed/rate-limited checks after 180 days (status changes are
+   kept); content and follower snapshots older than 30 days keep the last one of each
+   Kuwait day. A post's newest snapshot is never removed. See `packages/domain/src/lib/retention.ts`.
 2. **`NULL` over fabricated zeros.** Metric fields (`followers`, `views`, `likes`,
    `engagementRate`, …) are all optional (`Int?`/`Float?`). When a platform's API/embed
    can't supply a number, the column is left `NULL` and rendered as "N/A" — it is never

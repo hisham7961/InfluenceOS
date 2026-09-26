@@ -47,16 +47,14 @@ export async function loadPostMetrics(
       platform: true,
       publishedAt: true,
       detectedAt: true,
-      metricSnapshots: {
-        orderBy: { capturedAt: 'desc' },
-        take: 1,
-        select: { views: true, likes: true, comments: true, shares: true, saves: true, reposts: true, engagementRate: true },
+      latestSnapshot: {
+          select: { views: true, likes: true, comments: true, shares: true, saves: true, reposts: true, engagementRate: true },
       },
     },
     take,
   });
   return rows.map((r) => {
-    const snap = r.metricSnapshots[0] ?? null;
+    const snap = r.latestSnapshot ?? null;
     const postedAt = r.publishedAt ?? r.detectedAt;
     const views = snap?.views ?? null;
     const engagements = snap ? metrics.totalEngagements(snap) : null;

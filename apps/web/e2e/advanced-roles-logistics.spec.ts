@@ -366,19 +366,20 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   await page.goto('/influencers');
   await page.getByPlaceholder('Search by name or @username…').fill(SARA);
   await page.getByPlaceholder('Search by name or @username…').press('Enter');
-  await expect(page.getByText(SARA).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('link', { name: SARA }).first()).toBeVisible({ timeout: 30_000 });
 
   await page.getByPlaceholder('Search by name or @username…').fill(KHALED);
   await page.getByPlaceholder('Search by name or @username…').press('Enter');
   // Wait for this search to land before checking — otherwise the count below
   // passes on the previous page and the next search races this one.
   await expect(page).toHaveURL(/[?&]q=LogX\+Khaled/, { timeout: 30_000 });
-  await expect(page.getByText(KHALED)).toHaveCount(0);
+  // Results are links; the search itself also shows as a filter chip (P2.8).
+  await expect(page.getByRole('link', { name: KHALED })).toHaveCount(0);
 
   await page.getByPlaceholder('Search by name or @username…').fill(SARA);
   await page.getByPlaceholder('Search by name or @username…').press('Enter');
   await expect(page).toHaveURL(/[?&]q=LogX\+Sara/, { timeout: 30_000 });
-  await page.getByText(SARA).first().click();
+  await page.getByRole('link', { name: SARA }).first().click();
   await expect(page.getByRole('heading', { name: SARA })).toBeVisible();
   await expect(page.getByText(/Logistics needs address clarification/i)).toBeVisible({ timeout: 30_000 });
 

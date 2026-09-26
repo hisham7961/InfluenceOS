@@ -87,7 +87,8 @@ function relIncludeFor(userId: string | undefined) {
     },
     campaign: { select: { id: true, name: true, slug: true } },
     deliverable: { select: { id: true, type: true, platform: true } },
-    metricSnapshots: { orderBy: { capturedAt: 'desc' }, take: 1 },
+    // The newest snapshot, found through the post's pointer (P2.8).
+    latestSnapshot: true,
     viewerStates: { where: { userId: userId ?? NO_ACTOR }, take: 1 },
     // Internal team comment count for the ContentCard "has comments" badge —
     // top-level only, excludes soft-deleted notes, distinct from the
@@ -115,7 +116,7 @@ export function makeContentService(ctx: DomainContext) {
   const { prisma } = ctx;
 
   async function mapRow(pc: Prisma.PublishedContentGetPayload<{ include: ReturnType<typeof relIncludeFor> }>): Promise<PublishedContentDTO> {
-    const latest = pc.metricSnapshots[0] ?? null;
+    const latest = pc.latestSnapshot ?? null;
     const vs = pc.viewerStates[0] ?? null;
     const viewerState: ContentViewerStateDTO | null = vs
       ? { firstSeenAt: iso(vs.firstSeenAt), lastOpenedAt: iso(vs.lastOpenedAt), reviewedAt: iso(vs.reviewedAt), savedForLaterAt: iso(vs.savedForLaterAt) }

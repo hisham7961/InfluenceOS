@@ -367,9 +367,7 @@ export function makeReportService(ctx: DomainContext) {
         lastMetricsSyncAt: true,
         influencer: { select: { displayName: true } },
         campaign: { select: { name: true } },
-        metricSnapshots: {
-          orderBy: { capturedAt: 'desc' },
-          take: 1,
+        latestSnapshot: {
           select: {
             views: true,
             likes: true,
@@ -400,7 +398,7 @@ export function makeReportService(ctx: DomainContext) {
     ];
 
     const rows = items.map((pc): ReportRow => {
-      const snap = pc.metricSnapshots[0] ?? null;
+      const snap = pc.latestSnapshot ?? null;
       const syncedAt = pc.lastMetricsSyncAt ?? snap?.capturedAt ?? null;
       return {
         platform: pc.platform,

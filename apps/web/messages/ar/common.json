@@ -134,5 +134,12 @@
     "reference": "المرجع: {id}",
     "notFoundTitle": "الصفحة غير موجودة",
     "notFoundBody": "هذه الصفحة غير موجودة، أو أن العنصر حُذف أو نُقل."
+  },
+  "listControls": {
+    "sort": "الترتيب",
+    "sortBy": "الترتيب: {option}",
+    "activeFilters": "عوامل التصفية النشطة",
+    "removeFilter": "إزالة عامل التصفية: {filter}",
+    "clearAll": "مسح الكل"
   }
 }

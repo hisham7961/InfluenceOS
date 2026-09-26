@@ -462,10 +462,8 @@ export function makeAnalyticsService(ctx: DomainContext) {
           id: true,
           dataSource: true,
           lastMetricsSyncAt: true,
-          metricSnapshots: {
-            orderBy: { capturedAt: 'desc' },
-            take: 1,
-            select: {
+          latestSnapshot: {
+          select: {
               views: true,
               likes: true,
               comments: true,
@@ -526,7 +524,7 @@ export function makeAnalyticsService(ctx: DomainContext) {
     const perContent: ContentEfficiencyDTO[] = [];
 
     for (const c of contents) {
-      const snap = c.metricSnapshots[0] ?? null;
+      const snap = c.latestSnapshot ?? null;
       const source: DataSource = snap?.source ?? c.dataSource;
       const capturedAt = snap?.capturedAt ?? null;
       const contentEngagement = snap

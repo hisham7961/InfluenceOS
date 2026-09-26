@@ -40,13 +40,17 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
       // missing an owner"), not a UI filter chip — same pattern as
       // logistics-workspace.tsx's hasOpenIssue.
       ownerMissing: sp.ownerMissing || undefined,
+      ownerId: sp.ownerId || undefined,
+      objective: sp.objective || undefined,
+      sort: sp.sort || undefined,
+      order: sp.order === 'asc' ? 'asc' : sp.order === 'desc' ? 'desc' : undefined,
       page,
       pageSize: 24,
     }),
     api.brands.list(),
   ]);
 
-  const hasFilters = Boolean(sp.q || sp.brandId || sp.status);
+  const hasFilters = Boolean(sp.q || sp.brandId || sp.status || sp.objective || sp.ownerId || sp.ownerMissing);
 
   return (
     <div>

@@ -24,7 +24,16 @@
       "countryPlaceholder": "Country",
       "cityPlaceholder": "City",
       "cityAriaLabel": "Filter by city",
-      "reset": "Reset"
+      "reset": "Reset",
+      "followersLabel": "Followers",
+      "followersAny": "Any followers",
+      "followersBetween": "{min}–{max} followers",
+      "followersAtLeast": "{min}+ followers",
+      "followersUnder": "Under {max} followers",
+      "categoryPlaceholder": "Category…",
+      "categoryAriaLabel": "Filter by category",
+      "ownerLabel": "Owner",
+      "ownerAnyone": "Any owner"
     },
     "countryStrip": {
       "ariaLabel": "Filter by country",
@@ -86,6 +95,24 @@
       "updatedToast": "Updated {count} {count, plural, one {creator} other {creators}}.",
       "updatedWithFailuresToast": "Updated {count} {count, plural, one {creator} other {creators}}. {failed} failed.",
       "addToCampaign": "Add to campaign"
+    },
+    "chips": {
+      "search": "Search: {q}",
+      "city": "City: {city}",
+      "category": "Category: {category}",
+      "ownedByMe": "Owned by me",
+      "noOwner": "No owner",
+      "ownedBySomeone": "Owned by a teammate",
+      "missingCountry": "No country",
+      "missingPhone": "No phone number",
+      "missingSocial": "No social accounts"
+    },
+    "sort": {
+      "newest": "Newest first",
+      "oldest": "Oldest first",
+      "nameAsc": "Name A–Z",
+      "nameDesc": "Name Z–A",
+      "updated": "Recently updated"
     }
   },
   "form": {

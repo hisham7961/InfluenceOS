@@ -1215,7 +1215,11 @@ model PublishedContent {
   influencer         Influencer?              @relation(fields: [influencerId], references: [id])
   campaignInfluencer CampaignInfluencer?      @relation(fields: [campaignInfluencerId], references: [id])
   deliverable        Deliverable?             @relation(fields: [deliverableId], references: [id])
-  metricSnapshots    ContentMetricSnapshot[]
+  metricSnapshots    ContentMetricSnapshot[]  @relation("ContentSnapshots")
+  /// The newest metric snapshot (P2.8), kept current by a database trigger on
+  /// ContentMetricSnapshot so reads join one row instead of loading them all.
+  latestSnapshotId   String?                  @unique
+  latestSnapshot     ContentMetricSnapshot?   @relation("LatestSnapshot", fields: [latestSnapshotId], references: [id], onDelete: SetNull)
   monitoringEvents   ContentMonitoringEvent[]
   notifications      Notification[]
   activities         ActivityLog[]
@@ -1253,7 +1257,8 @@ model ContentMetricSnapshot {
   capturedAt         DateTime   @default(now())
   source             DataSource @default(MANUAL)
 
-  publishedContent PublishedContent @relation(fields: [publishedContentId], references: [id], onDelete: Cascade)
+  publishedContent PublishedContent  @relation("ContentSnapshots", fields: [publishedContentId], references: [id], onDelete: Cascade)
+  latestOf         PublishedContent? @relation("LatestSnapshot")
 
   @@index([publishedContentId, capturedAt])
 }

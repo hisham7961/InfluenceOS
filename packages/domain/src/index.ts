@@ -113,6 +113,7 @@ export { resealStoredSecrets, type ResealResult } from './lib/reseal';
 export { alertAdmins, recordSyncHealth, SYNC_FAILURE_THRESHOLD, type AdminAlert, type PlatformSyncHealth } from './lib/ops-alerts';
 export { deliveredWhere, outstandingWhere, countedWhere, overdueWhere, dueWithinWhere } from './lib/deliverable-rules';
 export { runReminders, OVERDUE_REPEAT_DAYS } from './lib/reminders';
+export { pruneHistory, RETENTION, type PruneResult } from './lib/retention';
 export { buildDigest, removedSinceWhere, REMOVED_CONTENT_STATUSES } from './lib/digest';
 export { emailConfigFromEnv, appUrlFromEnv, smtpMailer, type EmailConfig, type Mailer } from './lib/email/config';
 export { parseSmtpUrl, sendSmtp, buildMime, type MailMessage, type SmtpConfig } from './lib/email/smtp';

@@ -309,7 +309,7 @@ requires `role === 'ADMIN'`.
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/v1/influencers` | List/filter the influencer directory. Offset-paginated. |
+| GET | `/api/v1/influencers` | List/filter the influencer directory. Offset-paginated. Filters: `q`, `platform`, `relationshipStatus`, `countryCode`, `city`, `category`, `minFollowers`/`maxFollowers` (any account), `ownerId` (a user id, or `unowned`), `tag`, `brandId`, `campaignId` and the Data Quality deep links (`missingCountry`, `missingOwner`, `missingPhone`, `missingSocial`). Sort: `sort=createdAt\|name\|updatedAt` with `order=asc\|desc` (newest first by default); the CSV export takes the same. |
 | POST | `/api/v1/influencers` | Create an influencer → `201`. |
 | GET | `/api/v1/influencers/:id` | Influencer 360 profile. |
 | PATCH | `/api/v1/influencers/:id` | Update an influencer. |
@@ -320,6 +320,7 @@ requires `role === 'ADMIN'`.
 | GET | `/api/v1/influencers/:id/audience-health` | Audience health signals. |
 | GET | `/api/v1/influencers/:id/notes` | Internal notes for an influencer. |
 | GET | `/api/v1/influencers/:id/brands` | Brand relationships for an influencer. |
+| GET | `/api/v1/influencers/:id/performance` | A creator's results over time: posts (all / last 90 days), median views and engagement, brands that booked again, on-time rate, paid and cost per view (money with finance access only), per platform. |
 | POST | `/api/v1/notes` | Add an internal note (on an influencer, a brand, and/or a piece of content). |
 | PATCH | `/api/v1/notes/:id` | Update a note (`body`, `pinned`). |
 | DELETE | `/api/v1/notes/:id` | Delete a note. |
@@ -339,7 +340,7 @@ requires `role === 'ADMIN'`.
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/v1/campaigns` | List/filter campaigns. Offset-paginated. |
+| GET | `/api/v1/campaigns` | List/filter campaigns. Offset-paginated. Filters: `q`, `brandId`, `status`, `objective`, `ownerId` ("my campaigns"), `ownerMissing`. Sort: `sort=createdAt\|startDate\|endDate\|name` with `order=asc\|desc`. |
 | POST | `/api/v1/campaigns` | Create a campaign. |
 | GET | `/api/v1/campaigns/:idOrSlug` | Get a campaign by id or slug. |
 | PATCH | `/api/v1/campaigns/:id` | Update a campaign. `draftReview: true` puts every deliverable (not only UGC) through a draft review before posting. Targets for the client report: `targetViews`, `targetEngagements`, `targetEngagementRate` (percent), `targetCostPerView` (campaign currency), plus a free-text `reportSummary` (all nullable; also accepted on create). |
@@ -476,6 +477,9 @@ their participation to dropped instead, so the payment history stays.
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/v1/reports` | Generate an analytics report. `type=campaign\|influencer\|brand\|content\|spend`, `format=json\|csv` (`format=csv` streams a `text/csv` download instead of JSON). |
+| GET | `/api/v1/reports/exec-dashboard` | The owner's dashboard. `period=month\|quarter\|year\|last30\|custom` (+ `from`/`to` as `YYYY-MM-DD`, Kuwait days) and `brandId`: results for the period against the same number of days before it, spend vs budget per currency, today, since yesterday, brands. Cached 60 s per reader. |
+| GET | `/api/v1/reports/trends` | Week- or month-by-month results: `bucket=week\|month`, optional `brandId`, `campaignId`, `influencerId`, `from`/`to` (default: the last 12 buckets). Paid amounts only with finance access. |
+| GET | `/api/v1/reports/leaderboard` | Creators ranked by results and reliability (median views, on-time rate), not volume alone. |
 
 ### Notifications
 
