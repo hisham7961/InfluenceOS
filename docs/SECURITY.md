@@ -217,9 +217,25 @@ The Next.js app sets its own headers on every route (`headers()` in
 - `Permissions-Policy: camera=(), microphone=(), geolocation=()` — these browser
   capabilities are hard-disabled; the app has no feature that needs them.
 
-`script-src` currently includes `'unsafe-inline' 'unsafe-eval'` — the file's own
-comment notes this is required by the Next.js dev/runtime, and `connect-src`
-includes a broad `https:` plus the local API origin for development.
+`script-src` includes `'unsafe-inline'` (Next.js's inline bootstrap).
+`'unsafe-eval'` is only added in development (fast refresh); the production
+build never evals, so production leaves it out. `connect-src` includes a broad
+`https:`, plus the local API origin and websockets in development only.
+
+### What the web proxy forwards (`/api/bff`)
+
+The BFF proxy only forwards `/api/bff/api/v1/…` to the API. Anything else the
+API serves on its private network (`/metrics`, `/health`, `/ready`, the docs)
+answers 404 through the proxy, and a path segment of `.`, `..` or one holding a
+slash is refused before any request is made.
+
+### API docs are off in production
+
+`/api/docs` (Swagger UI) and `/api/openapi.json` map every endpoint, so they
+are served in development and switched off in production unless
+`API_DOCS=on` is set. The OpenAPI document is still built in-process (the
+contract test and SDK generation read it), so turning the pages off changes
+nothing else.
 
 ## 5. Embed security (spec §38)
 
@@ -354,6 +370,26 @@ use to trigger a re-auth/refresh flow.
   (`INSTAGRAM_ACCESS_TOKEN`, API keys, etc.) are read directly from
   `process.env` inside domain/provider adapter code and never serialized into any
   DTO.
+- **Stored secrets have their own key (optional).** Provider API keys entered
+  in Admin → Integrations and creators' OAuth tokens are sealed with
+  AES-256-GCM. The key comes from `ENCRYPTION_KEY` (at least 32 characters)
+  when it is set, otherwise it is derived from `AUTH_SECRET` as before. With a
+  separate key, rotating `AUTH_SECRET` (which signs everyone out) no longer
+  touches stored credentials, and vice versa. To switch an existing install:
+  add `ENCRYPTION_KEY` to the API and worker environment, restart, then run
+  `pnpm --filter @influenceos/api run reseal` (in Docker: `docker compose exec
+  api pnpm --filter @influenceos/api exec tsx src/scripts/reseal.ts`) while
+  `AUTH_SECRET` is still the old one. Values sealed under the old key keep
+  opening until then; the script is safe to run twice.
+- **Least-privilege database and storage accounts (recommended).** The stack
+  runs the app as the Postgres owner and MinIO root by default. For a tighter
+  setup, `deploy/postgres/app-role.sql` creates an `influenceos_app` role that
+  can read and write the tables but not drop them or change the schema; point
+  `DATABASE_URL` at it and keep the owner only in `DIRECT_DATABASE_URL`, which
+  migrations use. For object storage, create a MinIO user limited to the
+  `influenceos` bucket (steps in `docs/OBJECT_STORAGE.md` §11) and use it for
+  `S3_ACCESS_KEY_ID` /
+  `S3_SECRET_ACCESS_KEY` instead of the root account.
 - **Optional-by-design provider credentials.** Every social-provider credential is
   optional; when absent, the corresponding adapter advertises reduced capabilities
   instead of failing (`.env.example`: *"The product works fully in manual-fallback
@@ -491,9 +527,10 @@ checked and the finding.
   code path. The CI `security` job still runs the audit in **report-only** mode
   so the residual advisories stay visible. Full classification in
   `docs/PRE_DEPLOYMENT_STATUS.md` §5.
-- **CSP `unsafe-inline` / `unsafe-eval`.** The web CSP retains these for Next.js's
-  runtime. Tightening to a nonce/hash-based policy is a follow-up; the production
-  CSP already drops the dev-only `localhost`/websocket `connect-src` sources.
+- **CSP `unsafe-inline`.** The web CSP retains it for Next.js's inline
+  bootstrap. Tightening to a nonce/hash-based policy is a follow-up; production
+  already drops `unsafe-eval` and the dev-only `localhost`/websocket
+  `connect-src` sources.
 
 ## Related docs
 

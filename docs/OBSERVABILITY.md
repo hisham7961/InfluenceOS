@@ -34,6 +34,31 @@ curl -s http://api:4000/health   # liveness  (release identity + uptimeSec)
 curl -s http://api:4000/ready    # readiness (200 if DB reachable, else 503)
 ```
 
+### 2.1 Alerts without a monitoring stack (P2.4)
+
+Two things work with nothing extra installed:
+
+- **Admin alerts in the app.** Every admin gets a notification (category
+  `SYNC_FAILURE`, linking to the right settings page) when:
+  - a platform's follower syncs all failed in the last 24 hours (at least 3
+    attempts, no success) — Admin → Integrations also shows it as the
+    platform's last error; at most once a day per platform;
+  - a background job gave up after its retries (content check, account sync or
+    maintenance) — at most once every 6 hours per queue.
+  Any channel notifications go out on (e.g. the email digest, when set up)
+  carries them too.
+- **Dead-man's switch.** Set `HEALTHCHECK_PING_URL` for the worker to a
+  Healthchecks.io (or similar) check URL. The worker requests it after every
+  maintenance sweep (every 30 minutes by default) and requests `<url>/fail`
+  when a sweep fails. Set the check's period to 30 minutes with a 30-minute
+  grace: if the pings stop — worker crashed, Redis gone, the whole server
+  down — that service emails or messages you. Leave it unset to turn it off.
+
+"Test connection" in Admin → Integrations makes a real call to the provider
+(Instagram: our business account; YouTube: a 1-unit keyed call; X: a public
+account lookup) and reports the provider's own error when it fails. Platforms
+without an API we call say so instead of claiming a connection.
+
 ## 3. Metrics
 
 The API exposes Prometheus metrics at `GET /metrics` (Prometheus text

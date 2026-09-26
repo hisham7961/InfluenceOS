@@ -425,3 +425,73 @@ describe('SnapchatAdapter (manual)', () => {
     expect(r.ok).toBe(false);
   });
 });
+
+describe('testConnection (P2.4 — Admin → Integrations "Test")', () => {
+  it('reports "no credential" without calling the provider', async () => {
+    for (const a of [new YouTubeAdapter(ctxWith({}, NEVER)), new XAdapter(ctxWith({}, NEVER)), new InstagramAdapter(ctxWith({}, NEVER))]) {
+      const r = await a.testConnection();
+      expect(r).toMatchObject({ ok: false, live: false });
+    }
+  });
+
+  it('YouTube: a keyed call that returns items is a pass; a 400 key error is a clear fail', async () => {
+    const good = new YouTubeAdapter(
+      ctxWith({ YOUTUBE_API_KEY: 'k' }, (url) => {
+        expect(url).toContain('/i18nLanguages?');
+        return res(200, { items: [] });
+      }),
+    );
+    expect(await good.testConnection()).toMatchObject({ ok: true, live: true, httpStatus: 200 });
+
+    const bad = new YouTubeAdapter(ctxWith({ YOUTUBE_API_KEY: 'k' }, () => res(400, { error: { message: 'API key not valid.' } })));
+    const r = await bad.testConnection();
+    expect(r.ok).toBe(false);
+    expect(r.message).toContain('API key not valid.');
+  });
+
+  it('Instagram: reads our own business account; a refused token is reported without echoing it', async () => {
+    const good = new InstagramAdapter(
+      ctxWith({ INSTAGRAM_ACCESS_TOKEN: 'tok', INSTAGRAM_BUSINESS_ACCOUNT_ID: '178' }, (url) => {
+        expect(url).toContain('/178?fields=id,username');
+        return res(200, { id: '178', username: 'agency' });
+      }),
+    );
+    expect(await good.testConnection()).toMatchObject({ ok: true, live: true });
+
+    const bad = new InstagramAdapter(
+      ctxWith({ INSTAGRAM_ACCESS_TOKEN: 'secret-token', INSTAGRAM_BUSINESS_ACCOUNT_ID: '178' }, () =>
+        res(401, { error: { message: 'Invalid OAuth access token. access_token=secret-token' } }),
+      ),
+    );
+    const r = await bad.testConnection();
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/refused the credential/);
+    expect(r.message).not.toContain('secret-token');
+  });
+
+  it('X: bearer token accepted → pass; rate limit → fail with a plain reason', async () => {
+    const good = new XAdapter(
+      ctxWith({ X_API_BEARER_TOKEN: 'b' }, (_url, init) => {
+        expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer b');
+        return res(200, { data: { id: '783214', username: 'X' } });
+      }),
+    );
+    expect(await good.testConnection()).toMatchObject({ ok: true });
+    const limited = new XAdapter(ctxWith({ X_API_BEARER_TOKEN: 'b' }, () => res(429, { title: 'Too Many Requests' })));
+    expect((await limited.testConnection()).message).toMatch(/Rate limited/);
+  });
+
+  it('a network failure is a fail, never a throw', async () => {
+    const down = new YouTubeAdapter(
+      ctxWith({ YOUTUBE_API_KEY: 'k' }, () => {
+        throw new TypeError('fetch failed');
+      }),
+    );
+    expect(await down.testConnection()).toMatchObject({ ok: false, live: true, message: 'Could not reach the provider.' });
+  });
+
+  it('platforms without an API we call say so instead of claiming a connection', async () => {
+    const r = await new SnapchatAdapter(ctxWith({}, NEVER)).testConnection();
+    expect(r.live).toBe(false);
+  });
+});

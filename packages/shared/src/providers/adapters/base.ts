@@ -11,6 +11,7 @@ import type {
   AdapterContext,
   AdapterResult,
   AvailabilityResult,
+  ConnectionTestResult,
   ContentMetricsResult,
   EmbedDescriptor,
   NormalizedContentUrl,
@@ -44,6 +45,41 @@ export abstract class BaseAdapter implements SocialPlatformAdapter {
 
   getCapabilities(): AdapterCapabilities {
     return resolveCapabilities(this.platform, this.apiConfigured);
+  }
+
+  /**
+   * Default for platforms without an official API we call: say so honestly
+   * instead of claiming the provider was reached.
+   */
+  async testConnection(): Promise<ConnectionTestResult> {
+    if (!this.apiConfigured) return { ok: false, live: false, message: 'No credential configured.' };
+    return { ok: true, live: false, message: 'Credential is set. This platform has no test call.' };
+  }
+
+  /**
+   * One GET against the provider with a 10-second limit, turned into a
+   * connection-test result. `okWhen` decides success from the parsed body.
+   */
+  protected async probe(
+    url: string,
+    init: RequestInit | undefined,
+    okWhen: (body: unknown) => boolean,
+  ): Promise<ConnectionTestResult> {
+    try {
+      const res = await this.fetchFn(url, { ...init, signal: AbortSignal.timeout(10_000) });
+      const body = (await res.json().catch(() => null)) as unknown;
+      if (res.ok && okWhen(body)) {
+        return { ok: true, live: true, httpStatus: res.status, message: 'Connected: the provider accepted the credential.' };
+      }
+      return { ok: false, live: true, httpStatus: res.status, message: providerErrorMessage(res.status, body) };
+    } catch (e) {
+      const timedOut = e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError');
+      return {
+        ok: false,
+        live: true,
+        message: timedOut ? 'The provider did not answer within 10 seconds.' : 'Could not reach the provider.',
+      };
+    }
   }
 
   normalizeProfileInput(input: string): NormalizedProfileInput | null {
@@ -169,4 +205,19 @@ export abstract class BaseAdapter implements SocialPlatformAdapter {
       };
     }
   }
+}
+
+/** A short, safe message from a provider error response (never echoes secrets). */
+function providerErrorMessage(status: number, body: unknown): string {
+  const b = body as { error?: { message?: unknown } | string; detail?: unknown; title?: unknown } | null;
+  const raw =
+    (b && typeof b.error === 'object' && typeof b.error?.message === 'string' && b.error.message) ||
+    (b && typeof b.error === 'string' && b.error) ||
+    (b && typeof b.detail === 'string' && b.detail) ||
+    (b && typeof b.title === 'string' && b.title) ||
+    '';
+  const reason = status === 401 || status === 403 ? 'The provider refused the credential' : status === 429 ? 'Rate limited by the provider' : `The provider answered ${status}`;
+  // Tokens can appear in echoed URLs; keep only a short prefix of the text.
+  const detail = raw.replace(/access_token=[^&\s]+/gi, 'access_token=…').slice(0, 200);
+  return detail ? `${reason}: ${detail}` : `${reason}.`;
 }

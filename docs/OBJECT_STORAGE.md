@@ -217,3 +217,38 @@ Object storage is exercised by CI, not just asserted:
 
 These jobs are the guard against regressions in the two-phase upload, the
 presigned-URL model, and the internal/public endpoint split.
+
+## 11. A bucket-only storage account (recommended)
+
+By default the API and worker use the MinIO root user. That account can do
+anything to every bucket and to MinIO itself. A dedicated user limited to the
+`influenceos` bucket is enough for the app. With the MinIO client (`mc`) on the
+server:
+
+```bash
+# 1. Point mc at your MinIO with the root account (once).
+mc alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+
+# 2. A policy that allows only the influenceos bucket.
+cat > /tmp/influenceos-app.json <<'JSON'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Effect": "Allow", "Action": ["s3:GetBucketLocation", "s3:ListBucket"], "Resource": ["arn:aws:s3:::influenceos"] },
+    { "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"], "Resource": ["arn:aws:s3:::influenceos/*"] }
+  ]
+}
+JSON
+mc admin policy create local influenceos-app /tmp/influenceos-app.json
+
+# 3. The user, with a long random secret, and the policy attached.
+mc admin user add local influenceos-app "$(openssl rand -hex 24)"   # note the secret you pass here
+mc admin policy attach local influenceos-app --user influenceos-app
+```
+
+Then set `S3_ACCESS_KEY_ID=influenceos-app` and `S3_SECRET_ACCESS_KEY=<that
+secret>` for the API and worker (keep `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD`
+for MinIO itself) and restart them. Uploading, opening and deleting a file in
+the app confirms it works. Bucket setup (CORS, creating the bucket) still needs
+the root account, which is what the `minio-init` one-shot uses.
+

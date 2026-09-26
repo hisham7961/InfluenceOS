@@ -1,6 +1,12 @@
 import http from 'node:http';
 import { prisma } from '@influenceos/database';
-import { diskUsage, refreshProviderCredentialOverrides, type UploadCleanupResult } from '@influenceos/domain';
+import {
+  alertAdmins,
+  diskUsage,
+  recordSyncHealth,
+  refreshProviderCredentialOverrides,
+  type UploadCleanupResult,
+} from '@influenceos/domain';
 import { Queue, Worker, type Job } from 'bullmq';
 import { buildIdentity, computeWorkerHealth, shouldDeadLetter } from '@influenceos/shared';
 import { createConnection, isRedisAvailable } from './redis';
@@ -21,6 +27,30 @@ const MAX_BATCH = Math.max(BATCH, Number(process.env.MONITOR_MAX_BATCH_SIZE) || 
 const ACCOUNT_BATCH = Number(process.env.MONITOR_ACCOUNT_BATCH_SIZE) || 25;
 const MONITOR_CRON = process.env.MONITOR_CRON || '*/30 * * * *';
 const HEALTH_PORT = Number(process.env.WORKER_PORT) || 4100;
+/**
+ * Optional dead-man's switch (P2.4): a Healthchecks.io-style URL pinged after
+ * every successful maintenance sweep, and at `<url>/fail` when one fails. If
+ * the pings stop, that service alerts you — even when the whole server is down.
+ */
+const HEALTHCHECK_PING_URL = process.env.HEALTHCHECK_PING_URL?.replace(/\/$/, '') || null;
+
+async function ping(suffix: '' | '/fail'): Promise<void> {
+  if (!HEALTHCHECK_PING_URL) return;
+  await fetch(`${HEALTHCHECK_PING_URL}${suffix}`, { signal: AbortSignal.timeout(10_000) }).catch((e) =>
+    console.warn(`[health-ping] could not reach the ping URL: ${e instanceof Error ? e.message : e}`),
+  );
+}
+
+/** A maintenance sweep, reported to the ping URL either way. */
+async function sweep(enqueue: (kind: Kind, id: string) => Promise<void>): Promise<void> {
+  try {
+    await runMaintenance(enqueue);
+  } catch (e) {
+    await ping('/fail');
+    throw e;
+  }
+  await ping('');
+}
 
 const QUEUES = {
   content: 'content-check',
@@ -112,6 +142,16 @@ async function runMaintenance(enqueue: (kind: Kind, id: string) => Promise<void>
     }
   }
 
+  // Record each platform's sync health on Admin → Integrations and alert
+  // the admins when a platform's syncs all fail.
+  const health = await recordSyncHealth(prisma).catch((e) => {
+    console.error('[maintenance] could not record sync health', e);
+    return [];
+  });
+  for (const h of health.filter((x) => x.failing)) {
+    console.warn(`[maintenance] ${h.platform} follower sync failing: ${h.failures} failures, no success in 24h`);
+  }
+
   stats.lastMaintenanceAt = new Date().toISOString();
   console.log(
     `[maintenance] queued ${dueContent.length} content checks, ${staleAccounts.length} account syncs (still waiting: ${stats.backlog.dueContent} content, ${stats.backlog.staleAccounts} accounts), created ${notif.created} notifications, quarantined ${cleaned} orphan uploads`,
@@ -179,6 +219,14 @@ async function startWithRedis() {
           )
           .catch((e) => console.error('[worker] failed to dead-letter job', e));
         console.error(`[worker] job ${queueName}/${job.id} dead-lettered after ${job.attemptsMade} attempts`);
+        // Tell the admins (at most every 6 hours per queue) — a job that gave
+        // up means some content or account is silently not being refreshed.
+        void alertAdmins(prisma, {
+          title: `Background ${queueName} jobs are failing`,
+          body: `A ${queueName} job gave up after ${job.attemptsMade} attempts: ${String(err?.message ?? job.failedReason ?? 'unknown error').slice(0, 300)}`,
+          targetUrl: '/settings/platform',
+          dedupeHours: 6,
+        }).catch((e) => console.error('[worker] could not alert admins', e));
       }
     });
     worker.on('error', (err) => {
@@ -219,7 +267,7 @@ async function startWithRedis() {
 
   workers.push(
     observe(
-      new Worker(QUEUES.maintenance, async () => runMaintenance(enqueue), { connection, concurrency: 1 }),
+      new Worker(QUEUES.maintenance, async () => sweep(enqueue), { connection, concurrency: 1 }),
       QUEUES.maintenance,
     ),
   );
@@ -243,7 +291,7 @@ function startFallback() {
       stats.accountSyncs++;
     }
   };
-  const tick = () => runMaintenance(enqueueInline).catch((e) => console.error('maintenance error', e));
+  const tick = () => sweep(enqueueInline).catch((e) => console.error('maintenance error', e));
   void tick();
   inlineTimer = setInterval(() => void tick(), 30 * 60 * 1000);
 }

@@ -1,4 +1,4 @@
-import { PLATFORMS, type Platform } from '@influenceos/shared';
+import { PLATFORMS, getAdapter, type Platform } from '@influenceos/shared';
 import { requests, z, type IntegrationCapabilityDTO, type IntegrationDTO } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
@@ -135,17 +135,18 @@ export function makeIntegrationService(ctx: DomainContext) {
     return toDTO(setting, capabilityFor(platform));
   }
 
-  /** Admin-only: run a live connectivity check against the provider adapter (never throws on failure). */
+  /**
+   * Admin-only: make a real, cheap call to the provider with the configured
+   * credential (never throws on failure). Platforms without an API we call
+   * say so instead of claiming the provider was reached.
+   */
   async function test(platform: Platform): Promise<{ ok: boolean; message: string }> {
     requireAdmin(ctx);
     if (!PLATFORMS.includes(platform)) throw AppError.notFound('Platform');
 
-    const capability = capabilityFor(platform);
     const now = new Date();
-    const ok = capability.apiConfigured;
-    const message = ok
-      ? `${platform} integration is configured and reachable.`
-      : 'No credential configured';
+    const result = await getAdapter(platform, makeProviderService(ctx).adapterCtx).testConnection();
+    const { ok, message } = result;
 
     await prisma.integrationSetting.upsert({
       where: { platform },

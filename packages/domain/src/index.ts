@@ -109,6 +109,8 @@ export { maxUploadBytes, type UploadCleanupResult } from './services/attachment.
 export { getStorage, resetStorage, sanitizeFileName, buildStorageKey } from './lib/storage';
 export { signDownloadTicket, verifyDownloadTicket } from './lib/tokens';
 export { diskUsage, type DiskUsage } from './lib/disk';
+export { resealStoredSecrets, type ResealResult } from './lib/reseal';
+export { alertAdmins, recordSyncHealth, SYNC_FAILURE_THRESHOLD, type AdminAlert, type PlatformSyncHealth } from './lib/ops-alerts';
 export { deliveredWhere, outstandingWhere, countedWhere, overdueWhere, dueWithinWhere } from './lib/deliverable-rules';
 export {
   CONTENT_CLAIM_LEASE_MS,

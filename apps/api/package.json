@@ -13,7 +13,8 @@
     "test:contract": "dotenv -e ../../.env -- vitest run test/contract.test.ts",
     "test:dod": "dotenv -e ../../.env -- vitest run test/dod.test.ts",
     "lint": "echo \"(api) no lint\"",
-    "clean": "rm -rf node_modules .turbo dist"
+    "clean": "rm -rf node_modules .turbo dist",
+    "reseal": "dotenv -e ../../.env -- tsx src/scripts/reseal.ts"
   },
   "dependencies": {
     "@fastify/cookie": "11.0.2",

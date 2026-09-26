@@ -37,13 +37,14 @@ const csp = [
   `media-src 'self' https:${s3Src}`,
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
-  // Next.js requires 'unsafe-inline'/'unsafe-eval' for its runtime; dev also
-  // needs eval for fast refresh. Production keeps unsafe-inline for Next's
-  // inline bootstrap but drops the dev-only websocket/localhost connect sources.
+  // Next.js needs 'unsafe-inline' for its inline bootstrap. 'unsafe-eval' is
+  // only for development (fast refresh); the production build never evals,
+  // so it is left out there. Production also drops the dev-only
+  // websocket/localhost connect sources.
   // www.instagram.com is Meta's own official embed.js loader (the
   // blockquote-script embed path in embeds.ts) — the only third-party
   // script this app ever loads, and only to render an Instagram embed.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.instagram.com",
+  `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"} https://www.instagram.com`,
   isProd
     ? `connect-src 'self' https:${s3Src}`
     : `connect-src 'self' https: http://localhost:4000 ws: wss:${s3Src}`,

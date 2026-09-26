@@ -15,7 +15,7 @@ import {
 } from 'fastify-type-provider-zod';
 import { AppError, createServices, maxUploadBytes, systemContext } from '@influenceos/domain';
 import { API_PREFIX, type ApiErrorBody, type ApiErrorCode } from '@influenceos/contracts';
-import { corsOrigins, loadEnv } from './env';
+import { apiDocsEnabled, corsOrigins, loadEnv } from './env';
 import { resolveActor } from './http';
 import { registerRoutes } from './routes/index';
 import { installCaching } from './cache';
@@ -137,10 +137,15 @@ export async function buildApp(): Promise<FastifyInstance> {
     },
     transform: jsonSchemaTransform,
   });
-  await app.register(swaggerUi, {
-    routePrefix: '/api/docs',
-    uiConfig: { docExpansion: 'list', deepLinking: true },
-  });
+  // The spec is always built (SDK generation and the contract test read it
+  // in-process); serving it is opt-in in production.
+  const docs = apiDocsEnabled(env);
+  if (docs) {
+    await app.register(swaggerUi, {
+      routePrefix: '/api/docs',
+      uiConfig: { docExpansion: 'list', deepLinking: true },
+    });
+  }
 
   // Resolve the authenticated actor for every request (stateless bearer).
   app.addHook('onRequest', async (request) => {
@@ -285,7 +290,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   // Prometheus metrics. MUST stay internal — the reverse proxy only exposes
-  // /api/v1, /api/docs and /api/openapi.json publicly, so /metrics is reachable
+  // /api/v1 (and, when API_DOCS is on, /api/docs and /api/openapi.json) publicly, so /metrics is reachable
   // only on the private network where the scraper lives. No secrets, low
   // cardinality (route templates + status classes only).
   app.get('/metrics', { schema: { hide: true } }, async (_req, reply) => {
@@ -295,7 +300,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   // OpenAPI JSON for SDK generation (addendum §8).
-  app.get('/api/openapi.json', { schema: { hide: true } }, async () => app.swagger());
+  if (docs) app.get('/api/openapi.json', { schema: { hide: true } }, async () => app.swagger());
 
   await app.register(async (scoped) => registerRoutes(scoped), { prefix: API_PREFIX });
 

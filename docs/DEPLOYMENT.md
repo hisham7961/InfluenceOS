@@ -253,6 +253,27 @@ multi-stage Node 22 + pnpm image works, running `pnpm --filter <pkg> ...` per
 stage) and run migrations as a one-off job/init container rather than from inside
 the API process.
 
+### Deploying a CI-built release (pull-based, recommended)
+
+CI builds, smoke-tests and pushes `ghcr.io/<owner>/influenceos-{api,worker,web}`
+tagged with every commit SHA. With `docker-compose.registry.yml` in
+`COMPOSE_FILE`, deploy an exact tested build with:
+
+```bash
+scripts/deploy-sha.sh <git-sha>     # deploy that build
+scripts/deploy-sha.sh --rollback    # back to the build deployed before it
+scripts/deploy-sha.sh --status      # what is running + deploy history
+```
+
+It pulls the images (refusing a SHA CI never built), takes a database copy
+(`scripts/backup.sh --db-only`), pins `IMAGE_TAG=<sha>` in `.env` so a restart
+keeps that build, starts the stack (the `migrate` one-shot runs first), waits
+for the API's `/ready` and the web to answer, records the SHA in
+`.deploy-history`, and removes images of builds older than the last
+`KEEP_RELEASES` (default 3). A rollback redeploys the app only — the database
+is not rolled back (see `scripts/rollback-production.sh` for the migration
+caveats).
+
 ### Migrations
 
 Always use the non-interactive deploy command in CI/production, never `db:migrate`

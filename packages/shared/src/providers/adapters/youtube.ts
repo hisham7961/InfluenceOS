@@ -2,6 +2,7 @@ import { BaseAdapter } from './base';
 import type {
   AdapterResult,
   AvailabilityResult,
+  ConnectionTestResult,
   ContentMetricsResult,
   NormalizedProfileInput,
   ProfileSyncResult,
@@ -23,6 +24,16 @@ export class YouTubeAdapter extends BaseAdapter {
 
   get apiConfigured(): boolean {
     return !!this.apiKey;
+  }
+
+  /** The cheapest keyed call (1 quota unit). */
+  override async testConnection(): Promise<ConnectionTestResult> {
+    if (!this.apiConfigured) return super.testConnection();
+    return this.probe(
+      `${API}/i18nLanguages?part=snippet&hl=en&key=${encodeURIComponent(this.apiKey!)}`,
+      undefined,
+      (b) => Array.isArray((b as { items?: unknown } | null)?.items),
+    );
   }
 
   private async getJson(url: string): Promise<any> {

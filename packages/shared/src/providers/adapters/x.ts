@@ -2,6 +2,7 @@ import { BaseAdapter } from './base';
 import type {
   AdapterResult,
   AvailabilityResult,
+  ConnectionTestResult,
   ContentMetricsResult,
   NormalizedProfileInput,
   ProfileSyncResult,
@@ -25,6 +26,16 @@ export class XAdapter extends BaseAdapter {
 
   get apiConfigured(): boolean {
     return !!this.bearer;
+  }
+
+  /** Looks up X's own public account — works on every paid access tier. */
+  override async testConnection(): Promise<ConnectionTestResult> {
+    if (!this.apiConfigured) return super.testConnection();
+    return this.probe(
+      `${API}/users/by/username/X`,
+      { headers: { Authorization: `Bearer ${this.bearer}` } },
+      (b) => typeof (b as { data?: { id?: unknown } } | null)?.data?.id === 'string',
+    );
   }
 
   private async getJson(url: string): Promise<any> {

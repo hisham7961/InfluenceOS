@@ -153,9 +153,22 @@ export interface AdapterContext {
   fetchFn?: typeof fetch;
 }
 
+/** Outcome of an admin's "Test connection" (a real, cheap call to the provider). */
+export interface ConnectionTestResult {
+  ok: boolean;
+  /** Plain-language outcome for the admin screen. */
+  message: string;
+  /** Whether the provider was actually called (false: nothing to call, e.g. no credential). */
+  live: boolean;
+  httpStatus?: number;
+}
+
 export interface SocialPlatformAdapter {
   readonly platform: Platform;
   getCapabilities(): AdapterCapabilities;
+
+  /** Make the cheapest real call the configured credential allows. Never throws. */
+  testConnection(): Promise<ConnectionTestResult>;
 
   /** Detect + normalize a pasted username or profile URL. */
   normalizeProfileInput(input: string): NormalizedProfileInput | null;

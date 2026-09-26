@@ -46,10 +46,26 @@ async function tryRefresh(
   }
 }
 
+/**
+ * Only the versioned API goes through the proxy — never /metrics, /health or
+ * anything else the API serves on its private network — and no segment may
+ * step out of it (`..`, `.`, or an encoded slash).
+ */
+function isApiPath(path: string[]): boolean {
+  return (
+    path[0] === 'api' &&
+    path[1] === 'v1' &&
+    path.every((seg) => seg !== '' && seg !== '.' && seg !== '..' && !/[/\\]/.test(seg))
+  );
+}
+
 async function handle(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
   const { path } = await ctx.params;
+  if (!isApiPath(path)) {
+    return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Not found.' } }, { status: 404 });
+  }
   const store = await cookies();
-  const target = `${apiBaseUrl()}/${path.join('/')}${req.nextUrl.search}`;
+  const target = `${apiBaseUrl()}/${path.map(encodeURIComponent).join('/')}${req.nextUrl.search}`;
   const method = req.method;
   // Forward the body as raw bytes so binary uploads (octet-stream) pass through
   // intact; JSON bodies survive equally as their UTF-8 byte representation.

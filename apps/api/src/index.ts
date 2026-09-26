@@ -1,7 +1,7 @@
 import { prisma } from '@influenceos/database';
 import { getStorage, refreshProviderCredentialOverrides } from '@influenceos/domain';
 import { buildApp } from './app';
-import { loadEnv } from './env';
+import { apiDocsEnabled, loadEnv } from './env';
 import { releaseInfo } from './release';
 
 async function main() {
@@ -66,7 +66,7 @@ async function main() {
       { version: rel.version, gitSha: rel.gitSha, environment: rel.environment },
       `InfluenceOS API listening on http://${env.API_HOST}:${env.API_PORT}`,
     );
-    app.log.info(`API docs at http://localhost:${env.API_PORT}/api/docs`);
+    if (apiDocsEnabled(env)) app.log.info(`API docs at http://localhost:${env.API_PORT}/api/docs`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

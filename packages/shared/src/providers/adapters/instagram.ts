@@ -2,6 +2,7 @@ import { BaseAdapter } from './base';
 import type {
   AdapterResult,
   AvailabilityResult,
+  ConnectionTestResult,
   ContentMetricsResult,
   NormalizedProfileInput,
   ProfileSyncResult,
@@ -44,6 +45,16 @@ export class InstagramAdapter extends BaseAdapter {
 
   get apiConfigured(): boolean {
     return !!this.accessToken && !!this.igUserId;
+  }
+
+  /** Reads our own business account (id + username) — the node every lookup starts from. */
+  override async testConnection(): Promise<ConnectionTestResult> {
+    if (!this.apiConfigured) return super.testConnection();
+    return this.probe(
+      `${GRAPH}/${encodeURIComponent(this.igUserId!)}?fields=id,username&access_token=${encodeURIComponent(this.accessToken!)}`,
+      undefined,
+      (b) => typeof (b as { id?: unknown } | null)?.id === 'string',
+    );
   }
 
   override async resolveProfile(

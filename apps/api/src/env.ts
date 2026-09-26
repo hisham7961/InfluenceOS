@@ -32,6 +32,11 @@ const schema = z
     // Login brute-force lockout (W4-3): consecutive failures before a short
     // account lockout, and how long that lockout lasts. Validated at boot so a
     // typo can't silently disable the protection.
+    // Key for stored secrets (provider API keys, creators' OAuth tokens).
+    // Optional — without it they are sealed with a key derived from
+    // AUTH_SECRET. See packages/domain/src/lib/crypto.ts and `pnpm --filter
+    // @influenceos/api run reseal`.
+    ENCRYPTION_KEY: z.string().min(32, 'ENCRYPTION_KEY must be at least 32 characters').optional(),
     LOGIN_MAX_ATTEMPTS: z.coerce.number().int().positive().max(1000).default(10),
     LOGIN_LOCK_MINUTES: z.coerce.number().int().positive().max(1440).default(15),
 
@@ -51,6 +56,12 @@ const schema = z
     RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
     RATE_LIMIT_WINDOW: z.string().default('1 minute'),
     RATE_LIMIT_REDIS: z.string().optional(),
+
+    // Interactive API docs (/api/docs) and the raw OpenAPI document
+    // (/api/openapi.json). On by default in development, off in production —
+    // they map every endpoint for anyone who finds them. API_DOCS=on turns
+    // them on anywhere.
+    API_DOCS: z.enum(['on', 'off']).optional(),
 
     // Release metadata (surfaced on /health and Platform status; never secrets)
     APP_VERSION: z.string().optional(),
@@ -114,6 +125,11 @@ export function loadEnv(): Env {
 /** Reset the cached env (tests only). */
 export function resetEnv(): void {
   cached = null;
+}
+
+/** Whether /api/docs and /api/openapi.json are served (see API_DOCS). */
+export function apiDocsEnabled(env: Env): boolean {
+  return env.API_DOCS ? env.API_DOCS === 'on' : env.NODE_ENV !== 'production';
 }
 
 export function corsOrigins(env: Env): string[] {
