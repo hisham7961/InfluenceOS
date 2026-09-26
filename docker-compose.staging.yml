@@ -106,9 +106,9 @@ services:
     # MinIO + mc built from the upstream release tags by CI (docker/minio/) and
     # published to this repo's public GHCR package (the archived project is no
     # longer served anonymously elsewhere). Same release the production server
-    # runs (works without AVX, supports CORS). Override MINIO_IMAGE only to pin
+    # runs (works without AVX, supports CORS). Override INFLUENCEOS_MINIO_IMAGE only to pin
     # a different build — see .env.staging.example.
-    image: ${MINIO_IMAGE:-ghcr.io/hisham7961/influenceos-minio:RELEASE.2022-10-24T18-35-07Z}
+    image: ${INFLUENCEOS_MINIO_IMAGE:-ghcr.io/hisham7961/influenceos-minio:RELEASE.2022-10-24T18-35-07Z}
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -130,7 +130,7 @@ services:
 
   # Create the PRIVATE staging bucket (objects stay private — no anonymous policy).
   minio-setup:
-    image: ${MINIO_MC_IMAGE:-ghcr.io/hisham7961/influenceos-minio:RELEASE.2022-10-24T18-35-07Z}
+    image: ${INFLUENCEOS_MC_IMAGE:-ghcr.io/hisham7961/influenceos-minio:RELEASE.2022-10-24T18-35-07Z}
     depends_on:
       minio:
         condition: service_healthy

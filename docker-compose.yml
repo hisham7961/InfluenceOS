@@ -52,10 +52,10 @@ services:
       retries: 10
 
   minio:
-    # Single object-storage pin, overridable via MINIO_IMAGE. Default: MinIO +
+    # Single object-storage pin, overridable via INFLUENCEOS_MINIO_IMAGE. Default: MinIO +
     # mc built from the upstream release tags by CI (docker/minio/) into this
     # repo's public GHCR package. Works on CPUs without AVX (see .env.example).
-    image: ${MINIO_IMAGE:-ghcr.io/hisham7961/influenceos-minio:RELEASE.2022-10-24T18-35-07Z}
+    image: ${INFLUENCEOS_MINIO_IMAGE:-ghcr.io/hisham7961/influenceos-minio:RELEASE.2022-10-24T18-35-07Z}
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
