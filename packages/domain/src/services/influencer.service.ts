@@ -22,6 +22,7 @@ import { sumMoney, toDecimal, toMoneyNumber } from '../lib/money';
 import { participationMoney } from '../lib/spend';
 import { toInfluencerSummary, toSocialAccountDTO } from '../lib/mappers';
 import { isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
+import { arabicMatchIds, orIds } from '../lib/arabic-search';
 
 const { assessAudienceHealth } = sharedMetrics;
 
@@ -202,6 +203,7 @@ export function makeInfluencerService(ctx: DomainContext) {
           { fullName: { contains: q, mode: 'insensitive' } },
           { primaryUsername: { contains: q, mode: 'insensitive' } },
           { socialAccounts: { some: { username: { contains: q, mode: 'insensitive' } } } },
+          ...orIds(await arabicMatchIds(prisma, 'influencer', q)),
         ],
       });
     }

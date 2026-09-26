@@ -26,7 +26,7 @@ import type {
   DealType,
   ParticipationStatus,
 } from '@influenceos/contracts';
-import { DEAL_TYPES, PARTICIPATION_STATUSES } from '@influenceos/shared';
+import { DEAL_TYPES, PARTICIPATION_STATUSES, foldArabic } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
@@ -113,12 +113,12 @@ export function InfluencersTab({
     [licences.data],
   );
 
-  const needle = search.trim().toLowerCase().replace(/^@/, '');
+  const needle = foldArabic(search.trim()).replace(/^@/, '');
   const visible = influencers.filter((ci) => {
     if (filter !== 'ALL' && !opsById.get(ci.id)?.filterBuckets.includes(filter)) return false;
     if (!needle) return true;
     return (
-      ci.influencer.displayName.toLowerCase().includes(needle) ||
+      foldArabic(ci.influencer.displayName).includes(needle) ||
       (ci.influencer.primaryUsername ?? '').toLowerCase().includes(needle)
     );
   });

@@ -6,7 +6,8 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Check, Globe2, KeyRound, ShieldCheck, Tags, X } from 'lucide-react';
 import type { BrandSummaryDTO, Capability, RoleProfile, UserAdminDetailDTO, UserRole } from '@influenceos/contracts';
-import { CAPABILITIES, COUNTRIES, ROLE_PROFILES, USER_ROLES, countryName } from '@influenceos/shared';
+import { CAPABILITIES, COUNTRIES, ROLE_PROFILES, USER_ROLES, foldArabic } from '@influenceos/shared';
+import { useCountryName } from '@/lib/country-names';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +49,7 @@ export function UserEditSheet({
   const tPerm = useTranslations('permissions');
   const tEnums = useTranslations('enums');
   const tCommon = useTranslations('common');
+  const countryName = useCountryName();
   const queryClient = useQueryClient();
 
   const detailQuery = useQuery({
@@ -131,10 +133,15 @@ export function UserEditSheet({
   });
 
   const brands = brandsQuery.data ?? [];
+  const countryNeedle = foldArabic(countryFilter.trim());
   const filteredCountries = COUNTRIES.filter(
-    (c) => !countryFilter.trim() || c.name.toLowerCase().includes(countryFilter.trim().toLowerCase()) || c.code.toLowerCase() === countryFilter.trim().toLowerCase(),
+    (c) =>
+      !countryNeedle ||
+      foldArabic(countryName(c.code)).includes(countryNeedle) ||
+      c.name.toLowerCase().includes(countryNeedle) ||
+      c.code.toLowerCase() === countryNeedle,
   );
-  const filteredBrands = brands.filter((b) => !brandFilter.trim() || b.name.toLowerCase().includes(brandFilter.trim().toLowerCase()));
+  const filteredBrands = brands.filter((b) => !brandFilter.trim() || foldArabic(b.name).includes(foldArabic(brandFilter.trim())));
 
   const preview = previewQuery.data;
   const grantedCount = preview?.permissionPreview.filter((p) => p.granted).length ?? 0;

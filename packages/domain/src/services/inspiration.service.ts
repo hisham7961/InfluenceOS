@@ -6,6 +6,7 @@ import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor, requireCapability, requireOwnerOrAdmin } from '../lib/authz';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
+import { arabicMatchIds, orIds } from '../lib/arabic-search';
 
 type InspirationCreate = z.infer<typeof requests.inspirationCreateSchema>;
 type InspirationUpdate = z.infer<typeof requests.inspirationUpdateSchema>;
@@ -71,21 +72,29 @@ export function makeInspirationService(ctx: DomainContext) {
   async function list(filter: InspirationFilter): Promise<{ data: InspirationItemDTO[]; nextCursor: string | null; hasMore: boolean }> {
     const scope = await scopedBrandIds(ctx);
     if (filter.brandId) await assertInScope(filter.brandId);
+    // The brand scope and the search are both OR lists, so they go in AND:
+    // spread side by side, the search's OR would replace the scope's.
     const where: Prisma.InspirationItemWhereInput = {
-      ...(filter.brandId ? { brandId: filter.brandId } : scope ? { OR: [{ brandId: { in: scope } }, { brandId: null }] } : {}),
+      ...(filter.brandId ? { brandId: filter.brandId } : {}),
       ...(filter.campaignId ? { campaignId: filter.campaignId } : {}),
       ...(filter.category ? { category: filter.category } : {}),
       ...(filter.status ? { status: filter.status } : { status: { not: 'ARCHIVED' } }),
       ...(filter.pinned !== undefined ? { pinned: filter.pinned } : {}),
-      ...(filter.search
-        ? {
-            OR: [
-              { title: { contains: filter.search, mode: 'insensitive' } },
-              { note: { contains: filter.search, mode: 'insensitive' } },
-              { tags: { has: filter.search } },
-            ],
-          }
-        : {}),
+      AND: [
+        ...(!filter.brandId && scope ? [{ OR: [{ brandId: { in: scope } }, { brandId: null }] }] : []),
+        ...(filter.search
+          ? [
+              {
+                OR: [
+                  { title: { contains: filter.search, mode: 'insensitive' as const } },
+                  { note: { contains: filter.search, mode: 'insensitive' as const } },
+                  { tags: { has: filter.search } },
+                  ...orIds(await arabicMatchIds(prisma, 'inspiration', filter.search)),
+                ],
+              },
+            ]
+          : []),
+      ],
     };
     const rows = await prisma.inspirationItem.findMany({
       where,

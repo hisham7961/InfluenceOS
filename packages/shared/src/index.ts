@@ -19,6 +19,7 @@ export * from './utils/usage-right';
 export * from './utils/csv';
 export * from './utils/content-status';
 export * from './utils/content-review-state';
+export * from './utils/arabic-fold';
 export * from './utils/search-rank';
 export * from './utils/load-fixtures';
 export * from './utils/app-routes';

@@ -36,6 +36,7 @@ import { requireActor, requireCapability } from '../lib/authz';
 import { resolveContentAssociation } from '../lib/content-association';
 import { createNotification, iso, logActivity } from '../lib/helpers';
 import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
+import { arabicMatchIds, orIds } from '../lib/arabic-search';
 import { resolveAttachmentDownloadUrl } from '../lib/storage';
 import {
   toBrandSummary,
@@ -544,6 +545,7 @@ export function makeContentService(ctx: DomainContext) {
       where.OR = [
         { caption: { contains: filter.q, mode: 'insensitive' } },
         { originalUrl: { contains: filter.q, mode: 'insensitive' } },
+        ...orIds(await arabicMatchIds(prisma, 'content', filter.q)),
       ];
     }
     // Derived assignment status — computed from presence, matched server-side so

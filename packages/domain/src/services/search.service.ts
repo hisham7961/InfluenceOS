@@ -9,6 +9,7 @@ import { bestScore } from '@influenceos/shared';
 import type { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { scopedBrandIds, scopedCountryCodes } from '../lib/scope';
+import { arabicMatchIds, orIds } from '../lib/arabic-search';
 
 type SearchInput = z.infer<typeof requests.searchSchema>;
 type SearchPageInput = z.infer<typeof requests.searchPageSchema>;
@@ -46,6 +47,13 @@ export function makeSearchService(ctx: DomainContext) {
       : brandScope
         ? { in: brandScope }
         : undefined;
+    // Rows that match only with Arabic spelling variants folded (أ/ا, ة/ه…).
+    const [arInfluencers, arCampaigns, arBrands, arContent] = await Promise.all([
+      arabicMatchIds(prisma, 'influencer', q),
+      arabicMatchIds(prisma, 'campaign', q),
+      arabicMatchIds(prisma, 'brand', q),
+      arabicMatchIds(prisma, 'content', q),
+    ]);
 
     const [influencers, campaigns, brands, content] = await Promise.all([
       prisma.influencer.findMany({
@@ -56,6 +64,7 @@ export function makeSearchService(ctx: DomainContext) {
                 { displayName: { contains: q, mode: 'insensitive' } },
                 { primaryUsername: { contains: q, mode: 'insensitive' } },
                 { socialAccounts: { some: { username: { contains: q, mode: 'insensitive' } } } },
+                ...orIds(arInfluencers),
               ],
             },
             ...(brandScope
@@ -76,7 +85,7 @@ export function makeSearchService(ctx: DomainContext) {
       }),
       prisma.campaign.findMany({
         where: {
-          name: { contains: q, mode: 'insensitive' },
+          OR: [{ name: { contains: q, mode: 'insensitive' } }, ...orIds(arCampaigns)],
           ...(scopedBrandIdFilter !== undefined ? { brandId: scopedBrandIdFilter } : {}),
         },
         select: {
@@ -89,7 +98,7 @@ export function makeSearchService(ctx: DomainContext) {
       }),
       prisma.brand.findMany({
         where: {
-          name: { contains: q, mode: 'insensitive' },
+          OR: [{ name: { contains: q, mode: 'insensitive' } }, ...orIds(arBrands)],
           ...(brandScope ? { id: { in: brandScope } } : {}),
         },
         select: { id: true, name: true, slug: true, logoUrl: true },
@@ -100,6 +109,7 @@ export function makeSearchService(ctx: DomainContext) {
           OR: [
             { caption: { contains: q, mode: 'insensitive' } },
             { originalUrl: { contains: q, mode: 'insensitive' } },
+            ...orIds(arContent),
           ],
           ...(brandScope ? { brandId: { in: brandScope } } : {}),
           ...contentCountryScope(countryScope),
@@ -185,6 +195,12 @@ export function makeSearchService(ctx: DomainContext) {
       : brandScope
         ? { in: brandScope }
         : undefined;
+    const [arInfluencers, arCampaigns, arBrands, arContent] = await Promise.all([
+      arabicMatchIds(prisma, 'influencerWithTagsNotes', q),
+      arabicMatchIds(prisma, 'campaignWithDescription', q),
+      arabicMatchIds(prisma, 'brandWithNotes', q),
+      arabicMatchIds(prisma, 'content', q),
+    ]);
 
     const [influencers, campaigns, brands, content] = await Promise.all([
       types.has('influencer')
@@ -199,6 +215,7 @@ export function makeSearchService(ctx: DomainContext) {
                     { socialAccounts: { some: { username: contains } } },
                     { tags: { some: { tag: { name: contains } } } },
                     { notes: { some: liveNote } },
+                    ...orIds(arInfluencers),
                   ],
                 },
                 ...(brandScope
@@ -226,7 +243,7 @@ export function makeSearchService(ctx: DomainContext) {
         ? prisma.campaign.findMany({
             where: {
               AND: [
-                { OR: [{ name: contains }, { description: contains }] },
+                { OR: [{ name: contains }, { description: contains }, ...orIds(arCampaigns)] },
                 ...(scopedBrandIdFilter !== undefined ? [{ brandId: scopedBrandIdFilter }] : []),
               ],
             },
@@ -244,7 +261,7 @@ export function makeSearchService(ctx: DomainContext) {
         ? prisma.brand.findMany({
             where: {
               AND: [
-                { OR: [{ name: contains }, { notes: { some: liveNote } }] },
+                { OR: [{ name: contains }, { notes: { some: liveNote } }, ...orIds(arBrands)] },
                 ...(brandScope ? [{ id: { in: brandScope } }] : []),
               ],
             },
@@ -261,7 +278,7 @@ export function makeSearchService(ctx: DomainContext) {
       types.has('published_content')
         ? prisma.publishedContent.findMany({
             where: {
-              OR: [{ caption: contains }, { originalUrl: contains }],
+              OR: [{ caption: contains }, { originalUrl: contains }, ...orIds(arContent)],
               ...(brandScope ? { brandId: { in: brandScope } } : {}),
               ...contentCountryScope(countryScope),
             },

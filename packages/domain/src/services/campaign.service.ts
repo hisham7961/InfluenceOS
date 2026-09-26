@@ -19,6 +19,7 @@ import { toMoneyNumber, type MoneyInput } from '../lib/money';
 import { toBrandSummary } from '../lib/mappers';
 import { computeCampaignProgress, computeCampaignProgressBatch } from '../lib/progress';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
+import { arabicMatchIds, orIds } from '../lib/arabic-search';
 
 type CampaignCreate = z.infer<typeof requests.campaignCreateSchema>;
 type CampaignUpdate = z.infer<typeof requests.campaignUpdateSchema>;
@@ -112,7 +113,12 @@ export function makeCampaignService(ctx: DomainContext) {
       where.ownerId = null;
       if (!filter.status) where.status = { in: ['ACTIVE', 'PLANNING'] };
     }
-    if (filter.q) where.name = { contains: filter.q, mode: 'insensitive' };
+    if (filter.q) {
+      where.OR = [
+        { name: { contains: filter.q, mode: 'insensitive' } },
+        ...orIds(await arabicMatchIds(prisma, 'campaign', filter.q)),
+      ];
+    }
     return where;
   }
 

@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { AtSign, FileText, MessageSquare, Paperclip, Pencil, Pin, PinOff, Reply, Send, Trash2, X } from 'lucide-react';
 import type { CursorPage, NoteDTO } from '@influenceos/contracts';
+import { foldArabic } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { toBrowserUrl, uploadAttachment } from '@/lib/upload';
 import { Button } from '@/components/ui/button';
@@ -81,9 +82,9 @@ export function Composer({
 
   const filtered = React.useMemo(() => {
     if (!mentionQuery) return [];
-    const q = mentionQuery.query.toLowerCase();
+    const q = foldArabic(mentionQuery.query);
     return (directory.data ?? [])
-      .filter((m) => m.id !== user.id && m.name.toLowerCase().includes(q))
+      .filter((m) => m.id !== user.id && foldArabic(m.name).includes(q))
       .slice(0, 6);
   }, [directory.data, mentionQuery, user.id]);
 
