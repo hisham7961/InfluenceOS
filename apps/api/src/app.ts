@@ -127,6 +127,7 @@ export async function buildApp(): Promise<FastifyInstance> {
         { name: 'Dashboard', description: 'Mission Control aggregations' },
         { name: 'Reports', description: 'Analytics & CSV export' },
         { name: 'Finance', description: 'Payment ledger, what is owed, expense trash' },
+        { name: 'Sales', description: 'Promo codes, tracking links, imported sales and return on spend' },
         { name: 'Calendar', description: 'Campaign & content calendar' },
         { name: 'Notifications', description: 'In-app notifications' },
         { name: 'Activity', description: 'Activity feed' },

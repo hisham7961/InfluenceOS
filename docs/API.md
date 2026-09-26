@@ -457,6 +457,33 @@ expense's `paymentStatus`, `paidAmount` and `paidAt` are derived from its live
 A creator with payments recorded can't be removed from the roster (409) — set
 their participation to dropped instead, so the payment history stays.
 
+### Sales & ROI
+
+Promo codes and tracking links per creator per campaign, and the brand's own
+sales credited to them. Revenue is only what the brand's shop file or a person
+recorded — nothing is estimated. Reading needs access to the campaign's brand;
+changing anything needs `CAMPAIGNS_MANAGE`. Spend, fees, return on spend and
+cost per order are `null` without `FINANCE_VIEW`.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/campaigns/:id/sales` | Orders, revenue per currency, link clicks and conversion; per creator (codes, clicks, orders, revenue, and with finance access fee, ROAS, cost per order); the codes, links, 50 newest sales and the files that reached this campaign; `canManage`. ROAS = revenue in the campaign's currency ÷ spend. |
+| POST | `/api/v1/campaigns/:id/promo-codes` | `influencerId` (on the roster), `code`, optional `discount`, `validFrom` (default: the campaign's start), `validTo`, `notes`. 409 when the code is already on this campaign or another creator has it for overlapping dates. |
+| PATCH | `/api/v1/promo-codes/:id` | Change the code, discount, dates, notes, or `isActive` (an inactive code isn't matched in new imports). |
+| DELETE | `/api/v1/promo-codes/:id` | Only a code with no sales (409 otherwise — turn it off instead). |
+| POST | `/api/v1/campaigns/:id/tracking-links` | `influencerId`, `destinationUrl` (http/https), optional `label`, `utm` (default true: adds `utm_source` = the creator, `utm_medium=influencer`, `utm_campaign` = the campaign, `utm_content` = the link, keeping tags already in the URL). Returns `slug` and `path` (`/r/<slug>` on the web app). |
+| PATCH | `/api/v1/tracking-links/:id` | `destinationUrl`, `label`, `isActive` (a paused link still redirects but stops counting). |
+| DELETE | `/api/v1/tracking-links/:id` | The short link stops working; sales already credited stay. |
+| POST | `/api/v1/campaigns/:id/sales` | Sales entered by hand (e.g. a total the brand reported): `influencerId`, optional `promoCodeId`, `orders`, `amount`, `currency` (default: the campaign's), `occurredAt`, `note`. |
+| DELETE | `/api/v1/sales/:id` | Delete one recorded sale. |
+| POST | `/api/v1/brands/:id/sales/import` | A shop's order file for a brand, as rows of raw cells (`orderRef`, `date`, `amount`, `currency`, `code`, `link`, `orders`, `status`; up to 20,000; body up to 8 MB), with `dateOrder` (`DMY` default / `MDY`), a fallback `currency`, `fileName`, and `dryRun`. Each row is credited by promo code (the code whose dates cover the order; the one that started last when a code was reused) or by one of the brand's tracking links in a link/UTM cell. Arabic-Indic digits, Gulf currency names (`د.ك`, `KD`, …), day-first dates and Excel date numbers are read; cancelled/refunded rows are left out; an order number already on record for the brand, or repeated in the file, is skipped. Returns counts (matched, duplicates, unmatched, outside the code's dates, cancelled), unreadable rows with their line and problem, codes not set up for the brand, and per-campaign totals. With `dryRun: false` the orders are saved as one file (`importId`). |
+| DELETE | `/api/v1/sales-imports/:id` | Undo a file: removes every order it recorded, on every campaign. Returns `{ removed }`. |
+| GET | `/api/v1/public/links/:slug` | **Public.** Where a tracking link goes (`{ url }`); counts the click per Kuwait day unless the visitor is a link preview/script, the link is paused, or `preview=1`. The web app's `/r/<slug>` calls it and redirects (302). 404 for an unknown link. Rate limit 120/min per IP. |
+
+`GET /api/v1/influencers/:id/performance` also returns `sales`: orders, revenue
+per currency and link clicks credited to the creator across the brands the
+reader can see (`null` when none).
+
 ### Dashboard
 
 | Method | Path | Description |

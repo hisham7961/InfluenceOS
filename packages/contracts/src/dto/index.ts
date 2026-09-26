@@ -1700,6 +1700,8 @@ export interface CreatorPerformanceDTO {
   paid: CurrencyTotalDTO[] | null;
   costPerView: { currency: string; value: number } | null;
   byPlatform: { platform: Platform; posts: number; medianViews: number | null; medianEngagementRate: number | null }[];
+  /** Sales credited to them through promo codes and tracking links (P3.1); null when none. */
+  sales: { orders: number; revenue: CurrencyTotalDTO[]; clicks: number } | null;
 }
 
 /** Executive overview answering the 5 outstanding exec questions (W6-3). */
@@ -2084,4 +2086,149 @@ export interface PaymentsPageDTO {
   pagination: OffsetPagination;
   /** Paid (voided payments left out), per currency, across every page. */
   totals: CurrencyTotalDTO[];
+}
+
+// --- Sales & ROI (P3.1) ------------------------------------------------------
+// Revenue is only what the brand's shop file or the team recorded — never
+// estimated. Anything that reveals spend (ROAS, cost per order, fees) is null
+// without finance access.
+
+export type SaleSource = 'IMPORT' | 'MANUAL';
+
+export interface PromoCodeDTO {
+  id: string;
+  campaignId: string;
+  influencerId: string;
+  influencerName: string;
+  code: string;
+  discount: string | null;
+  validFrom: string | null;
+  validTo: string | null;
+  isActive: boolean;
+  notes: string | null;
+  orders: number;
+  revenue: CurrencyTotalDTO[];
+  createdAt: string;
+}
+
+export interface TrackingLinkDTO {
+  id: string;
+  slug: string;
+  /** Path on the web app that counts the click and redirects: `/r/<slug>`. */
+  path: string;
+  campaignId: string;
+  influencerId: string;
+  influencerName: string;
+  destinationUrl: string;
+  /** Where the link actually sends people (with UTM tags when asked for). */
+  targetUrl: string;
+  label: string | null;
+  /** Paused links still redirect but stop counting. */
+  isActive: boolean;
+  clicks: number;
+  lastClickAt: string | null;
+  orders: number;
+  revenue: CurrencyTotalDTO[];
+  createdAt: string;
+}
+
+export interface SaleDTO {
+  id: string;
+  campaignId: string;
+  influencerId: string;
+  influencerName: string;
+  source: SaleSource;
+  orderRef: string | null;
+  orders: number;
+  amount: number;
+  currency: string;
+  occurredAt: string;
+  code: string | null;
+  linkSlug: string | null;
+  importId: string | null;
+  note: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+export interface SalesImportDTO {
+  id: string;
+  brandId: string;
+  fileName: string | null;
+  rowCount: number;
+  imported: number;
+  duplicates: number;
+  unmatched: number;
+  /** Orders from this file still on record (all campaigns). */
+  ordersOnRecord: number;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+export interface CampaignSalesCreatorDTO {
+  influencerId: string;
+  name: string;
+  avatarUrl: string | null;
+  codes: string[];
+  clicks: number;
+  orders: number;
+  revenue: CurrencyTotalDTO[];
+  /** Agreed fee (finance access only). */
+  fee: number | null;
+  /** Revenue in the campaign's currency ÷ fee. */
+  roas: number | null;
+  costPerOrder: number | null;
+}
+
+export interface CampaignSalesDTO {
+  campaignId: string;
+  currency: string;
+  orders: number;
+  revenue: CurrencyTotalDTO[];
+  clicks: number;
+  /** Orders that came through a tracking link ÷ its clicks (0–1). */
+  conversionRate: number | null;
+  /** Campaign spend in its currency (finance access only). */
+  spend: number | null;
+  /** Revenue in the campaign's currency ÷ spend. */
+  roas: number | null;
+  costPerOrder: number | null;
+  creators: CampaignSalesCreatorDTO[];
+  promoCodes: PromoCodeDTO[];
+  links: TrackingLinkDTO[];
+  /** Newest first, at most 50. */
+  recentSales: SaleDTO[];
+  /** Files whose orders reached this campaign, newest first. */
+  imports: SalesImportDTO[];
+  /** Can add codes, links and sales (CAMPAIGNS_MANAGE). */
+  canManage: boolean;
+}
+
+export type SalesImportProblem = 'date' | 'amount' | 'orders' | 'currency' | 'negative';
+
+export interface SalesImportResultDTO {
+  dryRun: boolean;
+  /** Set when orders were recorded. */
+  importId: string | null;
+  rows: number;
+  /** Rows credited to a creator (recorded, or would be on a dry run). */
+  matched: number;
+  /** Orders already on record, or repeated in the file. */
+  duplicates: number;
+  /** Rows without a known code or link. */
+  unmatched: number;
+  /** A known code, but the order date is outside its dates. */
+  outsideDates: number;
+  /** Cancelled or refunded orders, left out. */
+  cancelled: number;
+  /** Rows that couldn't be read (first 50). */
+  invalid: { row: number; problem: SalesImportProblem }[];
+  invalidCount: number;
+  /** Codes in the file that aren't set up for this brand (most used first, at most 20). */
+  unknownCodes: { code: string; rows: number }[];
+  byCampaign: { campaignId: string; campaignName: string; orders: number; revenue: CurrencyTotalDTO[] }[];
+}
+
+export interface TrackingLinkResolveDTO {
+  url: string;
 }

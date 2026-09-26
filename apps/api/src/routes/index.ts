@@ -28,6 +28,7 @@ import { inspirationRoutes } from './inspiration.routes';
 import { dataQualityRoutes } from './data-quality.routes';
 import { integrityGuardRoutes } from './integrity-guard.routes';
 import { financeRoutes } from './finance.routes';
+import { salesRoutes } from './sales.routes';
 
 /** Register every v1 route module onto the (already /api/v1-prefixed) instance. */
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
@@ -60,4 +61,5 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   await dataQualityRoutes(app);
   await integrityGuardRoutes(app);
   await financeRoutes(app);
+  await salesRoutes(app);
 }

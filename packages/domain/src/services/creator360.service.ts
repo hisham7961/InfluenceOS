@@ -27,6 +27,7 @@ import { isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/
 import { submissionInclude, toSubmissionDTO } from './submission.service';
 import { hasCapability } from '../lib/capabilities';
 import { loadPostMetrics, sumKnown } from '../lib/post-metrics';
+import { makeSalesService } from './sales.service';
 
 /** submissions()'s return shape — the real DeliverableSubmissionDTO fields
  *  (mirrors submission.service.ts's toDTO exactly) plus just enough campaign
@@ -498,7 +499,7 @@ export function makeCreator360Service(ctx: DomainContext) {
     const brandFilter = brandScope ? { brandId: { in: brandScope } } : {};
     const cutoff = new Date(Date.now() - 90 * 864e5);
 
-    const [posts, participations, rel, canSeeMoney] = await Promise.all([
+    const [posts, participations, rel, canSeeMoney, sales] = await Promise.all([
       loadPostMetrics(prisma, { influencerId, ...brandFilter }),
       prisma.campaignInfluencer.findMany({
         where: {
@@ -510,6 +511,7 @@ export function makeCreator360Service(ctx: DomainContext) {
       }),
       reliability(influencerId),
       hasCapability(ctx, 'FINANCE_VIEW'),
+      makeSalesService(ctx).creatorSales(influencerId),
     ]);
     const payments = canSeeMoney
       ? await prisma.payment.findMany({
@@ -566,6 +568,7 @@ export function makeCreator360Service(ctx: DomainContext) {
           medianEngagementRate: roundOr(median(known(list.map((p) => p.engagementRate))), 2),
         }))
         .sort((a, b) => b.posts - a.posts),
+      sales,
     };
   }
 

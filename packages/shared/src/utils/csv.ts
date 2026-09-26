@@ -3,8 +3,12 @@
 // endings. It is deliberately small: input is trusted staff-uploaded rosters,
 // not arbitrary internet data, so we favour predictability over RFC-completeness.
 
-/** Parse CSV text into a matrix of string cells. Blank trailing lines are dropped. */
-export function parseCsv(text: string): string[][] {
+/**
+ * Parse CSV text into a matrix of string cells. Blank trailing lines are
+ * dropped. `delimiter` is ',' by default; '\t' reads rows pasted from Excel,
+ * ';' the exports of spreadsheets set to a comma-decimal locale.
+ */
+export function parseCsv(text: string, delimiter = ','): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = '';
@@ -29,7 +33,7 @@ export function parseCsv(text: string): string[][] {
     }
     if (c === '"') {
       inQuotes = true;
-    } else if (c === ',') {
+    } else if (c === delimiter) {
       row.push(field);
       field = '';
     } else if (c === '\n' || c === '\r') {
@@ -71,6 +75,18 @@ export function parseCsvRecords(text: string): Record<string, string>[] {
     out.push(rec);
   }
   return out;
+}
+
+/** The delimiter a pasted or uploaded table most likely uses, from its first line. */
+export function guessDelimiter(text: string): ',' | '\t' | ';' {
+  const first = text.split(/\r?\n/, 1)[0] ?? '';
+  const count = (ch: string) => first.split(ch).length - 1;
+  const tabs = count('\t');
+  const semis = count(';');
+  const commas = count(',');
+  if (tabs > 0 && tabs >= commas) return '\t';
+  if (semis > commas) return ';';
+  return ',';
 }
 
 // --- Writing ---------------------------------------------------------------

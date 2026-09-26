@@ -689,6 +689,35 @@ export const FEATURES: FeatureEntry[] = [
     ],
     deepLink: '/logistics',
   },
+  {
+    key: 'sales_roi',
+    name: 'Sales & ROI',
+    description:
+      "Promo codes and tracking links per creator per campaign, and the brand's own sales credited to them: a shop order file (CSV or pasted from Excel — Arabic digits, Gulf currencies, day-first dates) matched by code or link, checked first without saving, never counting an order twice, cancelled orders left out, and undoable as a whole; or totals entered by hand. A reused code goes to the campaign whose dates cover the order. Short links (/r/<slug>) count people's clicks per Kuwait day (not link previews) and add UTM tags. Shows orders, revenue per currency, clicks and conversion; return on spend and cost per order only with finance access. Nothing is estimated.",
+    module: 'Campaigns',
+    classification: 'SHARED',
+    apiStatus: 'READY',
+    webStatus: 'READY',
+    mobileReady: true,
+    permissions: ALL,
+    flag: null,
+    minApiVersion: 'v1',
+    apiEndpoints: [
+      'GET /api/v1/campaigns/:id/sales',
+      'POST /api/v1/campaigns/:id/promo-codes',
+      'PATCH /api/v1/promo-codes/:id',
+      'DELETE /api/v1/promo-codes/:id',
+      'POST /api/v1/campaigns/:id/tracking-links',
+      'PATCH /api/v1/tracking-links/:id',
+      'DELETE /api/v1/tracking-links/:id',
+      'POST /api/v1/campaigns/:id/sales',
+      'DELETE /api/v1/sales/:id',
+      'POST /api/v1/brands/:id/sales/import',
+      'DELETE /api/v1/sales-imports/:id',
+      'GET /api/v1/public/links/:slug',
+    ],
+    deepLink: '/campaigns',
+  },
 ];
 
 export const FEATURE_MODULES = Array.from(new Set(FEATURES.map((f) => f.module)));

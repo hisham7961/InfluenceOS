@@ -1315,4 +1315,80 @@ export const appVersionUpdateSchema = z.object({
   maintenanceMessage: optionalString,
 });
 
+// --- Sales & ROI (P3.1) ------------------------------------------------------
+const promoCodeText = z
+  .string()
+  .trim()
+  .min(2)
+  .max(40)
+  .refine((v) => /^[\p{L}\p{N}#_\-\s]+$/u.test(v), { message: 'Use letters and numbers only.' });
+const threeLetterCurrency = z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).optional().nullable();
+
+export const promoCodeCreateSchema = z.object({
+  influencerId: cuid,
+  code: promoCodeText,
+  discount: z.string().trim().max(60).optional().nullable(),
+  validFrom: isoDate,
+  validTo: isoDate,
+  notes: optionalString,
+});
+export const promoCodeUpdateSchema = promoCodeCreateSchema
+  .omit({ influencerId: true })
+  .partial()
+  .extend({ isActive: z.boolean().optional() });
+
+export const trackingLinkCreateSchema = z.object({
+  influencerId: cuid,
+  destinationUrl: httpUrl,
+  label: z.string().trim().max(120).optional().nullable(),
+  /** Add utm_* tags so the shop's analytics can tell who sent the visitor. */
+  utm: z.boolean().optional().default(true),
+});
+export const trackingLinkUpdateSchema = z.object({
+  destinationUrl: httpUrl.optional(),
+  label: z.string().trim().max(120).optional().nullable(),
+  /** Paused links still send people on but stop counting clicks. */
+  isActive: z.boolean().optional(),
+});
+
+/** Sales entered by hand — often a total the brand reported for a code. */
+export const saleCreateSchema = z.object({
+  influencerId: cuid,
+  promoCodeId: cuid.optional().nullable(),
+  orders: z.coerce.number().int().min(1).max(1_000_000).default(1),
+  amount: z.coerce.number().nonnegative().max(1_000_000_000),
+  currency: threeLetterCurrency,
+  occurredAt: z.coerce.date(),
+  note: optionalString,
+});
+
+const saleCell = z.string().max(500).optional().nullable();
+/** One order row as it appears in the shop's file (cells are read on the server). */
+export const saleImportRowSchema = z.object({
+  orderRef: saleCell,
+  date: saleCell,
+  amount: saleCell,
+  currency: saleCell,
+  code: saleCell,
+  link: saleCell,
+  orders: saleCell,
+  status: saleCell,
+});
+export const salesImportSchema = z.object({
+  fileName: z.string().trim().max(200).optional().nullable(),
+  /** How to read 01/09/2026 when neither part is over 12. */
+  dateOrder: z.enum(['DMY', 'MDY']).default('DMY'),
+  /** Currency for rows that don't say. */
+  currency: threeLetterCurrency,
+  /** Check the file and report what would be recorded, without saving. */
+  dryRun: z.boolean().default(false),
+  rows: z.array(saleImportRowSchema).min(1).max(20_000),
+});
+export type PromoCodeCreateInput = z.infer<typeof promoCodeCreateSchema>;
+export type PromoCodeUpdateInput = z.infer<typeof promoCodeUpdateSchema>;
+export type TrackingLinkCreateInput = z.infer<typeof trackingLinkCreateSchema>;
+export type TrackingLinkUpdateInput = z.infer<typeof trackingLinkUpdateSchema>;
+export type SaleCreateInput = z.infer<typeof saleCreateSchema>;
+export type SalesImportInput = z.infer<typeof salesImportSchema>;
+
 export { z };

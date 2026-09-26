@@ -22,6 +22,7 @@ const loading = () => (
 );
 const OverviewTab = dynamic(() => import('./overview-tab').then((m) => m.OverviewTab), { loading });
 const PerformanceTab = dynamic(() => import('./performance-tab').then((m) => m.PerformanceTab), { loading });
+const SalesTab = dynamic(() => import('./sales-tab').then((m) => m.SalesTab), { loading });
 const InfluencersTab = dynamic(() => import('./roster-tab').then((m) => m.InfluencersTab), { loading });
 const OperationsBoardTab = dynamic(() => import('./operations-board-tab').then((m) => m.OperationsBoardTab), { loading });
 const SourcingTab = dynamic(() => import('./sourcing-tab').then((m) => m.SourcingTab), { loading });
@@ -106,6 +107,8 @@ export function Workspace({ campaign, influencers, costs, scripts }: WorkspacePr
             <TrendsPanel campaignId={campaign.id} title={t('workspace.trendsTitle')} />
           </div>
         );
+      case 'sales':
+        return <SalesTab campaign={campaign} influencers={influencers} />;
       case 'influencers':
         return <InfluencersTab campaign={campaign} influencers={influencers} />;
       case 'operations':

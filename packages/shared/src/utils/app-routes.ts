@@ -18,6 +18,7 @@ export const CAMPAIGN_TABS = [
   'sourcing',
   'costs',
   'performance',
+  'sales',
   'operations',
   'discussion',
   'files',

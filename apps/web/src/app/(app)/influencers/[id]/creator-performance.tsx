@@ -1,6 +1,6 @@
 import { getLocale, getTranslations } from 'next-intl/server';
 import type { Locale } from '@/i18n/request';
-import { CalendarClock, Coins, Eye, Heart, PlaySquare, Repeat, ShieldCheck } from 'lucide-react';
+import { CalendarClock, Coins, Eye, Heart, PlaySquare, Repeat, ShieldCheck, ShoppingBag } from 'lucide-react';
 import type { CreatorPerformanceDTO } from '@influenceos/contracts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlatformBadge } from '@/components/ui/platform-badge';
@@ -95,6 +95,18 @@ export async function CreatorPerformance({ performance: p }: { performance: Crea
                   value={<LtrText>{p.costPerView ? formatCurrency(p.costPerView.value * 1000, p.costPerView.currency) : na}</LtrText>}
                 />
               </>
+            ) : null}
+            {p.sales ? (
+              <Stat
+                icon={ShoppingBag}
+                label={t('detail.performance.sales')}
+                value={
+                  <LtrText>
+                    {p.sales.revenue.length ? p.sales.revenue.map((x) => formatCurrency(x.amount, x.currency)).join(' · ') : formatNumber(p.sales.orders)}
+                  </LtrText>
+                }
+                hint={t('detail.performance.salesHint', { orders: p.sales.orders, clicks: p.sales.clicks })}
+              />
             ) : null}
           </CardContent>
           {p.byPlatform.length > 0 ? (

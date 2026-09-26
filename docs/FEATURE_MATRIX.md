@@ -6,7 +6,7 @@ Every major capability, its backend/API/web status, and whether it is **Mobile R
 (business logic server-side, documented API, server-side auth + permissions, stable
 contracts, media represented independently of the web UI — spec addendum §37).
 
-**Coverage:** 36 features · API ready 35 · Web ready 36 · Mobile ready 32 · Admin-desktop-only 4 · **Mobile readiness 100%** (of SHARED features).
+**Coverage:** 37 features · API ready 36 · Web ready 37 · Mobile ready 33 · Admin-desktop-only 4 · **Mobile readiness 100%** (of SHARED features).
 
 | Feature | Module | Class | API | Web | Mobile Ready | Roles | Flag |
 |---|---|---|---|---|:---:|---|---|
@@ -46,6 +46,7 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Bulk Creator Actions | Influencers | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Advanced Roles & Capabilities | Settings | ADMIN_DESKTOP_ONLY | READY | READY | — | ADMIN | — |
 | Country Scoping | Logistics | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Sales & ROI | Campaigns | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 
 ## API endpoints by feature
 
@@ -140,6 +141,8 @@ contracts, media represented independently of the web UI — spec addendum §37)
 
 - `GET /api/v1/content/feed`
 - `POST /api/v1/content`
+- `POST /api/v1/content/lookup`
+- `POST /api/v1/campaigns/:id/content/link-roster`
 - `GET /api/v1/content/:id`
 - `PATCH /api/v1/content/:id`
 - `GET /api/v1/content/:id/metrics`
@@ -273,3 +276,18 @@ contracts, media represented independently of the web UI — spec addendum §37)
 - `PUT /api/v1/users/:id/country-access`
 - `GET /api/v1/shipments`
 - `GET /api/v1/influencers`
+
+### Sales & ROI
+
+- `GET /api/v1/campaigns/:id/sales`
+- `POST /api/v1/campaigns/:id/promo-codes`
+- `PATCH /api/v1/promo-codes/:id`
+- `DELETE /api/v1/promo-codes/:id`
+- `POST /api/v1/campaigns/:id/tracking-links`
+- `PATCH /api/v1/tracking-links/:id`
+- `DELETE /api/v1/tracking-links/:id`
+- `POST /api/v1/campaigns/:id/sales`
+- `DELETE /api/v1/sales/:id`
+- `POST /api/v1/brands/:id/sales/import`
+- `DELETE /api/v1/sales-imports/:id`
+- `GET /api/v1/public/links/:slug`

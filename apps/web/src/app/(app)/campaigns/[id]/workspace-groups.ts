@@ -6,7 +6,7 @@ import type { CampaignTab } from '@influenceos/shared';
  * still lands on the right place; the area is worked out from it.
  */
 export const WORKSPACE_GROUPS = [
-  { key: 'overview', views: ['overview', 'performance'] },
+  { key: 'overview', views: ['overview', 'performance', 'sales'] },
   { key: 'roster', views: ['influencers', 'operations', 'sourcing'] },
   { key: 'content', views: ['content', 'deliverables'] },
   { key: 'approvals', views: ['submissions', 'scripts'] },

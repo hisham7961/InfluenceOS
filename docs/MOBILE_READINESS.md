@@ -43,6 +43,7 @@ only in the web app**. The API is the product core; the web is one client.
 | Workflow Integrity Guard | ✅ | ✅ | ✅ | /data-quality |
 | Bulk Creator Actions | ✅ | ✅ | ✅ | /influencers |
 | Country Scoping | ✅ | ✅ | ✅ | /logistics |
+| Sales & ROI | ✅ | ✅ | ✅ | /campaigns |
 
 ## Admin / desktop-only by design
 
@@ -63,4 +64,4 @@ administration surface).
 6. Request/response contracts stable · 7. Media represented independently of web UI ·
 8. Filtering/pagination server-side · 9. API tests exist · 10. No web-only server behavior.
 
-Total documented endpoints: 117.
+Total documented endpoints: 131.

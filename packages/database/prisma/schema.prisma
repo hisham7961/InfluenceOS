@@ -481,6 +481,10 @@ model User {
   assignedLogisticsIssues LogisticsIssue[]         @relation("LogisticsIssueAssignee")
   resolvedLogisticsIssues LogisticsIssue[]         @relation("LogisticsIssueResolver")
   notificationReads       NotificationRead[]
+  createdPromoCodes       PromoCode[]              @relation("PromoCodeCreatedBy")
+  createdTrackingLinks    TrackingLink[]           @relation("TrackingLinkCreatedBy")
+  salesImports            SalesImport[]            @relation("SalesImportCreatedBy")
+  recordedSales           Sale[]                   @relation("SaleCreatedBy")
 
   @@index([role])
   @@index([roleProfile])
@@ -597,6 +601,10 @@ model Brand {
   notifications    Notification[]
   activities       ActivityLog[]
   usageRights      UsageRight[]
+  promoCodes       PromoCode[]
+  trackingLinks    TrackingLink[]
+  sales            Sale[]
+  salesImports     SalesImport[]
   userAccess       UserBrandAccess[]
   products         Product[]
   inspirationItems InspirationItem[]
@@ -666,6 +674,9 @@ model Influencer {
   activities          ActivityLog[]
   notifications       Notification[]
   usageRights         UsageRight[]
+  promoCodes          PromoCode[]
+  trackingLinks       TrackingLink[]
+  sales               Sale[]
 
   @@index([relationshipStatus])
   @@index([ownerId])
@@ -814,6 +825,9 @@ model Campaign {
   notifications       Notification[]
   attachments         Attachment[]
   usageRights         UsageRight[]
+  promoCodes          PromoCode[]
+  trackingLinks       TrackingLink[]
+  sales               Sale[]
   notes               Note[]
   inspirationItems    InspirationItem[]
 
@@ -1610,6 +1624,153 @@ model UsageRight {
   @@index([influencerId])
   @@index([expiresAt])
   @@index([status])
+}
+
+// ===========================================================================
+// SALES & ROI (P3.1) — promo codes, tracking links and the brand's own sales.
+// Revenue is only ever what was imported from the shop or entered by hand;
+// nothing is estimated.
+// ===========================================================================
+
+enum SaleSource {
+  IMPORT
+  MANUAL
+}
+
+/// A discount code a creator shares for one campaign. The same code can come
+/// back on a later campaign: a sale goes to the code whose dates cover it (the
+/// one that started last when several do).
+model PromoCode {
+  id           String    @id @default(cuid())
+  brandId      String
+  campaignId   String
+  influencerId String
+  /// As the creator shares it.
+  code         String
+  /// Upper-case without spaces — what shop orders are matched on.
+  codeKey      String
+  /// Free text, e.g. "15%" or "5 KWD off".
+  discount     String?
+  validFrom    DateTime?
+  validTo      DateTime?
+  isActive     Boolean   @default(true)
+  notes        String?
+  createdById  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  brand      Brand      @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  campaign   Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  influencer Influencer @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  createdBy  User?      @relation("PromoCodeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  sales      Sale[]
+
+  @@unique([campaignId, codeKey])
+  @@index([brandId, codeKey])
+  @@index([influencerId])
+}
+
+/// A short link (/r/<slug>) that counts clicks and sends people on to the
+/// brand's page, tagged with UTM parameters so the shop's own analytics can
+/// tell which creator sent them.
+model TrackingLink {
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  brandId        String
+  campaignId     String
+  influencerId   String
+  /// As entered.
+  destinationUrl String
+  /// Where the link actually sends people (with UTM tags when asked for).
+  targetUrl      String
+  label          String?
+  /// Paused links still send people on but stop counting.
+  isActive       Boolean   @default(true)
+  clickCount     Int       @default(0)
+  lastClickAt    DateTime?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  brand      Brand                  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  campaign   Campaign               @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  influencer Influencer             @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  createdBy  User?                  @relation("TrackingLinkCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  clickDays  TrackingLinkClickDay[]
+  sales      Sale[]
+
+  @@index([campaignId])
+  @@index([influencerId])
+}
+
+/// Clicks on a tracking link per Kuwait day.
+model TrackingLinkClickDay {
+  linkId String
+  day    DateTime @db.Date
+  clicks Int      @default(0)
+
+  link TrackingLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@id([linkId, day])
+}
+
+/// One file of shop orders brought in — kept so it can be undone.
+model SalesImport {
+  id          String   @id @default(cuid())
+  brandId     String
+  fileName    String?
+  /// Rows in the file.
+  rowCount    Int
+  /// Orders recorded.
+  imported    Int
+  /// Orders already on record (same order number).
+  duplicates  Int
+  /// Rows without a known code or link.
+  unmatched   Int
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  brand     Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("SalesImportCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  sales     Sale[]
+
+  @@index([brandId, createdAt])
+}
+
+/// Sales credited to a creator on a campaign: one shop order (imported) or a
+/// total the brand reported for a code (entered by hand, orders ≥ 1).
+model Sale {
+  id             String     @id @default(cuid())
+  brandId        String
+  campaignId     String
+  influencerId   String
+  promoCodeId    String?
+  trackingLinkId String?
+  importId       String?
+  source         SaleSource
+  /// The shop's order number — the same order is never counted twice.
+  orderRef       String?
+  orders         Int        @default(1)
+  amount         Decimal    @db.Decimal(18, 3)
+  currency       String
+  occurredAt     DateTime
+  note           String?
+  createdById    String?
+  createdAt      DateTime   @default(now())
+
+  brand        Brand         @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  campaign     Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  influencer   Influencer    @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  promoCode    PromoCode?    @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+  trackingLink TrackingLink? @relation(fields: [trackingLinkId], references: [id], onDelete: SetNull)
+  import       SalesImport?  @relation(fields: [importId], references: [id], onDelete: Cascade)
+  createdBy    User?         @relation("SaleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([brandId, orderRef])
+  @@index([campaignId, occurredAt])
+  @@index([influencerId, occurredAt])
+  @@index([brandId, occurredAt])
+  @@index([importId])
 }
 
 model Notification {

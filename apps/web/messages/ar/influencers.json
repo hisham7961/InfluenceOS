@@ -497,7 +497,9 @@
       "costPer1000Views": "التكلفة لكل 1,000 مشاهدة",
       "byPlatform": "حسب المنصة",
       "platformLine": "{posts, plural, one {منشور واحد} two {منشوران} few {# منشورات} many {# منشورًا} other {# منشور}} · {views} مشاهدة معتادة",
-      "trendsTitle": "نتائجه شهريًا أو أسبوعيًا"
+      "trendsTitle": "نتائجه شهريًا أو أسبوعيًا",
+      "sales": "المبيعات من الأكواد والروابط",
+      "salesHint": "{orders, plural, zero {لا طلبات} one {طلب واحد} two {طلبان} few {# طلبات} many {# طلبًا} other {# طلب}} · {clicks, plural, zero {لا نقرات} one {نقرة واحدة} two {نقرتان} few {# نقرات} many {# نقرة} other {# نقرة}}"
     }
   },
   "errors": {

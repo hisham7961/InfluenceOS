@@ -497,7 +497,9 @@
       "costPer1000Views": "Cost per 1,000 views",
       "byPlatform": "By platform",
       "platformLine": "{posts, plural, one {# post} other {# posts}} · typical {views} views",
-      "trendsTitle": "Their results by month or week"
+      "trendsTitle": "Their results by month or week",
+      "sales": "Sales from codes & links",
+      "salesHint": "{orders, plural, one {# order} other {# orders}} · {clicks, plural, one {# link click} other {# link clicks}}"
     }
   },
   "errors": {

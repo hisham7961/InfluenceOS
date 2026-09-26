@@ -1,6 +1,12 @@
 import { requests, z } from '@influenceos/contracts';
 import type {
   Platform,
+  CampaignSalesDTO,
+  PromoCodeDTO,
+  SaleDTO,
+  SalesImportResultDTO,
+  TrackingLinkDTO,
+  TrackingLinkResolveDTO,
   SearchPageDTO,
   AudienceHealthDTO,
   ActivityDTO,
@@ -579,6 +585,31 @@ export function createClient(config: ClientConfig) {
         http.get<ExecDashboardDTO>(`${V}/reports/exec-dashboard`, { query: params }),
       // Week- or month-by-month results (P2.7).
       trends: (params?: QueryParams) => http.get<TrendsDTO>(`${V}/reports/trends`, { query: params }),
+    },
+
+    // Sales & ROI (P3.1): promo codes, tracking links, the brand's sales.
+    sales: {
+      forCampaign: (campaignId: string) => http.get<CampaignSalesDTO>(`${V}/campaigns/${campaignId}/sales`),
+      createPromoCode: (campaignId: string, body: In<typeof requests.promoCodeCreateSchema>) =>
+        http.post<PromoCodeDTO>(`${V}/campaigns/${campaignId}/promo-codes`, body),
+      updatePromoCode: (id: string, body: In<typeof requests.promoCodeUpdateSchema>) =>
+        http.patch<PromoCodeDTO>(`${V}/promo-codes/${id}`, body),
+      removePromoCode: (id: string) => http.del<void>(`${V}/promo-codes/${id}`),
+      createLink: (campaignId: string, body: In<typeof requests.trackingLinkCreateSchema>) =>
+        http.post<TrackingLinkDTO>(`${V}/campaigns/${campaignId}/tracking-links`, body),
+      updateLink: (id: string, body: In<typeof requests.trackingLinkUpdateSchema>) =>
+        http.patch<TrackingLinkDTO>(`${V}/tracking-links/${id}`, body),
+      removeLink: (id: string) => http.del<void>(`${V}/tracking-links/${id}`),
+      add: (campaignId: string, body: In<typeof requests.saleCreateSchema>) =>
+        http.post<SaleDTO>(`${V}/campaigns/${campaignId}/sales`, body),
+      remove: (id: string) => http.del<void>(`${V}/sales/${id}`),
+      /** Check (dryRun: true) or record a shop's order file for a brand. */
+      importFile: (brandId: string, body: In<typeof requests.salesImportSchema>) =>
+        http.post<SalesImportResultDTO>(`${V}/brands/${brandId}/sales/import`, body),
+      undoImport: (importId: string) => http.del<{ removed: number }>(`${V}/sales-imports/${importId}`),
+      /** Public: where a tracking link sends people (counts the click unless `preview`). */
+      resolveLink: (slug: string, params?: { preview?: '1' }) =>
+        http.get<TrackingLinkResolveDTO>(`${V}/public/links/${slug}`, { query: params }),
     },
 
     notifications: {

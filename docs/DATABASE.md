@@ -91,6 +91,16 @@ shape and the rules behind it.
 | **IntegrationSetting** | One row per social `Platform` describing that provider's connection/config state, for the Admin Integrations screen. | `platform` unique, `status` (`IntegrationStatus`), `isEnabled`, `monitoringEnabled`, `capabilities`/`config` (Json, provider-specific), `lastTestAt`/`lastSuccessAt`/`lastError`. |
 | **SavedView** | A user's (or shared) saved filter set for a directory/feed screen. | `scope`, `name`, `filters` (Json — arbitrary filter payload), `isShared`, optional `userId`. |
 
+## Sales & ROI (P3.1)
+
+| Model | Purpose | Key fields / relations |
+|---|---|---|
+| **PromoCode** | A discount code a creator shares for one campaign. | `code` (as shared), `codeKey` (upper-case, no spaces — what orders are matched on), `discount`, `validFrom`/`validTo` (Kuwait days), `isActive`. Unique `[campaignId, codeKey]`; the same code may come back on a later campaign — an order goes to the code whose dates cover it (the one that started last). |
+| **TrackingLink** | A short link (`/r/<slug>`) that counts clicks and redirects. | `slug` (unique, 7 characters without look-alikes), `destinationUrl` (as entered), `targetUrl` (with UTM tags when asked for), `label`, `isActive` (paused links redirect without counting), `clickCount`, `lastClickAt`. |
+| **TrackingLinkClickDay** | Clicks per link per Kuwait day. | `[linkId, day]` primary key, `clicks`. Written with an upsert so two first clicks of the day don't collide. |
+| **SalesImport** | One shop order file brought in, kept so it can be undone. | `fileName`, `rowCount`, `imported`, `duplicates`, `unmatched`, `createdById`. Deleting it deletes its sales. |
+| **Sale** | Sales credited to a creator on a campaign: one shop order (imported) or a total entered by hand. | `source` (`IMPORT`/`MANUAL`), `orderRef` (unique per brand — the same order is never counted twice), `orders`, `amount` (Decimal 18,3), `currency`, `occurredAt`, optional `promoCodeId`/`trackingLinkId`/`importId`. |
+
 ## Mobile / API-readiness additions
 
 These models exist ahead of a mobile client so the API contract and auth model don't need

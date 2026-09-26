@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { csvCell, parseCsv, parseCsvRecords, toCsv } from '../utils/csv';
+import { csvCell, guessDelimiter, parseCsv, parseCsvRecords, toCsv } from '../utils/csv';
 
 /**
  * W3-4 — the CSV parser behind roster import. It must survive quoted fields
@@ -76,5 +76,27 @@ describe('toCsv / csvCell — Excel-safe output', () => {
   it('round-trips through the parser', () => {
     const csv = toCsv(['a', 'b'], [['x,y', 'multi\nline']]);
     expect(parseCsv(csv)).toEqual([['a', 'b'], ['x,y', 'multi\nline']]);
+  });
+});
+
+describe('other delimiters (P3.1 — rows pasted from Excel, semicolon exports)', () => {
+  it('reads tab-separated rows pasted from Excel', () => {
+    const text = 'Order\tDate\tTotal\n#1001\t01/09/2026\t12,500\n';
+    expect(guessDelimiter(text)).toBe('\t');
+    expect(parseCsv(text, '\t')).toEqual([
+      ['Order', 'Date', 'Total'],
+      ['#1001', '01/09/2026', '12,500'],
+    ]);
+  });
+
+  it('reads semicolon exports and keeps quoted semicolons', () => {
+    const text = 'Order;Total;Note\n#1;"12,5";"a;b"\n';
+    expect(guessDelimiter(text)).toBe(';');
+    expect(parseCsv(text, ';')[1]).toEqual(['#1', '12,5', 'a;b']);
+  });
+
+  it('falls back to commas', () => {
+    expect(guessDelimiter('Order,Date,Total')).toBe(',');
+    expect(guessDelimiter('')).toBe(',');
   });
 });

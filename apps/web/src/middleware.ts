@@ -52,8 +52,12 @@ async function refresh(refreshToken: string, req: NextRequest): Promise<RefreshO
   }
 }
 
+/** Pages anyone may open without signing in. */
+const PUBLIC_PREFIXES = ['/r/'];
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return NextResponse.next();
   const access = req.cookies.get(ACCESS)?.value;
   const refreshToken = req.cookies.get(REFRESH)?.value;
   const isLogin = pathname === '/login';
