@@ -206,6 +206,18 @@ describe('P3.1 — promo codes, tracking links and imported sales', () => {
     expect(s.imports[0]).toMatchObject({ fileName: 'orders.csv', rowCount: 8, imported: 3, ordersOnRecord: 3 });
   });
 
+  it('the client report and the owner dashboard show the sales', async () => {
+    const report = await api.campaigns.report(campaignId);
+    expect(report.sales).toEqual({ orders: 3, revenue: [{ currency: 'KWD', amount: 62.5 }], clicks: 1, roas: 0.42, costPerOrder: 50 });
+    // Return on spend reveals spend: it goes when costs are left out.
+    const noCosts = await api.campaigns.report(campaignId, { costs: false });
+    expect(noCosts.sales).toMatchObject({ orders: 3, roas: null, costPerOrder: null });
+
+    const exec = await api.reports.execDashboard({ brandId, period: 'custom', from: '2026-09-01', to: '2026-09-30' });
+    expect(exec.period.current).toMatchObject({ orders: 3, revenue: [{ currency: 'KWD', amount: 62.5 }] });
+    expect(exec.period.previous.orders).toBe(0);
+  });
+
   it('a code reused on a later campaign takes over from its start date', async () => {
     await api.sales.createPromoCode(laterCampaignId, { influencerId: sara, code: 'SARA15' });
     const r = await api.sales.importFile(brandId, {

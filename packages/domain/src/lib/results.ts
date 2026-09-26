@@ -49,6 +49,14 @@ function paymentScope(s: ResultsScope): Prisma.PaymentWhereInput[] {
   return out;
 }
 
+function saleScope(s: ResultsScope): Prisma.SaleWhereInput[] {
+  const out: Prisma.SaleWhereInput[] = [];
+  if (s.brandIds) out.push({ brandId: { in: s.brandIds } });
+  if (s.campaignId) out.push({ campaignId: s.campaignId });
+  if (s.influencerId) out.push({ influencerId: s.influencerId });
+  return out;
+}
+
 function campaignScope(s: ResultsScope): Prisma.CampaignWhereInput[] {
   const out: Prisma.CampaignWhereInput[] = [{ status: { notIn: ['DRAFT', 'CANCELLED'] } }];
   if (s.brandIds) out.push({ brandId: { in: s.brandIds } });
@@ -84,7 +92,7 @@ export async function periodKpis(
   canSeeMoney: boolean,
 ): Promise<PeriodKpisDTO> {
   const { prisma } = ctx;
-  const [posts, delivered, campaignsStarted, payments] = await Promise.all([
+  const [posts, delivered, campaignsStarted, payments, sales] = await Promise.all([
     loadPostMetrics(prisma, { AND: [postedBetween(from, to), ...postScope(scope)] }),
     prisma.deliverable.findMany({
       where: { AND: [deliveredWhere, { publishedAt: { gte: from, lt: to } }, ...deliverableScope(scope)] },
@@ -97,6 +105,12 @@ export async function periodKpis(
           select: { currency: true, amount: true },
         })
       : Promise.resolve(null),
+    // Sales credited through promo codes and tracking links (P3.1).
+    prisma.sale.groupBy({
+      by: ['currency'],
+      where: { AND: [{ occurredAt: { gte: from, lt: to } }, ...saleScope(scope)] },
+      _sum: { amount: true, orders: true },
+    }),
   ]);
 
   const views = sumKnown(posts.map((p) => p.views));
@@ -116,6 +130,8 @@ export async function periodKpis(
     campaignsStarted,
     paid,
     costPerView: costPerView(paid, views),
+    orders: sales.reduce((n, g) => n + (g._sum.orders ?? 0), 0),
+    revenue: currencyTotals(sales.map((g) => ({ currency: g.currency, amount: g._sum.amount }))),
   };
 }
 

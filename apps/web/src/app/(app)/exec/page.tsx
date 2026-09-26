@@ -166,6 +166,36 @@ export default async function ExecPage({ searchParams }: { searchParams: Promise
               />
             </>
           ) : null}
+          {cur.orders > 0 || prev.orders > 0 ? (
+            <>
+              <StatCard
+                label={t('exec.results.orders')}
+                value={cur.orders}
+                iconName="trending"
+                tone="success"
+                formatted={formatNumber(cur.orders)}
+                trend={trend(cur.orders, prev.orders)}
+                hint={t('exec.results.ordersHint')}
+              />
+              <StatCard
+                label={t('exec.results.revenue')}
+                value={cur.revenue[0]?.amount ?? 0}
+                iconName="wallet"
+                tone="success"
+                formatted={cur.revenue[0] ? money(cur.revenue[0].amount, cur.revenue[0].currency) : money(0)}
+                trend={
+                  cur.revenue[0]
+                    ? trend(cur.revenue[0].amount, prev.revenue.find((r) => r.currency === cur.revenue[0]!.currency)?.amount ?? 0)
+                    : undefined
+                }
+                hint={
+                  cur.revenue.length > 1
+                    ? t('exec.results.alsoRevenue', { amounts: cur.revenue.slice(1).map((r) => money(r.amount, r.currency)).join(' · ') })
+                    : undefined
+                }
+              />
+            </>
+          ) : null}
         </div>
       </section>
 

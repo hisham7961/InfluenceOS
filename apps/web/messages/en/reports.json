@@ -130,7 +130,11 @@
       "paid": "Paid",
       "alsoPaid": "Also {amounts}",
       "costPer1000Views": "Cost per 1,000 views",
-      "costPerViewHint": "Needs views, and payments in one currency"
+      "costPerViewHint": "Needs views, and payments in one currency",
+      "orders": "Orders from codes & links",
+      "ordersHint": "The brand's own orders, credited to creators",
+      "revenue": "Revenue from codes & links",
+      "alsoRevenue": "Also {amounts}"
     },
     "trends": {
       "title": "Trends",

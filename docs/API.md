@@ -482,7 +482,12 @@ cost per order are `null` without `FINANCE_VIEW`.
 
 `GET /api/v1/influencers/:id/performance` also returns `sales`: orders, revenue
 per currency and link clicks credited to the creator across the brands the
-reader can see (`null` when none).
+reader can see (`null` when none). The client report (`GET
+/api/v1/campaigns/:id/report` and its `.xlsx`) has a `sales` section — orders,
+revenue, link clicks, and ROAS / cost per order only when costs are included —
+plus each creator's orders and revenue; `null` when nothing is recorded. The
+owner dashboard's period results (`GET /api/v1/reports/exec-dashboard`) carry
+`orders` and `revenue` for the period and the one before, by order date.
 
 ### Dashboard
 

@@ -174,6 +174,42 @@ export default async function CampaignReportPage({
           </div>
         </section>
 
+        {/* Sales from promo codes and tracking links (P3.1) */}
+        {report.sales ? (
+          <section className="break-inside-avoid space-y-3">
+            <h2 className="text-lg font-semibold">{t('salesTitle')}</h2>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <Kpi label={t('orders')} value={num(report.sales.orders)} sub={null} percent={null} t={t} />
+              <Kpi
+                label={t('revenue')}
+                value={
+                  report.sales.revenue.length
+                    ? report.sales.revenue.map((r) => formatCurrency(r.amount, r.currency)).join(' · ')
+                    : formatCurrency(0, currency)
+                }
+                sub={null}
+                percent={null}
+                t={t}
+              />
+              <Kpi label={t('linkClicks')} value={num(report.sales.clicks)} sub={null} percent={null} t={t} />
+              {report.includeCosts ? (
+                <Kpi
+                  label={t('roas')}
+                  value={report.sales.roas != null ? `${formatNumber(report.sales.roas)}×` : '—'}
+                  sub={
+                    report.sales.costPerOrder != null
+                      ? t('costPerOrder', { amount: formatCurrency(report.sales.costPerOrder, currency) })
+                      : null
+                  }
+                  percent={null}
+                  t={t}
+                />
+              ) : null}
+            </div>
+            <p className="text-muted-foreground text-xs">{t('salesNote')}</p>
+          </section>
+        ) : null}
+
         {/* Creators */}
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">{t('creatorsTitle')}</h2>
@@ -193,6 +229,12 @@ export default async function CampaignReportPage({
                       <>
                         <Th end>{t('spend')}</Th>
                         <Th end>{t('costPerView')}</Th>
+                      </>
+                    ) : null}
+                    {report.sales ? (
+                      <>
+                        <Th end>{t('orders')}</Th>
+                        <Th end>{t('revenue')}</Th>
                       </>
                     ) : null}
                   </tr>
@@ -230,6 +272,18 @@ export default async function CampaignReportPage({
                           </Td>
                           <Td end>
                             <LtrText>{rate(r.costPerView, currency)}</LtrText>
+                          </Td>
+                        </>
+                      ) : null}
+                      {report.sales ? (
+                        <>
+                          <Td end>{num(r.sales?.orders ?? 0)}</Td>
+                          <Td end>
+                            <LtrText>
+                              {r.sales?.revenue.length
+                                ? r.sales.revenue.map((m) => formatCurrency(m.amount, m.currency)).join(' · ')
+                                : '—'}
+                            </LtrText>
                           </Td>
                         </>
                       ) : null}
@@ -416,8 +470,17 @@ function Kpi({
   return (
     <div className="border-border break-inside-avoid rounded-xl border p-4">
       <p className="text-muted-foreground text-xs font-medium">{label}</p>
-      <p className="mt-1 text-2xl font-bold tabular-nums">
-        <LtrText>{value}</LtrText>
+      {/* Long money values shrink and may wrap after the currency code. */}
+      <p
+        className={
+          value.length > 14
+            ? 'mt-1 text-lg font-bold tabular-nums'
+            : value.length > 11
+              ? 'mt-1 text-xl font-bold tabular-nums'
+              : 'mt-1 text-2xl font-bold tabular-nums'
+        }
+      >
+        <LtrText>{value.replace(/\u00a0/g, ' ')}</LtrText>
       </p>
       {sub ? <p className="text-muted-foreground text-xs">{sub}</p> : null}
       {percent != null ? (

@@ -385,6 +385,18 @@ export interface CampaignReportCreatorDTO {
   /** Null when the report leaves costs out. */
   spend: number | null;
   costPerView: number | null;
+  /** Orders and revenue from their codes and links (P3.1); null when the campaign has no sales recorded. */
+  sales: { orders: number; revenue: CurrencyTotalDTO[] } | null;
+}
+
+/** Sales from promo codes and tracking links in the client report (P3.1). */
+export interface CampaignReportSalesDTO {
+  orders: number;
+  revenue: CurrencyTotalDTO[];
+  clicks: number;
+  /** Revenue in the campaign's currency ÷ spend; null when costs are left out. */
+  roas: number | null;
+  costPerOrder: number | null;
 }
 
 /** One post in the client report. */
@@ -450,6 +462,8 @@ export interface CampaignReportDTO {
     costPerEngagement: number | null;
   };
   metricsLastSyncedAt: string | null;
+  /** Null when no sales or link clicks are recorded. */
+  sales: CampaignReportSalesDTO | null;
   creators: CampaignReportCreatorDTO[];
   posts: CampaignReportPostDTO[];
 }
@@ -1635,6 +1649,10 @@ export interface PeriodKpisDTO {
   paid: CurrencyTotalDTO[] | null;
   /** Paid ÷ views, when everything was paid in one currency. */
   costPerView: { currency: string; value: number } | null;
+  /** Orders credited through promo codes and tracking links (P3.1). */
+  orders: number;
+  /** Their revenue, per currency. */
+  revenue: CurrencyTotalDTO[];
 }
 
 export interface ExecPeriodDTO {

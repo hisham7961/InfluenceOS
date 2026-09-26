@@ -891,6 +891,13 @@
     "story": "Story",
     "noPosts": "No posts yet.",
     "footnote": "Views and engagements are the latest recorded for each post. Numbers last updated {date}.",
-    "footnoteNoDate": "Views and engagements are the latest recorded for each post."
+    "footnoteNoDate": "Views and engagements are the latest recorded for each post.",
+    "salesTitle": "Sales",
+    "orders": "Orders",
+    "revenue": "Revenue",
+    "linkClicks": "Link clicks",
+    "roas": "Return on spend",
+    "costPerOrder": "{amount} spent per order",
+    "salesNote": "The brand's own orders credited through each creator's promo code or tracking link — not an estimate."
   }
 }

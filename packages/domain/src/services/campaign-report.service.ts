@@ -15,6 +15,7 @@ import { iso } from '../lib/helpers';
 import { toMoneyNumber } from '../lib/money';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
 import { makeAnalyticsService } from './analytics.service';
+import { makeSalesService } from './sales.service';
 
 type ReportQuery = z.infer<typeof requests.campaignReportQuerySchema>;
 
@@ -100,6 +101,12 @@ export function makeCampaignReportService(ctx: DomainContext) {
       }),
     ]);
 
+    // Sales from codes and links (P3.1). Return on spend reveals spend, so it
+    // follows the report's costs switch.
+    const sold = await makeSalesService(ctx).campaignSales(campaign.id);
+    const hasSales = sold.orders > 0 || sold.clicks > 0;
+    const salesByCreator = new Map(sold.creators.map((c) => [c.influencerId, c]));
+
     const accountsByRow = new Map(roster.map((r) => [r.id, r.influencer.socialAccounts]));
     const creators: CampaignReportCreatorDTO[] = efficiency.perCreator.map((c) => {
       const accounts = accountsByRow.get(c.campaignInfluencerId) ?? [];
@@ -115,6 +122,9 @@ export function makeCampaignReportService(ctx: DomainContext) {
         engagementRate: c.engagementRate,
         spend: includeCosts ? c.spend : null,
         costPerView: includeCosts ? c.costPerView : null,
+        sales: hasSales
+          ? { orders: salesByCreator.get(c.influencerId)?.orders ?? 0, revenue: salesByCreator.get(c.influencerId)?.revenue ?? [] }
+          : null,
       };
     });
 
@@ -188,6 +198,15 @@ export function makeCampaignReportService(ctx: DomainContext) {
         costPerEngagement: includeCosts ? efficiency.costPerEngagement : null,
       },
       metricsLastSyncedAt: efficiency.metricsLastSyncedAt,
+      sales: hasSales
+        ? {
+            orders: sold.orders,
+            revenue: sold.revenue,
+            clicks: sold.clicks,
+            roas: includeCosts ? sold.roas : null,
+            costPerOrder: includeCosts ? sold.costPerOrder : null,
+          }
+        : null,
       creators,
       posts: reportPosts,
     };

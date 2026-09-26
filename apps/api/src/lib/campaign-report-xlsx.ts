@@ -37,6 +37,12 @@ const LABELS = {
     removed: 'Removed',
     story: 'Story (kept in the app)',
     currency: 'Currency',
+    sales: 'Sales (promo codes & tracking links)',
+    orders: 'Orders',
+    revenue: 'Revenue',
+    linkClicks: 'Link clicks',
+    roas: 'Return on spend (×)',
+    costPerOrder: 'Cost per order',
   },
   ar: {
     summary: 'الملخص',
@@ -72,6 +78,12 @@ const LABELS = {
     removed: 'محذوف',
     story: 'ستوري (محفوظة في التطبيق)',
     currency: 'العملة',
+    sales: 'المبيعات (أكواد الخصم وروابط التتبّع)',
+    orders: 'الطلبات',
+    revenue: 'الإيرادات',
+    linkClicks: 'نقرات الروابط',
+    roas: 'العائد على الإنفاق (×)',
+    costPerOrder: 'تكلفة الطلب',
   },
 } as const;
 
@@ -148,6 +160,37 @@ export function campaignReportXlsx(report: CampaignReportDTO): Buffer {
       ],
     );
   }
+  const sales = report.sales;
+  if (sales) {
+    summary.push(
+      [],
+      [{ value: L.sales, style: 'header' }],
+      [
+        { value: L.orders, style: 'bold' },
+        { value: sales.orders, style: 'int' },
+      ],
+      ...sales.revenue.map((r): Cell[] => [
+        { value: `${L.revenue} (${r.currency})`, style: 'bold' },
+        { value: r.amount, style: 'money' },
+      ]),
+      [
+        { value: L.linkClicks, style: 'bold' },
+        { value: sales.clicks, style: 'int' },
+      ],
+    );
+    if (costs) {
+      summary.push(
+        [
+          { value: L.roas, style: 'bold' },
+          { value: sales.roas, style: 'money' },
+        ],
+        [
+          { value: `${L.costPerOrder} (${c.currency})`, style: 'bold' },
+          { value: sales.costPerOrder, style: 'money' },
+        ],
+      );
+    }
+  }
   if (report.summary) summary.push([], [{ value: L.notes, style: 'bold' }], [report.summary]);
 
   const creatorHead: string[] = [
@@ -161,6 +204,7 @@ export function campaignReportXlsx(report: CampaignReportDTO): Buffer {
     L.engagementRate,
   ];
   if (costs) creatorHead.push(`${L.spend} (${c.currency})`, `${L.costPerView} (${c.currency})`);
+  if (sales) creatorHead.push(L.orders, `${L.revenue} (${c.currency})`);
   const creators: Cell[][] = [
     creatorHead.map((h) => ({ value: h, style: 'header' as const })),
     ...report.creators.map((r) => {
@@ -176,6 +220,12 @@ export function campaignReportXlsx(report: CampaignReportDTO): Buffer {
       ];
       if (costs)
         row.push({ value: r.spend, style: 'money' }, { value: r.costPerView, style: 'rate' });
+      if (sales && r.sales) {
+        row.push(
+          { value: r.sales.orders, style: 'int' },
+          { value: r.sales.revenue.find((m) => m.currency === c.currency)?.amount ?? 0, style: 'money' },
+        );
+      }
       return row;
     }),
   ];
@@ -212,7 +262,7 @@ export function campaignReportXlsx(report: CampaignReportDTO): Buffer {
     {
       name: L.creators,
       rows: creators,
-      widths: [26, 20, 22, 12, 14, 14, 14, 18, 16, 16],
+      widths: [26, 20, 22, 12, 14, 14, 14, 18, 16, 16, 12, 16],
       freezeRow: 2,
       rtl,
     },
