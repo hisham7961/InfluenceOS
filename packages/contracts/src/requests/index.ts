@@ -1545,4 +1545,10 @@ export type CreatorLicenceCreateInput = z.infer<typeof creatorLicenceCreateSchem
 export type CreatorLicenceUpdateInput = z.infer<typeof creatorLicenceUpdateSchema>;
 export type ComplianceSettingsUpdateInput = z.infer<typeof complianceSettingsUpdateSchema>;
 
+// --- Approvals (P3.6) --------------------------------------------------------------
+export const approvalsQuerySchema = z.object({
+  /** Only drafts on campaigns or creators the viewer owns. */
+  mine: z.coerce.boolean().optional().default(false),
+});
+
 export { z };

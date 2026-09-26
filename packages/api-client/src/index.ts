@@ -35,6 +35,9 @@ import type {
   DiscoveryRunDTO,
   CreatorLicenceDTO,
   CaptionRulesDTO,
+  MyWorkDTO,
+  WorkCountsDTO,
+  ApprovalItemDTO,
   CampaignLicenceCheckDTO,
   ComplianceSettingsDTO,
   PayablesPageDTO,
@@ -708,6 +711,16 @@ export function createClient(config: ClientConfig) {
         http.post<DiscoveredPostDTO>(`${V}/discovered-posts/${id}/add`, body),
       dismiss: (id: string) =>
         http.post<DiscoveredPostDTO>(`${V}/discovered-posts/${id}/dismiss`, {}),
+    },
+
+    // My work and the cross-campaign approvals list (P3.6).
+    work: {
+      mine: () => http.get<MyWorkDTO>(`${V}/me/work`),
+      counts: () => http.get<WorkCountsDTO>(`${V}/me/work/counts`),
+      approvals: (params?: { mine?: boolean }) =>
+        http.get<ApprovalItemDTO[]>(`${V}/approvals`, {
+          query: params?.mine ? { mine: 'true' } : undefined,
+        }),
     },
 
     // Creator advertising licences (P3.5).

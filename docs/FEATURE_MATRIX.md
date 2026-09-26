@@ -6,7 +6,7 @@ Every major capability, its backend/API/web status, and whether it is **Mobile R
 (business logic server-side, documented API, server-side auth + permissions, stable
 contracts, media represented independently of the web UI — spec addendum §37).
 
-**Coverage:** 42 features · API ready 41 · Web ready 42 · Mobile ready 38 · Admin-desktop-only 4 · **Mobile readiness 100%** (of SHARED features).
+**Coverage:** 43 features · API ready 42 · Web ready 43 · Mobile ready 39 · Admin-desktop-only 4 · **Mobile readiness 100%** (of SHARED features).
 
 | Feature | Module | Class | API | Web | Mobile Ready | Roles | Flag |
 |---|---|---|---|---|:---:|---|---|
@@ -52,6 +52,7 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Post discovery | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Creator advertising licences | Influencers | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Caption check | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| My work and approvals | Dashboard | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 
 ## API endpoints by feature
 
@@ -334,3 +335,9 @@ contracts, media represented independently of the web UI — spec addendum §37)
 ### Caption check
 
 - `GET /api/v1/deliverables/:id/caption-rules`
+
+### My work and approvals
+
+- `GET /api/v1/me/work`
+- `GET /api/v1/me/work/counts`
+- `GET /api/v1/approvals`

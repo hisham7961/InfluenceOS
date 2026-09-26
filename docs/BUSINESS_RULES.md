@@ -109,3 +109,19 @@ link; the team sees it when reviewing a draft and on the post's page. Needs
 Attention shows one red line per **active** campaign with live paid/gifted
 posts (not Stories or UGC) whose caption we have and that doesn't say it's an
 ad (the newest 500 such posts are scanned).
+
+## My work and approvals (P3.6)
+
+"Mine" is what a person owns: a campaign whose owner they are, or a creator
+whose owner they are (either one makes that creator's row on that campaign
+theirs). Shipments and address issues are theirs when assigned to them.
+Everything stays inside their brand and country scope — owning a campaign in
+a brand they can't see doesn't bring it back.
+
+My work lists, per owned row: drafts waiting for review, deliverables past
+their due date, deliverables due today or in the next 3 days (Kuwait
+calendar), and new found posts per owned campaign; plus open shipments
+(pending / shipped / in transit) and open address issues assigned to them.
+The Approvals list shows every draft waiting in the person's scope, oldest
+first, so drafts nobody owns don't get lost. The sidebar shows both counts,
+refreshed every minute.

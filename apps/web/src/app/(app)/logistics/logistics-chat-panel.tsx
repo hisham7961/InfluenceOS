@@ -61,7 +61,7 @@ export function LogisticsChatPanel() {
       </div>
 
       {/* Mobile / tablet: a drawer, never squeezed permanently onto the page. */}
-      <div className="lg:hidden">
+      <div className="flex justify-end lg:hidden">
         <Sheet>
           <SheetTrigger asChild>
             <Button type="button" variant="outline" size="sm" className="gap-1.5">

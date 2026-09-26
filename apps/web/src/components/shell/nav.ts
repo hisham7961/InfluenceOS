@@ -1,7 +1,9 @@
 import {
   Bell,
   CalendarDays,
+  ClipboardCheck,
   Gauge,
+  Inbox,
   LayoutDashboard,
   Lightbulb,
   Megaphone,
@@ -39,7 +41,10 @@ export interface NavSection {
 // translation keys, not literal text — see docs/localization/README.md.
 export const NAV_SECTIONS: NavSection[] = [
   {
-    items: [{ href: '/', labelKey: 'missionControl', icon: LayoutDashboard, exact: true }],
+    items: [
+      { href: '/', labelKey: 'missionControl', icon: LayoutDashboard, exact: true },
+      { href: '/my-work', labelKey: 'myWork', icon: Inbox },
+    ],
   },
   {
     labelKey: 'workspace',
@@ -47,6 +52,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/brands', labelKey: 'brands', icon: Store },
       { href: '/influencers', labelKey: 'influencers', icon: Users },
       { href: '/campaigns', labelKey: 'campaigns', icon: Megaphone },
+      { href: '/approvals', labelKey: 'approvals', icon: ClipboardCheck },
       { href: '/content', labelKey: 'liveContent', icon: PlaySquare },
       { href: '/calendar', labelKey: 'calendar', icon: CalendarDays },
       { href: '/logistics', labelKey: 'logistics', icon: Package },

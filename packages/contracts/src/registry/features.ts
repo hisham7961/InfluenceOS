@@ -843,6 +843,22 @@ export const FEATURES: FeatureEntry[] = [
     apiEndpoints: ['GET /api/v1/deliverables/:id/caption-rules'],
     deepLink: '/campaigns',
   },
+  {
+    key: 'my_work',
+    name: 'My work and approvals',
+    description:
+      "My work lists what's waiting on the signed-in person — drafts to review, deliverables overdue or due in the next 3 days, and posts found on creators' accounts, for the campaigns and creators they own, plus shipments and address issues assigned to them. Approvals lists every draft waiting for review across campaigns (or only the person's own), reviewed in place. The sidebar shows both counts.",
+    module: 'Dashboard',
+    classification: 'SHARED',
+    apiStatus: 'READY',
+    webStatus: 'READY',
+    mobileReady: true,
+    permissions: ALL,
+    flag: null,
+    minApiVersion: 'v1',
+    apiEndpoints: ['GET /api/v1/me/work', 'GET /api/v1/me/work/counts', 'GET /api/v1/approvals'],
+    deepLink: '/my-work',
+  },
 ];
 
 export const FEATURE_MODULES = Array.from(new Set(FEATURES.map((f) => f.module)));

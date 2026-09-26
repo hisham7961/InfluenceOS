@@ -411,7 +411,7 @@
     "submissions": {
       "table": {
         "campaign": "الحملة",
-        "version": "الإصدار",
+        "version": "النسخة",
         "submitted": "تاريخ التسليم",
         "reviewer": "المراجِع",
         "reviewNotes": "ملاحظات المراجعة",

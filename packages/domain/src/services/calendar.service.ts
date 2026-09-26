@@ -31,10 +31,7 @@ export function makeCalendarService(ctx: DomainContext) {
       AND: [inBrands],
       ...(brandId ? { brandId } : {}),
       ...(campaignId ? { id: campaignId } : {}),
-      OR: [
-        { startDate: { gte: from, lte: to } },
-        { endDate: { gte: from, lte: to } },
-      ],
+      OR: [{ startDate: { gte: from, lte: to } }, { endDate: { gte: from, lte: to } }],
     };
 
     // --- (2) Deliverables: dueDate within range -----------------------------
@@ -68,7 +65,9 @@ export function makeCalendarService(ctx: DomainContext) {
       // anything tied to an out-of-scope brand or creator country does not.
       AND: [
         brandScope ? { OR: [{ brandId: { in: brandScope } }, { brandId: null }] } : {},
-        countryScope ? { OR: [{ influencerId: null }, { influencer: { countryCode: { in: countryScope } } }] } : {},
+        countryScope
+          ? { OR: [{ influencerId: null }, { influencer: { countryCode: { in: countryScope } } }] }
+          : {},
       ],
       ...(platform ? { platform } : {}),
       ...(brandId ? { brandId } : {}),
@@ -97,7 +96,13 @@ export function makeCalendarService(ctx: DomainContext) {
           campaignInfluencer: {
             select: {
               campaignId: true,
-              campaign: { select: { id: true, name: true, brand: { select: { name: true, primaryColor: true } } } },
+              campaign: {
+                select: {
+                  id: true,
+                  name: true,
+                  brand: { select: { name: true, primaryColor: true } },
+                },
+              },
               influencer: { select: { displayName: true } },
             },
           },
@@ -109,7 +114,9 @@ export function makeCalendarService(ctx: DomainContext) {
           id: true,
           campaignId: true,
           expectedPublishAt: true,
-          campaign: { select: { id: true, name: true, brand: { select: { name: true, primaryColor: true } } } },
+          campaign: {
+            select: { id: true, name: true, brand: { select: { name: true, primaryColor: true } } },
+          },
           influencer: { select: { displayName: true } },
         },
       }),
@@ -140,7 +147,9 @@ export function makeCalendarService(ctx: DomainContext) {
           brandName: c.brand.name,
           brandColor: c.brand.primaryColor,
           campaignId: c.id,
+          campaignName: c.name,
           influencerName: null,
+          deliverableType: null,
           link: `/campaigns/${c.id}`,
         });
       }
@@ -154,7 +163,9 @@ export function makeCalendarService(ctx: DomainContext) {
           brandName: c.brand.name,
           brandColor: c.brand.primaryColor,
           campaignId: c.id,
+          campaignName: c.name,
           influencerName: null,
+          deliverableType: null,
           link: `/campaigns/${c.id}`,
         });
       }
@@ -172,7 +183,9 @@ export function makeCalendarService(ctx: DomainContext) {
         brandName: campaign.brand.name,
         brandColor: campaign.brand.primaryColor,
         campaignId: campaign.id,
+        campaignName: campaign.name,
         influencerName,
+        deliverableType: d.type,
         link: `/campaigns/${campaign.id}`,
       });
     }
@@ -189,7 +202,9 @@ export function makeCalendarService(ctx: DomainContext) {
         brandName: campaign.brand.name,
         brandColor: campaign.brand.primaryColor,
         campaignId: campaign.id,
+        campaignName: campaign.name,
         influencerName,
+        deliverableType: null,
         link: `/campaigns/${campaign.id}`,
       });
     }
@@ -199,13 +214,17 @@ export function makeCalendarService(ctx: DomainContext) {
       result.push({
         id: `published-${p.id}`,
         kind: 'PUBLISHED',
-        title: influencerName ? `${influencerName} published on ${p.platform}` : `Content published on ${p.platform}`,
+        title: influencerName
+          ? `${influencerName} published on ${p.platform}`
+          : `Content published on ${p.platform}`,
         date: iso(p.publishedAt) as string,
         platform: p.platform,
         brandName: p.brand?.name ?? null,
         brandColor: p.brand?.primaryColor ?? null,
         campaignId: p.campaign?.id ?? null,
+        campaignName: p.campaign?.name ?? null,
         influencerName,
+        deliverableType: null,
         link: `/content/${p.id}`,
       });
     }

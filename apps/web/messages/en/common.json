@@ -153,5 +153,7 @@
     "tagsLabel": "Required hashtags and mentions",
     "present": "included",
     "missing": "missing"
-  }
+  },
+  "resultsCount": "{count, plural, one {# result} other {# results}}",
+  "showResults": "{count, plural, one {Show # result} other {Show # results}}"
 }

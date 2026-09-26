@@ -1286,7 +1286,10 @@ export interface CalendarEventDTO {
   brandName: string | null;
   brandColor: string | null;
   campaignId: string | null;
+  /** So clients can word the title in the viewer's language (`title` is English). */
+  campaignName: string | null;
   influencerName: string | null;
+  deliverableType: DeliverableType | null;
   link: string;
 }
 
@@ -2533,4 +2536,54 @@ export interface CaptionRulesDTO {
   hashtags: string[];
   mentions: string[];
   disclosureRequired: boolean;
+}
+
+// --- My work + approvals (P3.6) ---------------------------------------------------
+
+/** A draft waiting for the team's review, with where it belongs. */
+export interface ApprovalItemDTO {
+  submission: DeliverableSubmissionDTO;
+  campaign: { id: string; name: string };
+  brandName: string;
+  campaignInfluencerId: string;
+  creator: { id: string; name: string; avatarUrl: string | null };
+  deliverable: { id: string; type: DeliverableType; platform: Platform; dueDate: string | null };
+  /** The viewer owns the campaign or the creator. */
+  mine: boolean;
+}
+
+/** One thing waiting on the viewer. */
+export interface WorkItemDTO {
+  id: string;
+  kind:
+    | 'DRAFT_TO_REVIEW'
+    | 'DELIVERABLE_OVERDUE'
+    | 'DELIVERABLE_DUE_SOON'
+    | 'SHIPMENT'
+    | 'LOGISTICS_ISSUE'
+    | 'FOUND_POSTS';
+  campaign: { id: string; name: string } | null;
+  creator: { id: string; name: string; avatarUrl: string | null } | null;
+  /** Due date, or since when it has been waiting. */
+  at: string | null;
+  link: string;
+  /** Kind-specific values: deliverable `type`/`platform`, shipment/issue `status`/`issueType`, found posts `count`. */
+  params: Record<string, string | number>;
+}
+
+/**
+ * The viewer's own work (P3.6): drafts to review, deliverables overdue or due
+ * in the next 3 days and found posts on campaigns they own or for creators
+ * they own, plus shipments and address issues assigned to them.
+ */
+export interface MyWorkDTO {
+  items: WorkItemDTO[];
+  /** The viewer owns at least one campaign or creator (otherwise only assigned logistics shows). */
+  ownsAnything: boolean;
+}
+
+/** Sidebar badges. */
+export interface WorkCountsDTO {
+  myWork: number;
+  approvals: number;
 }

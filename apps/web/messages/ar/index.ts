@@ -22,6 +22,7 @@ import settings from './settings.json';
 import users from './users.json';
 import attention from './attention.json';
 import finance from './finance.json';
+import work from './work.json';
 import serverText from './serverText.json';
 
 export default {
@@ -47,5 +48,6 @@ export default {
   users,
   attention,
   finance,
+  work,
   serverText,
 };

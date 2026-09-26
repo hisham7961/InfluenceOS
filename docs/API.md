@@ -571,11 +571,19 @@ owner dashboard's period results (`GET /api/v1/reports/exec-dashboard`) carry
 | GET | `/api/v1/whats-new` | What's New feed, optionally brand-scoped. |
 | POST | `/api/v1/dashboard/whats-new/ack` | Advance the calling user's own "since your last visit" checkpoint — never a GET side effect. |
 
+### My work and approvals (P3.6)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/me/work` | What's waiting on the caller: drafts to review, overdue and due-soon (3 days) deliverables on what they own, shipments and open address issues assigned to them, and found posts on their campaigns. `ownsAnything` is false when they own no campaign or creator yet. Each list is capped at 50. |
+| GET | `/api/v1/me/work/counts` | Sidebar badges — `{ myWork, approvals }`. |
+| GET | `/api/v1/approvals` | Drafts waiting for review across every campaign in the caller's scope, oldest first (max 200). `?mine=true` keeps the caller's own; each row says whether it's `mine`. Reviewing uses the existing submission routes. |
+
 ### Calendar
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/v1/calendar` | Unified calendar feed — campaign dates, deliverables, expected/actual publishes. Required `from`/`to`, optional `brandId`/`campaignId`/`influencerId`/`platform`. |
+| GET | `/api/v1/calendar` | Unified calendar feed — campaign dates, deliverables, expected/actual publishes. Required `from`/`to`, optional `brandId`/`campaignId`/`influencerId`/`platform`. Each event carries `campaignName`, `influencerName` and `deliverableType` so a client can word the title in its own language (`title` is English). |
 
 ### Reports
 

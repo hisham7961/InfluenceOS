@@ -49,6 +49,7 @@ import { makeReportShareService } from './services/report-share.service';
 import { makeCreatorLinkService } from './services/creator-link.service';
 import { makeDiscoveryService } from './services/discovery.service';
 import { makeLicenceService } from './services/licence.service';
+import { makeWorkService } from './services/work.service';
 
 export function createServices(ctx: DomainContext) {
   return {
@@ -79,6 +80,7 @@ export function createServices(ctx: DomainContext) {
     creatorLinks: makeCreatorLinkService(ctx),
     discovery: makeDiscoveryService(ctx),
     licences: makeLicenceService(ctx),
+    work: makeWorkService(ctx),
     scripts: makeScriptService(ctx),
     content: makeContentService(ctx),
     expenses: makeExpenseService(ctx),

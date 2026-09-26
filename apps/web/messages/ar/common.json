@@ -153,5 +153,7 @@
     "tagsLabel": "الهاشتاقات والإشارات المطلوبة",
     "present": "موجود",
     "missing": "ناقص"
-  }
+  },
+  "resultsCount": "{count, plural, zero {لا نتائج} one {نتيجة واحدة} two {نتيجتان} few {# نتائج} many {# نتيجة} other {# نتيجة}}",
+  "showResults": "{count, plural, zero {عرض النتائج} one {عرض نتيجة واحدة} two {عرض نتيجتين} few {عرض # نتائج} many {عرض # نتيجة} other {عرض # نتيجة}}"
 }

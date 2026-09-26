@@ -8,6 +8,7 @@ import { ClipboardCheck, Copy, Download, ExternalLink, Paperclip } from 'lucide-
 import type { CampaignInfluencerDTO, DeliverableSubmissionDTO } from '@influenceos/contracts';
 import { SUBMISSION_STATUS_TONE, type SubmissionDecision } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
+import { useIsPhone } from '@/lib/use-is-phone';
 import { toBrowserUrl } from '@/lib/upload';
 import { enumLabel } from '@/lib/enum-labels';
 import { BidiText } from '@/components/common/bidi-text';
@@ -57,6 +58,7 @@ export function SubmissionsTab({
   brandName?: string;
   influencers: CampaignInfluencerDTO[];
 }) {
+  const isPhone = useIsPhone();
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
@@ -129,86 +131,136 @@ export function SubmissionsTab({
           {t('submissions.awaitingReview')}
         </p>
       ) : null}
-      <Card className="overflow-hidden">
-        <TableScroll>
-          <Table className="min-w-[820px]">
-            <TableHead>
-              <TableRow className="border-border bg-surface-muted/60 hover:bg-surface-muted/60 border-b">
-                <TableHeaderCell className="ps-5">{t('sourcing.creatorHeader')}</TableHeaderCell>
-                <TableHeaderCell>{t('submissions.deliverableHeader')}</TableHeaderCell>
-                <TableHeaderCell align="end">{t('submissions.verHeader')}</TableHeaderCell>
-                <TableHeaderCell>{t('submissions.submittedHeader')}</TableHeaderCell>
-                <TableHeaderCell>{t('submissions.reviewerHeader')}</TableHeaderCell>
-                <TableHeaderCell align="end">{t('fields.status')}</TableHeaderCell>
-                <TableHeaderCell align="end" className="pe-5">
-                  {tCommon('actions')}
-                </TableHeaderCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {submissions.map((s) => {
-                const d = byDeliverable.get(s.deliverableId);
-                return (
-                  <TableRow key={s.id}>
-                    <TableCell className="ps-5 font-medium">
+      {/* Phones: one card per draft, the review button full width. */}
+      {isPhone ? (
+        <ul className="space-y-2">
+          {submissions.map((s) => {
+            const d = byDeliverable.get(s.deliverableId);
+            return (
+              <li key={s.id}>
+                <Card className="space-y-2 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 truncate font-medium">
                       {d?.creator ? <BidiText>{d.creator}</BidiText> : '—'}
-                    </TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center gap-2">
-                        {d ? <PlatformBadge platform={d.platform} size="sm" /> : null}
-                        <span className="text-muted-foreground">
-                          {d ? enumLabel(tEnums, 'deliverableType', d.type) : '—'}
-                        </span>
-                      </span>
-                    </TableCell>
-                    <TableCell align="end" className="tabular-nums">
-                      <span className="inline-flex items-center gap-1">
-                        {s.attachment ? (
-                          <Paperclip
-                            className="text-muted-foreground h-3.5 w-3.5"
-                            aria-label={t('submissions.hasFile')}
-                          />
-                        ) : null}
-                        v{s.version}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    </p>
+                    <Badge tone={SUBMISSION_STATUS_TONE[s.status]}>
+                      {enumLabel(tEnums, 'submissionStatus', s.status)}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
+                    {d ? <PlatformBadge platform={d.platform} size="sm" /> : null}
+                    <span>{d ? enumLabel(tEnums, 'deliverableType', d.type) : '—'}</span>
+                    <span>· v{s.version}</span>
+                    {s.attachment ? (
+                      <Paperclip className="h-3 w-3" aria-label={t('submissions.hasFile')} />
+                    ) : null}
+                    <span>
+                      ·{' '}
                       {s.fromCreator ? (
                         t('submissions.fromCreator')
                       ) : s.submittedByName ? (
                         <BidiText>{s.submittedByName}</BidiText>
-                      ) : (
-                        '—'
-                      )}{' '}
+                      ) : null}{' '}
                       · {relativeTime(s.createdAt)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {s.reviewedByName ? <BidiText>{s.reviewedByName}</BidiText> : '—'}
-                    </TableCell>
-                    <TableCell align="end">
-                      <Badge tone={SUBMISSION_STATUS_TONE[s.status]}>
-                        {enumLabel(tEnums, 'submissionStatus', s.status)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell align="end" className="pe-5">
-                      {OPEN_STATUSES.has(s.status) ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setReviewing(s)}
-                        >
-                          {t('submissions.reviewButton')}
-                        </Button>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableScroll>
-      </Card>
+                    </span>
+                  </p>
+                  {OPEN_STATUSES.has(s.status) ? (
+                    <Button
+                      type="button"
+                      className="w-full"
+                      variant="outline"
+                      onClick={() => setReviewing(s)}
+                    >
+                      {t('submissions.reviewButton')}
+                    </Button>
+                  ) : null}
+                </Card>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <Card className="overflow-hidden">
+          <TableScroll>
+            <Table className="min-w-[820px]">
+              <TableHead>
+                <TableRow className="border-border bg-surface-muted/60 hover:bg-surface-muted/60 border-b">
+                  <TableHeaderCell className="ps-5">{t('sourcing.creatorHeader')}</TableHeaderCell>
+                  <TableHeaderCell>{t('submissions.deliverableHeader')}</TableHeaderCell>
+                  <TableHeaderCell align="end">{t('submissions.verHeader')}</TableHeaderCell>
+                  <TableHeaderCell>{t('submissions.submittedHeader')}</TableHeaderCell>
+                  <TableHeaderCell>{t('submissions.reviewerHeader')}</TableHeaderCell>
+                  <TableHeaderCell align="end">{t('fields.status')}</TableHeaderCell>
+                  <TableHeaderCell align="end" className="pe-5">
+                    {tCommon('actions')}
+                  </TableHeaderCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {submissions.map((s) => {
+                  const d = byDeliverable.get(s.deliverableId);
+                  return (
+                    <TableRow key={s.id}>
+                      <TableCell className="ps-5 font-medium">
+                        {d?.creator ? <BidiText>{d.creator}</BidiText> : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-2">
+                          {d ? <PlatformBadge platform={d.platform} size="sm" /> : null}
+                          <span className="text-muted-foreground">
+                            {d ? enumLabel(tEnums, 'deliverableType', d.type) : '—'}
+                          </span>
+                        </span>
+                      </TableCell>
+                      <TableCell align="end" className="tabular-nums">
+                        <span className="inline-flex items-center gap-1">
+                          {s.attachment ? (
+                            <Paperclip
+                              className="text-muted-foreground h-3.5 w-3.5"
+                              aria-label={t('submissions.hasFile')}
+                            />
+                          ) : null}
+                          v{s.version}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {s.fromCreator ? (
+                          t('submissions.fromCreator')
+                        ) : s.submittedByName ? (
+                          <BidiText>{s.submittedByName}</BidiText>
+                        ) : (
+                          '—'
+                        )}{' '}
+                        · {relativeTime(s.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {s.reviewedByName ? <BidiText>{s.reviewedByName}</BidiText> : '—'}
+                      </TableCell>
+                      <TableCell align="end">
+                        <Badge tone={SUBMISSION_STATUS_TONE[s.status]}>
+                          {enumLabel(tEnums, 'submissionStatus', s.status)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell align="end" className="pe-5">
+                        {OPEN_STATUSES.has(s.status) ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setReviewing(s)}
+                          >
+                            {t('submissions.reviewButton')}
+                          </Button>
+                        ) : null}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableScroll>
+        </Card>
+      )}
 
       <SubmissionReviewDialog
         submission={reviewing}
@@ -240,7 +292,7 @@ export function SubmissionsTab({
  * threaded comment box. Approving completes the deliverable directly —
  * never creates or requires a PublishedContent URL (owned UGC).
  */
-function SubmissionReviewDialog({
+export function SubmissionReviewDialog({
   submission,
   creatorName,
   deliverableType,

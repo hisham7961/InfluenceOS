@@ -1,0 +1,35 @@
+{
+  "myWork": {
+    "title": "My work",
+    "description": "What's waiting on you: drafts, deadlines and found posts on the campaigns and creators you own, plus the shipments and address issues assigned to you.",
+    "empty": "Nothing is waiting on you right now.",
+    "ownsNothing": "You don't own any campaigns or creators yet, so only logistics assigned to you shows here. Ask to be set as the owner, or see everything in Approvals and Needs Attention.",
+    "sections": {
+      "DRAFT_TO_REVIEW": "Drafts to review",
+      "DELIVERABLE_OVERDUE": "Overdue",
+      "DELIVERABLE_DUE_SOON": "Due in the next 3 days",
+      "SHIPMENT": "Shipments to handle",
+      "LOGISTICS_ISSUE": "Address issues",
+      "FOUND_POSTS": "Posts found on creators' accounts"
+    },
+    "waitingSince": "waiting {time}",
+    "due": "due {date}",
+    "foundCount": "{count, plural, one {# post to check} other {# posts to check}}",
+    "open": "Open"
+  },
+  "approvals": {
+    "title": "Approvals",
+    "description": "Drafts waiting for the team's review across every campaign, oldest first.",
+    "all": "Everyone's",
+    "mine": "Mine",
+    "empty": "No drafts are waiting for review.",
+    "emptyMine": "No drafts are waiting on the campaigns and creators you own.",
+    "version": "Version {version}",
+    "fromCreator": "sent by the creator",
+    "submittedBy": "sent by {name}",
+    "waiting": "waiting {time}",
+    "due": "due {date}",
+    "review": "Review",
+    "openCampaign": "Open campaign"
+  }
+}
