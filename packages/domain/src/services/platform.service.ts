@@ -1,5 +1,5 @@
 import net from 'node:net';
-import { slugify } from '@influenceos/shared';
+import { buildIdentity, slugify } from '@influenceos/shared';
 import {
   requests,
   z,
@@ -190,8 +190,7 @@ export function makePlatformService(ctx: DomainContext) {
       webVersion: process.env.APP_VERSION ?? process.env.npm_package_version ?? '0.1.0',
       environment: process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development',
       apiBaseUrl: process.env.NEXT_PUBLIC_APP_URL ?? '',
-      gitSha: process.env.GIT_SHA ?? 'unknown',
-      buildTime: process.env.BUILD_TIME ?? null,
+      ...buildIdentity(),
       uptimeSec: Math.round(process.uptime()),
       health,
       backups: backups ?? {

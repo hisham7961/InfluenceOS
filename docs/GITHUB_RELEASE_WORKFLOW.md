@@ -11,6 +11,20 @@ run in production.**
 
 ---
 
+## 0. How images reach GHCR (enforced by `.github/workflows/ci.yml`)
+
+- The `images` job runs only after **build, both browser E2E suites and the
+  secret scan** pass. A commit that fails any of them never gets an image.
+- Every passing commit is pushed as `influenceos-{api,worker,web}:<full sha>`.
+  All three commit tags are pushed before anything else moves.
+- `:latest` moves **only** on `main` or a release tag. Session branches
+  (`claude/**`) no longer touch it, so deploy by SHA:
+  `IMAGE_TAG=<sha> docker compose pull && docker compose up -d`.
+- The build job fails if `schema.prisma` and the migrations disagree
+  (`prisma migrate diff --exit-code` against a shadow database).
+
+---
+
 ## 1. Principles
 
 These four principles govern every release. If a step in this document appears
@@ -30,7 +44,9 @@ to conflict with one of them, the principle wins.
 3. **Self-identifying builds.** Every build reports its own identity. Given a
    running instance you can always answer "which SHA is this?" from the build
    itself — via `/health`, `/metrics`, or the web **Settings → Platform** page —
-   without trusting deploy notes or memory.
+   without trusting deploy notes or memory. CI bakes the commit into every
+   image (`BUILD_GIT_SHA`, `BUILD_BUILT_AT`, OCI `revision`/`created` labels),
+   so this holds even when the deploy sets nothing.
 
 4. **Config, not code, between environments.** Staging and production run the
    **same** images built from the **same** SHA, using the **same**

@@ -13,7 +13,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "test:unit": "pnpm --filter @influenceos/shared test",
+    "test:unit": "pnpm --filter @influenceos/shared --filter @influenceos/domain test",
     "test:integration": "pnpm --filter @influenceos/api test:integration",
     "test:contract": "pnpm --filter @influenceos/api test:contract",
     "test:dod": "pnpm --filter @influenceos/api test:dod",

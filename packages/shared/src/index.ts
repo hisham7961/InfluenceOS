@@ -10,6 +10,7 @@ export * from './constants/countries';
 export * from './utils/format';
 export * from './utils/slug';
 export * from './utils/worker-health';
+export * from './utils/build-identity';
 export * from './utils/usage-right';
 export * from './utils/csv';
 export * from './utils/content-status';

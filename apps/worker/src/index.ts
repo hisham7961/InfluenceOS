@@ -2,7 +2,7 @@ import http from 'node:http';
 import { prisma } from '@influenceos/database';
 import { refreshProviderCredentialOverrides, type UploadCleanupResult } from '@influenceos/domain';
 import { Queue, Worker, type Job } from 'bullmq';
-import { computeWorkerHealth, shouldDeadLetter } from '@influenceos/shared';
+import { buildIdentity, computeWorkerHealth, shouldDeadLetter } from '@influenceos/shared';
 import { createConnection, isRedisAvailable } from './redis';
 import {
   checkContent,
@@ -34,8 +34,7 @@ type Kind = 'content' | 'account';
 const release = {
   service: 'influenceos-worker',
   version: process.env.APP_VERSION ?? process.env.npm_package_version ?? '0.1.0',
-  gitSha: process.env.GIT_SHA ?? 'unknown',
-  buildTime: process.env.BUILD_TIME ?? null,
+  ...buildIdentity(),
   environment: process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development',
 };
 

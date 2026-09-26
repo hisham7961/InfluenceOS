@@ -573,6 +573,8 @@ model Brand {
   inspirationItems InspirationItem[]
 
   @@index([isActive])
+  /// Trigram (pg_trgm) indexes behind the brand picker's fuzzy name search.
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Brand_name_trgm_idx")
 }
 
 model Influencer {
@@ -654,33 +656,38 @@ model Influencer {
   // migration's raw-SQL section (mirrors the W7-2 trigram precedent).
   @@index([mobile])
   @@index([whatsapp])
+  /// Trigram (pg_trgm) indexes behind the directory's fuzzy name/handle search.
+  @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Influencer_displayName_trgm_idx")
+  @@index([fullName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Influencer_fullName_trgm_idx")
+  @@index([primaryUsername(ops: raw("gin_trgm_ops"))], type: Gin, map: "Influencer_primaryUsername_trgm_idx")
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "Influencer_email_trgm_idx")
 }
 
 model SocialAccount {
-  id             String     @id @default(cuid())
-  influencerId   String
-  platform       Platform
-  username       String
-  profileUrl     String?
-  platformUserId String?
-  displayName    String?
-  avatarUrl      String?
-  bio            String?
-  followers      Int?
-  following      Int?
-  postCount      Int?
-  isVerified     Boolean?
-  isPrimary      Boolean    @default(false)
-  dataSource     DataSource @default(MANUAL)
-  lastSyncedAt   DateTime?
+  id                String     @id @default(cuid())
+  influencerId      String
+  platform          Platform
+  username          String
+  profileUrl        String?
+  platformUserId    String?
+  displayName       String?
+  avatarUrl         String?
+  bio               String?
+  followers         Int?
+  following         Int?
+  postCount         Int?
+  isVerified        Boolean?
+  isPrimary         Boolean    @default(false)
+  dataSource        DataSource @default(MANUAL)
+  lastSyncedAt      DateTime?
   /// Last time the worker tried to sync (success or not): failing accounts
   /// back off instead of being re-selected ahead of healthy ones every sweep.
   lastSyncAttemptAt DateTime?
   /// Why the last sync attempt failed; null after a successful sync.
-  lastSyncError  String?
-  rawMetadata    Json?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  lastSyncError     String?
+  rawMetadata       Json?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   influencer      Influencer             @relation(fields: [influencerId], references: [id], onDelete: Cascade)
   metricSnapshots SocialMetricSnapshot[]
@@ -777,6 +784,8 @@ model Campaign {
   @@index([endDate])
   // Cursor pagination order (createdAt desc, id desc) — W7-2/PERF-04.
   @@index([createdAt, id])
+  /// Trigram (pg_trgm) indexes behind the campaign picker's fuzzy name search.
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Campaign_name_trgm_idx")
 }
 
 model CampaignInfluencer {

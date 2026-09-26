@@ -16,5 +16,11 @@ RUN chown -R node:node /app /pnpm
 USER node
 
 ENV NODE_ENV=production
+# Build identity, passed by CI and reported on /health and Settings → Platform.
+# Kept under its own names: compose sets GIT_SHA/BUILD_TIME (often empty) at
+# runtime, which would otherwise hide what the image was built from.
+ARG GIT_SHA=unknown
+ARG BUILD_TIME=
+ENV BUILD_GIT_SHA=$GIT_SHA BUILD_BUILT_AT=$BUILD_TIME
 EXPOSE 4100
 CMD ["pnpm", "--filter", "@influenceos/worker", "exec", "tsx", "src/index.ts"]
