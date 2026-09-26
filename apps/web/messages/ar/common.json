@@ -143,5 +143,15 @@
     "clearAll": "مسح الكل"
   },
   "removeItem": "إزالة {name}",
-  "addCountry": "إضافة دولة أخرى…"
+  "addCountry": "إضافة دولة أخرى…",
+  "captionCheck": {
+    "title": "فحص الوصف",
+    "allGood": "كل المطلوب موجود",
+    "somethingMissing": "ينقص شيء",
+    "disclosurePresent": "يوضّح أنه إعلان",
+    "disclosureMissing": "لا يوضّح أنه إعلان — أضف",
+    "tagsLabel": "الهاشتاقات والإشارات المطلوبة",
+    "present": "موجود",
+    "missing": "ناقص"
+  }
 }

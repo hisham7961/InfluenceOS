@@ -57,11 +57,16 @@
     "UGC_AWAITING_REVIEW": "Review draft",
     "UNASSIGNED_CONTENT": "Resolve content",
     "CAMPAIGN_MISSING_OWNER": "Assign owner",
-    "CREATOR_LICENCE": "Check licences"
+    "CREATOR_LICENCE": "Check licences",
+    "DISCLOSURE_MISSING": "Check posts"
   },
   "creatorLicence": {
     "title": "Creator licences — <name>{campaignName}</name>",
     "missing": "{count, plural, one {# creator has} other {# creators have}} no valid licence for this campaign's countries.",
     "expiring": "{count, plural, one {# creator's licence ends} other {# creators' licences end}} before the campaign does."
+  },
+  "disclosureMissing": {
+    "title": "Posts without an ad disclosure — <name>{campaignName}</name>",
+    "description": "{count, plural, one {# live post doesn't} other {# live posts don't}} say in the caption that it's an ad."
   }
 }

@@ -15,15 +15,30 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { PlatformBadge } from '@/components/ui/platform-badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+  TableScroll,
+} from '@/components/ui/table';
 import { useLocalizedFormat } from '@/lib/format';
 import { WhatsAppDialog } from '@/components/influencers/whatsapp-dialog';
+import { DeliverableCaptionCheck } from '@/components/content/caption-check';
 import { errorMessage } from '@/lib/errors';
-
 
 const OPEN_STATUSES = new Set(['IN_REVIEW', 'CHANGES_REQUESTED']);
 
@@ -59,7 +74,13 @@ export function SubmissionsTab({
         (d) =>
           [
             d.id,
-            { creator: ci.influencer.displayName, influencerId: ci.influencer.id, ciId: ci.id, platform: d.platform, type: d.type },
+            {
+              creator: ci.influencer.displayName,
+              influencerId: ci.influencer.id,
+              ciId: ci.id,
+              platform: d.platform,
+              type: d.type,
+            },
           ] as const,
       ),
     ),
@@ -90,22 +111,29 @@ export function SubmissionsTab({
 
   if (submissions.length === 0) {
     return (
-      <EmptyState icon={ClipboardCheck} title={t('submissions.emptyTitle')} description={t('submissions.emptyDescription')} />
+      <EmptyState
+        icon={ClipboardCheck}
+        title={t('submissions.emptyTitle')}
+        description={t('submissions.emptyDescription')}
+      />
     );
   }
 
   return (
     <div className="space-y-3">
       {pending > 0 ? (
-        <p className="text-sm text-muted-foreground">
-          <Badge tone="warning" className="me-1">{pending}</Badge> {t('submissions.awaitingReview')}
+        <p className="text-muted-foreground text-sm">
+          <Badge tone="warning" className="me-1">
+            {pending}
+          </Badge>{' '}
+          {t('submissions.awaitingReview')}
         </p>
       ) : null}
       <Card className="overflow-hidden">
         <TableScroll>
           <Table className="min-w-[820px]">
             <TableHead>
-              <TableRow className="border-b border-border bg-surface-muted/60 hover:bg-surface-muted/60">
+              <TableRow className="border-border bg-surface-muted/60 hover:bg-surface-muted/60 border-b">
                 <TableHeaderCell className="ps-5">{t('sourcing.creatorHeader')}</TableHeaderCell>
                 <TableHeaderCell>{t('submissions.deliverableHeader')}</TableHeaderCell>
                 <TableHeaderCell align="end">{t('submissions.verHeader')}</TableHeaderCell>
@@ -136,23 +164,40 @@ export function SubmissionsTab({
                     <TableCell align="end" className="tabular-nums">
                       <span className="inline-flex items-center gap-1">
                         {s.attachment ? (
-                          <Paperclip className="h-3.5 w-3.5 text-muted-foreground" aria-label={t('submissions.hasFile')} />
+                          <Paperclip
+                            className="text-muted-foreground h-3.5 w-3.5"
+                            aria-label={t('submissions.hasFile')}
+                          />
                         ) : null}
                         v{s.version}
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {s.fromCreator ? t('submissions.fromCreator') : s.submittedByName ? <BidiText>{s.submittedByName}</BidiText> : '—'} · {relativeTime(s.createdAt)}
+                      {s.fromCreator ? (
+                        t('submissions.fromCreator')
+                      ) : s.submittedByName ? (
+                        <BidiText>{s.submittedByName}</BidiText>
+                      ) : (
+                        '—'
+                      )}{' '}
+                      · {relativeTime(s.createdAt)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {s.reviewedByName ? <BidiText>{s.reviewedByName}</BidiText> : '—'}
                     </TableCell>
                     <TableCell align="end">
-                      <Badge tone={SUBMISSION_STATUS_TONE[s.status]}>{enumLabel(tEnums, 'submissionStatus', s.status)}</Badge>
+                      <Badge tone={SUBMISSION_STATUS_TONE[s.status]}>
+                        {enumLabel(tEnums, 'submissionStatus', s.status)}
+                      </Badge>
                     </TableCell>
                     <TableCell align="end" className="pe-5">
                       {OPEN_STATUSES.has(s.status) ? (
-                        <Button type="button" variant="outline" size="sm" onClick={() => setReviewing(s)}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setReviewing(s)}
+                        >
                           {t('submissions.reviewButton')}
                         </Button>
                       ) : null}
@@ -271,7 +316,10 @@ function SubmissionReviewDialog({
           <DialogTitle>{t('submissions.reviewDialogTitle')}</DialogTitle>
           <DialogDescription>
             {creatorName
-              ? t('submissions.reviewDialogDescriptionNamed', { name: creatorName, version: submission.version })
+              ? t('submissions.reviewDialogDescriptionNamed', {
+                  name: creatorName,
+                  version: submission.version,
+                })
               : t('submissions.reviewDialogDescriptionGeneric', { version: submission.version })}
           </DialogDescription>
         </DialogHeader>
@@ -279,9 +327,9 @@ function SubmissionReviewDialog({
         <div className="space-y-4">
           {submission.attachment ? <DraftPreview file={submission.attachment} /> : null}
           {submission.caption ? (
-            <div className="rounded-lg border border-border bg-surface-muted p-3">
+            <div className="border-border bg-surface-muted rounded-lg border p-3">
               <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
                   {t('submissions.captionLabel')}
                 </span>
                 <Button
@@ -305,29 +353,39 @@ function SubmissionReviewDialog({
               </p>
             </div>
           ) : null}
+          {submission.caption ? (
+            <DeliverableCaptionCheck
+              deliverableId={submission.deliverableId}
+              caption={submission.caption}
+            />
+          ) : null}
           {submission.assetUrl ? (
             <a
               href={submission.assetUrl}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1.5 text-sm font-medium text-brand hover:underline"
+              className="text-brand flex items-center gap-1.5 text-sm font-medium hover:underline"
             >
               {t('submissions.openAsset')} <ExternalLink className="h-3.5 w-3.5" />
             </a>
           ) : submission.attachment ? null : (
-            <p className="text-sm text-muted-foreground">{t('submissions.noAssetLink')}</p>
+            <p className="text-muted-foreground text-sm">{t('submissions.noAssetLink')}</p>
           )}
-          {submission.notes ? <p className="text-sm text-foreground">{submission.notes}</p> : null}
+          {submission.notes ? <p className="text-foreground text-sm">{submission.notes}</p> : null}
 
           {submission.comments.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-border bg-surface-muted p-3">
+            <div className="border-border bg-surface-muted space-y-2 rounded-lg border p-3">
               {submission.comments.map((c) => (
                 <div key={c.id} className="text-xs">
-                  <span className="font-medium text-foreground">
-                    {c.authorName ? <BidiText>{c.authorName}</BidiText> : t('submissions.someoneFallback')}
+                  <span className="text-foreground font-medium">
+                    {c.authorName ? (
+                      <BidiText>{c.authorName}</BidiText>
+                    ) : (
+                      t('submissions.someoneFallback')
+                    )}
                   </span>{' '}
                   <span className="text-muted-foreground">{relativeTime(c.createdAt)}</span>
-                  <p className="mt-0.5 text-foreground">{c.body}</p>
+                  <p className="text-foreground mt-0.5">{c.body}</p>
                 </div>
               ))}
             </div>
@@ -380,13 +438,27 @@ function SubmissionReviewDialog({
             {tCommon('close')}
           </Button>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="danger" disabled={decide.isPending} onClick={() => decide.mutate('REJECT')}>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={decide.isPending}
+              onClick={() => decide.mutate('REJECT')}
+            >
               {t('submissions.rejectButton')}
             </Button>
-            <Button type="button" variant="secondary" disabled={decide.isPending} onClick={() => decide.mutate('REQUEST_CHANGES')}>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={decide.isPending}
+              onClick={() => decide.mutate('REQUEST_CHANGES')}
+            >
               {t('submissions.requestChangesButton')}
             </Button>
-            <Button type="button" disabled={decide.isPending} onClick={() => decide.mutate('APPROVE')}>
+            <Button
+              type="button"
+              disabled={decide.isPending}
+              onClick={() => decide.mutate('APPROVE')}
+            >
               {t('submissions.approveButton')}
             </Button>
           </div>
@@ -403,16 +475,25 @@ function DraftPreview({ file }: { file: NonNullable<DeliverableSubmissionDTO['at
   return (
     <div className="space-y-1.5">
       {file.kind === 'video' ? (
-        <video src={url} controls playsInline className="max-h-[50dvh] w-full rounded-lg bg-black object-contain" />
+        <video
+          src={url}
+          controls
+          playsInline
+          className="max-h-[50dvh] w-full rounded-lg bg-black object-contain"
+        />
       ) : file.kind === 'image' ? (
         // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL, not an optimisable asset
-        <img src={url} alt={file.fileName} className="max-h-[50dvh] w-full rounded-lg bg-surface-muted object-contain" />
+        <img
+          src={url}
+          alt={file.fileName}
+          className="bg-surface-muted max-h-[50dvh] w-full rounded-lg object-contain"
+        />
       ) : null}
       <a
         href={url}
         target="_blank"
         rel="noreferrer"
-        className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-brand hover:underline"
+        className="text-brand inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium hover:underline"
       >
         <Download className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate">{t('submissions.downloadFile', { name: file.fileName })}</span>

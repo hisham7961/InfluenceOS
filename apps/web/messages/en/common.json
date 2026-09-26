@@ -143,5 +143,15 @@
     "clearAll": "Clear all"
   },
   "removeItem": "Remove {name}",
-  "addCountry": "Add another country…"
+  "addCountry": "Add another country…",
+  "captionCheck": {
+    "title": "Caption check",
+    "allGood": "Everything's there",
+    "somethingMissing": "Something's missing",
+    "disclosurePresent": "Says it's an ad",
+    "disclosureMissing": "Doesn't say it's an ad — add",
+    "tagsLabel": "Required hashtags and mentions",
+    "present": "included",
+    "missing": "missing"
+  }
 }

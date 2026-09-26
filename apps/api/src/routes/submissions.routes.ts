@@ -15,8 +15,28 @@ export async function submissionRoutes(app: FastifyInstance): Promise<void> {
   const r = app.withTypeProvider<ZodTypeProvider>();
 
   r.get(
+    '/deliverables/:id/caption-rules',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: "What the deliverable's caption must carry: hashtags, mentions, ad disclosure",
+        params: idParam,
+      },
+    },
+    async (req) => servicesFor(req).submissions.captionRules(req.params.id),
+  );
+
+  r.get(
     '/deliverables/:id/submissions',
-    { preHandler: [requireAuth], schema: { tags: ['Campaigns'], summary: 'List submissions for a deliverable', params: idParam } },
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'List submissions for a deliverable',
+        params: idParam,
+      },
+    },
     async (req) => servicesFor(req).submissions.listForDeliverable(req.params.id),
   );
 
@@ -39,7 +59,10 @@ export async function submissionRoutes(app: FastifyInstance): Promise<void> {
 
   r.get(
     '/submissions/:id',
-    { preHandler: [requireAuth], schema: { tags: ['Campaigns'], summary: 'Get a submission', params: idParam } },
+    {
+      preHandler: [requireAuth],
+      schema: { tags: ['Campaigns'], summary: 'Get a submission', params: idParam },
+    },
     async (req) => servicesFor(req).submissions.get(req.params.id),
   );
 

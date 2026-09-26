@@ -405,6 +405,17 @@ say which countries it is for. See BUSINESS_RULES.md "Creator licences".
 | GET | `/api/v1/compliance/settings` | `licenceCountryCodes`: the countries where creators need a licence (default KW, SA, AE). |
 | PUT | `/api/v1/compliance/settings` | Admin only: set that list. |
 
+**Caption check (P3.5).**
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/deliverables/:id/caption-rules` | What the caption must carry: `hashtags` and `mentions` (the deliverable's plus the approved script version's, with `#`/`@`, once each) and `disclosureRequired` (paid or gifted work the creator posts — not FREE deals, not UGC). Check a caption with `checkCaption()` from `@influenceos/shared`. Same scope as the deliverable's drafts. |
+
+Each task on the creator's link (`CreatorTaskDTO`) carries the same
+`captionRules`. Needs Attention gains `DISCLOSURE_MISSING`: one per active
+campaign with live paid/gifted posts whose caption doesn't say it's an ad
+(`params.count`).
+
 Needs Attention gains `CREATOR_LICENCE` (one per planning/active/paused
 campaign; `params.missing` / `params.expiring` count confirmed creators), and
 notifications gain `LICENCE_EXPIRING`.

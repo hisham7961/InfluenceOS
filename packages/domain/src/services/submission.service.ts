@@ -1,4 +1,5 @@
 import {
+  type CaptionRulesDTO,
   requests,
   type DeliverableSubmissionDTO,
   type SubmissionCommentDTO,
@@ -8,9 +9,15 @@ import { Prisma } from '@influenceos/database';
 import { APPROVAL_COMPLETES_TYPES } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
+import { captionRulesOf, captionRulesSelect } from '../lib/caption-rules';
 import { requireActor, requireCapability } from '../lib/authz';
 import { createNotification, iso, logActivity } from '../lib/helpers';
-import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
+import {
+  isBrandOutOfScope,
+  isCountryOutOfScope,
+  scopedBrandIds,
+  scopedCountryCodes,
+} from '../lib/scope';
 import { attachmentSelect, toAttachmentDTO } from './attachment.service';
 
 type SubmissionCreate = z.infer<typeof requests.submissionCreateSchema>;
@@ -37,7 +44,12 @@ const DECISION_MAP = {
 } as const;
 
 function toCommentDTO(c: Row['comments'][number]): SubmissionCommentDTO {
-  return { id: c.id, authorName: c.author?.name ?? null, body: c.body, createdAt: c.createdAt.toISOString() };
+  return {
+    id: c.id,
+    authorName: c.author?.name ?? null,
+    body: c.body,
+    createdAt: c.createdAt.toISOString(),
+  };
 }
 
 export async function toSubmissionDTO(s: Row): Promise<DeliverableSubmissionDTO> {
@@ -76,7 +88,10 @@ export function makeSubmissionService(ctx: DomainContext) {
   // not merely have them hidden from a filtered list. Every function below
   // that takes a deliverableId, campaignId, or submissionId funnels through
   // one of these two checks.
-  async function assertScopeForCampaignInfluencer(brandId: string, countryCode: string | null): Promise<void> {
+  async function assertScopeForCampaignInfluencer(
+    brandId: string,
+    countryCode: string | null,
+  ): Promise<void> {
     const brandScope = await scopedBrandIds(ctx);
     if (isBrandOutOfScope(brandScope, brandId)) throw AppError.notFound('Deliverable');
     const countryScope = await scopedCountryCodes(ctx);
@@ -98,8 +113,15 @@ export function makeSubmissionService(ctx: DomainContext) {
       },
     });
     if (!d) throw AppError.notFound('Deliverable');
-    await assertScopeForCampaignInfluencer(d.campaignInfluencer.campaign.brandId, d.campaignInfluencer.influencer.countryCode);
-    return { deliverable: d, campaignId: d.campaignInfluencer.campaignId, influencerId: d.campaignInfluencer.influencerId };
+    await assertScopeForCampaignInfluencer(
+      d.campaignInfluencer.campaign.brandId,
+      d.campaignInfluencer.influencer.countryCode,
+    );
+    return {
+      deliverable: d,
+      campaignId: d.campaignInfluencer.campaignId,
+      influencerId: d.campaignInfluencer.influencerId,
+    };
   }
 
   /** Same direct-ID scope check as deliverableContext, keyed by a submission
@@ -113,7 +135,10 @@ export function makeSubmissionService(ctx: DomainContext) {
         deliverable: {
           select: {
             campaignInfluencer: {
-              select: { campaign: { select: { brandId: true } }, influencer: { select: { countryCode: true } } },
+              select: {
+                campaign: { select: { brandId: true } },
+                influencer: { select: { countryCode: true } },
+              },
             },
           },
         },
@@ -121,15 +146,22 @@ export function makeSubmissionService(ctx: DomainContext) {
     });
     if (!sub) throw AppError.notFound('Submission');
     const brandScope = await scopedBrandIds(ctx);
-    if (isBrandOutOfScope(brandScope, sub.deliverable.campaignInfluencer.campaign.brandId)) throw AppError.notFound('Submission');
+    if (isBrandOutOfScope(brandScope, sub.deliverable.campaignInfluencer.campaign.brandId))
+      throw AppError.notFound('Submission');
     const countryScope = await scopedCountryCodes(ctx);
-    if (isCountryOutOfScope(countryScope, sub.deliverable.campaignInfluencer.influencer.countryCode)) throw AppError.notFound('Submission');
+    if (
+      isCountryOutOfScope(countryScope, sub.deliverable.campaignInfluencer.influencer.countryCode)
+    )
+      throw AppError.notFound('Submission');
     return { deliverableId: sub.deliverableId };
   }
 
   async function get(submissionId: string): Promise<DeliverableSubmissionDTO> {
     await assertSubmissionInScope(submissionId);
-    const row = await prisma.deliverableSubmission.findUnique({ where: { id: submissionId }, include: submissionInclude });
+    const row = await prisma.deliverableSubmission.findUnique({
+      where: { id: submissionId },
+      include: submissionInclude,
+    });
     if (!row) throw AppError.notFound('Submission');
     return toSubmissionDTO(row);
   }
@@ -144,6 +176,16 @@ export function makeSubmissionService(ctx: DomainContext) {
     return Promise.all(rows.map(toSubmissionDTO));
   }
 
+  /** What this deliverable's caption must carry (P3.5), for checking a draft's or a post's caption. */
+  async function captionRules(deliverableId: string): Promise<CaptionRulesDTO> {
+    await deliverableContext(deliverableId);
+    const d = await prisma.deliverable.findUniqueOrThrow({
+      where: { id: deliverableId },
+      select: captionRulesSelect,
+    });
+    return captionRulesOf(d);
+  }
+
   /** Every submission across a campaign's deliverables — the review queue for
    *  the whole campaign in one query (W3-1 web surface), newest first. Brand
    *  scope only (not country): this spans every creator on the campaign, and
@@ -154,7 +196,10 @@ export function makeSubmissionService(ctx: DomainContext) {
    *  separate, wider gap, out of scope for this fix; this check protects
    *  submissions specifically regardless of that. */
   async function listForCampaign(campaignId: string): Promise<DeliverableSubmissionDTO[]> {
-    const campaign = await prisma.campaign.findUnique({ where: { id: campaignId }, select: { brandId: true } });
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+      select: { brandId: true },
+    });
     if (!campaign) throw AppError.notFound('Campaign');
     const brandScope = await scopedBrandIds(ctx);
     if (isBrandOutOfScope(brandScope, campaign.brandId)) throw AppError.notFound('Campaign');
@@ -166,14 +211,21 @@ export function makeSubmissionService(ctx: DomainContext) {
     return Promise.all(rows.map(toSubmissionDTO));
   }
 
-  async function create(deliverableId: string, input: SubmissionCreate): Promise<DeliverableSubmissionDTO> {
+  async function create(
+    deliverableId: string,
+    input: SubmissionCreate,
+  ): Promise<DeliverableSubmissionDTO> {
     const actor = requireActor(ctx);
     const { campaignId, influencerId } = await deliverableContext(deliverableId);
     if (input.attachmentId) {
       // Only a file uploaded to this very deliverable — never someone else's
       // file picked up by id.
-      const file = await prisma.attachment.findUnique({ where: { id: input.attachmentId }, select: { deliverableId: true } });
-      if (!file || file.deliverableId !== deliverableId) throw AppError.badRequest('That file was not uploaded to this deliverable.');
+      const file = await prisma.attachment.findUnique({
+        where: { id: input.attachmentId },
+        select: { deliverableId: true },
+      });
+      if (!file || file.deliverableId !== deliverableId)
+        throw AppError.badRequest('That file was not uploaded to this deliverable.');
     }
     const last = await prisma.deliverableSubmission.findFirst({
       where: { deliverableId },
@@ -225,7 +277,10 @@ export function makeSubmissionService(ctx: DomainContext) {
     return toSubmissionDTO(created);
   }
 
-  async function review(submissionId: string, input: SubmissionReview): Promise<DeliverableSubmissionDTO> {
+  async function review(
+    submissionId: string,
+    input: SubmissionReview,
+  ): Promise<DeliverableSubmissionDTO> {
     // HIGH severity (Security & Authorization Freeze Gate): this approves or
     // rejects a creator's UGC submission, completing the deliverable and
     // triggering payment-due state — was previously a bare requireActor, so
@@ -236,7 +291,9 @@ export function makeSubmissionService(ctx: DomainContext) {
     const existing = await prisma.deliverableSubmission.findUnique({
       where: { id: submissionId },
       include: {
-        deliverable: { include: { campaignInfluencer: { select: { campaignId: true, influencerId: true } } } },
+        deliverable: {
+          include: { campaignInfluencer: { select: { campaignId: true, influencerId: true } } },
+        },
       },
     });
     if (!existing) throw AppError.notFound('Submission');
@@ -276,7 +333,11 @@ export function makeSubmissionService(ctx: DomainContext) {
         {
           type: 'DELIVERABLE_STATUS_CHANGED',
           message: `${actor.name} ${
-            input.decision === 'APPROVE' ? 'approved' : input.decision === 'REJECT' ? 'rejected' : 'requested changes on'
+            input.decision === 'APPROVE'
+              ? 'approved'
+              : input.decision === 'REJECT'
+                ? 'rejected'
+                : 'requested changes on'
           } draft v${existing.version}.`,
           campaignId,
           influencerId,
@@ -303,14 +364,19 @@ export function makeSubmissionService(ctx: DomainContext) {
     return toSubmissionDTO(updated);
   }
 
-  async function addComment(submissionId: string, input: SubmissionCommentInput): Promise<DeliverableSubmissionDTO> {
+  async function addComment(
+    submissionId: string,
+    input: SubmissionCommentInput,
+  ): Promise<DeliverableSubmissionDTO> {
     const actor = requireActor(ctx);
     await assertSubmissionInScope(submissionId);
-    await prisma.submissionComment.create({ data: { submissionId, authorId: actor.id, body: input.body } });
+    await prisma.submissionComment.create({
+      data: { submissionId, authorId: actor.id, body: input.body },
+    });
     return get(submissionId);
   }
 
-  return { listForDeliverable, listForCampaign, get, create, review, addComment };
+  return { listForDeliverable, listForCampaign, get, create, review, addComment, captionRules };
 }
 
 export type SubmissionService = ReturnType<typeof makeSubmissionService>;

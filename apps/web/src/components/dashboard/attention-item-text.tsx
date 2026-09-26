@@ -107,6 +107,15 @@ export function AttentionItemTitle({ item }: { item: AttentionItemDTO }) {
       return <>{t('unassignedContent.title', { count: Number(p.count ?? 0) })}</>;
     case 'CAMPAIGN_MISSING_OWNER':
       return <>{t('campaignMissingOwner.title', { count: Number(p.count ?? 0) })}</>;
+    case 'DISCLOSURE_MISSING':
+      return (
+        <>
+          {t.rich('disclosureMissing.title', {
+            campaignName: String(p.campaignName ?? ''),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
     case 'CREATOR_LICENCE':
       return (
         <>
@@ -226,6 +235,8 @@ export function AttentionItemDescription({ item }: { item: AttentionItemDTO }) {
       return <>{t('unassignedContent.description')}</>;
     case 'CAMPAIGN_MISSING_OWNER':
       return <>{t('campaignMissingOwner.description')}</>;
+    case 'DISCLOSURE_MISSING':
+      return <>{t('disclosureMissing.description', { count: Number(p.count ?? 0) })}</>;
     case 'CREATOR_LICENCE': {
       const missing = Number(p.missing ?? 0);
       const expiring = Number(p.expiring ?? 0);

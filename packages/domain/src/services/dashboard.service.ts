@@ -10,7 +10,7 @@ import type {
   WhatsNewItemDTO,
   WhatsNewSummaryDTO,
 } from '@influenceos/contracts';
-import { LOGISTICS_ISSUE_TYPE_LABELS, appRoutes } from '@influenceos/shared';
+import { LOGISTICS_ISSUE_TYPE_LABELS, appRoutes, hasDisclosure } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { requireActor } from '../lib/authz';
 import { iso } from '../lib/helpers';
@@ -351,6 +351,7 @@ export function makeDashboardService(ctx: DomainContext) {
       ugcAwaiting,
       logisticsIssues,
       licenceIssues,
+      undisclosedPosts,
     ] = await Promise.all([
       prisma.deliverable.findMany({
         where: { AND: [overdueWhere(now), deliverableBf] },
@@ -473,6 +474,24 @@ export function makeDashboardService(ctx: DomainContext) {
         { ...bf, ...(campaignId ? { id: campaignId } : {}) },
         limit,
       ),
+      // Live paid/gifted posts on running campaigns whose caption has no ad
+      // disclosure (P3.5) — counted per campaign below. Only posts whose
+      // caption we have; the newest 500 bound the scan.
+      prisma.publishedContent.findMany({
+        where: {
+          ...bf,
+          ...directCampaignFilter,
+          deliverable: { type: { not: 'UGC' } },
+          isStory: false,
+          caption: { not: null },
+          availabilityStatus: { notIn: [...REMOVED_STATUSES] },
+          campaign: { status: 'ACTIVE' },
+          campaignInfluencer: { dealType: { not: 'FREE' } },
+        },
+        select: { caption: true, campaign: { select: { id: true, name: true, brandId: true } } },
+        orderBy: { sortAt: 'desc' },
+        take: 500,
+      }),
     ]);
 
     for (const d of overdue) {
@@ -635,6 +654,33 @@ export function makeDashboardService(ctx: DomainContext) {
         influencerId: null,
         actionLabel: 'Check licences',
         params: { campaignName: l.campaign.name, missing: l.missing, expiring: l.expiring },
+      });
+    }
+
+    const undisclosed = new Map<
+      string,
+      { campaign: { id: string; name: string; brandId: string }; count: number }
+    >();
+    for (const p of undisclosedPosts) {
+      if (!p.campaign || !p.caption?.trim() || hasDisclosure(p.caption)) continue;
+      const entry = undisclosed.get(p.campaign.id) ?? { campaign: p.campaign, count: 0 };
+      entry.count++;
+      undisclosed.set(p.campaign.id, entry);
+    }
+    for (const { campaign: c, count } of undisclosed.values()) {
+      out.push({
+        id: `disclosure-${c.id}`,
+        kind: 'DISCLOSURE_MISSING',
+        title: `Posts without an ad disclosure — ${c.name}`,
+        description: `${count} live post${count === 1 ? " doesn't" : "s don't"} say in the caption that it's an ad.`,
+        severity: 'danger',
+        link: appRoutes.campaign(c.id, 'content'),
+        at: now.toISOString(),
+        brandId: c.brandId,
+        campaignId: c.id,
+        influencerId: null,
+        actionLabel: 'Check posts',
+        params: { campaignName: c.name, count },
       });
     }
 

@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Field, Input, Textarea } from '@/components/ui/input';
 import { PlatformBadge } from '@/components/ui/platform-badge';
 import { SafeImg } from '@/components/ui/safe-img';
+import { CaptionCheckList } from '@/components/content/caption-check';
 
 type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 
@@ -310,6 +311,7 @@ function TaskCard({
         <DraftForm
           token={token}
           taskId={task.id}
+          captionRules={task.captionRules}
           onChange={onChange}
           fallback={tCommon('somethingWentWrong')}
         />
@@ -352,11 +354,13 @@ function ScriptList({ label, items }: { label: string; items: string[] }) {
 function DraftForm({
   token,
   taskId,
+  captionRules,
   onChange,
   fallback,
 }: {
   token: string;
   taskId: string;
+  captionRules: CreatorTaskDTO['captionRules'];
   onChange: (p: CreatorPortalDTO) => void;
   fallback: string;
 }) {
@@ -398,6 +402,7 @@ function DraftForm({
           required
           dir="ltr"
           placeholder="https://"
+          aria-label={t('draftLink')}
           value={assetUrl}
           onChange={(e) => setAssetUrl(e.target.value)}
         />
@@ -406,15 +411,18 @@ function DraftForm({
         <Textarea
           rows={3}
           dir="auto"
+          aria-label={t('caption')}
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           maxLength={2200}
         />
       </Field>
+      <CaptionCheckList caption={caption} rules={captionRules} live />
       <Field label={t('note')}>
         <Textarea
           rows={2}
           dir="auto"
+          aria-label={t('note')}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           maxLength={1000}

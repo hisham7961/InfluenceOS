@@ -1,9 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { CreatorLinkDTO, CreatorPortalDTO, CreatorTaskDTO } from '@influenceos/contracts';
 import type { requests, z } from '@influenceos/contracts';
-import { appRoutes } from '@influenceos/shared';
+import { appRoutes, mergeCaptionRules } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
+import { disclosureRequiredFor } from '../lib/caption-rules';
 import { requireAnyCapability } from '../lib/authz';
 import { open, seal } from '../lib/crypto';
 import { createNotification, iso, logActivity } from '../lib/helpers';
@@ -188,6 +189,7 @@ export function makeCreatorLinkService(ctx: DomainContext) {
     const ci = await prisma.campaignInfluencer.findUniqueOrThrow({
       where: { id: link.campaignInfluencerId },
       select: {
+        dealType: true,
         influencer: { select: { displayName: true } },
         campaign: {
           select: {
@@ -297,6 +299,11 @@ export function makeCreatorLinkService(ctx: DomainContext) {
           reviewedAt: iso(s.reviewedAt),
           createdAt: s.createdAt.toISOString(),
         })),
+        captionRules: mergeCaptionRules(
+          d,
+          approved ?? null,
+          disclosureRequiredFor(ci.dealType, d.type),
+        ),
         postUrl: d.creatorPostUrl,
         postedAt: iso(d.creatorPostedAt),
         canSendDraft: !finished && d.status !== 'APPROVED' && !waiting,

@@ -29,7 +29,13 @@ import { UsageRightDialog } from '@/components/usage-rights/usage-right-dialog';
 import { contentReviewStatus } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -48,19 +54,29 @@ import { DeleteContentDialog, EditCaptionDialog } from './content-actions';
 import { ContentAssociationPanel } from './association-panel';
 import { CommentThread } from '@/components/collaboration/comment-thread';
 import { ActivityFeed } from '@/components/common/activity-feed';
+import { DeliverableCaptionCheck } from '@/components/content/caption-check';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { formatCompact, useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { errorMessage } from '@/lib/errors';
 
-const EMPTY_STATE: ContentViewerStateDTO = { firstSeenAt: null, lastOpenedAt: null, reviewedAt: null, savedForLaterAt: null };
-
+const EMPTY_STATE: ContentViewerStateDTO = {
+  firstSeenAt: null,
+  lastOpenedAt: null,
+  reviewedAt: null,
+  savedForLaterAt: null,
+};
 
 function invalidateReviewQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({
     predicate: (q) => {
       const root = q.queryKey[0];
-      return root === 'content-feed' || root === 'content-summary' || root === 'dashboard-global' || root === 'influencer-activity';
+      return (
+        root === 'content-feed' ||
+        root === 'content-summary' ||
+        root === 'dashboard-global' ||
+        root === 'influencer-activity'
+      );
     },
   });
 }
@@ -122,7 +138,10 @@ export function ContentViewer({
       return;
     }
     const now = new Date().toISOString();
-    setLocalState((s) => ({ ...s, [c.id]: { ...(s[c.id] ?? c.viewerState ?? EMPTY_STATE), firstSeenAt: now, lastOpenedAt: now } }));
+    setLocalState((s) => ({
+      ...s,
+      [c.id]: { ...(s[c.id] ?? c.viewerState ?? EMPTY_STATE), firstSeenAt: now, lastOpenedAt: now },
+    }));
     api.content.updateViewState(c.id, { seen: true }).catch(() => undefined);
   }, []);
 
@@ -150,7 +169,10 @@ export function ContentViewer({
       const now = new Date().toISOString();
       setLocalState((s) => ({
         ...s,
-        [c.id]: { ...(s[c.id] ?? c.viewerState ?? EMPTY_STATE), savedForLaterAt: saved ? now : null },
+        [c.id]: {
+          ...(s[c.id] ?? c.viewerState ?? EMPTY_STATE),
+          savedForLaterAt: saved ? now : null,
+        },
       }));
       await api.content.updateViewState(c.id, { reviewLater: saved });
       invalidateReviewQueries(queryClient);
@@ -179,7 +201,8 @@ export function ContentViewer({
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable)
+        return;
       // Arrow keys follow reading direction: in Arabic, ← is "next".
       const rtl = document.documentElement.dir === 'rtl';
       const nextKey = rtl ? 'ArrowLeft' : 'ArrowRight';
@@ -252,12 +275,17 @@ export function ContentViewer({
           </DialogTitle>
           <div className="min-h-0 flex-1 overflow-y-auto lg:grid lg:grid-cols-[1.5fr_1fr] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden">
             <div className="flex items-center justify-center bg-black p-3 lg:p-4">
-              <SocialContentPlayer key={content.id} content={content} autoPlay maxHeight="min(70dvh, 720px)" />
+              <SocialContentPlayer
+                key={content.id}
+                content={content}
+                autoPlay
+                maxHeight="min(70dvh, 720px)"
+              />
             </div>
             <ContentDetails content={content} className="lg:min-h-0 lg:overflow-y-auto" />
           </div>
 
-          <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border bg-card px-4 py-2.5">
+          <div className="border-border bg-card flex shrink-0 flex-wrap items-center gap-2 border-t px-4 py-2.5">
             <Button
               type="button"
               variant={isReviewed ? 'secondary' : 'outline'}
@@ -277,7 +305,11 @@ export function ContentViewer({
               disabled={busy}
               title={t('reviewMode.reviewLaterShortcut')}
             >
-              {isSavedForLater ? <BookmarkCheck className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
+              {isSavedForLater ? (
+                <BookmarkCheck className="h-3.5 w-3.5" />
+              ) : (
+                <Bookmark className="h-3.5 w-3.5" />
+              )}
               <span className="hidden sm:inline">
                 {isSavedForLater ? t('reviewMode.savedForLater') : t('reviewMode.reviewLater')}
               </span>
@@ -312,7 +344,10 @@ export function ContentViewer({
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => setDeleteOpen(true)} className="text-danger focus:text-danger">
+                <DropdownMenuItem
+                  onSelect={() => setDeleteOpen(true)}
+                  className="text-danger focus:text-danger"
+                >
                   <Trash2 className="h-4 w-4" /> {tCommon('delete')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -320,8 +355,10 @@ export function ContentViewer({
 
             <div className="ms-auto flex items-center gap-1">
               {reviewMode ? (
-                <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="hidden sm:inline">{t('reviewMode.progress', { done: progress.done, total: progress.total })}</span>
+                <span className="text-muted-foreground flex items-center gap-2 text-xs">
+                  <span className="hidden sm:inline">
+                    {t('reviewMode.progress', { done: progress.done, total: progress.total })}
+                  </span>
                   <Button
                     type="button"
                     variant="ghost"
@@ -337,7 +374,7 @@ export function ContentViewer({
                   </Button>
                 </span>
               ) : (
-                <span className="hidden text-xs text-muted-foreground sm:inline">
+                <span className="text-muted-foreground hidden text-xs sm:inline">
                   {t('viewer.indexOfTotal', { index: index + 1, total: items.length })}
                 </span>
               )}
@@ -349,7 +386,7 @@ export function ContentViewer({
                 onClick={() => onIndexChange(index - 1)}
                 aria-label={tCommon('previous')}
               >
-                <ChevronLeft className="rtl:-scale-x-100 h-4 w-4" />{' '}
+                <ChevronLeft className="h-4 w-4 rtl:-scale-x-100" />{' '}
                 <span className="hidden sm:inline">{tCommon('previous')}</span>
               </Button>
               <Button
@@ -360,7 +397,7 @@ export function ContentViewer({
                 aria-label={tCommon('next')}
               >
                 <span className="hidden sm:inline">{tCommon('next')}</span>{' '}
-                <ChevronRight className="rtl:-scale-x-100 h-4 w-4" />
+                <ChevronRight className="h-4 w-4 rtl:-scale-x-100" />
               </Button>
             </div>
           </div>
@@ -420,19 +457,26 @@ function ManagerCallout({ contentId }: { contentId: string }) {
   const pinned = thread.data?.data.find((n) => n.pinned && !n.deleted);
   if (!pinned) return null;
   return (
-    <div className="flex items-start gap-2 rounded-lg border border-brand/40 bg-brand-soft/40 px-3 py-2 text-sm">
-      <Pin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+    <div className="border-brand/40 bg-brand-soft/40 flex items-start gap-2 rounded-lg border px-3 py-2 text-sm">
+      <Pin className="text-brand mt-0.5 h-4 w-4 shrink-0" />
       <div className="min-w-0">
-        <p className="text-xs font-semibold text-brand">
-          {t('viewer.managerCalloutLabel')} · <BidiText>{pinned.authorName ?? tCommon('unknown')}</BidiText>
+        <p className="text-brand text-xs font-semibold">
+          {t('viewer.managerCalloutLabel')} ·{' '}
+          <BidiText>{pinned.authorName ?? tCommon('unknown')}</BidiText>
         </p>
-        <p className="whitespace-pre-wrap text-foreground/90">{pinned.body}</p>
+        <p className="text-foreground/90 whitespace-pre-wrap">{pinned.body}</p>
       </div>
     </div>
   );
 }
 
-export function ContentDetails({ content: incoming, className }: { content: PublishedContentDTO; className?: string }) {
+export function ContentDetails({
+  content: incoming,
+  className,
+}: {
+  content: PublishedContentDTO;
+  className?: string;
+}) {
   const t = useTranslations('content');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
@@ -456,28 +500,47 @@ export function ContentDetails({ content: incoming, className }: { content: Publ
       <ManagerCallout contentId={content.id} />
 
       <div className="flex items-center gap-3">
-        <Avatar name={content.influencer?.displayName ?? '—'} src={content.influencer?.avatarUrl} size="md" />
+        <Avatar
+          name={content.influencer?.displayName ?? '—'}
+          src={content.influencer?.avatarUrl}
+          size="md"
+        />
         <div className="min-w-0 flex-1">
           {content.influencer ? (
-            <Link href={`/influencers/${content.influencer.id}`} className="truncate font-semibold hover:underline">
+            <Link
+              href={`/influencers/${content.influencer.id}`}
+              className="truncate font-semibold hover:underline"
+            >
               <BidiText>{content.influencer.displayName}</BidiText>
             </Link>
           ) : (
-            <p className="truncate font-semibold">{enumLabel(tEnums, 'contentAssociationStatus', 'UNASSIGNED')}</p>
+            <p className="truncate font-semibold">
+              {enumLabel(tEnums, 'contentAssociationStatus', 'UNASSIGNED')}
+            </p>
           )}
           {content.campaign ? (
-            <Link href={`/campaigns/${content.campaign.id}`} className="truncate text-xs text-muted-foreground hover:underline">
+            <Link
+              href={`/campaigns/${content.campaign.id}`}
+              className="text-muted-foreground truncate text-xs hover:underline"
+            >
               {content.campaign.name}
             </Link>
           ) : content.brand ? (
-            <Link href={`/brands/${content.brand.slug}`} className="truncate text-xs text-muted-foreground hover:underline">
+            <Link
+              href={`/brands/${content.brand.slug}`}
+              className="text-muted-foreground truncate text-xs hover:underline"
+            >
               {content.brand.name}
             </Link>
           ) : (
-            <p className="truncate text-xs text-muted-foreground">—</p>
+            <p className="text-muted-foreground truncate text-xs">—</p>
           )}
         </div>
-        <Badge tone={reviewStatus === 'NEW' ? 'info' : reviewStatus === 'REVIEWED' ? 'success' : 'neutral'}>
+        <Badge
+          tone={
+            reviewStatus === 'NEW' ? 'info' : reviewStatus === 'REVIEWED' ? 'success' : 'neutral'
+          }
+        >
           {enumLabel(tEnums, 'contentReviewStatus', reviewStatus)}
         </Badge>
       </div>
@@ -489,15 +552,22 @@ export function ContentDetails({ content: incoming, className }: { content: Publ
         {content.deliverable ? (
           content.campaign ? (
             <Link href={`/campaigns/${content.campaign.id}?tab=submissions`}>
-              <Badge tone="accent">{enumLabel(tEnums, 'deliverableType', content.deliverable.type)}</Badge>
+              <Badge tone="accent">
+                {enumLabel(tEnums, 'deliverableType', content.deliverable.type)}
+              </Badge>
             </Link>
           ) : (
-            <Badge tone="accent">{enumLabel(tEnums, 'deliverableType', content.deliverable.type)}</Badge>
+            <Badge tone="accent">
+              {enumLabel(tEnums, 'deliverableType', content.deliverable.type)}
+            </Badge>
           )
         ) : null}
       </div>
 
-      {content.caption ? <p className="text-sm text-muted-foreground">{content.caption}</p> : null}
+      {content.caption ? <p className="text-muted-foreground text-sm">{content.caption}</p> : null}
+      {content.caption && content.deliverable ? (
+        <DeliverableCaptionCheck deliverableId={content.deliverable.id} caption={content.caption} />
+      ) : null}
 
       <div className="grid grid-cols-2 gap-2">
         <Stat label={t('viewer.stats.views')} value={m?.views} na={tCommon('na')} />
@@ -507,11 +577,16 @@ export function ContentDetails({ content: incoming, className }: { content: Publ
       </div>
 
       <dl className="space-y-1.5 text-sm">
-        <Row label={t('viewer.fields.published')} value={content.publishedAt ? dateTime(content.publishedAt) : '—'} />
+        <Row
+          label={t('viewer.fields.published')}
+          value={content.publishedAt ? dateTime(content.publishedAt) : '—'}
+        />
         <Row label={t('viewer.fields.detected')} value={dateTime(content.detectedAt)} />
         <Row
           label={t('viewer.fields.lastChecked')}
-          value={content.lastCheckedAt ? relativeTime(content.lastCheckedAt) : t('viewer.notYetChecked')}
+          value={
+            content.lastCheckedAt ? relativeTime(content.lastCheckedAt) : t('viewer.notYetChecked')
+          }
         />
         {content.nextCheckAt ? (
           <Row label={t('viewer.fields.nextCheck')} value={relativeTime(content.nextCheckAt)} />
@@ -523,11 +598,13 @@ export function ContentDetails({ content: incoming, className }: { content: Publ
       </dl>
 
       {monitoring.data && monitoring.data.length > 0 ? (
-        <div className="rounded-lg border border-border bg-surface-muted p-3 text-xs">
+        <div className="border-border bg-surface-muted rounded-lg border p-3 text-xs">
           <p className="mb-1 font-medium">{t('viewer.recentMonitoring')}</p>
           <p className="text-muted-foreground">
-            {monitoring.data[0]!.toStatus ? enumLabel(tEnums, 'contentStatus', monitoring.data[0]!.toStatus!) : '—'} ·{' '}
-            {relativeTime(monitoring.data[0]!.checkedAt)}
+            {monitoring.data[0]!.toStatus
+              ? enumLabel(tEnums, 'contentStatus', monitoring.data[0]!.toStatus!)
+              : '—'}{' '}
+            · {relativeTime(monitoring.data[0]!.checkedAt)}
           </p>
         </div>
       ) : null}
@@ -549,8 +626,8 @@ export function ContentDetails({ content: incoming, className }: { content: Publ
           events (added, associations changed, availability/status changed).
           Rendered as a shaded panel, distinct from the plain-header Notes/
           CommentThread section below, which is human discussion, not history. */}
-      <div className="space-y-2 rounded-lg border border-border bg-surface-muted/40 p-3">
-        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="border-border bg-surface-muted/40 space-y-2 rounded-lg border p-3">
+        <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide">
           <ActivityIcon className="h-3.5 w-3.5" /> {t('viewer.activity')}
         </p>
         <ActivityFeed
@@ -561,8 +638,10 @@ export function ContentDetails({ content: incoming, className }: { content: Publ
         />
       </div>
 
-      <div className="space-y-2 border-t border-border pt-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('viewer.notes')}</p>
+      <div className="border-border space-y-2 border-t pt-4">
+        <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+          {t('viewer.notes')}
+        </p>
         <CommentThread
           context={{ publishedContentId: content.id }}
           cacheKey={`content:${content.id}`}
@@ -575,7 +654,13 @@ export function ContentDetails({ content: incoming, className }: { content: Publ
   );
 }
 
-function RefreshButton({ id, onRefreshed }: { id: string; onRefreshed?: (c: PublishedContentDTO) => void }) {
+function RefreshButton({
+  id,
+  onRefreshed,
+}: {
+  id: string;
+  onRefreshed?: (c: PublishedContentDTO) => void;
+}) {
   const tCommon = useTranslations('common');
   const qc = useQueryClient();
   const router = useRouter();
@@ -596,17 +681,33 @@ function RefreshButton({ id, onRefreshed }: { id: string; onRefreshed?: (c: Publ
     }
   }
   return (
-    <Button variant="outline" size="sm" onClick={refresh} disabled={loading} aria-label={tCommon('refresh')}>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={refresh}
+      disabled={loading}
+      aria-label={tCommon('refresh')}
+    >
       <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
     </Button>
   );
 }
 
-function Stat({ label, value, na }: { label: string; value: number | null | undefined; na: string }) {
+function Stat({
+  label,
+  value,
+  na,
+}: {
+  label: string;
+  value: number | null | undefined;
+  na: string;
+}) {
   return (
-    <div className="rounded-lg border border-border bg-surface-muted px-3 py-2">
-      <p className="text-lg font-semibold">{value == null ? na : <LtrText>{formatCompact(value)}</LtrText>}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+    <div className="border-border bg-surface-muted rounded-lg border px-3 py-2">
+      <p className="text-lg font-semibold">
+        {value == null ? na : <LtrText>{formatCompact(value)}</LtrText>}
+      </p>
+      <p className="text-muted-foreground text-xs">{label}</p>
     </div>
   );
 }

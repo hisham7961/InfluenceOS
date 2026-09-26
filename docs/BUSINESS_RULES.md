@@ -88,3 +88,24 @@ are missing a valid licence (red while the campaign is active) or whose
 licences end during it (amber). A licence's own page status is "expiring
 soon" within 30 days of its end; the worker warns the creator's owner (or the
 whole team) once, 30 days ahead, and again after a renewal changes the date.
+
+## Caption check (P3.5)
+
+A caption (a draft's or a live post's) is checked against its deliverable
+(`packages/shared/src/utils/caption-check.ts`, `domain/lib/caption-rules.ts`):
+
+- **Hashtags and mentions**: the deliverable's own plus those of the
+  brand-**approved** script version (a draft script can still change). Whole
+  tags only (`#glow` doesn't match `#glowup`), ignoring case and the common
+  Arabic spelling variants (أ/إ/ا, ة/ه, ى/ي, harakat).
+- **Ad disclosure**: required for paid or gifted work the creator posts on
+  their own account — every deal except FREE, every type except UGC. Any of
+  #إعلان, #اعلان, #إعلان_مدفوع, #مدفوع, #ad, #ads, #advert, #advertisement,
+  #sponsored, #paidpartnership, "paid partnership", "إعلان مدفوع",
+  "شراكة مدفوعة" counts.
+
+The creator sees the check live while writing the caption on their task
+link; the team sees it when reviewing a draft and on the post's page. Needs
+Attention shows one red line per **active** campaign with live paid/gifted
+posts (not Stories or UGC) whose caption we have and that doesn't say it's an
+ad (the newest 500 such posts are scanned).

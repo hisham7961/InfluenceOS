@@ -827,6 +827,22 @@ export const FEATURES: FeatureEntry[] = [
     ],
     deepLink: '/settings/compliance',
   },
+  {
+    key: 'caption_check',
+    name: 'Caption check',
+    description:
+      "Checks a caption against what its deliverable asks for: the deliverable's and the brand-approved script's hashtags and mentions, and — for paid or gifted work the creator posts (not FREE deals, not UGC) — an ad disclosure (#إعلان, #اعلان, #ad, #sponsored, \"paid partnership\"…). The creator sees it live while writing the caption on their task link, the team sees it when reviewing a draft and on the post's page, and Needs Attention raises one line per running campaign with live posts that don't say they're ads.",
+    module: 'Content',
+    classification: 'SHARED',
+    apiStatus: 'READY',
+    webStatus: 'READY',
+    mobileReady: true,
+    permissions: ALL,
+    flag: null,
+    minApiVersion: 'v1',
+    apiEndpoints: ['GET /api/v1/deliverables/:id/caption-rules'],
+    deepLink: '/campaigns',
+  },
 ];
 
 export const FEATURE_MODULES = Array.from(new Set(FEATURES.map((f) => f.module)));

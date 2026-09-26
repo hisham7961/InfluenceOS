@@ -17,10 +17,10 @@
  * due soonest.
  */
 
+import { hasDisclosure } from '@influenceos/shared';
+
 const DAY = 86_400_000;
 const FINISHED = new Set(['PUBLISHED', 'VERIFIED', 'CANCELLED', 'MISSED']);
-const DISCLOSURE =
-  /(^|[^\p{L}\p{N}_])(#ad|#sponsored|#إعلان|#اعلان|#إعلان_مدفوع|#اعلان_مدفوع)(?![\p{L}\p{N}_])|paid partnership|إعلان مدفوع|اعلان مدفوع/iu;
 
 export interface MatchDeliverable {
   id: string;
@@ -88,7 +88,7 @@ export function matchPost(
   const text = post.caption ?? '';
   if (!text.trim()) return null;
   const live = campaigns.filter((c) => inWindow(c, post.postedAt, now));
-  const disclosed = DISCLOSURE.test(text);
+  const disclosed = hasDisclosure(text);
   let best: PostMatch | null = null;
 
   for (const c of live) {

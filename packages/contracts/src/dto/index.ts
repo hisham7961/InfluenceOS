@@ -1425,7 +1425,8 @@ export interface AttentionItemDTO {
     | 'CREATOR_MISSING_INFO'
     | 'INTEGRITY_ISSUE'
     | 'LOGISTICS_ADDRESS_ISSUE'
-    | 'CREATOR_LICENCE';
+    | 'CREATOR_LICENCE'
+    | 'DISCLOSURE_MISSING';
   title: string;
   description: string;
   severity: 'warning' | 'danger';
@@ -2399,6 +2400,8 @@ export interface CreatorTaskDTO {
   canSendDraft: boolean;
   /** The creator may send the live post link (not finished or cancelled). */
   canSendPost: boolean;
+  /** What the caption must carry, for the live check while they write it (P3.5). */
+  captionRules: CaptionRulesDTO;
 }
 
 /** Everything a creator sees on their task link — no money, no internal notes. */
@@ -2516,4 +2519,18 @@ export interface CampaignLicenceCheckDTO {
 export interface ComplianceSettingsDTO {
   /** Countries where creators need an advertising licence to post for a brand. */
   licenceCountryCodes: string[];
+}
+
+// --- Caption check (P3.5) --------------------------------------------------------
+
+/**
+ * What a deliverable's caption must carry: its hashtags and mentions plus
+ * the approved script's (with their # / @), and the ad disclosure when the
+ * creator is paid or gifted. Check a caption against it with `checkCaption`
+ * from @influenceos/shared.
+ */
+export interface CaptionRulesDTO {
+  hashtags: string[];
+  mentions: string[];
+  disclosureRequired: boolean;
 }

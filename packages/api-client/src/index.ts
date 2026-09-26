@@ -34,6 +34,7 @@ import type {
   DiscoveredPostDTO,
   DiscoveryRunDTO,
   CreatorLicenceDTO,
+  CaptionRulesDTO,
   CampaignLicenceCheckDTO,
   ComplianceSettingsDTO,
   PayablesPageDTO,
@@ -493,6 +494,9 @@ export function createClient(config: ClientConfig) {
       // Draft/asset review queue for one deliverable (W3-1) — never a public URL requirement.
       submissions: (id: string) =>
         http.get<DeliverableSubmissionDTO[]>(`${V}/deliverables/${id}/submissions`),
+      /** What the caption must carry (P3.5); check with checkCaption from @influenceos/shared. */
+      captionRules: (id: string) =>
+        http.get<CaptionRulesDTO>(`${V}/deliverables/${id}/caption-rules`),
       submit: (id: string, body: In<typeof requests.submissionCreateSchema>) =>
         http.post<DeliverableSubmissionDTO>(`${V}/deliverables/${id}/submissions`, body),
       // Shipments fulfilling this deliverable (never just 0-or-1 — see shipment.service.ts's listForDeliverable).

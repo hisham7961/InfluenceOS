@@ -24,6 +24,7 @@ export * from './utils/load-fixtures';
 export * from './utils/app-routes';
 export * from './utils/server-text';
 export * from './utils/periods';
+export * from './utils/caption-check';
 export * as providers from './providers';
 export * as metrics from './metrics';
 
