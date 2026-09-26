@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { prisma } from '@influenceos/database';
-import { refreshProviderCredentialOverrides, type UploadCleanupResult } from '@influenceos/domain';
+import { diskUsage, refreshProviderCredentialOverrides, type UploadCleanupResult } from '@influenceos/domain';
 import { Queue, Worker, type Job } from 'bullmq';
 import { buildIdentity, computeWorkerHealth, shouldDeadLetter } from '@influenceos/shared';
 import { createConnection, isRedisAvailable } from './redis';
@@ -253,8 +253,10 @@ function startHealth() {
     .createServer((req, res) => {
       if (req.url === '/health') {
         const { code, status } = computeWorkerHealth(stats.mode, redisHealthy);
-        res.writeHead(code, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ status, redisHealthy, ...release, ...stats }));
+        void diskUsage().then((disk) => {
+          res.writeHead(code, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ status, redisHealthy, ...release, ...stats, disk }));
+        });
       } else {
         res.writeHead(404);
         res.end();

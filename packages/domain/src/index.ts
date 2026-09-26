@@ -104,6 +104,7 @@ export {
 export { maxUploadBytes, type UploadCleanupResult } from './services/attachment.service';
 export { getStorage, resetStorage, sanitizeFileName, buildStorageKey } from './lib/storage';
 export { signDownloadTicket, verifyDownloadTicket } from './lib/tokens';
+export { diskUsage, type DiskUsage } from './lib/disk';
 export {
   CONTENT_CLAIM_LEASE_MS,
   ACCOUNT_STALE_AFTER_MS,

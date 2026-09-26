@@ -27,6 +27,7 @@ import { ActivityType, Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { requireAdmin } from '../lib/authz';
 import { getStorage } from '../lib/storage';
+import { diskUsage } from '../lib/disk';
 import { maxUploadBytes } from './attachment.service';
 import { iso, logActivity } from '../lib/helpers';
 import { makeProviderService } from './provider.service';
@@ -169,7 +170,7 @@ export function makePlatformService(ctx: DomainContext) {
 
     // Probe Redis and the worker live (in parallel, time-boxed) instead of
     // reporting a permanent "unknown".
-    const [redisHealth, workerHealth] = await Promise.all([checkRedis(), checkWorker()]);
+    const [redisHealth, workerHealth, disk] = await Promise.all([checkRedis(), checkWorker(), diskUsage()]);
 
     const health: HealthComponentDTO[] = [
       dbDetail ? { name: 'Database', status: dbStatus, detail: dbDetail } : { name: 'Database', status: dbStatus },
@@ -179,6 +180,13 @@ export function makePlatformService(ctx: DomainContext) {
         name: 'Storage',
         status: (process.env.STORAGE_DRIVER ?? 'local') === 'local' || process.env.S3_INTERNAL_ENDPOINT || process.env.S3_ENDPOINT ? 'ok' : 'unknown',
       },
+      disk
+        ? {
+            name: 'Disk',
+            status: disk.status,
+            detail: `${disk.usedPercent}% used · ${(disk.freeBytes / 1024 ** 3).toFixed(1)} GB free`,
+          }
+        : { name: 'Disk', status: 'unknown' },
     ];
 
     const coverage = computeCoverage();

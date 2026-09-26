@@ -2,18 +2,17 @@
 # Build from the repo root:  docker build -f docker/Dockerfile.web -t influenceos-web .
 FROM node:22-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
-RUN corepack enable
+RUN corepack enable && mkdir -p /app /pnpm && chown node:node /app /pnpm
 WORKDIR /app
 
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
-COPY . .
+# From here on everything runs as the unprivileged `node` user, and files are
+# owned by it from the start. A recursive chown after the install used to copy
+# the whole /app + node_modules tree into a second layer, doubling image size.
+USER node
+COPY --chown=node:node . .
 RUN pnpm install --frozen-lockfile \
   && pnpm --filter @influenceos/database generate \
   && pnpm --filter @influenceos/web build
-
-# Run as the unprivileged `node` user, not root.
-RUN chown -R node:node /app /pnpm
-USER node
 
 ENV NODE_ENV=production
 # Build identity, passed by CI and reported on /health and Settings → Platform.
