@@ -14,7 +14,6 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import type { IntegrationCapabilityDTO, IntegrationDTO, IntegrationStatus, Platform, Tone } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import type { CapabilityLevel } from '@influenceos/shared';
 import { PLATFORMS } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
@@ -28,6 +27,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Spinner } from '@/components/ui/spinner';
 import { PlatformBadge } from '@/components/ui/platform-badge';
+import { errorMessage as apiErrorMessage } from '@/lib/errors';
 
 const STATUS_TONE: Record<IntegrationStatus, Tone> = {
   ENABLED: 'success',
@@ -72,7 +72,7 @@ function levelTone(value: string): Tone {
 export function IntegrationsPanel({ initial }: { initial: IntegrationDTO[] }) {
   const t = useTranslations('settings');
   const errorMessage = React.useCallback(
-    (e: unknown) => (e instanceof ApiError ? e.message : t('integrations.errorGeneric')),
+    (e: unknown) => (apiErrorMessage(e, t('integrations.errorGeneric'))),
     [t],
   );
   const query = useQuery({
@@ -129,7 +129,7 @@ function IntegrationCard({ integration }: { integration: IntegrationDTO }) {
   const t = useTranslations('settings');
   const { dateTime, relativeTime } = useLocalizedFormat();
   const errorMessage = React.useCallback(
-    (e: unknown) => (e instanceof ApiError ? e.message : t('integrations.errorGeneric')),
+    (e: unknown) => (apiErrorMessage(e, t('integrations.errorGeneric'))),
     [t],
   );
   const queryClient = useQueryClient();

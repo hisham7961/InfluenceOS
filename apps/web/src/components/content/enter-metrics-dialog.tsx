@@ -7,7 +7,6 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { BarChart3, Check } from 'lucide-react';
 import type { ContentMetricsDTO, PublishedContentDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,6 +22,7 @@ import { Field, Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { AttachmentsPanel } from '@/components/common/attachments-panel';
 import { formatCompact, useLocalizedFormat } from '@/lib/format';
+import { errorMessage } from '@/lib/errors';
 
 export const METRIC_FIELDS = ['views', 'likes', 'comments', 'shares', 'saves'] as const;
 export type MetricField = (typeof METRIC_FIELDS)[number];
@@ -110,7 +110,7 @@ export function EnterMetricsDialog({
       onSaved?.(updated);
       setOpen(false);
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : tCommon('somethingWentWrong')),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   return (

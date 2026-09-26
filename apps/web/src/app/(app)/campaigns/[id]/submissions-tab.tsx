@@ -8,7 +8,6 @@ import { toast } from 'sonner';
 import { ClipboardCheck, Copy, Download, ExternalLink, Paperclip } from 'lucide-react';
 import type { CampaignInfluencerDTO, DeliverableSubmissionDTO } from '@influenceos/contracts';
 import { SUBMISSION_STATUS_TONE, type SubmissionDecision } from '@influenceos/shared';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { toBrowserUrl } from '@/lib/upload';
 import { enumLabel } from '@/lib/enum-labels';
@@ -24,10 +23,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
 import { useLocalizedFormat } from '@/lib/format';
 import { WhatsAppDialog } from '@/components/influencers/whatsapp-dialog';
+import { errorMessage } from '@/lib/errors';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 const OPEN_STATUSES = new Set(['IN_REVIEW', 'CHANGES_REQUESTED']);
 

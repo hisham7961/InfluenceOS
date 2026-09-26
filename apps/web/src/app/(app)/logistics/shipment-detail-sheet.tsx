@@ -7,7 +7,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Activity as ActivityIcon, Check, ExternalLink, MapPin, MessageSquare, Package, Pencil, Truck, UserPlus, X } from 'lucide-react';
 import type { LogisticsIssueDTO, LogisticsRequestDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import {
   ADDRESS_HEALTH_TONE,
   countryName,
@@ -33,10 +32,8 @@ import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { useApp } from '@/components/shell/app-context';
 import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
+import { errorMessage } from '@/lib/errors';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 /**
  * The Logistics workspace's shipment detail — opened from a row click.

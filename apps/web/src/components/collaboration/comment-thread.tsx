@@ -6,7 +6,6 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { AtSign, FileText, MessageSquare, Paperclip, Pencil, Pin, PinOff, Reply, Send, Trash2, X } from 'lucide-react';
 import type { CursorPage, NoteDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { toBrowserUrl, uploadAttachment } from '@/lib/upload';
 import { Button } from '@/components/ui/button';
@@ -18,6 +17,7 @@ import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { useApp } from '@/components/shell/app-context';
 import { BidiText } from '@/components/common/bidi-text';
+import { errorMessage } from '@/lib/errors';
 
 /** Exactly one context field identifies the thread — mirrors NoteContext on the domain layer. */
 export interface CommentContext {
@@ -219,7 +219,7 @@ export function AttachmentChip({ id, fileName }: { id: string; fileName: string 
       const attachment = await api.files.get(id);
       window.open(toBrowserUrl(attachment.downloadUrl), '_blank', 'noreferrer');
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : t('composer.couldNotOpenFile'));
+      toast.error(errorMessage(e, t('composer.couldNotOpenFile')));
     } finally {
       setPending(false);
     }
@@ -257,7 +257,7 @@ function MessageRow({
   const { relativeTime } = useLocalizedFormat();
 
   function onError(e: unknown) {
-    toast.error(e instanceof ApiError ? e.message : tCommon('somethingWentWrong'));
+    toast.error(errorMessage(e, tCommon('somethingWentWrong')));
   }
   function invalidate() {
     queryClient.invalidateQueries({ queryKey });
@@ -431,7 +431,7 @@ export function CommentThread({
   }, [conversationKey, thread.data, queryClient]);
 
   function onError(e: unknown) {
-    toast.error(e instanceof ApiError ? e.message : t('thread.couldNotSendMessage'));
+    toast.error(errorMessage(e, t('thread.couldNotSendMessage')));
   }
 
   const post = useMutation({
@@ -450,7 +450,7 @@ export function CommentThread({
           toast.error(
             t('composer.attachmentFailed', {
               fileName: file.name,
-              error: e instanceof ApiError ? e.message : t('composer.uploadFailed'),
+              error: errorMessage(e, t('composer.uploadFailed')),
             }),
           );
         }

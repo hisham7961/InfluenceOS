@@ -9,8 +9,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useLocalizedFormat } from '@/lib/format';
+import { useServerText } from '@/lib/use-server-text';
 
 export function NotificationsMenu() {
+  const st = useServerText();
   const queryClient = useQueryClient();
   const t = useTranslations('common');
   const tNav = useTranslations('nav');
@@ -65,8 +67,8 @@ export function NotificationsMenu() {
                   <div className="flex items-start gap-2">
                     {!n.isRead && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />}
                     <div className={n.isRead ? 'ps-4' : ''}>
-                      <p className="text-sm font-medium leading-snug">{n.title}</p>
-                      {n.body && <p className="mt-0.5 text-xs text-muted-foreground">{n.body}</p>}
+                      <p className="text-sm font-medium leading-snug">{st(n.title)}</p>
+                      {n.body && <p className="mt-0.5 text-xs text-muted-foreground">{st(n.body)}</p>}
                       <p className="mt-1 text-[11px] text-muted-foreground">{relativeTime(n.createdAt)}</p>
                     </div>
                   </div>

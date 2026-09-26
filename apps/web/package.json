@@ -11,7 +11,7 @@
     "lint": "next lint",
     "e2e": "playwright test",
     "test:e2e": "playwright test",
-    "test:i18n-parity": "node scripts/check-i18n-parity.mjs",
+    "test:i18n-parity": "node scripts/check-i18n-parity.mjs && node scripts/server-text.mjs",
     "clean": "rm -rf node_modules .turbo .next"
   },
   "dependencies": {

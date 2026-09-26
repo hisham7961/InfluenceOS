@@ -6,11 +6,11 @@ import { useMutation } from '@tanstack/react-query';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { KeyRound, ShieldCheck } from 'lucide-react';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { errorMessage } from '@/lib/errors';
 
 type IssueKey = 'length' | 'case' | 'number';
 
@@ -42,7 +42,7 @@ export function ChangePasswordForm() {
       // the user to sign in again.
       setTimeout(() => router.push('/login'), 900);
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : t('security.changePassword.errorToast')),
+    onError: (e) => toast.error(errorMessage(e, t('security.changePassword.errorToast'))),
   });
 
   const issuesHint =

@@ -7,14 +7,11 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
 import type { InfluencerDetailDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { errorMessage } from '@/lib/errors';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 /**
  * "Delete influencer" — mirrors influencer.service.ts's remove(): a creator

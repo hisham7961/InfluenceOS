@@ -6,14 +6,11 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { RefreshCw } from 'lucide-react';
 import type { InfluencerDetailDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { errorMessage } from '@/lib/errors';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 /** "Sync profile photo" — re-resolves the creator's photo from their linked primary social account. */
 export function SyncAvatarButton({ influencer }: { influencer: InfluencerDetailDTO }) {

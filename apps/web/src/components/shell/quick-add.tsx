@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { COUNTRIES, PLATFORMS } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { EntityCombobox } from '@/components/common/entity-combobox';
-import { ApiError } from '@influenceos/api-client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Field, Input, Textarea } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -21,6 +20,7 @@ import {
 import { AddContentFlow } from '@/components/content/add-content-flow';
 import { BidiText } from '@/components/common/bidi-text';
 import type { QuickAddKind } from './app-context';
+import { errorMessage } from '@/lib/errors';
 
 export function QuickAdd({
   open,
@@ -64,7 +64,7 @@ function useBrandOptions() {
 /** `fallback` is the caller's already-resolved `common.somethingWentWrong` — kept
  * as a plain helper (not a hook) since it's called from event handlers, not render. */
 function err(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
+  return errorMessage(e, fallback);
 }
 
 function AddContent({ close }: { close: () => void }) {

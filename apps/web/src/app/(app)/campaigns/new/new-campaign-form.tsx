@@ -13,7 +13,6 @@ import {
   type CampaignStatus,
 } from '@influenceos/shared';
 import type { BrandSummaryDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { formatCurrency } from '@/lib/format';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +26,7 @@ import { CampaignStatusBadge } from '@/components/ui/status-badges';
 import { Spinner } from '@/components/ui/spinner';
 import { enumLabel } from '@/lib/enum-labels';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
+import { errorMessage } from '@/lib/errors';
 
 /** Sentinel for the objective Select's "no objective" option (Radix forbids an empty-string item value). */
 const NO_OBJECTIVE = 'none';
@@ -65,9 +65,6 @@ const initialState: FormState = {
   draftReview: false,
 };
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 /** Multi-section "new campaign" form: brand + basics, timeline & budget, and brief — with a live preview aside. */
 export function NewCampaignForm({ brands }: NewCampaignFormProps) {

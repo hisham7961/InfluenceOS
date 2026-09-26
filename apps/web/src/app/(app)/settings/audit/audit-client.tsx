@@ -19,6 +19,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { useLocalizedFormat } from '@/lib/format';
+import { useServerText } from '@/lib/use-server-text';
 
 const ALL = 'all';
 
@@ -52,6 +53,7 @@ export function AuditLogClient({
   initial: CursorPage<AuditEntryDTO>;
   actors: { id: string; name: string }[];
 }) {
+  const st = useServerText();
   const t = useTranslations('settings');
   const { dateTime, relativeTime } = useLocalizedFormat();
   const [filters, setFilters] = React.useState<Filters>(EMPTY);
@@ -177,7 +179,7 @@ export function AuditLogClient({
             >
               <Avatar name={entry.actorName ?? t('audit.systemActor')} size="sm" className="mt-0.5 shrink-0" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm leading-snug">{entry.message}</p>
+                <p className="text-sm leading-snug">{st(entry.message)}</p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                   <span className="font-medium text-foreground/80">
                     <BidiText>{entry.actorName ?? t('audit.systemActor')}</BidiText>
@@ -202,6 +204,7 @@ export function AuditLogClient({
 }
 
 function AuditDetailDrawer({ entry, onClose }: { entry: AuditEntryDTO | null; onClose: () => void }) {
+  const st = useServerText();
   const t = useTranslations('settings');
   const { dateTime } = useLocalizedFormat();
   return (
@@ -210,7 +213,7 @@ function AuditDetailDrawer({ entry, onClose }: { entry: AuditEntryDTO | null; on
         {entry ? (
           <div className="space-y-5">
             <SheetHeader className="space-y-1 text-start">
-              <SheetTitle className="text-base">{entry.message}</SheetTitle>
+              <SheetTitle className="text-base">{st(entry.message)}</SheetTitle>
               <SheetDescription className="font-mono text-xs">
                 <LtrText>{entry.type}</LtrText>
               </SheetDescription>

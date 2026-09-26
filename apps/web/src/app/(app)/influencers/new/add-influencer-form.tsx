@@ -7,7 +7,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { AlertTriangle, Check, ExternalLink, Fingerprint, Search, Sparkles } from 'lucide-react';
-import { ApiError } from '@influenceos/api-client';
 import type { DuplicateCandidateDTO, DuplicateMatchConfidence, ResolveProfileResultDTO, Tone } from '@influenceos/contracts';
 import {
   COUNTRIES,
@@ -33,6 +32,7 @@ import { PlatformIcon } from '@/components/ui/platform-badge';
 import { DataSourceBadge } from '@/components/ui/provenance';
 import { Spinner } from '@/components/ui/spinner';
 import { LtrText } from '@/components/common/bidi-text';
+import { errorMessage } from '@/lib/errors';
 
 /** Sentinel for the platform Select's "let us detect it" option (Radix forbids an empty-string item value). */
 const AUTO = 'auto';
@@ -74,9 +74,6 @@ function splitList(raw: string): string[] {
     .filter(Boolean);
 }
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 /**
  * Non-blocking duplicate warning (PART 45-47 — Duplicate Detection wired

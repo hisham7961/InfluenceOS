@@ -6,7 +6,6 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { FileText, Film, ImageIcon, Paperclip, Trash2, Upload, X } from 'lucide-react';
 import type { AttachmentDTO, AttachmentTarget } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { toBrowserUrl, uploadAttachment } from '@/lib/upload';
 import { Button } from '@/components/ui/button';
@@ -16,12 +15,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
 import { useLocalizedFormat } from '@/lib/format';
 import { BidiText } from '@/components/common/bidi-text';
+import { errorMessage } from '@/lib/errors';
 
 /** `fallback` is the caller's already-resolved `common.somethingWentWrong` — kept
  * as a plain helper (not a hook) since it's called from mutation callbacks, not render. */
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : e instanceof Error ? e.message : fallback;
-}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

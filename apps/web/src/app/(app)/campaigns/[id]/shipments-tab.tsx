@@ -8,7 +8,6 @@ import { toast } from 'sonner';
 import { ExternalLink, MessageSquare, Package, Plus, Trash2 } from 'lucide-react';
 import type { CampaignInfluencerDTO, ProductShipmentDTO } from '@influenceos/contracts';
 import { SHIPMENT_STATUSES, SHIPMENT_STATUS_TONE } from '@influenceos/shared';
-import { ApiError } from '@influenceos/api-client';
 
 // Tracking URLs are scheme-guarded on write; still gate the anchor to http(s).
 const isHttpUrl = (u: string | null): u is string => !!u && /^https?:\/\//i.test(u);
@@ -28,10 +27,8 @@ import { Field, Input, Textarea } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
+import { errorMessage } from '@/lib/errors';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 /** Logistics fulfilment requests across a campaign roster (evolved W3-5 web
  *  surface): who a product went to, what it was, courier + tracking, and

@@ -6,7 +6,6 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { KeyRound, Save, Trash2 } from 'lucide-react';
 import type { ProviderCredentialStatusDTO, Tone } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { PlatformBadge } from '@/components/ui/platform-badge';
+import { errorMessage as apiErrorMessage } from '@/lib/errors';
 
 const SOURCE_TONE: Record<ProviderCredentialStatusDTO['source'], Tone> = {
   DB: 'success',
@@ -30,7 +30,7 @@ export function CredentialsCard({ initial }: { initial: ProviderCredentialStatus
   const t = useTranslations('settings');
   const tCommon = useTranslations('common');
   const errorMessage = React.useCallback(
-    (e: unknown) => (e instanceof ApiError ? e.message : t('integrations.errorGeneric')),
+    (e: unknown) => (apiErrorMessage(e, t('integrations.errorGeneric'))),
     [t],
   );
   const qc = useQueryClient();

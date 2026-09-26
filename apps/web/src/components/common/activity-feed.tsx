@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PageFooter } from '@/components/ui/page-footer';
 import { BidiText } from '@/components/common/bidi-text';
 import { useLocalizedFormat } from '@/lib/format';
+import { useServerText } from '@/lib/use-server-text';
 
 /**
  * ONE activity/operational-timeline renderer, reused everywhere a scoped
@@ -42,6 +43,7 @@ export function ActivityFeed({
   emptyTitle?: string;
   emptyDescription?: string;
 }) {
+  const st = useServerText();
   const t = useTranslations('common');
   const { relativeTime } = useLocalizedFormat();
   const [page, setPage] = React.useState(1);
@@ -91,10 +93,10 @@ export function ActivityFeed({
             <div className="min-w-0 flex-1">
               {a.link ? (
                 <Link href={a.link} className="text-sm leading-snug hover:underline">
-                  {a.message}
+                  {st(a.message)}
                 </Link>
               ) : (
-                <p className="text-sm leading-snug">{a.message}</p>
+                <p className="text-sm leading-snug">{st(a.message)}</p>
               )}
               <p className="text-muted-foreground text-xs">
                 {a.actorName ? (

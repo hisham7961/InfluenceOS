@@ -7,7 +7,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowLeft, Check, Loader2, Search, Users, X } from 'lucide-react';
 import type { BulkPreviewDTO, DealType, InfluencerSummaryDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { DEAL_TYPES } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { formatCompact } from '@/lib/format';
@@ -29,10 +28,8 @@ import { Avatar } from '@/components/ui/avatar';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
+import { errorMessage } from '@/lib/errors';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 /**
  * Bulk-add a selection of creators to a campaign roster at once (W3-4 gap

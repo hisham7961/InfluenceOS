@@ -6,7 +6,6 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Check, Globe2, KeyRound, ShieldCheck, Tags, X } from 'lucide-react';
 import type { BrandSummaryDTO, Capability, RoleProfile, UserAdminDetailDTO, UserRole } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { CAPABILITIES, COUNTRIES, ROLE_PROFILES, USER_ROLES, countryName } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
@@ -21,6 +20,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/cn';
 import { BidiText } from '@/components/common/bidi-text';
+import { errorMessage } from '@/lib/errors';
 
 const NO_PROFILE = '__legacy__';
 /** Tri-state per capability: undefined = follow the Role Profile default. */
@@ -127,7 +127,7 @@ export function UserEditSheet({
       queryClient.invalidateQueries({ queryKey: ['user-permissions', userId] });
       close();
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : t('editSheet.errorGeneric')),
+    onError: (e) => toast.error(errorMessage(e, t('editSheet.errorGeneric'))),
   });
 
   const brands = brandsQuery.data ?? [];

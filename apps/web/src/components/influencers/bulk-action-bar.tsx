@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { Loader2, Megaphone, Tag, UserCog, X } from 'lucide-react';
 import { RELATIONSHIP_STATUSES } from '@influenceos/shared';
 import type { BulkPreviewDTO, requests } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
 import { Button } from '@/components/ui/button';
@@ -16,13 +15,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AddToCampaignDialog } from '@/components/campaigns/add-to-campaign-dialog';
+import { errorMessage } from '@/lib/errors';
 
 type BulkInfluencerRequest = requests.BulkInfluencerRequest;
 type Action = BulkInfluencerRequest['action'];
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 /**
  * The bulk action toolbar for the influencer directory (Operations

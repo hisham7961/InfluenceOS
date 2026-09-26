@@ -68,7 +68,6 @@ import type {
   ScriptVersionDTO,
   ScriptVersionStatus,
 } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import {
   DEAL_TYPES,
   DELIVERABLE_STATUSES,
@@ -134,13 +133,11 @@ import { PageFooter } from '@/components/ui/page-footer';
 import { ShipmentDetailSheet } from '@/app/(app)/logistics/shipment-detail-sheet';
 import { AddInfluencerDialog } from './add-influencer-dialog';
 import { BulkAddInfluencersDialog } from './bulk-add-influencers-dialog';
+import { errorMessage } from '@/lib/errors';
 
 /** Sentinel for "no influencer attributed" in the expense form's Select (Radix forbids an empty-string value). */
 const NONE = 'none';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : e instanceof Error ? e.message : fallback;
-}
 
 /** ISO/date string → yyyy-mm-dd for a native date input (local calendar day). */
 function toDateInputValue(s: string | null | undefined): string {
@@ -359,7 +356,7 @@ function LiveContentTab({
       queryClient.invalidateQueries();
       router.refresh();
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : tCommon('somethingWentWrong')),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
   const goToPage = (p: number) => t('workspace.liveContent.goToPage', { page: p });
 

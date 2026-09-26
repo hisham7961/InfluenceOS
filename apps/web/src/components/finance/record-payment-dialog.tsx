@@ -6,7 +6,6 @@ import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Paperclip, X } from 'lucide-react';
 import { PAYMENT_METHODS, type AttachmentDTO, type AttachmentTarget, type PaymentDTO, type PaymentMethod } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { uploadAttachment } from '@/lib/upload';
 import { enumLabel } from '@/lib/enum-labels';
@@ -17,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, Input, Textarea } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
+import { errorMessage } from '@/lib/errors';
 
 export type PaymentTargetRef = { kind: 'FEE'; id: string } | { kind: 'EXPENSE'; id: string };
 
@@ -94,7 +94,7 @@ export function RecordPaymentDialog({
       onOpenChange(false);
       onRecorded?.(payment);
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : tCommon('somethingWentWrong')),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   async function attach(file: File) {

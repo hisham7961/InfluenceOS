@@ -6,7 +6,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AlertTriangle, ArrowLeft, Check, FileUp, Search, Upload } from 'lucide-react';
 import type { BulkPreviewDTO, BulkResultDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { BidiText } from '@/components/common/bidi-text';
 import { Button } from '@/components/ui/button';
@@ -21,10 +20,8 @@ import {
 } from '@/components/ui/dialog';
 import { Field, Textarea } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { errorMessage } from '@/lib/errors';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 const SAMPLE = `displayName,username,platform,category,fitScore,notes
 Layla Q,@laylaq,INSTAGRAM,Beauty,88,Strong KW audience

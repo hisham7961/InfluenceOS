@@ -28,8 +28,10 @@ import { CampaignCard } from '@/components/campaigns/campaign-card';
 import { BidiText } from '@/components/common/bidi-text';
 import { formatCurrency, useLocalizedFormat } from '@/lib/format';
 import { AttentionItemTitle, AttentionItemDescription } from '@/components/dashboard/attention-item-text';
+import { useServerText } from '@/lib/use-server-text';
 
 export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; brandId?: string }) {
+  const st = useServerText();
   const t = useTranslations('dashboard');
   const tCommon = useTranslations('common');
   const tEmpty = useTranslations('empty');
@@ -93,7 +95,7 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
 
       <div className="grid gap-8 xl:grid-cols-[1.6fr_1fr]">
         {/* Since Your Last Visit */}
-        <section>
+        <section className="min-w-0">
           <SectionHeader
             title={t('whatsNewSinceVisit')}
             action={
@@ -139,7 +141,7 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
         </section>
 
         {/* Needs Attention */}
-        <section>
+        <section className="min-w-0">
           <SectionHeader title={t('needsAttention')} />
           <Card className="divide-y divide-border">
             {data.attention.length === 0 ? (
@@ -177,7 +179,7 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
 
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Upcoming Content */}
-        <section>
+        <section className="min-w-0">
           <SectionHeader title={t('upcomingContent')} />
           <Card className="divide-y divide-border">
             {data.upcomingContent.length === 0 ? (
@@ -192,8 +194,8 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
                       <BidiText as="span">{u.brandName}</BidiText> · <BidiText as="span">{u.campaignName}</BidiText>
                     </p>
                   </div>
-                  <PlatformIcon platform={u.platform} className="h-4 w-4 text-muted-foreground" />
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <PlatformIcon platform={u.platform} className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
                     <CalendarClock className="h-3.5 w-3.5" /> {relativeTime(u.expectedAt)}
                   </span>
                 </div>
@@ -203,7 +205,7 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
         </section>
 
         {/* Recent Activity */}
-        <section>
+        <section className="min-w-0">
           <SectionHeader title={t('recentActivity')} />
           <Card className="divide-y divide-border">
             {data.recentActivity.length === 0 ? (
@@ -213,7 +215,7 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
                 <div key={a.id} className="flex items-start gap-3 p-3.5">
                   <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm leading-snug">{a.message}</p>
+                    <p className="text-sm leading-snug">{st(a.message)}</p>
                     <p className="text-xs text-muted-foreground">{relativeTime(a.createdAt)}</p>
                   </div>
                 </div>

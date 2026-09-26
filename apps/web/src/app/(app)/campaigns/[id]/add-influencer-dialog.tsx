@@ -7,7 +7,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Check, Search, UserPlus } from 'lucide-react';
 import type { DealType, InfluencerSummaryDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { DEAL_TYPES } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { formatCompact } from '@/lib/format';
@@ -28,10 +27,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar } from '@/components/ui/avatar';
 import { Spinner } from '@/components/ui/spinner';
 import { EmptyState } from '@/components/ui/empty-state';
+import { errorMessage } from '@/lib/errors';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 /**
  * Self-contained "Add influencer" trigger + dialog for a campaign's Influencers tab.

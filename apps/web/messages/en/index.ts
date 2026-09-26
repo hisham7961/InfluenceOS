@@ -25,6 +25,7 @@ import settings from './settings.json';
 import users from './users.json';
 import attention from './attention.json';
 import finance from './finance.json';
+import serverText from './serverText.json';
 
 export default {
   nav,
@@ -49,4 +50,5 @@ export default {
   users,
   attention,
   finance,
+  serverText,
 };

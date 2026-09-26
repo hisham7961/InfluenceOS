@@ -7,7 +7,6 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Check, TableProperties } from 'lucide-react';
 import type { PublishedContentDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -18,6 +17,7 @@ import { PlatformBadge } from '@/components/ui/platform-badge';
 import { BidiText } from '@/components/common/bidi-text';
 import { useLocalizedFormat } from '@/lib/format';
 import { METRIC_FIELDS, invalidateMetricQueries, parseCount, type MetricField } from './enter-metrics-dialog';
+import { errorMessage } from '@/lib/errors';
 
 const MAX_POSTS = 300;
 
@@ -98,7 +98,7 @@ export function BulkMetricsDialog({ campaignId }: { campaignId: string }) {
       router.refresh();
       setOpen(false);
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : tCommon('somethingWentWrong')),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
   const setCell = (c: PublishedContentDTO, k: MetricField, value: string) =>

@@ -14,7 +14,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { DeviceSessionDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { useLocalizedFormat } from '@/lib/format';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { errorMessage as apiErrorMessage } from '@/lib/errors';
 
 const SESSIONS_KEY = ['auth', 'sessions'] as const;
 
@@ -56,7 +56,7 @@ export function SessionsList() {
   const tCommon = useTranslations('common');
   const { dateTime, relativeTime, shortDate } = useLocalizedFormat();
   const errorMessage = React.useCallback(
-    (e: unknown) => (e instanceof ApiError ? e.message : t('security.sessions.errorGeneric')),
+    (e: unknown) => (apiErrorMessage(e, t('security.sessions.errorGeneric'))),
     [t],
   );
   const queryClient = useQueryClient();

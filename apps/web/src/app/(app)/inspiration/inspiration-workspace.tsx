@@ -8,7 +8,6 @@ import { toast } from 'sonner';
 import { ExternalLink, FileText, Lightbulb, MessageSquare, Pin, Plus, Trash2, X } from 'lucide-react';
 import type { BrandSummaryDTO, InspirationItemDTO } from '@influenceos/contracts';
 import { INSPIRATION_CATEGORIES, type InspirationCategory } from '@influenceos/shared';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { EntityCombobox } from '@/components/common/entity-combobox';
 import { Card } from '@/components/ui/card';
@@ -27,10 +26,8 @@ import { SocialContentPlayer } from '@/components/content/social-content-player'
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { enumLabel } from '@/lib/enum-labels';
 import { BidiText } from '@/components/common/bidi-text';
+import { errorMessage } from '@/lib/errors';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 const CATEGORY_ALL = 'ALL';
 

@@ -4,14 +4,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Link2, Link2Off, ShieldCheck } from 'lucide-react';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PlatformBadge } from '@/components/ui/platform-badge';
+import { errorMessage as apiErrorMessage } from '@/lib/errors';
 
-const errorMessage = (e: unknown, fallback: string) => (e instanceof ApiError ? e.message : fallback);
+const errorMessage = (e: unknown, fallback: string) => (apiErrorMessage(e, fallback));
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK'] as const;
 
 /**
@@ -34,7 +34,7 @@ export function CreatorConnections({ influencerId }: { influencerId: string }) {
     onSuccess: (res) => {
       if (typeof window !== 'undefined' && res.url) window.location.href = res.url;
     },
-    onError: (e) => toast.error(errorMessage(e, t('errors.generic'))),
+    onError: (e) => toast.error(apiErrorMessage(e, t('errors.generic'))),
   });
   const disconnect = useMutation({
     mutationFn: (platform: string) => api.influencers.disconnectCreator(influencerId, platform.toLowerCase()),
@@ -42,7 +42,7 @@ export function CreatorConnections({ influencerId }: { influencerId: string }) {
       qc.invalidateQueries({ queryKey: ['creator-connections', influencerId] });
       toast.success(t('detail.connections.disconnectedToast'));
     },
-    onError: (e) => toast.error(errorMessage(e, t('errors.generic'))),
+    onError: (e) => toast.error(apiErrorMessage(e, t('errors.generic'))),
   });
 
   return (

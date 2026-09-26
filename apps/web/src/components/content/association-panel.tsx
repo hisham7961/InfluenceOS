@@ -8,7 +8,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { PublishedContentDTO } from '@influenceos/contracts';
 import { contentAssociationStatus, type Tone } from '@influenceos/shared';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/input';
 import { EntityCombobox } from '@/components/common/entity-combobox';
 import { BidiText } from '@/components/common/bidi-text';
+import { errorMessage } from '@/lib/errors';
 
 const STATUS_TONE: Record<ReturnType<typeof contentAssociationStatus>, Tone> = {
   FULLY_LINKED: 'success',
@@ -26,7 +26,7 @@ const STATUS_TONE: Record<ReturnType<typeof contentAssociationStatus>, Tone> = {
 };
 
 function errMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
+  return errorMessage(e, fallback);
 }
 
 /**

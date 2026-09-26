@@ -26,7 +26,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { NotificationCategory, NotificationDTO, Tone } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { useUrlPage } from '@/lib/use-url-page';
 import { PageFooter } from '@/components/ui/page-footer';
@@ -37,6 +36,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { errorMessage } from '@/lib/errors';
+import { useServerText } from '@/lib/use-server-text';
 
 const LIMIT = 30;
 type Filter = 'all' | 'unread';
@@ -130,7 +131,7 @@ export function NotificationsList() {
 
   const onError = React.useCallback(
     (e: unknown) => {
-      toast.error(e instanceof ApiError ? e.message : tCommon('somethingWentWrong'));
+      toast.error(errorMessage(e, tCommon('somethingWentWrong')));
     },
     [tCommon],
   );
@@ -248,6 +249,7 @@ function NotificationRow({
   notification: NotificationDTO;
   onClick: (notification: NotificationDTO) => void;
 }) {
+  const st = useServerText();
   const t = useTranslations('notifications');
   const { relativeTime } = useLocalizedFormat();
   const Icon = CATEGORY_ICON[notification.category];
@@ -269,16 +271,16 @@ function NotificationRow({
       </span>
       <div className="min-w-0 flex-1 space-y-0.5">
         <div className="flex items-center gap-2">
-          {/* notification.title/body are historical, stored notification content rendered as-is — never machine-translated (see docs/localization/README.md). */}
+          {/* The server writes notifications in English; st() shows the Arabic from the serverText catalog (anything not in it stays as stored). */}
           <p className={cn('truncate text-sm leading-snug', !notification.isRead && 'font-semibold')}>
-            {notification.title}
+            {st(notification.title)}
           </p>
           {!notification.isRead ? (
             <span className="h-2 w-2 shrink-0 rounded-full bg-brand" aria-label={t('unreadIndicator')} />
           ) : null}
         </div>
         {notification.body ? (
-          <p className="line-clamp-2 text-sm text-muted-foreground">{notification.body}</p>
+          <p className="line-clamp-2 text-sm text-muted-foreground">{st(notification.body)}</p>
         ) : null}
         <p className="text-xs text-muted-foreground">{relativeTime(notification.createdAt)}</p>
       </div>

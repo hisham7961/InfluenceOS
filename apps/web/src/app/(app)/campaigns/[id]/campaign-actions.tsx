@@ -7,7 +7,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ChevronDown, FileBarChart, Pencil } from 'lucide-react';
 import type { CampaignDetailDTO, CampaignObjective, CampaignStatus } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { CAMPAIGN_OBJECTIVES, CAMPAIGN_STATUSES } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
@@ -30,13 +29,11 @@ import {
 import { Field, Input, Textarea } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { errorMessage } from '@/lib/errors';
 
 /** Sentinel for "no objective" in the Select (Radix forbids an empty-string value). */
 const NONE = 'none';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : e instanceof Error ? e.message : fallback;
-}
 
 function toDateInput(s: string | null | undefined): string {
   if (!s) return '';

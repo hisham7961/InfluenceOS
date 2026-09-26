@@ -7,7 +7,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { CalendarPlus, MoreHorizontal, Pencil, ShieldCheck, ShieldOff } from 'lucide-react';
 import type { UsageRightDTO, UsageRightType } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { USAGE_RIGHT_TYPES } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
@@ -19,10 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { errorMessage } from '@/lib/errors';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 /** ISO → yyyy-mm-dd (local day) for a date input. */
 function dayValue(iso: string | null | undefined): string {

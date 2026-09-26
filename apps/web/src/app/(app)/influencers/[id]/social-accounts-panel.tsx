@@ -20,7 +20,6 @@ import {
   Users,
 } from 'lucide-react';
 import type { SocialAccountDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { PLATFORMS, PLATFORM_META, type Platform } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,6 +47,7 @@ import { LtrText } from '@/components/common/bidi-text';
 import { formatCompact } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { Skeleton } from '@/components/ui/skeleton';
+import { errorMessage } from '@/lib/errors';
 
 // Recharts is heavy; lazy-load the follower chart so it never ships in the main
 // bundle (W5-4 / UX-06). Client-only — the chart needs the DOM to size itself.
@@ -56,9 +56,6 @@ const FollowerChart = dynamic(() => import('./follower-chart').then((m) => m.Fol
   loading: () => <Skeleton className="h-64 w-full rounded-2xl" />,
 });
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 function numeric(v: string): number | undefined {
   const t = v.trim();

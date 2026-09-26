@@ -7,7 +7,6 @@ import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Check, KeyRound, Mail, Plus, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import type { UserRole, UserDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { USER_ROLES } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
@@ -31,6 +30,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { UserEditSheet } from './user-edit-sheet';
+import { errorMessage } from '@/lib/errors';
 
 export function UsersClient({ initial, currentUserId }: { initial: UserDTO[]; currentUserId: string }) {
   const router = useRouter();
@@ -59,7 +59,7 @@ export function UsersClient({ initial, currentUserId }: { initial: UserDTO[]; cu
       router.refresh();
       setDeletingUserId(null);
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : t('list.errorGeneric')),
+    onError: (e) => toast.error(errorMessage(e, t('list.errorGeneric'))),
   });
 
   return (
@@ -235,7 +235,7 @@ function ResetPasswordDialog({
       reset();
       onOpenChange(false);
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : t('list.resetPasswordDialog.errorToast')),
+    onError: (e) => toast.error(errorMessage(e, t('list.resetPasswordDialog.errorToast'))),
   });
 
   const issuesHint =
@@ -326,7 +326,7 @@ function AddUserDialog() {
       router.refresh();
       resetAndClose();
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : t('list.errorGeneric')),
+    onError: (e) => toast.error(errorMessage(e, t('list.errorGeneric'))),
   });
 
   function resetAndClose() {

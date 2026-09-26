@@ -27,7 +27,6 @@ import {
 import type { ContentViewerStateDTO, PublishedContentDTO } from '@influenceos/contracts';
 import { UsageRightDialog } from '@/components/usage-rights/usage-right-dialog';
 import { contentReviewStatus } from '@influenceos/shared';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -52,12 +51,10 @@ import { ActivityFeed } from '@/components/common/activity-feed';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { formatCompact, useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
+import { errorMessage } from '@/lib/errors';
 
 const EMPTY_STATE: ContentViewerStateDTO = { firstSeenAt: null, lastOpenedAt: null, reviewedAt: null, savedForLaterAt: null };
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 function invalidateReviewQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({

@@ -7,7 +7,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Check, Pencil } from 'lucide-react';
 import type { BrandDetailDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,10 +21,8 @@ import {
 import { Field, Input, Label, Textarea } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Spinner } from '@/components/ui/spinner';
+import { errorMessage } from '@/lib/errors';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 /** Editable brand identity — a swatch + hex input, with a toggle for the optional colors. */
 function ColorField({

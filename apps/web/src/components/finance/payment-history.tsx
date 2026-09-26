@@ -6,7 +6,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Ban, Paperclip, Plus } from 'lucide-react';
 import type { AttachmentTarget, PaymentDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
 import { formatCurrency, useLocalizedFormat } from '@/lib/format';
@@ -21,6 +20,7 @@ import { Field, Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { RecordPaymentDialog, type PaymentTargetRef } from './record-payment-dialog';
+import { errorMessage } from '@/lib/errors';
 
 export const paymentsKey = (target: PaymentTargetRef) => ['finance', 'payments', target.kind, target.id] as const;
 
@@ -170,7 +170,7 @@ export function VoidPaymentDialog({
       onClose();
       onVoided?.(p);
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : tCommon('somethingWentWrong')),
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
   return (
     <Dialog open={!!payment} onOpenChange={(o) => (o ? null : onClose())}>

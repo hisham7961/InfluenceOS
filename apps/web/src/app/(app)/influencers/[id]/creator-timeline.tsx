@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PageFooter } from '@/components/ui/page-footer';
 import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
+import { useServerText } from '@/lib/use-server-text';
 
 type Bucket = CreatorTimelineItemDTO['bucket'];
 const BUCKET_ALL = 'ALL';
@@ -40,6 +41,7 @@ const BUCKET_ICON: Record<Bucket, React.ComponentType<{ className?: string }>> =
  * see that service for why Notification rows are deliberately excluded.
  */
 export function CreatorTimeline({ influencerId }: { influencerId: string }) {
+  const st = useServerText();
   const t = useTranslations('influencers');
   const { relativeTime } = useLocalizedFormat();
   const [bucket, setBucket] = React.useState<Bucket | typeof BUCKET_ALL>(BUCKET_ALL);
@@ -104,7 +106,7 @@ export function CreatorTimeline({ influencerId }: { influencerId: string }) {
                   <Icon className="h-3.5 w-3.5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-foreground">{item.message}</p>
+                  <p className="text-foreground">{st(item.message)}</p>
                   <p className="text-xs text-muted-foreground">
                     {BUCKET_LABEL[item.bucket]} · {relativeTime(item.at)}
                   </p>

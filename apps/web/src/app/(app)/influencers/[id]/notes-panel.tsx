@@ -7,7 +7,6 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Pin, PinOff, StickyNote, Trash2 } from 'lucide-react';
 import type { NoteDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { uploadAttachment } from '@/lib/upload';
 import { Card } from '@/components/ui/card';
@@ -18,6 +17,7 @@ import { AttachmentChip, Composer } from '@/components/collaboration/comment-thr
 import { BidiText } from '@/components/common/bidi-text';
 import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
+import { errorMessage } from '@/lib/errors';
 
 /** Internal notes thread for an influencer — pin, add, and remove, with optimistic list updates.
  *  Shares its composer (including the @mention picker) with the rest of the Collaboration Layer. */
@@ -40,7 +40,7 @@ export function NotesPanel({ influencerId, notes }: { influencerId: string; note
   );
 
   function onError(e: unknown) {
-    toast.error(e instanceof ApiError ? e.message : tc('somethingWentWrong'));
+    toast.error(errorMessage(e, tc('somethingWentWrong')));
   }
 
   const createNote = useMutation({
@@ -51,7 +51,7 @@ export function NotesPanel({ influencerId, notes }: { influencerId: string; note
         try {
           await uploadAttachment(file, { noteId: note.id });
         } catch (e) {
-          toast.error(`"${file.name}" didn't attach: ${e instanceof ApiError ? e.message : 'upload failed'}`);
+          toast.error(`"${file.name}" didn't attach: ${errorMessage(e, 'upload failed')}`);
         }
       }
       // The note object returned above predates its own attachments (they

@@ -34,7 +34,6 @@ import type {
   PlatformStatusDTO,
   Tone,
 } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { cn } from '@/lib/cn';
 import { formatBytes, useLocalizedFormat } from '@/lib/format';
@@ -45,6 +44,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton, SkeletonText } from '@/components/ui/skeleton';
+import { errorMessage as apiErrorMessage } from '@/lib/errors';
 
 const API_DOCS_URL = `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/$/, '')}/api/docs`;
 
@@ -644,7 +644,7 @@ type PlatformFlag = { key: string; description: string | null; scope: string; en
 function FlagsTab() {
   const t = useTranslations('settings');
   const errorMessage = React.useCallback(
-    (e: unknown) => (e instanceof ApiError ? e.message : t('platform.errorGeneric')),
+    (e: unknown) => (apiErrorMessage(e, t('platform.errorGeneric'))),
     [t],
   );
   const queryClient = useQueryClient();

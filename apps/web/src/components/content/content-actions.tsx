@@ -7,7 +7,6 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Check, Pencil, Trash2 } from 'lucide-react';
 import type { PublishedContentDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -21,10 +20,8 @@ import {
 } from '@/components/ui/dialog';
 import { Field, Textarea } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { errorMessage } from '@/lib/errors';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 /**
  * Edit caption / delete — the content detail page's own editing and

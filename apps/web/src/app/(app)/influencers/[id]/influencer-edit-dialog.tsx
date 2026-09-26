@@ -7,7 +7,6 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Check, Pencil } from 'lucide-react';
 import type { InfluencerDetailDTO } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import {
   CONTACT_METHODS,
   COUNTRIES,
@@ -33,6 +32,7 @@ import { Field, Input, Label, Textarea } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Spinner } from '@/components/ui/spinner';
+import { errorMessage } from '@/lib/errors';
 
 function splitList(raw: string): string[] {
   return raw
@@ -41,9 +41,6 @@ function splitList(raw: string): string[] {
     .filter(Boolean);
 }
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 const NO_COUNTRY = '__none__';
 const NONE = '__none__';

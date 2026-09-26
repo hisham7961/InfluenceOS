@@ -19,12 +19,10 @@ import { Badge } from '@/components/ui/badge';
 import { Field, Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { errorMessage } from '@/lib/errors';
 
 type Mode = 'roster' | 'shortlist';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 /**
  * Put one or more creators on a campaign without opening it first — from the

@@ -178,6 +178,27 @@ so the behavior is consistent and auditable in one place.
 placeholders, validation messages, toasts, empty states, confirmation
 dialogs, filters, table headers, pagination, enum/status badges.
 
+## Server-generated text (errors, notifications, activity)
+
+The API and worker write error messages, notification titles/bodies and
+activity-feed lines in English. The web shows them in the viewer's language
+through the `serverText` catalog, not by translating on the fly:
+
+- `messages/en/serverText.json` holds every such message as a template —
+  `"{name} moved a {type} expense of {amount} {currency} to the trash."` —
+  and `messages/ar/serverText.json` the Arabic with the same key.
+- `src/lib/server-text.ts` matches the text the API returned against the
+  English templates and renders the Arabic entry with the same values
+  (English enum words inside, like an expense type, go through `enums`).
+  A message that isn't in the catalog stays as the server wrote it; names,
+  captions and anything a person typed are never touched.
+- `errorMessage(e, fallback)` in `src/lib/errors.ts` is the one way to show a
+  failed request (it also adds the first field's problem for a rejected
+  form); `useServerText()` is for notifications and activity lines.
+- `node scripts/server-text.mjs` (part of `test:i18n-parity`, so CI runs it)
+  reads the server source and fails when the server gains a message the
+  catalog doesn't have; `--missing` prints them as JSON to add (en + ar).
+
 ## Routing
 
 Locale is presentation-only. There is no `/ar/...` URL prefix and no

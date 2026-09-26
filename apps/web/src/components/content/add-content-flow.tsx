@@ -14,7 +14,6 @@ import type {
   PublishedContentDTO,
 } from '@influenceos/contracts';
 import { PLATFORMS, PLATFORM_META, type Platform } from '@influenceos/shared';
-import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
 import { uploadAttachment } from '@/lib/upload';
@@ -26,6 +25,7 @@ import { EntityCombobox } from '@/components/common/entity-combobox';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
+import { errorMessage } from '@/lib/errors';
 
 const NO_INFLUENCER = '__none__';
 const NO_DELIVERABLE = '__none__';
@@ -67,7 +67,7 @@ export interface AddContentFlowProps {
 }
 
 function errMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
+  return errorMessage(e, fallback);
 }
 
 /**

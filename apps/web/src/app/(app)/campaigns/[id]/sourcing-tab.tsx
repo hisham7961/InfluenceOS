@@ -8,7 +8,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Check, MoreHorizontal, Pencil, Plus, RotateCcw, Star, Trash2, UserCheck, UserPlus, UserSearch, X } from 'lucide-react';
 import type { CampaignCandidateDTO, CandidateStatus, DealType } from '@influenceos/contracts';
-import { ApiError } from '@influenceos/api-client';
 import { CANDIDATE_STATUSES, CANDIDATE_STATUS_TONE, DEAL_TYPES } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
@@ -28,12 +27,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
 import { ImportCandidatesDialog } from './import-candidates-dialog';
+import { errorMessage } from '@/lib/errors';
 
 type Decision = 'SHORTLIST' | 'APPROVE' | 'REJECT' | 'RECONSIDER';
 
-function errorMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
-}
 
 function parseMoney(value: string): number | null {
   const n = Number(value.replace(/,/g, '').trim());
