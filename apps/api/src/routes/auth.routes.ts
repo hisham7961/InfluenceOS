@@ -3,39 +3,41 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { API_REFRESH_COOKIE, requests, z } from '@influenceos/contracts';
 import { AppError } from '@influenceos/domain';
 import { requireAdmin, requireAuth, servicesFor } from '../http';
-import { fixedWindowLimiter } from '../lib/fixed-window-limiter';
+import { failureLimiter } from '../lib/failure-limiter';
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   const r = app.withTypeProvider<ZodTypeProvider>();
 
-  // Sign-in attempts are limited twice: per account per address (10 per 15
-  // minutes — a stranger hammering the admin's email only slows themselves
-  // down, not every login from the office) and per address overall (30 a
-  // minute, against trying many accounts from one place).
-  const perAddressLogins = fixedWindowLimiter({ max: 30, windowMs: 60_000 });
+  // Sign-in is limited twice. Per address: 30 attempts a minute, against
+  // trying many accounts from one place. Per account per address: 10 WRONG
+  // passwords per 15 minutes — a stranger hammering the admin's email only
+  // slows themselves down, while successful sign-ins never use the budget
+  // (someone signing in on several devices, or the test suite, is fine).
+  const wrongPasswords = failureLimiter({ max: 10, windowMs: 15 * 60_000 });
+  const accountKey = (ip: string, email: unknown) =>
+    `login:${ip}:${typeof email === 'string' ? email.trim().toLowerCase() : ''}`;
 
   r.post(
     '/auth/login',
     {
-      config: {
-        rateLimit: {
-          max: 10,
-          timeWindow: '15 minutes',
-          keyGenerator: (req) => {
-            const email = (req.body as { email?: unknown } | undefined)?.email;
-            return `login:${req.ip}:${typeof email === 'string' ? email.trim().toLowerCase() : ''}`;
-          },
-        },
-      },
-      preHandler: [(req) => perAddressLogins(`login-ip:${req.ip}`)],
+      config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+      preHandler: [async (req) => wrongPasswords.check(accountKey(req.ip, req.body.email))],
       schema: { tags: ['Auth'], summary: 'Log in with email and password', body: requests.loginSchema },
     },
     async (req) => {
+      const key = accountKey(req.ip, req.body.email);
       const services = servicesFor(req);
-      return services.auth.login(req.body, {
-        userAgent: req.headers['user-agent'],
-        ip: req.ip,
-      });
+      try {
+        const result = await services.auth.login(req.body, {
+          userAgent: req.headers['user-agent'],
+          ip: req.ip,
+        });
+        wrongPasswords.clear(key);
+        return result;
+      } catch (err) {
+        if (err instanceof AppError && err.code === 'UNAUTHORIZED') wrongPasswords.fail(key);
+        throw err;
+      }
     },
   );
 

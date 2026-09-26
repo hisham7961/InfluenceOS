@@ -66,6 +66,31 @@ describe('P0.5 — rate limits per user and per real client address', () => {
     expect((await login(`other_${target}`, '192.0.2.50')).statusCode).toBe(401);
   });
 
+  it('never counts successful sign-ins against the account (several devices, the E2E suite)', async () => {
+    const { PrismaClient } = await import('@influenceos/database');
+    const { hash } = await import('@node-rs/argon2');
+    const prisma = new PrismaClient();
+    const email = `often_${Date.now()}@example.test`;
+    const user = await prisma.user.create({
+      data: { email, name: 'Often', role: 'STAFF', passwordHash: await hash('Str0ng-Passw0rd!') },
+    });
+    cleanup.push(user.id);
+    await prisma.$disconnect();
+    const login = (password: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        headers: { 'x-forwarded-for': '192.0.2.60' },
+        payload: { email, password },
+      });
+    for (let i = 0; i < 12; i++) expect((await login('Str0ng-Passw0rd!')).statusCode).toBe(200);
+    // A few typos in between don't add up across successful sign-ins either.
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 4; j++) expect((await login('typo')).statusCode).toBe(401);
+      expect((await login('Str0ng-Passw0rd!')).statusCode).toBe(200);
+    }
+  });
+
   it('records the real client address on the session', async () => {
     const { PrismaClient } = await import('@influenceos/database');
     const { hash } = await import('@node-rs/argon2');
