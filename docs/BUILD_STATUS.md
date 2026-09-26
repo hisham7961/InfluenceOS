@@ -90,3 +90,11 @@ Living status of the InfluenceOS implementation. Legend: ✅ done & verified ·
 - Attachments/file upload: schema + API surface present; storage wiring is minimal.
 - Saved filter views, deep push notifications, and the mobile app are architected
   (models + Feature Registry) but not implemented (out of scope, by spec).
+- App-router soft navigation (Next 15.5): a navigation that changes only the query
+  string sometimes never commits — the RSC request is aborted after its headers
+  arrive and the old page stays. Reproduced with `router.push` on `/exec` (large
+  payload), `/brands?q=…` and dropping `?tab` on a creator profile; `/reports`,
+  `/campaigns`, `/content` and the directories are fine. Where it mattered the UI
+  avoids it: the owner dashboard and client report reload the page, and the
+  campaign workspace rewrites the address with `history.replaceState`. A Next.js
+  upgrade is the likely real fix (not done — needs a decision).

@@ -150,7 +150,10 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
     await page.goto('/influencers');
     await page.getByPlaceholder('Search by name or @username…').fill(name);
     await page.getByPlaceholder('Search by name or @username…').press('Enter');
-    await page.getByRole('link', { name }).click();
+    // Let the search land first, or the click can hit the unfiltered list and
+    // the search then replaces the page it opened.
+    await expect(page).toHaveURL(/[?&]q=/, { timeout: 30_000 });
+    await page.getByRole('link', { name }).first().click();
     await expect(page.getByRole('heading', { name })).toBeVisible();
     await page.getByRole('button', { name: 'Edit influencer' }).click();
     const editDialog = page.getByRole('dialog');
@@ -426,7 +429,8 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   await page.goto('/influencers');
   await page.getByPlaceholder('Search by name or @username…').fill(SARA);
   await page.getByPlaceholder('Search by name or @username…').press('Enter');
-  await page.getByRole('link', { name: SARA }).click();
+  await expect(page).toHaveURL(/[?&]q=LogX\+Sara/, { timeout: 30_000 });
+  await page.getByRole('link', { name: SARA }).first().click();
   await expect(page.getByText(/Logistics needs address clarification/i)).toHaveCount(0);
 
   // ===========================================================================
