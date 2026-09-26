@@ -6,7 +6,7 @@ Every major capability, its backend/API/web status, and whether it is **Mobile R
 (business logic server-side, documented API, server-side auth + permissions, stable
 contracts, media represented independently of the web UI — spec addendum §37).
 
-**Coverage:** 45 features · API ready 44 · Web ready 45 · Mobile ready 41 · Admin-desktop-only 4 · **Mobile readiness 100%** (of SHARED features).
+**Coverage:** 46 features · API ready 45 · Web ready 46 · Mobile ready 42 · Admin-desktop-only 4 · **Mobile readiness 100%** (of SHARED features).
 
 | Feature | Module | Class | API | Web | Mobile Ready | Roles | Flag |
 |---|---|---|---|---|:---:|---|---|
@@ -52,6 +52,7 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Post discovery | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Creator advertising licences | Influencers | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Audience insights and creator selection filters | Influencers | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Suggested creators | Campaigns | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Rate benchmarks | Reports | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Caption check | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | My work and approvals | Dashboard | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
@@ -342,6 +343,11 @@ contracts, media represented independently of the web UI — spec addendum §37)
 - `PATCH /api/v1/audience/:id`
 - `DELETE /api/v1/audience/:id`
 - `GET /api/v1/influencers`
+
+### Suggested creators
+
+- `GET /api/v1/campaigns/:id/candidates/suggestions`
+- `POST /api/v1/campaigns/:id/candidates`
 
 ### Rate benchmarks
 

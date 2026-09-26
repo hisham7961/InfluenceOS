@@ -172,3 +172,22 @@ bookings. Beside a fee being edited, that booking itself is left out, and
 the fee typed (over its planned posts) is called within, above or below the
 middle half. Everything keeps to the reader's brands and countries; fee and
 cost figures are shown only to people with finance access.
+
+## Suggested creators (P3.7)
+
+A campaign's sourcing list suggests creators who aren't on its roster or
+sourcing list yet — active, within the reader's brands and countries, not
+blacklisted, and not declined or blacklisted by this brand. Plain rules add
+up to a match out of 100, and each rule met is shown as a reason:
+
+- audience in the campaign's countries — the account with the most of its
+  newest audience there (at least 10%): half a point per percent, up to 35;
+- based in one of the campaign's countries: 15;
+- worked with the brand before: 15, plus 1 per campaign up to 5 more;
+- engagement rate 3% or more: 10 (5% or more: 15);
+- on a platform the campaign's deliverables use: 10.
+
+Someone must meet at least one rule to be suggested; ties go to the bigger
+creator. Adding a suggestion makes them a candidate ("considering") with the
+match as their fit score. Adding any candidate now also keeps to the
+reader's countries, as adding to the roster does.

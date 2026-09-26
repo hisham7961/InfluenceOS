@@ -426,6 +426,7 @@ notifications gain `LICENCE_EXPIRING`.
 | GET | `/api/v1/campaigns/:id/influencers` | Influencers on a campaign. Each row carries `results`: posts live / total / planned, latest views and engagements, engagement rate, and the creator's own spend (fee + expenses recorded against them, gift purchases excluded) with cost per view and per engagement. |
 | GET | `/api/v1/campaigns/:idOrSlug/efficiency` | Campaign spend efficiency (CPV/CPM/CPE), metric freshness and sources, `perContent` (each post's estimated CPV from its own creator's spend) and `perCreator` (the roster's `results` side by side). |
 | POST | `/api/v1/campaigns/:id/influencers` | Add an influencer to a campaign. |
+| GET | `/api/v1/campaigns/:id/candidates/suggestions` | Suggested creators for the campaign's sourcing list (P3.7): active, in-scope creators not on its roster or sourcing list and not ruled out (blacklisted, or declined/blacklisted by this brand), ranked by a match score out of 100 from plain rules — audience in the campaign's countries (newest insights, up to 35), based there (15), worked with the brand (15 + up to 5), engagement ≥3% / ≥5% (10 / 15), on the campaign's platforms (10) — each returned as `reasons`. `limit` 1–30 (default 12). Add one with `POST /campaigns/:id/candidates` and the score as `fitScore`. |
 | GET | `/api/v1/campaign-influencers/:id` | Campaign-influencer detail. |
 | PATCH | `/api/v1/campaign-influencers/:id` | Update a campaign influencer (deal, status, notes). |
 | DELETE | `/api/v1/campaign-influencers/:id` | Remove an influencer from a campaign. |

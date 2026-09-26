@@ -86,6 +86,7 @@ import type {
   NotificationDTO,
   TrendsDTO,
   BenchmarkDTO,
+  CandidateSuggestionsDTO,
   FollowerTier,
   CreatorPerformanceDTO,
   ReportPeriod,
@@ -373,6 +374,9 @@ export function createClient(config: ClientConfig) {
       // Sourcing pipeline — candidates for a campaign (W3-3 web surface).
       candidates: (id: string, params?: QueryParams) =>
         http.get<CampaignCandidateDTO[]>(`${V}/campaigns/${id}/candidates`, { query: params }),
+      // Suggested creators for the campaign, with the reasons (P3.7).
+      candidateSuggestions: (id: string, params?: { limit?: number }) =>
+        http.get<CandidateSuggestionsDTO>(`${V}/campaigns/${id}/candidates/suggestions`, { query: params }),
       // Bulk-import a CSV of creators as sourcing candidates (W3-4 web surface).
       // preview is a dry run that never writes and flags likely duplicates (gap #7).
       previewImportCandidates: (id: string, body: In<typeof requests.candidateCsvImportSchema>) =>

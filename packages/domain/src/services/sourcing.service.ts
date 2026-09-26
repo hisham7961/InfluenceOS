@@ -3,15 +3,19 @@ import {
   type CampaignCandidateDTO,
   type CandidateDecision,
   type CandidateStatus,
+  type CandidateSuggestionsDTO,
   type InfluencerSummaryDTO,
+  type Platform,
 } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireAnyCapability } from '../lib/authz';
+import { requireAnyCapability, requireCapability } from '../lib/authz';
 import { iso, logActivity } from '../lib/helpers';
 import { toInfluencerSummary } from '../lib/mappers';
+import { isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
+import { AUDIENCE_MIN_PCT, ENGAGEMENT_GOOD, scoreSuggestion } from '../lib/suggestions';
 import { makeCampaignInfluencerService } from './campaign-influencer.service';
 import { makeCampaignService } from './campaign.service';
 
@@ -19,6 +23,7 @@ type CandidateCreate = z.infer<typeof requests.candidateCreateSchema>;
 type CandidateUpdate = z.infer<typeof requests.candidateUpdateSchema>;
 type CandidateDecisionInput = z.infer<typeof requests.candidateDecisionSchema>;
 type CandidateConvert = z.infer<typeof requests.candidateConvertSchema>;
+type SuggestQuery = z.infer<typeof requests.candidateSuggestQuerySchema>;
 
 const candidateInclude = {
   influencer: {
@@ -110,9 +115,14 @@ export function makeSourcingService(ctx: DomainContext) {
     const campaign = await campaignOrThrow(campaignId);
     const influencer = await prisma.influencer.findUnique({
       where: { id: input.influencerId },
-      select: { id: true, displayName: true },
+      select: { id: true, displayName: true, countryCode: true },
     });
     if (!influencer) throw AppError.notFound('Influencer');
+    // Same rule as the roster: an in-scope campaign never opens up a creator
+    // outside the actor's countries.
+    if (isCountryOutOfScope(await scopedCountryCodes(ctx), influencer.countryCode)) {
+      throw AppError.notFound('Influencer');
+    }
 
     const dup = await prisma.campaignCandidate.findUnique({
       where: { campaignId_influencerId: { campaignId, influencerId: input.influencerId } },
@@ -257,7 +267,122 @@ export function makeSourcingService(ctx: DomainContext) {
     await prisma.campaignCandidate.delete({ where: { id } });
   }
 
-  return { listForCampaign, get, add, update, decide, convert, remove };
+  /**
+   * Suggested creators (P3.7): in-scope, active creators not already on the
+   * roster or the sourcing list who match at least one rule — audience in the
+   * campaign's countries (their newest audience insights), based there,
+   * worked with the brand before, or a good engagement rate — ranked by the
+   * match score (scoreSuggestion), then by size.
+   */
+  async function suggestions(campaignId: string, query: SuggestQuery): Promise<CandidateSuggestionsDTO> {
+    await requireCapability(ctx, 'INFLUENCERS_VIEW');
+    await campaignOrThrow(campaignId);
+    const campaign = await prisma.campaign.findUniqueOrThrow({
+      where: { id: campaignId },
+      select: {
+        brandId: true,
+        marketCountryCodes: true,
+        campaignInfluencers: { select: { influencerId: true, deliverables: { select: { platform: true } } } },
+        candidates: { select: { influencerId: true } },
+      },
+    });
+    const markets = campaign.marketCountryCodes;
+    const platforms = [
+      ...new Set(campaign.campaignInfluencers.flatMap((ci) => ci.deliverables.map((d) => d.platform))),
+    ].filter((p): p is Platform => Boolean(p));
+    const taken = [
+      ...campaign.campaignInfluencers.map((ci) => ci.influencerId),
+      ...campaign.candidates.map((c) => c.influencerId),
+    ];
+    const [countryScope, brandScope] = await Promise.all([scopedCountryCodes(ctx), scopedBrandIds(ctx)]);
+
+    const signals: Prisma.InfluencerWhereInput[] = [
+      { brandInfluencers: { some: { brandId: campaign.brandId, totalCollaborations: { gt: 0 } } } },
+      { socialAccounts: { some: { engagementRate: { gte: ENGAGEMENT_GOOD } } } },
+    ];
+    if (markets.length > 0) {
+      signals.push({ countryCode: { in: markets } });
+      signals.push({
+        socialAccounts: {
+          some: {
+            audience: {
+              some: { isLatest: true, countries: { some: { countryCode: { in: markets }, pct: { gte: AUDIENCE_MIN_PCT } } } },
+            },
+          },
+        },
+      });
+    }
+    const rows = await prisma.influencer.findMany({
+      where: {
+        isActive: true,
+        relationshipStatus: { not: 'BLACKLISTED' },
+        ...(taken.length ? { id: { notIn: taken } } : {}),
+        // Not someone this brand has ruled out.
+        NOT: { brandInfluencers: { some: { brandId: campaign.brandId, relationshipStatus: { in: ['BLACKLISTED', 'DECLINED'] } } } },
+        ...(countryScope ? { countryCode: { in: countryScope } } : {}),
+        ...(brandScope ? { brandInfluencers: { some: { brandId: { in: brandScope } } } } : {}),
+        OR: signals,
+      },
+      include: {
+        socialAccounts: {
+          select: {
+            platform: true,
+            followers: true,
+            isPrimary: true,
+            avatarUrl: true,
+            engagementRate: true,
+            audience: {
+              where: { isLatest: true },
+              select: {
+                countries: {
+                  where: { countryCode: { in: markets } },
+                  select: { countryCode: true, pct: true },
+                },
+              },
+            },
+          },
+        },
+        tags: { include: { tag: { select: { name: true } } } },
+        brandInfluencers: { where: { brandId: campaign.brandId }, select: { totalCollaborations: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+      // Enough to rank from; the rules above already narrow the pool.
+      take: 1000,
+    });
+
+    const ranked = rows
+      .map((row) => {
+        const { score, reasons } = scoreSuggestion(
+          {
+            countryCode: row.countryCode,
+            accounts: row.socialAccounts.map((a) => ({
+              platform: a.platform,
+              engagementRate: a.engagementRate,
+              marketShares: a.audience.flatMap((i) => i.countries),
+            })),
+            collaborationsWithBrand: row.brandInfluencers[0]?.totalCollaborations ?? 0,
+          },
+          { markets, platforms },
+        );
+        const followers = row.socialAccounts.reduce((n, a) => n + (a.followers ?? 0), 0);
+        return { row, score, reasons, followers };
+      })
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score || b.followers - a.followers)
+      .slice(0, query.limit);
+
+    return {
+      markets,
+      platforms,
+      suggestions: ranked.map((r) => ({
+        influencer: toInfluencerSummary(r.row) as InfluencerSummaryDTO,
+        score: r.score,
+        reasons: r.reasons,
+      })),
+    };
+  }
+
+  return { listForCampaign, get, add, update, decide, convert, remove, suggestions };
 }
 
 export type SourcingService = ReturnType<typeof makeSourcingService>;

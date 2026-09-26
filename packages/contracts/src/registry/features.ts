@@ -851,6 +851,22 @@ export const FEATURES: FeatureEntry[] = [
     deepLink: '/influencers',
   },
   {
+    key: 'creator_suggestions',
+    name: 'Suggested creators',
+    description:
+      "On a campaign's sourcing list: creators not on it yet, ranked by plain rules — audience in the campaign's countries, based there, worked with the brand before, engagement, and the campaign's platforms — each with the reasons. One click adds them as a candidate with the match as their fit score.",
+    module: 'Campaigns',
+    classification: 'SHARED',
+    apiStatus: 'READY',
+    webStatus: 'READY',
+    mobileReady: true,
+    permissions: ALL,
+    flag: null,
+    minApiVersion: 'v1',
+    apiEndpoints: ['GET /api/v1/campaigns/:id/candidates/suggestions', 'POST /api/v1/campaigns/:id/candidates'],
+    deepLink: '/campaigns',
+  },
+  {
     key: 'rate_benchmarks',
     name: 'Rate benchmarks',
     description:

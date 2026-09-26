@@ -28,6 +28,21 @@ export async function candidateRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).sourcing.listForCampaign(req.params.id, req.query.status),
   );
 
+  r.get(
+    '/campaigns/:id/candidates/suggestions',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary:
+          'Suggested creators for a campaign (P3.7): not yet on its roster or sourcing list, ranked by audience in its countries, based there, past work with the brand, engagement and its platforms — each with the reasons',
+        params: idParam,
+        querystring: requests.candidateSuggestQuerySchema,
+      },
+    },
+    async (req) => servicesFor(req).sourcing.suggestions(req.params.id, req.query),
+  );
+
   r.post(
     '/campaigns/:id/candidates',
     {

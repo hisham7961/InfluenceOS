@@ -623,6 +623,45 @@ export interface CampaignInfluencerResultsDTO {
  * roster row (`convertedCampaignInfluencerId`); until then it never affects the
  * influencer's collaboration history.
  */
+/** Why a creator is suggested for a campaign (P3.7) — one rule each. */
+export type SuggestionReasonCode =
+  | 'AUDIENCE_IN_MARKET'
+  | 'BASED_IN_MARKET'
+  | 'WORKED_WITH_BRAND'
+  | 'HIGH_ENGAGEMENT'
+  | 'PLATFORM_MATCH';
+
+export interface SuggestionReasonDTO {
+  code: SuggestionReasonCode;
+  /** AUDIENCE_IN_MARKET: the country (only when the campaign has one); BASED_IN_MARKET: where they are. */
+  countryCode?: string | null;
+  /** AUDIENCE_IN_MARKET: share of their audience in the campaign's countries; HIGH_ENGAGEMENT: the rate. */
+  pct?: number;
+  /** WORKED_WITH_BRAND: campaigns done with the brand before. */
+  campaigns?: number;
+  platform?: Platform;
+}
+
+export interface SuggestedCreatorDTO {
+  influencer: InfluencerSummaryDTO;
+  /** Match score out of 100 — becomes the fit score when added as a candidate. */
+  score: number;
+  reasons: SuggestionReasonDTO[];
+}
+
+/**
+ * Suggested creators for a campaign (P3.7): creators not yet on its roster or
+ * sourcing list, ranked by plain rules — audience in the campaign's
+ * countries, based there, worked with the brand before, engagement, and the
+ * campaign's platforms.
+ */
+export interface CandidateSuggestionsDTO {
+  /** The campaign's countries the audience rules used (empty: set the campaign's markets). */
+  markets: string[];
+  platforms: Platform[];
+  suggestions: SuggestedCreatorDTO[];
+}
+
 export interface CampaignCandidateDTO {
   id: string;
   campaignId: string;

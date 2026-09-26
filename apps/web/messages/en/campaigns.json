@@ -716,7 +716,29 @@
     "feeLabel": "Agreed fee ({currency})",
     "giftLabel": "Gift value ({currency})",
     "expectedPublishLabel": "Expected to post on",
-    "convertedToast": "{name} added to the roster"
+    "convertedToast": "{name} added to the roster",
+    "suggestions": {
+      "title": "Suggested for this campaign",
+      "basis": "Creators not on this campaign yet, matched on audience in {countries}, where they're based, past work with the brand, engagement and the campaign's platforms.",
+      "basisNoMarkets": "Creators not on this campaign yet, matched on past work with the brand, engagement and the campaign's platforms. Set the campaign's countries to match on audience too.",
+      "empty": "No suggestions yet. They come from creators' audience insights, where they're based, past work with the brand and engagement.",
+      "whyLabel": "Why",
+      "score": "Match {score}",
+      "scoreHint": "Match score out of 100 — it becomes their fit score when you add them.",
+      "add": "Consider",
+      "addAria": "Consider {name}",
+      "addedToast": "{name} added to the pipeline",
+      "showAll": "Show all {count}",
+      "showFewer": "Show fewer",
+      "reasons": {
+        "audienceIn": "{pct}% of audience in {country}",
+        "audienceInMarkets": "{pct}% of audience in the campaign's countries",
+        "basedIn": "Based in {country}",
+        "workedWithBrand": "Worked with the brand ({count, plural, one {# campaign} other {# campaigns}})",
+        "engagement": "Engagement {pct}%",
+        "platform": "On {platform}"
+      }
+    }
   },
   "operations": {
     "stages": {

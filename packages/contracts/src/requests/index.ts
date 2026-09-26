@@ -590,6 +590,10 @@ export const candidateCreateSchema = z.object({
   fitScore,
   notes: optionalString,
 });
+/** Suggested creators for a campaign (P3.7). */
+export const candidateSuggestQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(30).default(12),
+});
 export const candidateUpdateSchema = z.object({
   fitScore,
   notes: optionalString,

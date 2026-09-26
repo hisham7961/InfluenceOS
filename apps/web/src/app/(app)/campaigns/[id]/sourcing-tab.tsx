@@ -26,6 +26,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
 import { ImportCandidatesDialog } from './import-candidates-dialog';
+import { SuggestedCreators } from './suggested-creators';
 import { errorMessage } from '@/lib/errors';
 
 type Decision = 'SHORTLIST' | 'APPROVE' | 'REJECT' | 'RECONSIDER';
@@ -75,6 +76,8 @@ export function SourcingTab({ campaignId, currency }: { campaignId: string; curr
           </Button>
         </div>
       </div>
+
+      <SuggestedCreators campaignId={campaignId} />
 
       {counts.length > 1 ? (
         <div className="flex flex-wrap gap-1.5">
