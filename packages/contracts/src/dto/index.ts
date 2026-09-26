@@ -889,6 +889,8 @@ export interface PublishedContentDTO {
   availabilityStatus: ContentStatus;
   lastCheckedAt: string | null;
   lastMetricsSyncAt: string | null;
+  /** When the next automatic check is due (sooner for new posts and running campaigns); null when it won't be checked again. */
+  nextCheckAt: string | null;
   provenance: ProvenanceDTO;
   influencer: InfluencerSummaryDTO | null;
   brand: BrandSummaryDTO | null;

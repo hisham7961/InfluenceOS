@@ -45,3 +45,23 @@ time if it went up any time on its due day.
   paid in full counts in full, a part payment counts what was recorded as
   paid, "not applicable" counts as neither.
 - "Total paid" to a creator includes part payments.
+
+## Checking posts (P3.4)
+
+The worker re-checks every live post (availability, then numbers) on a gap
+that follows the post's age (`packages/domain/src/lib/check-cadence.ts`):
+
+| Post age | Checked every |
+|---|---|
+| under 1 day | hour |
+| 1–3 days | 3 hours |
+| 3–14 days | 6 hours |
+| 14–30 days | day |
+| 30–90 days | 3 days |
+| older | week |
+
+While a post's campaign is **active** (or **completed** less than 7 days ago,
+while the report is being written) the gap is never longer than 6 hours. A
+failed check retries after 1h, 2h, 4h… but never later than the normal gap.
+Removed posts and Stories are not checked. A post's page shows when its next
+check is due; "Refresh" checks it right away.

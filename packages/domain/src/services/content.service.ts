@@ -28,6 +28,7 @@ import {
 } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import { Prisma, type ContentStatus } from '@influenceos/database';
+import { checkGapMs, retryGapMs } from '../lib/check-cadence';
 import type { DomainContext } from '../context';
 import { windowArgs, windowPage } from '../lib/cursor';
 import { AppError } from '../errors';
@@ -980,6 +981,13 @@ export function makeContentService(ctx: DomainContext) {
     // check and no metrics API, so it is never probed (and never scheduled).
     if (pc.isStory) return loadDTO(id);
     const adapter = getAdapter(pc.platform, { credentials: ctx.credentials });
+    // How soon to look again follows the post's age and its campaign (P3.4).
+    const cadence = {
+      postedAt: pc.publishedAt ?? pc.detectedAt,
+      campaign: pc.campaignId
+        ? await prisma.campaign.findUnique({ where: { id: pc.campaignId }, select: { status: true, endDate: true } })
+        : null,
+    };
 
     // Availability
     let newStatus: ContentStatus = pc.availabilityStatus;
@@ -1007,7 +1015,7 @@ export function makeContentService(ctx: DomainContext) {
         data: {
           availabilityStatus: newStatus,
           lastCheckedAt: new Date(),
-          nextCheckAt: new Date(Date.now() + 6 * 3600 * 1000),
+          nextCheckAt: new Date(Date.now() + checkGapMs(cadence)),
           checkFailureCount: 0,
         },
       });
@@ -1041,8 +1049,8 @@ export function makeContentService(ctx: DomainContext) {
         data: {
           checkFailureCount: { increment: 1 },
           lastCheckedAt: new Date(),
-          // Back off 1h, 2h, 4h… capped at the normal 6h cadence.
-          nextCheckAt: new Date(Date.now() + Math.min(6, 2 ** pc.checkFailureCount) * 3600 * 1000),
+          // Back off 1h, 2h, 4h… capped at the normal gap for the post's age.
+          nextCheckAt: new Date(Date.now() + retryGapMs({ ...cadence, failures: pc.checkFailureCount })),
         },
       });
     }

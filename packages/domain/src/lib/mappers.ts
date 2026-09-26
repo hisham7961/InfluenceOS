@@ -281,6 +281,7 @@ interface PublishedContentLike {
   availabilityStatus: PublishedContentDTO['availabilityStatus'];
   lastCheckedAt: Date | null;
   lastMetricsSyncAt: Date | null;
+  nextCheckAt?: Date | null;
   dataSource: DataSource;
   isStory: boolean;
 }
@@ -322,6 +323,8 @@ export function toPublishedContentDTO(
     availabilityStatus: pc.availabilityStatus,
     lastCheckedAt: iso(pc.lastCheckedAt),
     lastMetricsSyncAt: iso(pc.lastMetricsSyncAt),
+    // Stories and removed posts are never checked again.
+    nextCheckAt: pc.isStory || pc.availabilityStatus === 'REMOVED' ? null : iso(pc.nextCheckAt ?? null),
     provenance,
     influencer: rel.influencer ?? null,
     brand: rel.brand ?? null,

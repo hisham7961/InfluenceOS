@@ -83,7 +83,8 @@
       "published": "Published",
       "detected": "Detected",
       "lastChecked": "Last checked",
-      "metricsSource": "Metrics source"
+      "metricsSource": "Metrics source",
+      "nextCheck": "Next check"
     },
     "notYetChecked": "Not yet",
     "recentMonitoring": "Recent monitoring",

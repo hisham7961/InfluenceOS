@@ -83,7 +83,8 @@
       "published": "تاريخ النشر",
       "detected": "تاريخ الرصد",
       "lastChecked": "آخر تحقق",
-      "metricsSource": "مصدر المقاييس"
+      "metricsSource": "مصدر المقاييس",
+      "nextCheck": "الفحص القادم"
     },
     "notYetChecked": "لم يتم بعد",
     "recentMonitoring": "أحدث عمليات المراقبة",

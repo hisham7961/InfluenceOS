@@ -513,6 +513,9 @@ export function ContentDetails({ content: incoming, className }: { content: Publ
           label={t('viewer.fields.lastChecked')}
           value={content.lastCheckedAt ? relativeTime(content.lastCheckedAt) : t('viewer.notYetChecked')}
         />
+        {content.nextCheckAt ? (
+          <Row label={t('viewer.fields.nextCheck')} value={relativeTime(content.nextCheckAt)} />
+        ) : null}
         <Row
           label={t('viewer.fields.metricsSource')}
           value={enumLabel(tEnums, 'dataSource', m?.source ?? content.provenance.source)}
