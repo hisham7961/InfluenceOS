@@ -365,5 +365,14 @@
   "a_script_approved_by_brand": "{name}: version {version} of the script \"{title}\" marked as approved by the brand.",
   "a_role_profile_given": "{name} changed {name2}'s role profile from none to {roleProfile2}.",
   "a_role_profile_removed": "{name} changed {name2}'s role profile from {roleProfile} to none.",
-  "a_created_campaign_plain": "{name} created the campaign {name2}."
+  "a_created_campaign_plain": "{name} created the campaign {name2}.",
+  "e_send_photo_or_video": "Send a photo or a video (JPG, PNG, WebP, GIF, MP4, MOV or WebM).",
+  "e_file_too_big_up_to": "The file is too big — up to {max} MB.",
+  "e_upload_expired_choose_again": "The upload has expired. Please choose the file again.",
+  "e_upload_not_found": "Upload not found.",
+  "e_file_is_empty": "The file is empty.",
+  "e_file_bigger_than_declared": "The file is bigger than it said it was.",
+  "e_file_did_not_finish_uploading": "The file did not finish uploading. Please try again.",
+  "e_file_is_too_big": "The file is too big.",
+  "e_file_already_sent": "This file was already sent."
 }

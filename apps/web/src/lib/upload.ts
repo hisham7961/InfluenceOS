@@ -31,6 +31,26 @@ export async function uploadAttachment(
   return api.files.complete(ticket.uploadToken);
 }
 
+/**
+ * A creator's draft file from their task link (no account): ask where to
+ * send it, send the bytes, and return the upload token the draft is sent with.
+ */
+export async function uploadCreatorDraftFile(
+  token: string,
+  deliverableId: string,
+  file: File,
+  onProgress?: (fraction: number) => void,
+): Promise<string> {
+  const ticket = await api.creatorLinks.startUpload(token, deliverableId, {
+    fileName: file.name,
+    mimeType: file.type || 'application/octet-stream',
+    sizeBytes: file.size,
+  });
+  const putUrl = ticket.direct ? ticket.uploadUrl : toBrowserUrl(ticket.uploadUrl);
+  await putBytes(putUrl, file, ticket, onProgress);
+  return ticket.uploadToken;
+}
+
 function putBytes(
   url: string,
   file: File,

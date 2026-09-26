@@ -2472,6 +2472,8 @@ export interface CreatorDraftDTO {
   version: number;
   status: SubmissionStatus;
   assetUrl: string | null;
+  /** The name of the file the creator uploaded with the draft, if they did. */
+  fileName: string | null;
   caption: string | null;
   notes: string | null;
   /** Sent from the creator's link (otherwise the team added it). */

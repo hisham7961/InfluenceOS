@@ -818,6 +818,16 @@ export function createClient(config: ClientConfig) {
           `${V}/public/creator/${token}/deliverables/${deliverableId}/drafts`,
           body,
         ),
+      /** Public: the creator starts uploading a draft file (then PUTs it to `uploadUrl`). */
+      startUpload: (
+        token: string,
+        deliverableId: string,
+        body: In<typeof requests.creatorDraftUploadSchema>,
+      ) =>
+        http.post<UploadTicketDTO>(
+          `${V}/public/creator/${token}/deliverables/${deliverableId}/uploads`,
+          body,
+        ),
       /** Public: the creator sends the link to their live post. */
       sendPost: (
         token: string,

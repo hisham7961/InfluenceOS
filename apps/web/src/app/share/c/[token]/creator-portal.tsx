@@ -3,10 +3,11 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { CalendarDays, CheckCircle2, ExternalLink, FileText, Send } from 'lucide-react';
+import { CalendarDays, CheckCircle2, ExternalLink, FileText, Paperclip, Send, X } from 'lucide-react';
 import type { CreatorPortalDTO, CreatorTaskDTO, DeliverableStatus } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
 import { errorMessage } from '@/lib/errors';
+import { uploadCreatorDraftFile } from '@/lib/upload';
 import { enumLabel } from '@/lib/enum-labels';
 import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -286,6 +287,12 @@ function TaskCard({
                     {t('openDraft')} <ExternalLink className="h-3 w-3" />
                   </a>
                 ) : null}
+                {d.fileName ? (
+                  <p className="text-muted-foreground mt-1 inline-flex items-center gap-1 text-xs">
+                    <Paperclip className="h-3 w-3 shrink-0" />
+                    {t('fileSent')} <LtrText>{d.fileName}</LtrText>
+                  </p>
+                ) : null}
                 {d.feedback ? (
                   <p className="bg-muted/60 mt-2 whitespace-pre-wrap rounded-lg p-2" dir="auto">
                     <span className="text-muted-foreground block text-xs font-medium">
@@ -365,10 +372,14 @@ function DraftForm({
   fallback: string;
 }) {
   const t = useTranslations('campaigns.creatorPortal');
+  const [file, setFile] = React.useState<File | null>(null);
   const [assetUrl, setAssetUrl] = React.useState('');
   const [caption, setCaption] = React.useState('');
   const [notes, setNotes] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  const [progress, setProgress] = React.useState<number | null>(null);
+  const fileInput = React.useRef<HTMLInputElement>(null);
+  const ready = file != null || assetUrl.trim() !== '';
   return (
     <form
       className="border-border space-y-3 rounded-xl border border-dashed p-3"
@@ -376,14 +387,27 @@ function DraftForm({
         e.preventDefault();
         setBusy(true);
         try {
+          // The file goes up first; the draft then points at it.
+          let uploadToken: string | null = null;
+          if (file) {
+            setProgress(0);
+            try {
+              uploadToken = await uploadCreatorDraftFile(token, taskId, file, setProgress);
+            } catch (err) {
+              toast.error(errorMessage(err, t('uploadFailed')));
+              return;
+            }
+          }
           onChange(
             await api.creatorLinks.sendDraft(token, taskId, {
-              assetUrl: assetUrl.trim(),
+              assetUrl: file ? null : assetUrl.trim(),
+              uploadToken,
               caption: caption.trim() || null,
               notes: notes.trim() || null,
             }),
           );
           toast.success(t('draftSent'));
+          setFile(null);
           setAssetUrl('');
           setCaption('');
           setNotes('');
@@ -391,22 +415,75 @@ function DraftForm({
           toast.error(errorMessage(err, fallback));
         } finally {
           setBusy(false);
+          setProgress(null);
         }
       }}
     >
       <h4 className="text-sm font-semibold">{t('sendDraftTitle')}</h4>
-      <Field label={t('draftLink')} hint={t('draftLinkHint')}>
-        <Input
-          type="url"
-          inputMode="url"
-          required
-          dir="ltr"
-          placeholder="https://"
-          aria-label={t('draftLink')}
-          value={assetUrl}
-          onChange={(e) => setAssetUrl(e.target.value)}
+      <Field label={t('draftFile')} hint={t('draftFileHint')}>
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm"
+          className="sr-only"
+          aria-label={t('draftFile')}
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          disabled={busy}
         />
+        {file ? (
+          <div className="border-border flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
+            <Paperclip className="text-muted-foreground h-4 w-4 shrink-0" />
+            <LtrText className="min-w-0 flex-1 truncate">{file.name}</LtrText>
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
+              onClick={() => {
+                setFile(null);
+                if (fileInput.current) fileInput.current.value = '';
+              }}
+              disabled={busy}
+            >
+              <X className="h-3.5 w-3.5" /> {t('removeFile')}
+            </button>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => fileInput.current?.click()}
+            disabled={busy}
+          >
+            <Paperclip className="h-4 w-4" /> {t('chooseFile')}
+          </Button>
+        )}
+        {progress != null ? (
+          <div className="mt-2 space-y-1" role="status">
+            <div className="bg-muted h-1.5 overflow-hidden rounded-full">
+              <div
+                className="bg-brand h-full transition-[width]"
+                style={{ width: `${Math.round(progress * 100)}%` }}
+              />
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {t('uploading', { percent: Math.round(progress * 100) })}
+            </p>
+          </div>
+        ) : null}
       </Field>
+      {file ? null : (
+        <Field label={t('orLink')} hint={t('draftLinkHint')}>
+          <Input
+            type="url"
+            inputMode="url"
+            dir="ltr"
+            placeholder="https://"
+            aria-label={t('draftLink')}
+            value={assetUrl}
+            onChange={(e) => setAssetUrl(e.target.value)}
+          />
+        </Field>
+      )}
       <Field label={t('caption')}>
         <Textarea
           rows={3}
@@ -428,7 +505,7 @@ function DraftForm({
           maxLength={1000}
         />
       </Field>
-      <Button type="submit" className="w-full" disabled={busy || !assetUrl.trim()}>
+      <Button type="submit" className="w-full" disabled={busy || !ready}>
         <Send className="h-4 w-4 rtl:-scale-x-100" /> {t('sendDraft')}
       </Button>
     </form>

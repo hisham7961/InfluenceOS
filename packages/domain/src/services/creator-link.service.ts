@@ -1,5 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto';
-import type { CreatorLinkDTO, CreatorPortalDTO, CreatorTaskDTO } from '@influenceos/contracts';
+import type {
+  CreatorLinkDTO,
+  CreatorPortalDTO,
+  CreatorTaskDTO,
+  UploadTicketDTO,
+} from '@influenceos/contracts';
 import type { requests, z } from '@influenceos/contracts';
 import { appRoutes, mergeCaptionRules } from '@influenceos/shared';
 import type { DomainContext } from '../context';
@@ -10,11 +15,28 @@ import { open, seal } from '../lib/crypto';
 import { createNotification, iso, logActivity } from '../lib/helpers';
 import { isLikelyBot } from '../lib/sales';
 import { isCountryOutOfScope, scopedCountryCodes } from '../lib/scope';
+import { buildStorageKey, getStorage, sanitizeFileName } from '../lib/storage';
+import { signUploadTicket, verifyUploadTicket, type UploadTicket } from '../lib/tokens';
+import { maxUploadBytes } from './attachment.service';
 import { makeCampaignService } from './campaign.service';
 
 type LinkCreate = z.infer<typeof requests.creatorLinkCreateSchema>;
 type DraftInput = z.infer<typeof requests.creatorDraftSchema>;
 type PostedInput = z.infer<typeof requests.creatorPostedSchema>;
+type UploadInput = z.infer<typeof requests.creatorDraftUploadSchema>;
+
+/** What a creator may upload as a draft: a photo or a video, nothing else. */
+const DRAFT_FILE_TYPES: Record<string, 'image' | 'video'> = {
+  'image/jpeg': 'image',
+  'image/png': 'image',
+  'image/webp': 'image',
+  'image/gif': 'image',
+  'video/mp4': 'video',
+  'video/quicktime': 'video',
+  'video/webm': 'video',
+};
+/** An upload ticket from a task link lasts long enough for a big video on a phone. */
+const UPLOAD_TTL_SECONDS = 3600;
 
 const DAY_MS = 86_400_000;
 /** Nothing left for the creator to send on these. */
@@ -242,6 +264,7 @@ export function makeCreatorLinkService(ctx: DomainContext) {
                 version: true,
                 status: true,
                 assetUrl: true,
+                attachment: { select: { fileName: true } },
                 caption: true,
                 notes: true,
                 fromCreator: true,
@@ -292,6 +315,7 @@ export function makeCreatorLinkService(ctx: DomainContext) {
           version: s.version,
           status: s.status,
           assetUrl: s.assetUrl,
+          fileName: s.attachment?.fileName ?? null,
           caption: s.caption,
           notes: s.notes,
           fromCreator: s.fromCreator,
@@ -357,6 +381,82 @@ export function makeCreatorLinkService(ctx: DomainContext) {
     return d;
   }
 
+  /** A task that can take a new draft now (not approved or finished). */
+  async function draftableTask(link: Awaited<ReturnType<typeof linkFor>>, deliverableId: string) {
+    const d = await taskFor(link, deliverableId);
+    if (FINISHED.has(d.status) || d.status === 'APPROVED') {
+      throw AppError.conflict('This task is already approved or finished.');
+    }
+    return d;
+  }
+
+  /**
+   * The creator starts uploading a draft file: a photo or a video, up to the
+   * upload size limit, into private storage under this deliverable. Returns
+   * where to send the bytes (straight to storage, or through the link's own
+   * upload address); the draft itself is sent with the ticket afterwards.
+   */
+  async function startUpload(token: string, deliverableId: string, input: UploadInput): Promise<UploadTicketDTO> {
+    const link = await linkFor(token);
+    const d = await draftableTask(link, deliverableId);
+    const kind = DRAFT_FILE_TYPES[input.mimeType];
+    if (!kind) throw AppError.validation('Send a photo or a video (JPG, PNG, WebP, GIF, MP4, MOV or WebM).');
+    const max = maxUploadBytes();
+    if (input.sizeBytes > max) {
+      throw AppError.validation(`The file is too big — up to ${Math.round(max / (1024 * 1024))} MB.`);
+    }
+    const fileName = sanitizeFileName(input.fileName);
+    const storageKey = buildStorageKey(`deliverable/${d.id}`, fileName);
+    const ticket = await signUploadTicket(
+      {
+        storageKey,
+        fileName,
+        mimeType: input.mimeType,
+        sizeBytes: input.sizeBytes,
+        kind,
+        actorId: '',
+        target: { deliverableId: d.id, creatorLinkId: link.id },
+      },
+      UPLOAD_TTL_SECONDS,
+    );
+    const presignedPut = await getStorage().presignPut(storageKey, input.mimeType, UPLOAD_TTL_SECONDS, input.sizeBytes);
+    return {
+      uploadToken: ticket,
+      uploadUrl:
+        presignedPut ?? `/api/v1/public/creator/${encodeURIComponent(token)}/uploads?ticket=${encodeURIComponent(ticket)}`,
+      method: 'PUT',
+      direct: Boolean(presignedPut),
+      headers: presignedPut ? { 'Content-Type': input.mimeType } : {},
+      maxBytes: max,
+    };
+  }
+
+  /** A ticket this link issued (for this deliverable, when one is given). */
+  async function ticketFor(
+    link: Awaited<ReturnType<typeof linkFor>>,
+    ticket: string,
+    deliverableId?: string,
+  ): Promise<UploadTicket> {
+    const t = await verifyUploadTicket(ticket).catch(() => {
+      throw AppError.validation('The upload has expired. Please choose the file again.');
+    });
+    if (t.target.creatorLinkId !== link.id || (deliverableId && t.target.deliverableId !== deliverableId)) {
+      throw AppError.notFound('Upload');
+    }
+    return t;
+  }
+
+  /** The file's bytes, when storage can't take them directly (local storage). */
+  async function writeUpload(token: string, ticket: string, body: Buffer): Promise<void> {
+    const link = await linkFor(token);
+    const t = await ticketFor(link, ticket);
+    if (body.length === 0) throw AppError.validation('The file is empty.');
+    if (body.length > maxUploadBytes() || body.length > t.sizeBytes) {
+      throw AppError.validation('The file is bigger than it said it was.');
+    }
+    await getStorage().save(t.storageKey, body, t.mimeType);
+  }
+
   /** The creator sends a draft for review from their link. */
   async function sendDraft(
     token: string,
@@ -364,9 +464,18 @@ export function makeCreatorLinkService(ctx: DomainContext) {
     input: DraftInput,
   ): Promise<CreatorPortalDTO> {
     const link = await linkFor(token);
-    const d = await taskFor(link, deliverableId);
-    if (FINISHED.has(d.status) || d.status === 'APPROVED') {
-      throw AppError.conflict('This task is already approved or finished.');
+    const d = await draftableTask(link, deliverableId);
+    // An uploaded file must be this link's upload for this task, and in storage.
+    let upload: { ticket: UploadTicket; size: number } | null = null;
+    if (input.uploadToken) {
+      const ticket = await ticketFor(link, input.uploadToken, d.id);
+      const head = await getStorage().head(ticket.storageKey);
+      if (!head) throw AppError.validation('The file did not finish uploading. Please try again.');
+      if (head.size > maxUploadBytes()) {
+        await getStorage().remove(ticket.storageKey).catch(() => undefined);
+        throw AppError.validation('The file is too big.');
+      }
+      upload = { ticket, size: head.size };
     }
     const ci = link.campaignInfluencer;
     const name = ci.influencer.displayName;
@@ -383,12 +492,35 @@ export function makeCreatorLinkService(ctx: DomainContext) {
         select: { version: true },
       });
       const version = (last?.version ?? 0) + 1;
+      // The file becomes an attachment of the deliverable (no uploader: the
+      // creator has no account). One upload makes one draft.
+      const file = upload
+        ? await tx.attachment
+            .create({
+              data: {
+                fileName: upload.ticket.fileName.slice(0, 200),
+                mimeType: upload.ticket.mimeType,
+                sizeBytes: upload.size,
+                storageKey: upload.ticket.storageKey,
+                kind: upload.ticket.kind,
+                deliverableId: d.id,
+              },
+              select: { id: true },
+            })
+            .catch((err: unknown) => {
+              if ((err as { code?: string }).code === 'P2002') {
+                throw AppError.conflict('This file was already sent.');
+              }
+              throw err;
+            })
+        : null;
       const sub = await tx.deliverableSubmission.create({
         data: {
           deliverableId: d.id,
           version,
           status: 'IN_REVIEW',
-          assetUrl: input.assetUrl,
+          assetUrl: input.assetUrl ?? null,
+          attachmentId: file?.id ?? null,
           caption: input.caption ?? null,
           notes: input.notes ?? null,
           fromCreator: true,
@@ -471,7 +603,7 @@ export function makeCreatorLinkService(ctx: DomainContext) {
     return portal(link);
   }
 
-  return { list, create, revoke, open: openPortal, sendDraft, sendPost };
+  return { list, create, revoke, open: openPortal, startUpload, writeUpload, sendDraft, sendPost };
 }
 
 export type CreatorLinkService = ReturnType<typeof makeCreatorLinkService>;

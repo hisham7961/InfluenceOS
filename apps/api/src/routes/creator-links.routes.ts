@@ -78,6 +78,56 @@ export async function creatorLinkRoutes(app: FastifyInstance): Promise<void> {
 
   const sendLimit = { rateLimit: { max: 20, timeWindow: '1 minute' } };
 
+  // The creator uploads the draft file itself (a photo or a video) instead
+  // of a link: 1) ask where to send it, 2) send the bytes (straight to
+  // storage, or to /uploads below), 3) send the draft with the upload token.
+  r.post(
+    '/public/creator/:token/deliverables/:deliverableId/uploads',
+    {
+      config: sendLimit,
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'The creator starts uploading a draft file (photo or video) from their task link',
+        security: [],
+        params: taskParams,
+        body: requests.creatorDraftUploadSchema,
+      },
+    },
+    async (req, reply) => {
+      reply.header('Cache-Control', 'private, no-store');
+      reply.status(201);
+      return servicesFor(req).creatorLinks.startUpload(
+        req.params.token,
+        req.params.deliverableId,
+        req.body,
+      );
+    },
+  );
+
+  r.put(
+    '/public/creator/:token/uploads',
+    {
+      config: sendLimit,
+      schema: {
+        tags: ['Campaigns'],
+        summary: "The draft file's bytes (when storage can't take them directly)",
+        security: [],
+        params: tokenParam,
+        querystring: z.object({ ticket: z.string().min(1).max(4000) }),
+        consumes: ['application/octet-stream'],
+      },
+    },
+    async (req, reply) => {
+      const body = req.body as Buffer;
+      await servicesFor(req).creatorLinks.writeUpload(
+        req.params.token,
+        req.query.ticket,
+        Buffer.isBuffer(body) ? body : Buffer.from([]),
+      );
+      reply.status(204).send();
+    },
+  );
+
   r.post(
     '/public/creator/:token/deliverables/:deliverableId/drafts',
     {

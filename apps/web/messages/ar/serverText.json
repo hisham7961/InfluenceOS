@@ -365,5 +365,14 @@
   "a_script_approved_by_brand": "{name}: سُجّلت النسخة {version} من النص «{title}» كمعتمدة من العلامة.",
   "a_role_profile_given": "{name} عيّن لـ{name2} الدور الوظيفي {roleProfile2}.",
   "a_role_profile_removed": "{name} أزال الدور الوظيفي {roleProfile} عن {name2}.",
-  "a_created_campaign_plain": "{name} أنشأ الحملة {name2}."
+  "a_created_campaign_plain": "{name} أنشأ الحملة {name2}.",
+  "e_send_photo_or_video": "أرسل صورة أو فيديو (JPG أو PNG أو WebP أو GIF أو MP4 أو MOV أو WebM).",
+  "e_file_too_big_up_to": "الملف كبير جدًا — الحد الأقصى {max} ميغابايت.",
+  "e_upload_expired_choose_again": "انتهت صلاحية الرفع. يرجى اختيار الملف مرة أخرى.",
+  "e_upload_not_found": "لم يتم العثور على الملف المرفوع.",
+  "e_file_is_empty": "الملف فارغ.",
+  "e_file_bigger_than_declared": "حجم الملف أكبر مما ذُكر عند بدء الرفع.",
+  "e_file_did_not_finish_uploading": "لم يكتمل رفع الملف. يرجى المحاولة مرة أخرى.",
+  "e_file_is_too_big": "الملف كبير جدًا.",
+  "e_file_already_sent": "تم إرسال هذا الملف من قبل."
 }

@@ -379,6 +379,8 @@ export function makeAttachmentService(ctx: DomainContext) {
    */
   async function writeBlob(token: string, body: Buffer): Promise<void> {
     const ticket = await verifyUploadTicket(token);
+    // A creator's task-link upload goes through its own address (creator-link.service).
+    if (ticket.target.creatorLinkId) throw AppError.badRequest('This upload/download link is invalid or has expired.');
     if (body.length === 0) throw AppError.badRequest('The uploaded file is empty.');
     if (body.length > maxUploadBytes()) throw AppError.badRequest('File exceeds the maximum allowed size.');
     await storage.save(ticket.storageKey, body, ticket.mimeType);
@@ -391,6 +393,7 @@ export function makeAttachmentService(ctx: DomainContext) {
    */
   async function complete(token: string): Promise<AttachmentDTO> {
     const ticket = await verifyUploadTicket(token);
+    if (ticket.target.creatorLinkId) throw AppError.badRequest('This upload/download link is invalid or has expired.');
 
     // Idempotent (WK-05): a replayed completion for the same storage key returns
     // the already-created attachment instead of inserting a duplicate row (the

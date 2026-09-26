@@ -1539,15 +1539,30 @@ export const creatorLinkCreateSchema = z.object({
   expiresInDays: z.coerce.number().int().min(1).max(365).nullable().default(90),
 });
 /** A draft the creator sends from their link: where to watch it, and what they'll post with it. */
-export const creatorDraftSchema = z.object({
-  assetUrl: httpUrl,
-  caption: z.string().trim().max(2200).optional().nullable(),
-  notes: z.string().trim().max(1000).optional().nullable(),
+export const creatorDraftSchema = z
+  .object({
+    /** A link to watch the draft (Drive, WeTransfer, …) … */
+    assetUrl: httpUrl.optional().nullable(),
+    /** … or the file itself, uploaded first with creatorDraftUploadSchema. */
+    uploadToken: z.string().min(1).max(4000).optional().nullable(),
+    caption: z.string().trim().max(2200).optional().nullable(),
+    notes: z.string().trim().max(1000).optional().nullable(),
+  })
+  .refine((d) => Boolean(d.assetUrl) || Boolean(d.uploadToken), {
+    message: 'Add a link to the draft or upload the file.',
+    path: ['assetUrl'],
+  });
+/** The creator starts uploading a draft file (a photo or a video) from their link. */
+export const creatorDraftUploadSchema = z.object({
+  fileName: z.string().trim().min(1).max(200),
+  mimeType: z.string().trim().min(1).max(100),
+  sizeBytes: z.number().int().positive(),
 });
 /** The creator's live post, for the team to check and add. */
 export const creatorPostedSchema = z.object({ url: httpUrl });
 export type CreatorLinkCreateInput = z.infer<typeof creatorLinkCreateSchema>;
 export type CreatorDraftInput = z.infer<typeof creatorDraftSchema>;
+export type CreatorDraftUploadInput = z.infer<typeof creatorDraftUploadSchema>;
 export type CreatorPostedInput = z.infer<typeof creatorPostedSchema>;
 
 // --- Post discovery (P3.4) ------------------------------------------------------

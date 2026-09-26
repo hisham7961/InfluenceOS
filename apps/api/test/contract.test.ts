@@ -119,10 +119,14 @@ describe('contract — OpenAPI document', () => {
   it('gives every API route a typed-client method (so no feature is reachable only by hand-written fetch)', () => {
     // Routes a person's browser or a provider calls directly, never through
     // the typed client: the signed upload/download targets for local file
-    // storage, and the OAuth redirect a provider sends the user back to.
+    // storage (a creator's draft upload included), a saved post cover's
+    // signed image link, and the OAuth redirect a provider sends the user
+    // back to.
     const notForClient = new Set([
       'PUT /api/v1/files/blob',
       'GET /api/v1/files/{}/blob',
+      'PUT /api/v1/public/creator/{}/uploads',
+      'GET /api/v1/covers/{}',
       'GET /api/v1/integrations/{}/oauth/callback',
     ]);
     const source = readFileSync(join(process.cwd(), '..', '..', 'packages', 'api-client', 'src', 'index.ts'), 'utf8');
