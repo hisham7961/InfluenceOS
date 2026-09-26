@@ -180,6 +180,10 @@ export function makeSocialAccountService(ctx: DomainContext) {
     });
 
     if (!result.ok) {
+      await prisma.socialAccount.update({
+        where: { id },
+        data: { lastSyncAttemptAt: new Date(), lastSyncError: result.message.slice(0, 500) },
+      });
       return {
         account: toSocialAccountDTO(existing),
         synced: false,
@@ -199,6 +203,8 @@ export function makeSocialAccountService(ctx: DomainContext) {
         displayName: d.displayName ?? existing.displayName,
         dataSource: 'OFFICIAL_API',
         lastSyncedAt: new Date(),
+        lastSyncAttemptAt: new Date(),
+        lastSyncError: null,
       },
       select: accountSelect,
     });

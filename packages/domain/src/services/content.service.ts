@@ -654,12 +654,14 @@ export function makeContentService(ctx: DomainContext) {
     });
     if (!existing) throw AppError.notFound('Content');
     await assertContentInScope(existing);
+    // Newest 200, returned oldest-first for charting — a long-monitored post
+    // must show its latest numbers, not its first 200 snapshots.
     const snaps = await prisma.contentMetricSnapshot.findMany({
       where: { publishedContentId: id },
-      orderBy: { capturedAt: 'asc' },
+      orderBy: { capturedAt: 'desc' },
       take: 200,
     });
-    return snaps.map((s) => toContentMetricsDTO(s)!);
+    return snaps.reverse().map((s) => toContentMetricsDTO(s)!);
   }
 
   async function monitoring(id: string): Promise<MonitoringEventDTO[]> {
@@ -759,6 +761,9 @@ export function makeContentService(ctx: DomainContext) {
     // item 2) — checked BEFORE any monitoring event/notification/adapter call
     // runs, so an out-of-scope refresh never leaves a side effect behind.
     await assertContentInScope({ brandId: pc.brandId, influencerId: pc.influencerId });
+    // A Story is an uploaded file, not a public post — there is no URL to
+    // check and no metrics API, so it is never probed (and never scheduled).
+    if (pc.isStory) return loadDTO(id);
     const adapter = getAdapter(pc.platform, { credentials: ctx.credentials });
 
     // Availability
@@ -818,7 +823,12 @@ export function makeContentService(ctx: DomainContext) {
       });
       await prisma.publishedContent.update({
         where: { id },
-        data: { checkFailureCount: { increment: 1 }, lastCheckedAt: new Date() },
+        data: {
+          checkFailureCount: { increment: 1 },
+          lastCheckedAt: new Date(),
+          // Back off 1h, 2h, 4h… capped at the normal 6h cadence.
+          nextCheckAt: new Date(Date.now() + Math.min(6, 2 ** pc.checkFailureCount) * 3600 * 1000),
+        },
       });
     }
 

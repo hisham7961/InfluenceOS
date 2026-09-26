@@ -673,6 +673,11 @@ model SocialAccount {
   isPrimary      Boolean    @default(false)
   dataSource     DataSource @default(MANUAL)
   lastSyncedAt   DateTime?
+  /// Last time the worker tried to sync (success or not): failing accounts
+  /// back off instead of being re-selected ahead of healthy ones every sweep.
+  lastSyncAttemptAt DateTime?
+  /// Why the last sync attempt failed; null after a successful sync.
+  lastSyncError  String?
   rawMetadata    Json?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt

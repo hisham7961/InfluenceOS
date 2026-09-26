@@ -104,6 +104,15 @@ export {
 export { maxUploadBytes } from './services/attachment.service';
 export { getStorage, resetStorage, sanitizeFileName, buildStorageKey } from './lib/storage';
 export { signDownloadTicket, verifyDownloadTicket } from './lib/tokens';
+export {
+  CONTENT_CLAIM_LEASE_MS,
+  ACCOUNT_STALE_AFTER_MS,
+  ACCOUNT_RETRY_AFTER_MS,
+  claimDueContent,
+  claimStaleAccounts,
+  countDueContent,
+  countStaleAccounts,
+} from './lib/monitoring-schedule';
 
 export {
   makeAuthService,

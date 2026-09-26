@@ -355,11 +355,14 @@ export function makeInfluencerService(ctx: DomainContext) {
     if (best) {
       const snaps = await prisma.socialMetricSnapshot.findMany({
         where: { socialAccountId: best.id, followers: { not: null } },
-        orderBy: { capturedAt: 'asc' },
+        // Newest 120, back in chronological order — a long-tracked account
+        // must be judged on its recent growth, not its first 120 syncs.
+        orderBy: { capturedAt: 'desc' },
         take: 120,
         select: { followers: true, capturedAt: true },
       });
       followerHistory = snaps
+        .reverse()
         .filter((s) => s.followers != null)
         .map((s) => ({ followers: s.followers as number, capturedAt: s.capturedAt }));
     }
@@ -682,8 +685,10 @@ export function makeInfluencerService(ctx: DomainContext) {
       where: { platform_username: { platform: existing.primaryPlatform, username: existing.primaryUsername } },
       select: { id: true, influencerId: true },
     });
+    // Only the photo changed: lastSyncedAt dates the follower counts, so it is
+    // left alone (stamping it hid stale followers and skipped the next sync).
     if (primaryAccount && primaryAccount.influencerId === id) {
-      await prisma.socialAccount.update({ where: { id: primaryAccount.id }, data: { avatarUrl, lastSyncedAt: new Date() } });
+      await prisma.socialAccount.update({ where: { id: primaryAccount.id }, data: { avatarUrl } });
     }
 
     await logActivity(ctx, {
@@ -729,10 +734,12 @@ export function makeInfluencerService(ctx: DomainContext) {
       accounts.map(async (a) => {
         const snaps = await prisma.socialMetricSnapshot.findMany({
           where: { socialAccountId: a.id },
-          orderBy: { capturedAt: 'asc' },
+          // The latest year of points, charted oldest → newest.
+          orderBy: { capturedAt: 'desc' },
           take: 365,
           select: { capturedAt: true, followers: true },
         });
+        snaps.reverse();
         return {
           accountId: a.id,
           platform: a.platform,

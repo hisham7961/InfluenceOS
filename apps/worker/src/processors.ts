@@ -1,5 +1,13 @@
-import { prisma } from '@influenceos/database';
-import { createNotification, createServices, systemContext } from '@influenceos/domain';
+import { prisma, type Platform } from '@influenceos/database';
+import {
+  claimDueContent,
+  claimStaleAccounts,
+  countDueContent,
+  countStaleAccounts,
+  createNotification,
+  createServices,
+  systemContext,
+} from '@influenceos/domain';
 import { USAGE_RIGHT_EXPIRY_WARNING_DAYS, daysUntilExpiry } from '@influenceos/shared';
 
 const OPEN_DELIVERABLE = ['PLANNED', 'SENT_TO_INFLUENCER', 'AWAITING_PUBLICATION'] as const;
@@ -23,37 +31,37 @@ export async function cleanupAbandonedUploads(): Promise<number> {
   return services.attachments.cleanupAbandonedUploads();
 }
 
-/** Content whose next scheduled check is due, filtered by monitoring settings. */
-export async function findDueContentIds(limit: number): Promise<string[]> {
-  const now = new Date();
-  const rows = await prisma.publishedContent.findMany({
-    where: {
-      availabilityStatus: { notIn: ['REMOVED'] },
-      OR: [{ nextCheckAt: { lte: now } }, { nextCheckAt: null }],
-    },
-    orderBy: [{ nextCheckAt: { sort: 'asc', nulls: 'first' } }],
-    take: limit,
-    select: { id: true, platform: true },
-  });
-  const settings = await prisma.integrationSetting.findMany({
-    select: { platform: true, monitoringEnabled: true, isEnabled: true },
-  });
-  const enabled = new Set(settings.filter((s) => s.isEnabled && s.monitoringEnabled).map((s) => s.platform));
-  return rows.filter((r) => enabled.size === 0 || enabled.has(r.platform)).map((r) => r.id);
+/** Claim the next batch of content due for a check (see monitoring-schedule). */
+export async function claimDueContentIds(limit: number): Promise<string[]> {
+  return claimDueContent(prisma, limit);
 }
 
-/** Accounts on API-configured platforms that haven't synced in 24h. */
-export async function findStaleAccountIds(limit: number): Promise<string[]> {
+/**
+ * Platforms whose follower sync actually runs with the credentials configured
+ * right now — creator-authorization and manual-only platforms would fail every
+ * time, so they are never queued.
+ */
+export function followerSyncPlatforms(): Platform[] {
   const services = createServices(systemContext());
-  const apiPlatforms = services.providers.capabilities().filter((c) => c.apiConfigured).map((c) => c.platform);
-  if (apiPlatforms.length === 0) return [];
-  const dayAgo = new Date(Date.now() - 24 * 3600 * 1000);
-  const rows = await prisma.socialAccount.findMany({
-    where: { platform: { in: apiPlatforms }, OR: [{ lastSyncedAt: { lte: dayAgo } }, { lastSyncedAt: null }] },
-    take: limit,
-    select: { id: true },
-  });
-  return rows.map((r) => r.id);
+  return services.providers
+    .capabilities()
+    .filter((c) => c.apiConfigured && (c.followerSync === 'YES_WITH_API' || c.followerSync === 'CONDITIONAL'))
+    .map((c) => c.platform);
+}
+
+/** Claim the next batch of accounts whose follower counts are over a day old. */
+export async function claimStaleAccountIds(limit: number): Promise<string[]> {
+  const platforms = followerSyncPlatforms();
+  return platforms.length ? claimStaleAccounts(prisma, limit, platforms) : [];
+}
+
+/** Work still waiting after a sweep — surfaced on /health so a stall is visible. */
+export async function monitoringBacklog(): Promise<{ dueContent: number; staleAccounts: number }> {
+  const [dueContent, staleAccounts] = await Promise.all([
+    countDueContent(prisma),
+    countStaleAccounts(prisma, followerSyncPlatforms()),
+  ]);
+  return { dueContent, staleAccounts };
 }
 
 /** Generate deliverable/campaign notifications (deduped within ~20h). */

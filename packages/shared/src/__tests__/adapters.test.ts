@@ -220,6 +220,27 @@ describe('InstagramAdapter', () => {
     if (!r.ok) expect(r.reason).toBe('ACCOUNT_NOT_ELIGIBLE');
   });
 
+  it('syncs follower counts for an existing account via Business Discovery', async () => {
+    const ig = new InstagramAdapter(
+      ctxWith({ INSTAGRAM_ACCESS_TOKEN: 'tok', INSTAGRAM_BUSINESS_ACCOUNT_ID: 'me' }, (url) => {
+        expect(url).toContain('business_discovery.username(natgeo)');
+        return res(200, { business_discovery: { username: 'natgeo', followers_count: 281, follows_count: 3, media_count: 9 } });
+      }),
+    );
+    const r = await ig.syncProfile({ username: 'natgeo' });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.data.followers).toBe(281);
+      expect(r.data.following).toBe(3);
+      expect(r.data.postCount).toBe(9);
+    }
+  });
+
+  it('keeps follower sync manual without Meta credentials', async () => {
+    const r = await new InstagramAdapter(ctxWith({}, NEVER)).syncProfile({ username: 'natgeo' });
+    expect(r.ok).toBe(false);
+  });
+
   describe('post metrics via the Business Discovery media edge', () => {
     const CREDS = { INSTAGRAM_ACCESS_TOKEN: 'tok', INSTAGRAM_BUSINESS_ACCOUNT_ID: 'me' };
     const media = (items: unknown[]) => ({ business_discovery: { media: { data: items } } });

@@ -150,7 +150,9 @@ real uploads and downloads, not just a health indicator.
 | Variable | Required? | Default | Notes |
 |---|---|---|---|
 | `MONITOR_CRON` | optional | `*/30 * * * *` | Cron pattern for the maintenance sweep (`apps/worker/src/index.ts`). |
-| `MONITOR_BATCH_SIZE` | optional | `25` | Max monitoring checks per provider per run. |
+| `MONITOR_BATCH_SIZE` | optional | `100` | Content checks queued per sweep; grows automatically when a backlog builds up. |
+| `MONITOR_MAX_BATCH_SIZE` | optional | `400` | Upper bound for that automatic growth. |
+| `MONITOR_ACCOUNT_BATCH_SIZE` | optional | `25` | Follower-count syncs queued per sweep (keeps Instagram under its hourly API limit). |
 | `WORKER_PORT` | optional | `4100` | Port for the worker's own `/health` HTTP endpoint. |
 
 ### Optional social provider credentials

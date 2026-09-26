@@ -4,6 +4,7 @@ import type {
   AvailabilityResult,
   ContentMetricsResult,
   NormalizedProfileInput,
+  ProfileSyncResult,
   ResolvedProfile,
 } from '../types';
 
@@ -98,6 +99,31 @@ export class InstagramAdapter extends BaseAdapter {
     } catch {
       return this.manualFallback('PROVIDER_ERROR');
     }
+  }
+
+  override async syncProfile(account: {
+    username: string;
+    platformUserId?: string | null;
+  }): Promise<AdapterResult<ProfileSyncResult>> {
+    const res = await this.resolveProfile({
+      platform: 'INSTAGRAM',
+      username: account.username,
+      profileUrl: `https://www.instagram.com/${account.username}/`,
+    });
+    if (!res.ok) return res;
+    return {
+      ok: true,
+      source: 'OFFICIAL_API',
+      data: {
+        followers: res.data.followers ?? null,
+        following: res.data.following ?? null,
+        postCount: res.data.postCount ?? null,
+        isVerified: res.data.isVerified ?? null,
+        avatarUrl: res.data.avatarUrl ?? null,
+        displayName: res.data.displayName ?? null,
+        raw: res.data.raw,
+      },
+    };
   }
 
   /**

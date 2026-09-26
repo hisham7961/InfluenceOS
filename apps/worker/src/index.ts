@@ -6,14 +6,19 @@ import { computeWorkerHealth, shouldDeadLetter } from '@influenceos/shared';
 import { createConnection, isRedisAvailable } from './redis';
 import {
   checkContent,
+  claimDueContentIds,
+  claimStaleAccountIds,
   cleanupAbandonedUploads,
-  findDueContentIds,
-  findStaleAccountIds,
   generateNotifications,
+  monitoringBacklog,
   syncAccount,
 } from './processors';
 
-const BATCH = Number(process.env.MONITOR_BATCH_SIZE) || 25;
+/** Content checks queued per sweep; grows toward MAX when a backlog builds up. */
+const BATCH = Number(process.env.MONITOR_BATCH_SIZE) || 100;
+const MAX_BATCH = Math.max(BATCH, Number(process.env.MONITOR_MAX_BATCH_SIZE) || 400);
+/** Follower syncs per sweep — kept low: Instagram allows ~200 calls/hour per app. */
+const ACCOUNT_BATCH = Number(process.env.MONITOR_ACCOUNT_BATCH_SIZE) || 25;
 const MONITOR_CRON = process.env.MONITOR_CRON || '*/30 * * * *';
 const HEALTH_PORT = Number(process.env.WORKER_PORT) || 4100;
 
@@ -43,6 +48,8 @@ const stats = {
   jobsFailed: 0,
   deadLettered: 0,
   lastMaintenanceAt: null as string | null,
+  /** Content still due / accounts still stale after the last sweep queued its batch. */
+  backlog: { dueContent: 0, staleAccounts: 0 },
 };
 
 // Whether Redis is currently reachable — drives the /health verdict (WK-03).
@@ -60,11 +67,21 @@ let inlineTimer: NodeJS.Timeout | null = null;
 let healthServer: http.Server | null = null;
 
 async function runMaintenance(enqueue: (kind: Kind, id: string) => Promise<void>) {
-  const dueContent = await findDueContentIds(BATCH);
+  // Keys edited in Admin → Integrations take effect without a worker restart.
+  await refreshProviderCredentialOverrides(prisma).catch((e) =>
+    console.error('[maintenance] could not reload provider credentials', e),
+  );
+
+  // Queue more when the last sweep left a backlog, so a pile-up drains
+  // instead of growing by a fixed trickle.
+  const contentBatch = Math.min(MAX_BATCH, Math.max(BATCH, stats.backlog.dueContent));
+  const dueContent = await claimDueContentIds(contentBatch);
   for (const id of dueContent) await enqueue('content', id);
 
-  const staleAccounts = await findStaleAccountIds(BATCH);
+  const staleAccounts = await claimStaleAccountIds(ACCOUNT_BATCH);
   for (const id of staleAccounts) await enqueue('account', id);
+
+  stats.backlog = await monitoringBacklog().catch(() => stats.backlog);
 
   const notif = await generateNotifications();
   stats.notifications += notif.created;
@@ -84,7 +101,7 @@ async function runMaintenance(enqueue: (kind: Kind, id: string) => Promise<void>
 
   stats.lastMaintenanceAt = new Date().toISOString();
   console.log(
-    `[maintenance] queued ${dueContent.length} content checks, ${staleAccounts.length} account syncs, created ${notif.created} notifications, cleaned ${cleaned} orphan uploads`,
+    `[maintenance] queued ${dueContent.length} content checks, ${staleAccounts.length} account syncs (still waiting: ${stats.backlog.dueContent} content, ${stats.backlog.staleAccounts} accounts), created ${notif.created} notifications, cleaned ${cleaned} orphan uploads`,
   );
 }
 let lastCleanupAt = 0;
@@ -123,9 +140,14 @@ async function startWithRedis() {
     removeOnFail: 200,
   } as const;
 
+  // Each claim gets its own job id. A fixed per-row id (`c:<id>`) made BullMQ
+  // silently drop every later check while the earlier job was still kept as
+  // completed — the row was never checked again. Rows are claimed in the
+  // database, so one sweep can't queue the same row twice anyway.
   const enqueue = async (kind: Kind, id: string) => {
-    if (kind === 'content') await contentQ.add('check', { id }, { ...jobOpts, jobId: `c:${id}` });
-    else await accountQ.add('sync', { id }, { ...jobOpts, jobId: `a:${id}` });
+    const claim = Date.now().toString(36);
+    if (kind === 'content') await contentQ.add('check', { id }, { ...jobOpts, jobId: `c:${id}:${claim}` });
+    else await accountQ.add('sync', { id }, { ...jobOpts, jobId: `a:${id}:${claim}` });
   };
 
   // Attach failure/error observers to a worker: count failures, surface errors,
