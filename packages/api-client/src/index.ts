@@ -22,6 +22,9 @@ import type {
   CampaignDetailDTO,
   CampaignEfficiencyDTO,
   CampaignReportDTO,
+  PayablesPageDTO,
+  PaymentDTO,
+  PaymentsPageDTO,
   CampaignInfluencerDTO,
   CampaignOperationsBoardDTO,
   CampaignSummaryDTO,
@@ -104,6 +107,12 @@ function reportQuery(params?: { locale?: 'en' | 'ar'; costs?: boolean }): Record
 export function createClient(config: ClientConfig) {
   const http = new HttpCore(config);
   const V = '/api/v1';
+  const financeUrl = (path: string, params?: QueryParams) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params ?? {})) if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
+    const qs = q.toString();
+    return `${config.baseUrl.replace(/\/$/, '')}${V}${path}${qs ? `?${qs}` : ''}`;
+  };
 
   return {
     http,
@@ -495,7 +504,29 @@ export function createClient(config: ClientConfig) {
     expenses: {
       update: (id: string, body: In<typeof requests.expenseUpdateSchema>) =>
         http.patch<ExpenseDTO>(`${V}/expenses/${id}`, body),
+      /** Moves it to the campaign's trash (restorable). */
       remove: (id: string) => http.del<void>(`${V}/expenses/${id}`),
+      trash: (campaignId: string) => http.get<ExpenseDTO[]>(`${V}/campaigns/${campaignId}/expenses/trash`),
+      restore: (id: string) => http.post<ExpenseDTO>(`${V}/expenses/${id}/restore`, {}),
+    },
+
+    /** P2.3 — the payment ledger and what is still owed. */
+    finance: {
+      payables: (params?: QueryParams) => http.get<PayablesPageDTO>(`${V}/finance/payables`, { query: params }),
+      payablesXlsx: (params?: QueryParams) =>
+        http.get<Response>(`${V}/finance/payables/xlsx`, { query: params, raw: true }),
+      /** Same-origin href for a browser download of the .xlsx (auth via the cookie transport). */
+      payablesXlsxUrl: (params?: QueryParams) => financeUrl('/finance/payables/xlsx', params),
+      payments: (params?: QueryParams) => http.get<PaymentsPageDTO>(`${V}/finance/payments`, { query: params }),
+      paymentsXlsx: (params?: QueryParams) =>
+        http.get<Response>(`${V}/finance/payments/xlsx`, { query: params, raw: true }),
+      paymentsXlsxUrl: (params?: QueryParams) => financeUrl('/finance/payments/xlsx', params),
+      payment: (id: string) => http.get<PaymentDTO>(`${V}/finance/payments/${id}`),
+      payFee: (campaignInfluencerId: string, body: In<typeof requests.paymentCreateSchema>) =>
+        http.post<PaymentDTO>(`${V}/campaign-influencers/${campaignInfluencerId}/payments`, body),
+      payExpense: (expenseId: string, body: In<typeof requests.paymentCreateSchema>) =>
+        http.post<PaymentDTO>(`${V}/expenses/${expenseId}/payments`, body),
+      voidPayment: (id: string, reason: string) => http.post<PaymentDTO>(`${V}/payments/${id}/void`, { reason }),
     },
 
     dashboard: {

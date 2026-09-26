@@ -214,6 +214,7 @@
       "markPaid": "Mark paid",
       "markedPaidToast": "{name} marked as paid",
       "undo": "Undo",
+      "undoPaymentReason": "Undone right after marking paid",
       "results": {
         "posts": "Posts live",
         "postsOfPlanned": "{live} of {planned}",
@@ -361,12 +362,12 @@
       "versionsLabel": "Versions"
     },
     "expenses": {
-      "removedToast": "Expense removed",
+      "removedToast": "Expense moved to the trash",
       "noDate": "No date",
       "editAriaLabel": "Edit expense {name}",
-      "removeAriaLabel": "Remove expense {name}",
-      "removeConfirmTitle": "Remove expense?",
-      "removeConfirmDescription": "\"{name}\" will be permanently removed from this campaign's costs. This cannot be undone.",
+      "removeAriaLabel": "Delete expense {name}",
+      "removeConfirmTitle": "Delete this expense?",
+      "removeConfirmDescription": "\"{name}\" leaves this campaign's costs and totals. You can restore it from the deleted expenses below.",
       "invalidAmount": "Enter a valid amount.",
       "updatedToast": "Expense updated",
       "editDialogTitle": "Edit expense",
@@ -390,7 +391,10 @@
       "budgetUtilization": "Budget utilization",
       "expensesTitle": "Expenses",
       "emptyTitle": "No expenses logged",
-      "emptyDescription": "Add an expense to start tracking campaign costs."
+      "emptyDescription": "Add an expense to start tracking campaign costs.",
+      "moveToTrash": "Delete",
+      "paymentsAriaLabel": "Payments for {name}",
+      "paymentsDialogDescription": "Every payment recorded for \"{name}\"."
     },
     "performance": {
       "metricsSynced": "Metrics synced {relative}",

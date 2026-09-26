@@ -214,6 +214,7 @@
       "markPaid": "تسجيل كمدفوع",
       "markedPaidToast": "تم تسجيل الدفع لـ {name}",
       "undo": "تراجع",
+      "undoPaymentReason": "تم التراجع مباشرة بعد تسجيل الدفع",
       "results": {
         "posts": "المنشورات الظاهرة",
         "postsOfPlanned": "{live} من {planned}",
@@ -361,12 +362,12 @@
       "versionsLabel": "النسخ"
     },
     "expenses": {
-      "removedToast": "تمت إزالة المصروف",
+      "removedToast": "نُقل المصروف إلى المحذوفات",
       "noDate": "بدون تاريخ",
       "editAriaLabel": "تعديل مصروف {name}",
-      "removeAriaLabel": "إزالة مصروف {name}",
-      "removeConfirmTitle": "إزالة المصروف؟",
-      "removeConfirmDescription": "سيتم حذف \"{name}\" نهائيًا من تكاليف هذه الحملة. لا يمكن التراجع عن هذا الإجراء.",
+      "removeAriaLabel": "حذف مصروف {name}",
+      "removeConfirmTitle": "حذف هذا المصروف؟",
+      "removeConfirmDescription": "سيُستبعد \"{name}\" من تكاليف الحملة وإجمالياتها. يمكنك استعادته من المصاريف المحذوفة بالأسفل.",
       "invalidAmount": "أدخل مبلغًا صحيحًا.",
       "updatedToast": "تم تحديث المصروف",
       "editDialogTitle": "تعديل المصروف",
@@ -390,7 +391,10 @@
       "budgetUtilization": "نسبة استخدام الميزانية",
       "expensesTitle": "المصاريف",
       "emptyTitle": "لا توجد مصاريف مسجَّلة",
-      "emptyDescription": "أضف مصروفًا لتبدأ بمتابعة تكاليف الحملة."
+      "emptyDescription": "أضف مصروفًا لتبدأ بمتابعة تكاليف الحملة.",
+      "moveToTrash": "حذف",
+      "paymentsAriaLabel": "دفعات {name}",
+      "paymentsDialogDescription": "كل الدفعات المسجَّلة لـ \"{name}\"."
     },
     "performance": {
       "metricsSynced": "تمت مزامنة المقاييس {relative}",

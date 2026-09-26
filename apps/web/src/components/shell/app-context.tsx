@@ -1,9 +1,12 @@
 'use client';
 import * as React from 'react';
-import type { BrandSummaryDTO, UserDTO } from '@influenceos/contracts';
+import type { BrandSummaryDTO, Capability, UserDTO } from '@influenceos/contracts';
 
 interface AppContextValue {
   user: UserDTO;
+  /** Whether the signed-in user has a capability (admins have all). The
+   *  server enforces it either way; this only hides what would be refused. */
+  can: (capability: Capability) => boolean;
   brands: BrandSummaryDTO[];
   openCommand: () => void;
   openQuickAdd: (kind?: QuickAddKind) => void;
@@ -32,9 +35,10 @@ export function AppProvider({
   openQuickAdd: (kind?: QuickAddKind) => void;
   children: React.ReactNode;
 }) {
-  const value = React.useMemo(
-    () => ({ user, brands, openCommand, openQuickAdd }),
-    [user, brands, openCommand, openQuickAdd],
-  );
+  const value = React.useMemo(() => {
+    const granted = user.capabilities ? new Set(user.capabilities) : null;
+    const can = (capability: Capability) => user.role === 'ADMIN' || !granted || granted.has(capability);
+    return { user, can, brands, openCommand, openQuickAdd };
+  }, [user, brands, openCommand, openQuickAdd]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

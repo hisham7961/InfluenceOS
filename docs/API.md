@@ -428,10 +428,33 @@ PII (phone/address/delivery instructions) is redacted server-side for the
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/v1/campaigns/:id/costs` | Expenses + cost summary for a campaign. |
-| POST | `/api/v1/campaigns/:id/expenses` | Add an expense to a campaign. |
-| PATCH | `/api/v1/expenses/:id` | Update a campaign expense. |
-| DELETE | `/api/v1/expenses/:id` | Delete a campaign expense. |
+| GET | `/api/v1/campaigns/:id/costs` | Expenses + cost summary for a campaign. Needs `FINANCE_VIEW` (403 without it). Deleted expenses are left out. |
+| POST | `/api/v1/campaigns/:id/expenses` | Add an expense to a campaign. A `paymentStatus` of paid / part paid records a payment in the ledger. |
+| PATCH | `/api/v1/expenses/:id` | Update a campaign expense. Payment fields go through the ledger: a higher paid total records a payment for the difference; a lower one is refused (409) — void a payment instead. |
+| DELETE | `/api/v1/expenses/:id` | Move an expense to the campaign's deleted expenses (restorable). Refused (409) while it has live payments. |
+| GET | `/api/v1/campaigns/:id/expenses/trash` | The campaign's deleted expenses, newest first (`FINANCE_VIEW`). |
+| POST | `/api/v1/expenses/:id/restore` | Restore a deleted expense (`FINANCE_MANAGE`). |
+
+### Finance (payment ledger)
+
+Payments are the record of what was paid. A roster row's (creator fee) or an
+expense's `paymentStatus`, `paidAmount` and `paidAt` are derived from its live
+(not voided) payments. Reading needs `FINANCE_VIEW`; recording and voiding need
+`FINANCE_MANAGE`. Everything stays inside the caller's brand scope.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/finance/payables` | Creator fees and expenses with money still owed, oldest due first, with the total owed per currency. Filters: `brandId`, `campaignId`, `influencerId`, `q`, `kind` (`FEE` / `EXPENSE`), `page`, `pageSize`. |
+| GET | `/api/v1/finance/payables/xlsx` | The same list as an Excel workbook (`locale=en\|ar`). |
+| GET | `/api/v1/finance/payments` | The ledger, newest first, with the total paid per currency. Filters: `brandId`, `campaignId`, `influencerId`, `campaignInfluencerId`, `expenseId`, `from`, `to`, `q`, `includeVoided`. |
+| GET | `/api/v1/finance/payments/xlsx` | The ledger as an Excel workbook (`locale=en\|ar`). |
+| GET | `/api/v1/finance/payments/:id` | One payment. |
+| POST | `/api/v1/campaign-influencers/:id/payments` | Record a payment against a creator's fee: `amount`, `paidAt`, `method` (`BANK_TRANSFER`, `CASH`, `CHEQUE`, `CARD`, `PAYMENT_LINK`, `OTHER`), optional `reference`, `notes`, `receiptAttachmentId` (a file already attached to this campaign). 409 when the fee is not payable or the amount is more than what is still owed. |
+| POST | `/api/v1/expenses/:id/payments` | Record a payment against an expense (same body and rules). |
+| POST | `/api/v1/payments/:id/void` | Void a payment (`reason` required). It stays in the history, marked voided, and stops counting as paid. |
+
+A creator with payments recorded can't be removed from the roster (409) — set
+their participation to dropped instead, so the payment history stays.
 
 ### Dashboard
 

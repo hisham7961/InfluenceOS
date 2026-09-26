@@ -34,6 +34,7 @@ export type EnumFamily =
   | 'shipmentStatus'
   | 'contentStatus'
   | 'paymentStatus'
+  | 'paymentMethod'
   | 'expenseType'
   | 'priority'
   | 'contactMethod'

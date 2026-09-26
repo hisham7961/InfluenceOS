@@ -153,7 +153,7 @@ export async function loadCampaignMoney(
       },
     }),
     prisma.campaignExpense.findMany({
-      where: { campaignId: { in: campaignIds } },
+      where: { campaignId: { in: campaignIds }, deletedAt: null },
       select: { campaignId: true, campaignInfluencerId: true, type: true, amount: true, paymentStatus: true, paidAmount: true },
     }),
   ]);

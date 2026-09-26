@@ -9,6 +9,7 @@ import { Prisma } from '@influenceos/database';
 import { deliverableCompletion } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
+import { applyLegacyPaymentFields, syncPaidState } from '../lib/payments';
 import { requireAnyCapability } from '../lib/authz';
 import { iso, logActivity } from '../lib/helpers';
 import { toMoneyNumber, type MoneyInput } from '../lib/money';
@@ -233,22 +234,31 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
       input.paymentStatus ??
       (input.dealType === 'FREE' || input.dealType === 'GIFTED_PRODUCT' ? 'NOT_APPLICABLE' : 'UNPAID');
 
-    const ci = await prisma.campaignInfluencer.create({
-      data: {
-        campaignId: input.campaignId,
-        influencerId: input.influencerId,
-        dealType: input.dealType ?? 'PAID',
-        agreedCost: input.agreedCost ?? null,
-        currency: input.currency ?? null,
-        giftedProductValue: input.giftedProductValue ?? null,
-        dateContacted: input.dateContacted ?? null,
-        expectedPublishAt: input.expectedPublishAt ?? null,
-        participationStatus: input.participationStatus ?? 'INVITED',
-        paymentStatus,
-        paidAmount: input.paidAmount ?? null,
-        paidAt: input.paidAt ?? null,
-        notes: input.notes ?? null,
-      },
+    const ci = await prisma.$transaction(async (tx) => {
+      const row = await tx.campaignInfluencer.create({
+        data: {
+          campaignId: input.campaignId,
+          influencerId: input.influencerId,
+          dealType: input.dealType ?? 'PAID',
+          agreedCost: input.agreedCost ?? null,
+          currency: input.currency ?? null,
+          giftedProductValue: input.giftedProductValue ?? null,
+          dateContacted: input.dateContacted ?? null,
+          expectedPublishAt: input.expectedPublishAt ?? null,
+          participationStatus: input.participationStatus ?? 'INVITED',
+          paymentStatus,
+          notes: input.notes ?? null,
+        },
+      });
+      // Anything already paid goes into the payment ledger (P2.3).
+      const target = { campaignInfluencerId: row.id };
+      await applyLegacyPaymentFields(ctx, tx, target, {
+        paymentStatus: input.paymentStatus,
+        paidAmount: input.paidAmount,
+        paidAt: input.paidAt,
+      });
+      await syncPaidState(tx, target);
+      return row;
     });
 
     // Ensure the brand↔influencer relationship row exists, but do NOT count a
@@ -280,21 +290,29 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
     });
     if (!existing) throw AppError.notFound('Campaign influencer');
     const campaign = await makeCampaignService(ctx).assertInScope(existing.campaignId);
-    await prisma.campaignInfluencer.update({
-      where: { id },
-      data: {
-        dealType: input.dealType ?? undefined,
-        agreedCost: input.agreedCost === undefined ? undefined : input.agreedCost,
-        currency: input.currency === undefined ? undefined : input.currency,
-        giftedProductValue: input.giftedProductValue === undefined ? undefined : input.giftedProductValue,
-        dateContacted: input.dateContacted === undefined ? undefined : input.dateContacted,
-        expectedPublishAt: input.expectedPublishAt === undefined ? undefined : input.expectedPublishAt,
-        participationStatus: input.participationStatus ?? undefined,
-        paymentStatus: input.paymentStatus ?? undefined,
-        paidAmount: input.paidAmount === undefined ? undefined : input.paidAmount,
-        paidAt: input.paidAt === undefined ? undefined : input.paidAt,
-        notes: input.notes === undefined ? undefined : input.notes,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.campaignInfluencer.update({
+        where: { id },
+        data: {
+          dealType: input.dealType ?? undefined,
+          agreedCost: input.agreedCost === undefined ? undefined : input.agreedCost,
+          currency: input.currency === undefined ? undefined : input.currency,
+          giftedProductValue: input.giftedProductValue === undefined ? undefined : input.giftedProductValue,
+          dateContacted: input.dateContacted === undefined ? undefined : input.dateContacted,
+          expectedPublishAt: input.expectedPublishAt === undefined ? undefined : input.expectedPublishAt,
+          participationStatus: input.participationStatus ?? undefined,
+          notes: input.notes === undefined ? undefined : input.notes,
+        },
+      });
+      // Payment status / paid amount go through the payment ledger (P2.3);
+      // a changed fee or deal re-derives the status from what was paid.
+      const target = { campaignInfluencerId: id };
+      await applyLegacyPaymentFields(ctx, tx, target, {
+        paymentStatus: input.paymentStatus,
+        paidAmount: input.paidAmount,
+        paidAt: input.paidAt,
+      });
+      await syncPaidState(tx, target);
     });
     // A participation-status change may make this a (newly) committed or no
     // longer committed collaboration — recompute the relationship stats.
@@ -310,6 +328,13 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
     });
     if (!existing) throw AppError.notFound('Campaign influencer');
     const campaign = await makeCampaignService(ctx).assertInScope(existing.campaignId);
+    // Money that went out stays on record (P2.3): a creator with payments
+    // recorded on this campaign is marked Dropped instead of removed.
+    if ((await prisma.payment.count({ where: { campaignInfluencerId: id } })) > 0) {
+      throw AppError.conflict(
+        'Payments are recorded for this creator on this campaign, so they can\'t be removed. Set their status to Dropped instead — the payment history stays.',
+      );
+    }
     await prisma.campaignInfluencer.delete({ where: { id } });
     // Removing a participation must not leave inflated stats behind.
     await syncRelationship(campaign.brandId, existing.influencerId);

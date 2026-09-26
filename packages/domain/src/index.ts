@@ -7,6 +7,7 @@ import type { DomainContext } from './context';
 import { makeActivityService } from './services/activity.service';
 import { makeAnalyticsService } from './services/analytics.service';
 import { makeCampaignReportService } from './services/campaign-report.service';
+import { makePaymentService } from './services/payment.service';
 import { makeAttachmentService } from './services/attachment.service';
 import { makeAuthService } from './services/auth.service';
 import { makeBrandService } from './services/brand.service';
@@ -81,6 +82,7 @@ export function createServices(ctx: DomainContext) {
     reports: makeReportService(ctx),
     analytics: makeAnalyticsService(ctx),
     campaignReports: makeCampaignReportService(ctx),
+    payments: makePaymentService(ctx),
     integrations: makeIntegrationService(ctx),
     credentials: makeCredentialService(ctx),
     creatorOAuth: makeCreatorOAuthService(ctx),

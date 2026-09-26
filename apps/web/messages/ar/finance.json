@@ -1,0 +1,83 @@
+{
+  "title": "المالية",
+  "subtitle": "ما زال مستحقًا للمؤثرين والموردين، وكل دفعة تمت.",
+  "noAccess": "ليست لديك صلاحية الاطلاع على المالية. اطلب من المسؤول صلاحية عرض المالية.",
+  "tabs": {
+    "payables": "المستحقات",
+    "payments": "المدفوعات"
+  },
+  "filters": {
+    "search": "ابحث عن حملة أو مؤثر أو بند",
+    "allKinds": "الكل",
+    "fees": "أجور المؤثرين",
+    "expenses": "المصروفات",
+    "showVoided": "إظهار الدفعات الملغاة",
+    "brand": "العلامة التجارية",
+    "allBrands": "كل العلامات التجارية"
+  },
+  "totalOwed": "المتبقي",
+  "totalPaid": "المدفوع",
+  "downloadExcel": "تنزيل ملف Excel",
+  "nothingOwed": "لا توجد مستحقات حاليًا.",
+  "noPayments": "لم تُسجَّل أي دفعات بعد.",
+  "cols": {
+    "campaign": "الحملة",
+    "payee": "المؤثر / البند",
+    "amount": "المبلغ",
+    "paid": "المدفوع",
+    "owed": "المتبقي",
+    "due": "تاريخ الاستحقاق",
+    "date": "التاريخ",
+    "method": "طريقة الدفع",
+    "reference": "المرجع",
+    "recordedBy": "سجّلها"
+  },
+  "kind": {
+    "FEE": "أجر مؤثر",
+    "EXPENSE": "مصروف"
+  },
+  "recordPayment": "تسجيل دفعة",
+  "payments": "الدفعات",
+  "paymentsCount": "{count, plural, zero {لا دفعات} one {دفعة واحدة} two {دفعتان} few {# دفعات} many {# دفعة} other {# دفعة}}",
+  "lastPaid": "آخر دفعة {date}",
+  "voided": "ملغاة",
+  "voidedBy": "ألغاها {name} في {date}: {reason}",
+  "void": "إلغاء",
+  "voidTitle": "إلغاء هذه الدفعة؟",
+  "voidBody": "تبقى في السجل مع علامة «ملغاة»، ولا تُحتسب ضمن المدفوع.",
+  "voidReason": "السبب",
+  "voidReasonPlaceholder": "مثال: سُجّلت مرتين",
+  "voidConfirm": "إلغاء الدفعة",
+  "voidedToast": "أُلغيت الدفعة",
+  "receipt": "الإيصال",
+  "dialog": {
+    "title": "تسجيل دفعة",
+    "for": "إلى {name}",
+    "owed": "المتبقي: {amount}",
+    "amount": "المبلغ",
+    "date": "تاريخ الدفع",
+    "method": "طريقة الدفع",
+    "reference": "المرجع",
+    "referencePlaceholder": "رقم التحويل أو الشيك",
+    "notes": "ملاحظات",
+    "receipt": "الإيصال (اختياري)",
+    "attachReceipt": "إرفاق إيصال",
+    "uploading": "جارٍ الرفع {percent}٪",
+    "save": "تسجيل الدفعة",
+    "saved": "سُجّلت الدفعة",
+    "invalidAmount": "أدخل مبلغًا أكبر من صفر ولا يزيد عن المتبقي."
+  },
+  "ledger": {
+    "title": "الدفعات",
+    "paidOf": "دُفع {paid} من {amount}",
+    "none": "لم يُدفع شيء بعد.",
+    "recordedBy": "بواسطة {name}"
+  },
+  "trash": {
+    "title": "المصروفات المحذوفة",
+    "hint": "المصروفات المحذوفة لا تدخل في أي مجموع. استعد أيًّا منها إن حُذف بالخطأ.",
+    "restore": "استعادة",
+    "restored": "استُعيد المصروف",
+    "deletedOn": "حُذف في {date}"
+  }
+}

@@ -23,7 +23,7 @@ const RESULT_TYPE_LABEL_KEY: Record<string, string> = {
 
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const router = useRouter();
-  const { openQuickAdd } = useApp();
+  const { openQuickAdd, can } = useApp();
   const [query, setQuery] = React.useState('');
   const t = useTranslations('common');
   const tNav = useTranslations('nav');
@@ -88,7 +88,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             </Command.Group>
 
             <Command.Group heading={tNav('navigateHeading')} className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground">
-              {NAV_ITEMS.map((item) => (
+              {NAV_ITEMS.filter((item) => !item.requires || can(item.requires)).map((item) => (
                 <Action key={item.href} label={tNav(item.labelKey)} icon={item.icon} onSelect={() => go(item.href)} />
               ))}
             </Command.Group>

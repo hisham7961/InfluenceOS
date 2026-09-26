@@ -9,6 +9,7 @@ import { toExpenseDTO } from '../lib/mappers';
 import { computeCostSummary } from '../lib/progress';
 import { PAID_DEALS } from '../lib/spend';
 import { makeCampaignService } from './campaign.service';
+import { applyLegacyPaymentFields, syncPaidState } from '../lib/payments';
 
 type ExpenseCreate = z.infer<typeof requests.expenseCreateSchema>;
 type ExpenseUpdate = z.infer<typeof requests.expenseUpdateSchema>;
@@ -19,6 +20,9 @@ export function makeExpenseService(ctx: DomainContext) {
   async function listForCampaign(
     campaignId: string,
   ): Promise<{ expenses: ExpenseDTO[]; summary: CostSummaryDTO }> {
+    // A campaign's expenses and what is paid / still owed are finance data
+    // (P2.3): people without finance access don't get them.
+    await requireCapability(ctx, 'FINANCE_VIEW');
     await makeCampaignService(ctx).assertInScope(campaignId);
     const campaign = await prisma.campaign.findUnique({
       where: { id: campaignId },
@@ -28,7 +32,7 @@ export function makeExpenseService(ctx: DomainContext) {
 
     const [rows, summary] = await Promise.all([
       prisma.campaignExpense.findMany({
-        where: { campaignId },
+        where: { campaignId, deletedAt: null },
         orderBy: { createdAt: 'desc' },
       }),
       computeCostSummary(ctx, campaignId, campaign.currency, toMoneyNumber(campaign.plannedBudget)),
@@ -74,21 +78,30 @@ export function makeExpenseService(ctx: DomainContext) {
     }
     await assertNotRepeatedFee(input.type, input.campaignInfluencerId);
 
-    const expense = await prisma.campaignExpense.create({
-      data: {
-        campaignId: input.campaignId,
-        campaignInfluencerId: input.campaignInfluencerId ?? null,
-        type: input.type,
-        label: input.label ?? null,
-        amount: input.amount,
-        currency: input.currency,
+    const expense = await prisma.$transaction(async (tx) => {
+      const row = await tx.campaignExpense.create({
+        data: {
+          campaignId: input.campaignId,
+          campaignInfluencerId: input.campaignInfluencerId ?? null,
+          type: input.type,
+          label: input.label ?? null,
+          amount: input.amount,
+          currency: input.currency,
+          paymentStatus: 'UNPAID',
+          incurredAt: input.incurredAt ?? null,
+          notes: input.notes ?? null,
+          createdById: actor.id,
+        },
+      });
+      // Already paid (in full or in part): that goes into the payment ledger.
+      const target = { expenseId: row.id };
+      await applyLegacyPaymentFields(ctx, tx, target, {
         paymentStatus: input.paymentStatus,
-        paidAmount: input.paidAmount ?? null,
-        paidAt: input.paidAt ?? null,
-        incurredAt: input.incurredAt ?? null,
-        notes: input.notes ?? null,
-        createdById: actor.id,
-      },
+        paidAmount: input.paidAmount,
+        paidAt: input.paidAt,
+      });
+      await syncPaidState(tx, target);
+      return tx.campaignExpense.findUniqueOrThrow({ where: { id: row.id } });
     });
 
     await logActivity(ctx, {
@@ -104,8 +117,12 @@ export function makeExpenseService(ctx: DomainContext) {
   async function update(id: string, input: ExpenseUpdate): Promise<ExpenseDTO> {
     const actor = await requireCapability(ctx, 'FINANCE_MANAGE');
     const existing = await prisma.campaignExpense.findUnique({ where: { id } });
-    if (!existing) throw AppError.notFound('Expense');
+    if (!existing || existing.deletedAt) throw AppError.notFound('Expense');
     await makeCampaignService(ctx).assertInScope(existing.campaignId);
+    if (input.currency !== undefined && input.currency !== existing.currency) {
+      const paid = await prisma.payment.count({ where: { expenseId: id, voidedAt: null } });
+      if (paid > 0) throw AppError.conflict('Payments in the old currency are recorded for this expense. Void them before changing the currency.');
+    }
 
     if (input.campaignInfluencerId !== undefined && input.campaignInfluencerId !== null) {
       const ci = await prisma.campaignInfluencer.findUnique({
@@ -124,21 +141,28 @@ export function makeExpenseService(ctx: DomainContext) {
       );
     }
 
-    const expense = await prisma.campaignExpense.update({
-      where: { id },
-      data: {
-        campaignInfluencerId:
-          input.campaignInfluencerId === undefined ? undefined : input.campaignInfluencerId,
-        type: input.type ?? undefined,
-        label: input.label === undefined ? undefined : input.label,
-        amount: input.amount ?? undefined,
-        currency: input.currency ?? undefined,
-        paymentStatus: input.paymentStatus ?? undefined,
-        paidAmount: input.paidAmount === undefined ? undefined : input.paidAmount,
-        paidAt: input.paidAt === undefined ? undefined : input.paidAt,
-        incurredAt: input.incurredAt === undefined ? undefined : input.incurredAt,
-        notes: input.notes === undefined ? undefined : input.notes,
-      },
+    const expense = await prisma.$transaction(async (tx) => {
+      await tx.campaignExpense.update({
+        where: { id },
+        data: {
+          campaignInfluencerId:
+            input.campaignInfluencerId === undefined ? undefined : input.campaignInfluencerId,
+          type: input.type ?? undefined,
+          label: input.label === undefined ? undefined : input.label,
+          amount: input.amount ?? undefined,
+          currency: input.currency ?? undefined,
+          incurredAt: input.incurredAt === undefined ? undefined : input.incurredAt,
+          notes: input.notes === undefined ? undefined : input.notes,
+        },
+      });
+      const target = { expenseId: id };
+      await applyLegacyPaymentFields(ctx, tx, target, {
+        paymentStatus: input.paymentStatus,
+        paidAmount: input.paidAmount,
+        paidAt: input.paidAt,
+      });
+      await syncPaidState(tx, target);
+      return tx.campaignExpense.findUniqueOrThrow({ where: { id } });
     });
 
     await logActivity(ctx, {
@@ -151,15 +175,57 @@ export function makeExpenseService(ctx: DomainContext) {
     return toExpenseDTO(expense);
   }
 
+  /**
+   * Deleting an expense puts it in the campaign's trash: it leaves every
+   * total and list but can be restored. One with payments recorded against
+   * it can't be deleted — money that went out stays on record; void the
+   * payments first if the whole thing was a mistake.
+   */
   async function remove(id: string): Promise<void> {
-    await requireCapability(ctx, 'FINANCE_MANAGE');
+    const actor = await requireCapability(ctx, 'FINANCE_MANAGE');
     const existing = await prisma.campaignExpense.findUnique({ where: { id } });
-    if (!existing) throw AppError.notFound('Expense');
+    if (!existing || existing.deletedAt) throw AppError.notFound('Expense');
     await makeCampaignService(ctx).assertInScope(existing.campaignId);
-    await prisma.campaignExpense.delete({ where: { id } });
+    const paid = await prisma.payment.count({ where: { expenseId: id, voidedAt: null } });
+    if (paid > 0) {
+      throw AppError.conflict('Payments are recorded for this expense. Void them first if it was entered by mistake.');
+    }
+    await prisma.campaignExpense.update({ where: { id }, data: { deletedAt: new Date(), deletedById: actor.id } });
+    await logActivity(ctx, {
+      type: 'COST_UPDATED',
+      message: `${actor.name} moved a ${existing.type.toLowerCase().replace(/_/g, ' ')} expense of ${existing.amount} ${existing.currency} to the trash.`,
+      campaignId: existing.campaignId,
+      meta: { expenseId: id },
+    });
   }
 
-  return { listForCampaign, create, update, remove };
+  /** The campaign's deleted expenses, newest first. */
+  async function listTrash(campaignId: string): Promise<ExpenseDTO[]> {
+    await requireCapability(ctx, 'FINANCE_VIEW');
+    await makeCampaignService(ctx).assertInScope(campaignId);
+    const rows = await prisma.campaignExpense.findMany({
+      where: { campaignId, deletedAt: { not: null } },
+      orderBy: { deletedAt: 'desc' },
+    });
+    return rows.map(toExpenseDTO);
+  }
+
+  async function restore(id: string): Promise<ExpenseDTO> {
+    const actor = await requireCapability(ctx, 'FINANCE_MANAGE');
+    const existing = await prisma.campaignExpense.findUnique({ where: { id } });
+    if (!existing || !existing.deletedAt) throw AppError.notFound('Expense');
+    await makeCampaignService(ctx).assertInScope(existing.campaignId);
+    const restored = await prisma.campaignExpense.update({ where: { id }, data: { deletedAt: null, deletedById: null } });
+    await logActivity(ctx, {
+      type: 'COST_UPDATED',
+      message: `${actor.name} restored a ${existing.type.toLowerCase().replace(/_/g, ' ')} expense of ${existing.amount} ${existing.currency} from the trash.`,
+      campaignId: existing.campaignId,
+      meta: { expenseId: id },
+    });
+    return toExpenseDTO(restored);
+  }
+
+  return { listForCampaign, create, update, remove, listTrash, restore };
 }
 
 export type ExpenseService = ReturnType<typeof makeExpenseService>;

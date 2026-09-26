@@ -15,6 +15,7 @@ import type {
   NotificationCategory,
   ParticipationStatus,
   PaymentStatus,
+  PaymentMethod,
   Platform,
   Priority,
   RelationshipStatus,
@@ -31,6 +32,7 @@ import type {
   LogisticsIssueStatus,
   AddressHealth,
 } from '../enums';
+import type { OffsetPagination } from '../pagination';
 
 /**
  * Response DTOs (addendum §7). These are deliberately different from the Prisma
@@ -62,6 +64,9 @@ export interface UserDTO {
   contentLayout: string | null;
   isActive: boolean;
   lastLoginAt: string | null;
+  /** The signed-in user's own effective capabilities (only on /auth/me), so a
+   *  client can hide what the server would refuse anyway. */
+  capabilities?: Capability[];
 }
 
 /** A single line of the human-readable "this user can / cannot" permission
@@ -934,6 +939,8 @@ export interface ExpenseDTO {
   incurredAt: string | null;
   notes: string | null;
   createdAt: string;
+  /** Set when the expense is in the campaign's deleted expenses (restorable). */
+  deletedAt: string | null;
 }
 
 export interface CostSummaryDTO {
@@ -1837,4 +1844,78 @@ export interface IntegrityFindingDTO {
   evidence: string;
   link: string;
   detectedAt: string;
+}
+
+// --- Finance: payment ledger and payables (P2.3) ---------------------------
+
+/** One payment against a creator's fee (roster row) or an expense. Never
+ *  deleted: a mistaken one is voided and stops counting. */
+export interface PaymentDTO {
+  id: string;
+  kind: 'FEE' | 'EXPENSE';
+  campaignId: string;
+  campaignName: string;
+  brandName: string;
+  campaignInfluencerId: string | null;
+  expenseId: string | null;
+  influencerId: string | null;
+  influencerName: string | null;
+  expenseType: ExpenseType | null;
+  expenseLabel: string | null;
+  amount: number;
+  currency: string;
+  paidAt: string;
+  method: PaymentMethod;
+  reference: string | null;
+  notes: string | null;
+  receipt: AttachmentDTO | null;
+  recordedByName: string | null;
+  createdAt: string;
+  voidedAt: string | null;
+  voidedByName: string | null;
+  voidReason: string | null;
+}
+
+/** Something the agency still owes: a creator's fee or an expense. */
+export interface PayableDTO {
+  kind: 'FEE' | 'EXPENSE';
+  /** The roster row id for a fee, the expense id for an expense. */
+  id: string;
+  campaignId: string;
+  campaignName: string;
+  brandId: string;
+  brandName: string;
+  influencerId: string | null;
+  influencerName: string | null;
+  expenseType: ExpenseType | null;
+  label: string | null;
+  amount: number;
+  paid: number;
+  owed: number;
+  currency: string;
+  paymentStatus: PaymentStatus;
+  /** When it falls due: the creator's expected post date, or the day the
+   *  expense was incurred. */
+  dueAt: string | null;
+  lastPaidAt: string | null;
+  paymentsCount: number;
+}
+
+export interface CurrencyTotalDTO {
+  currency: string;
+  amount: number;
+}
+
+export interface PayablesPageDTO {
+  data: PayableDTO[];
+  pagination: OffsetPagination;
+  /** Still owed, per currency, across every page. */
+  totals: CurrencyTotalDTO[];
+}
+
+export interface PaymentsPageDTO {
+  data: PaymentDTO[];
+  pagination: OffsetPagination;
+  /** Paid (voided payments left out), per currency, across every page. */
+  totals: CurrencyTotalDTO[];
 }

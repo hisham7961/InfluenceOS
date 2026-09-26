@@ -203,6 +203,9 @@ export const PAYMENT_STATUSES = [
 ] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
+export const PAYMENT_METHODS = ['BANK_TRANSFER', 'CASH', 'CHEQUE', 'CARD', 'PAYMENT_LINK', 'OTHER'] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
 export const EXPENSE_TYPES = [
   'INFLUENCER_FEE',
   'GIFT_PRODUCT',
@@ -359,6 +362,7 @@ export const CANDIDATE_STATUS_LABELS = labelMap(CANDIDATE_STATUSES);
 export const SHIPMENT_STATUS_LABELS = labelMap(SHIPMENT_STATUSES);
 export const CONTENT_STATUS_LABELS = labelMap(CONTENT_STATUSES, { BROKEN_LINK: 'Broken Link' });
 export const PAYMENT_STATUS_LABELS = labelMap(PAYMENT_STATUSES);
+export const PAYMENT_METHOD_LABELS = labelMap(PAYMENT_METHODS);
 export const EXPENSE_TYPE_LABELS = labelMap(EXPENSE_TYPES);
 export const PRIORITY_LABELS = labelMap(PRIORITIES);
 export const CONTACT_METHOD_LABELS = labelMap(CONTACT_METHODS, { INSTAGRAM_DM: 'Instagram DM' });

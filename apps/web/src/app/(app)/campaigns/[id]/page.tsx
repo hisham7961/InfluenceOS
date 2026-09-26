@@ -35,7 +35,11 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
 
   const [influencers, costs, scripts] = await Promise.all([
     api.campaigns.influencers(campaign.id),
-    api.campaigns.costs(campaign.id),
+    // Costs are finance data: without finance access the tab is left out.
+    api.campaigns.costs(campaign.id).catch((e: unknown) => {
+      if (e instanceof ApiError && e.status === 403) return null;
+      throw e;
+    }),
     api.campaigns.scripts(campaign.id),
   ]);
 

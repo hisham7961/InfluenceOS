@@ -239,5 +239,13 @@
     "SENT_TO_BRAND": "Sent to brand",
     "CHANGES_REQUESTED": "Changes requested",
     "APPROVED": "Approved by brand"
+  },
+  "paymentMethod": {
+    "BANK_TRANSFER": "Bank transfer",
+    "CASH": "Cash",
+    "CHEQUE": "Cheque",
+    "CARD": "Card",
+    "PAYMENT_LINK": "Payment link",
+    "OTHER": "Other"
   }
 }

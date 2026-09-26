@@ -222,6 +222,15 @@ enum PaymentStatus {
   PAID
 }
 
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+  CHEQUE
+  CARD
+  PAYMENT_LINK
+  OTHER
+}
+
 enum ExpenseType {
   INFLUENCER_FEE
   GIFT_PRODUCT
@@ -432,6 +441,9 @@ model User {
   reviewedScriptVersions  ScriptReferenceVersion[] @relation("ScriptVersionReviewer")
   attachments             Attachment[]
   expenses                CampaignExpense[]
+  paymentsRecorded        Payment[]                @relation("PaymentRecordedBy")
+  paymentsVoided          Payment[]                @relation("PaymentVoidedBy")
+  expensesDeleted         CampaignExpense[]        @relation("ExpenseDeletedBy")
   notifications           Notification[]
   savedViews              SavedView[]
   deviceSessions          DeviceSession[]
@@ -782,6 +794,7 @@ model Campaign {
   scripts             ScriptReference[]
   publishedContent    PublishedContent[]
   expenses            CampaignExpense[]
+  payments            Payment[]
   activities          ActivityLog[]
   notifications       Notification[]
   attachments         Attachment[]
@@ -826,6 +839,7 @@ model CampaignInfluencer {
   deliverables     Deliverable[]
   publishedContent PublishedContent[]
   expenses         CampaignExpense[]
+  payments         Payment[]
   shipments        ProductShipment[]
   attachments      Attachment[]
 
@@ -1263,13 +1277,58 @@ model CampaignExpense {
   createdById          String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
+  /// In the trash: left out of every total and list, restorable. An expense
+  /// is never deleted outright once money has been recorded against it.
+  deletedAt            DateTime?
+  deletedById          String?
 
   campaign           Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   campaignInfluencer CampaignInfluencer? @relation(fields: [campaignInfluencerId], references: [id])
   createdBy          User?               @relation(fields: [createdById], references: [id])
+  deletedBy          User?               @relation("ExpenseDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  payments           Payment[]
 
   @@index([campaignId])
   @@index([campaignInfluencerId])
+  @@index([deletedAt])
+}
+
+/// One payment made against a creator's fee (roster row) or an expense. The
+/// ledger is the record of what was paid: the paid amount and payment status
+/// on the roster row / expense are derived from it. A payment is never
+/// deleted; a mistaken one is voided (with who, when and why) and stops
+/// counting.
+model Payment {
+  id                   String        @id @default(cuid())
+  campaignId           String
+  campaignInfluencerId String?
+  expenseId            String?
+  amount               Decimal       @db.Decimal(18, 3)
+  currency             String
+  paidAt               DateTime
+  method               PaymentMethod @default(BANK_TRANSFER)
+  /// Bank transfer number, cheque number, payment-link id…
+  reference            String?
+  notes                String?
+  receiptId            String?
+  createdById          String?
+  createdAt            DateTime      @default(now())
+  voidedAt             DateTime?
+  voidedById           String?
+  voidReason           String?
+
+  campaign           Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignInfluencer CampaignInfluencer? @relation(fields: [campaignInfluencerId], references: [id], onDelete: NoAction)
+  expense            CampaignExpense?    @relation(fields: [expenseId], references: [id], onDelete: NoAction)
+  receipt            Attachment?         @relation(fields: [receiptId], references: [id], onDelete: SetNull)
+  createdBy          User?               @relation("PaymentRecordedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  voidedBy           User?               @relation("PaymentVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
+
+  @@index([campaignId])
+  @@index([campaignInfluencerId])
+  @@index([expenseId])
+  @@index([paidAt])
+  @@index([receiptId])
 }
 
 // ===========================================================================
@@ -1298,6 +1357,7 @@ model Attachment {
   campaign           Campaign?               @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   campaignInfluencer CampaignInfluencer?     @relation(fields: [campaignInfluencerId], references: [id], onDelete: Cascade)
   submissions        DeliverableSubmission[]
+  paymentReceipts    Payment[]
   influencer         Influencer?             @relation(fields: [influencerId], references: [id], onDelete: Cascade)
   deliverable        Deliverable?            @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
   scriptReference    ScriptReference?        @relation(fields: [scriptReferenceId], references: [id], onDelete: Cascade)

@@ -239,5 +239,13 @@
     "SENT_TO_BRAND": "أُرسل للعلامة التجارية",
     "CHANGES_REQUESTED": "مطلوب تعديلات",
     "APPROVED": "وافقت عليه العلامة التجارية"
+  },
+  "paymentMethod": {
+    "BANK_TRANSFER": "تحويل بنكي",
+    "CASH": "نقدًا",
+    "CHEQUE": "شيك",
+    "CARD": "بطاقة",
+    "PAYMENT_LINK": "رابط دفع",
+    "OTHER": "أخرى"
   }
 }

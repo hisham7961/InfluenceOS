@@ -126,6 +126,8 @@ import {
 } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { AttachmentsPanel } from '@/components/common/attachments-panel';
+import { useApp } from '@/components/shell/app-context';
+import { PaymentHistory } from '@/components/finance/payment-history';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { WhatsAppDialog } from '@/components/influencers/whatsapp-dialog';
 import { PageFooter } from '@/components/ui/page-footer';
@@ -164,7 +166,8 @@ function splitList(value: string): string[] {
 export interface WorkspaceProps {
   campaign: CampaignDetailDTO;
   influencers: CampaignInfluencerDTO[];
-  costs: { expenses: ExpenseDTO[]; summary: CostSummaryDTO };
+  /** Null when the user has no finance access — the Costs tab is left out. */
+  costs: { expenses: ExpenseDTO[]; summary: CostSummaryDTO } | null;
   scripts: ScriptDTO[];
 }
 
@@ -195,7 +198,7 @@ export function Workspace({ campaign, influencers, costs, scripts }: WorkspacePr
   // all link here with `?tab=…`) — controlled, seeded from the URL, and kept
   // in sync on every switch so those links actually land on the right tab.
   const requestedTab = searchParams.get('tab');
-  const initialTab = WORKSPACE_TABS.find((t) => t === requestedTab) ?? 'overview';
+  const initialTab = WORKSPACE_TABS.find((t) => t === requestedTab && (t !== 'costs' || costs)) ?? 'overview';
   const [tab, setTab] = React.useState<string>(initialTab);
   function changeTab(next: string) {
     setTab(next);
@@ -214,7 +217,7 @@ export function Workspace({ campaign, influencers, costs, scripts }: WorkspacePr
         <TabsTrigger value="scripts">{t('workspace.tabs.scripts')}</TabsTrigger>
         <TabsTrigger value="content">{t('workspace.tabs.content')}</TabsTrigger>
         <TabsTrigger value="shipments">{t('workspace.tabs.shipments')}</TabsTrigger>
-        <TabsTrigger value="costs">{t('workspace.tabs.costs')}</TabsTrigger>
+        {costs ? <TabsTrigger value="costs">{t('workspace.tabs.costs')}</TabsTrigger> : null}
         <TabsTrigger value="performance">{t('workspace.tabs.performance')}</TabsTrigger>
         <TabsTrigger value="files">{t('workspace.tabs.files')}</TabsTrigger>
         <TabsTrigger value="activity">{t('workspace.tabs.activity')}</TabsTrigger>
@@ -264,9 +267,11 @@ export function Workspace({ campaign, influencers, costs, scripts }: WorkspacePr
         <ShipmentsTab campaignId={campaign.id} influencers={influencers} />
       </TabsContent>
 
-      <TabsContent value="costs">
-        <CostsTab campaignId={campaign.id} currency={campaign.currency} influencers={influencers} costs={costs} />
-      </TabsContent>
+      {costs ? (
+        <TabsContent value="costs">
+          <CostsTab campaignId={campaign.id} currency={campaign.currency} influencers={influencers} costs={costs} />
+        </TabsContent>
+      ) : null}
 
       <TabsContent value="performance">
         <PerformanceTab campaignId={campaign.id} />
@@ -817,12 +822,17 @@ function InfluencerRow({
     onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
-  // One click for the common case — the agreed fee paid in full today — with
-  // an Undo that puts back exactly what was there.
+  // One click for the common case — what is still owed on the fee, paid in
+  // full today by bank transfer — recorded in the payment ledger, with an
+  // Undo that voids that payment again.
+  const { can } = useApp();
+  const owed = Math.max(0, (ci.agreedCost ?? 0) - (ci.paidAmount ?? 0));
   const canMarkPaid =
+    can('FINANCE_MANAGE') &&
     (ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED') &&
     ci.agreedCost != null &&
     ci.agreedCost > 0 &&
+    owed > 0.0005 &&
     ci.paymentStatus !== 'PAID' &&
     ci.paymentStatus !== 'NOT_APPLICABLE';
   const refresh = () => {
@@ -830,25 +840,15 @@ function InfluencerRow({
     router.refresh();
   };
   const markPaid = useMutation({
-    mutationFn: () =>
-      api.campaignInfluencers.update(ci.id, {
-        paymentStatus: 'PAID',
-        paidAmount: ci.agreedCost,
-        paidAt: new Date(),
-      }),
-    onSuccess: () => {
-      const before = { paymentStatus: ci.paymentStatus, paidAmount: ci.paidAmount, paidAt: ci.paidAt };
+    mutationFn: () => api.finance.payFee(ci.id, { amount: owed, paidAt: new Date(), method: 'BANK_TRANSFER' }),
+    onSuccess: (payment) => {
       refresh();
       toast.success(t('workspace.influencers.markedPaidToast', { name: ci.influencer.displayName }), {
         action: {
           label: t('workspace.influencers.undo'),
           onClick: () => {
-            api.campaignInfluencers
-              .update(ci.id, {
-                paymentStatus: before.paymentStatus,
-                paidAmount: before.paidAmount,
-                paidAt: before.paidAt ? new Date(before.paidAt) : null,
-              })
+            api.finance
+              .voidPayment(payment.id, t('workspace.influencers.undoPaymentReason'))
               .then(refresh)
               .catch((e: unknown) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))));
           },
@@ -999,7 +999,7 @@ function InfluencerRow({
         <RosterResults results={ci.results} currency={campaign.currency} />
       </div>
 
-      <EditInfluencerDialog ci={ci} open={editOpen} onOpenChange={setEditOpen} />
+      <EditInfluencerDialog ci={ci} currency={ci.currency ?? campaign.currency} open={editOpen} onOpenChange={setEditOpen} />
       <LinkExistingContentDialog ci={ci} campaign={campaign} open={linkOpen} onOpenChange={setLinkOpen} />
       <Dialog open={filesOpen} onOpenChange={setFilesOpen}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto">
@@ -1150,10 +1150,12 @@ function LinkExistingContentDialog({
 
 function EditInfluencerDialog({
   ci,
+  currency,
   open,
   onOpenChange,
 }: {
   ci: CampaignInfluencerDTO;
+  currency: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -1168,9 +1170,6 @@ function EditInfluencerDialog({
     ci.giftedProductValue != null ? String(ci.giftedProductValue) : '',
   );
   const [participationStatus, setParticipationStatus] = React.useState<ParticipationStatus>(ci.participationStatus);
-  const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus>(ci.paymentStatus);
-  const [paidAmount, setPaidAmount] = React.useState(ci.paidAmount != null ? String(ci.paidAmount) : '');
-  const [paidAt, setPaidAt] = React.useState(toDateInputValue(ci.paidAt));
   const [dateContacted, setDateContacted] = React.useState(toDateInputValue(ci.dateContacted));
   const [expectedPublishAt, setExpectedPublishAt] = React.useState(toDateInputValue(ci.expectedPublishAt));
   const [notes, setNotes] = React.useState(ci.notes ?? '');
@@ -1181,39 +1180,33 @@ function EditInfluencerDialog({
       setAgreedCost(ci.agreedCost != null ? String(ci.agreedCost) : '');
       setGiftedProductValue(ci.giftedProductValue != null ? String(ci.giftedProductValue) : '');
       setParticipationStatus(ci.participationStatus);
-      setPaymentStatus(ci.paymentStatus);
-      setPaidAmount(ci.paidAmount != null ? String(ci.paidAmount) : '');
-      setPaidAt(toDateInputValue(ci.paidAt));
       setDateContacted(toDateInputValue(ci.dateContacted));
       setExpectedPublishAt(toDateInputValue(ci.expectedPublishAt));
       setNotes(ci.notes ?? '');
     }
   }, [open, ci]);
 
-  // A part payment needs the amount paid so far; a payment of either kind can carry its date.
-  const partlyPaid = paymentStatus === 'PARTIALLY_PAID';
-  const hasPayment = partlyPaid || paymentStatus === 'PAID';
+  // Payments are recorded in the payment history below (P2.3), not typed
+  // in as a status — only people who may see money see it.
+  const { can } = useApp();
+  const showPayments =
+    can('FINANCE_VIEW') &&
+    (ci.paymentStatus === 'PAID' ||
+      ci.paymentStatus === 'PARTIALLY_PAID' ||
+      ((ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED') && (ci.agreedCost ?? 0) > 0));
   const day = (v: string) => (v ? new Date(`${v}T12:00:00`) : null);
 
   const save = useMutation({
     mutationFn: () => {
       const cost = agreedCost.trim();
       const gift = giftedProductValue.trim();
-      const paid = paidAmount.trim();
       if (cost !== '' && !Number.isFinite(Number(cost))) throw new Error(t('workspace.influencers.invalidAgreedCost'));
       if (gift !== '' && !Number.isFinite(Number(gift))) throw new Error(t('workspace.influencers.invalidGiftValue'));
-      if (partlyPaid && paid !== '' && !Number.isFinite(Number(paid))) {
-        throw new Error(t('workspace.influencers.invalidPaidAmount'));
-      }
       return api.campaignInfluencers.update(ci.id, {
         dealType,
         agreedCost: cost === '' ? null : Number(cost),
         giftedProductValue: gift === '' ? null : Number(gift),
         participationStatus,
-        paymentStatus,
-        // Paid in full is the agreed fee; unpaid / not applicable clear what was recorded.
-        paidAmount: partlyPaid ? (paid === '' ? null : Number(paid)) : paymentStatus === 'PAID' ? (cost === '' ? null : Number(cost)) : null,
-        paidAt: hasPayment ? day(paidAt) : null,
         dateContacted: day(dateContacted),
         expectedPublishAt: day(expectedPublishAt),
         notes: notes.trim() || null,
@@ -1287,41 +1280,6 @@ function EditInfluencerDialog({
               </SelectContent>
             </Select>
           </Field>
-          <Field label={t('fields.paymentStatus')} className={hasPayment ? undefined : 'col-span-2'}>
-            <Select value={paymentStatus} onValueChange={(v) => setPaymentStatus(v as PaymentStatus)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PAYMENT_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {enumLabel(tEnums, 'paymentStatus', s)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          {hasPayment ? (
-            <Field label={t('workspace.influencers.paidAtLabel')} hint={t('fields.optionalHint')}>
-              <Input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
-            </Field>
-          ) : null}
-          {partlyPaid ? (
-            <Field
-              label={t('workspace.influencers.paidAmountLabel')}
-              hint={t('workspace.influencers.paidAmountHint')}
-              className="col-span-2"
-            >
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                value={paidAmount}
-                onChange={(e) => setPaidAmount(e.target.value)}
-                placeholder="0.00"
-              />
-            </Field>
-          ) : null}
           <Field label={t('workspace.influencers.dateContactedLabel')} hint={t('fields.optionalHint')}>
             <Input type="date" value={dateContacted} onChange={(e) => setDateContacted(e.target.value)} />
           </Field>
@@ -1332,6 +1290,23 @@ function EditInfluencerDialog({
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </Field>
         </div>
+
+        {showPayments ? (
+          <div className="border-t border-border pt-4">
+            <PaymentHistory
+              target={{ kind: 'FEE', id: ci.id }}
+              payeeName={ci.influencer.displayName}
+              amount={ci.agreedCost ?? 0}
+              owed={Math.max(0, (ci.agreedCost ?? 0) - (ci.paidAmount ?? 0))}
+              currency={currency}
+              receiptTarget={{ campaignInfluencerId: ci.id }}
+              onChanged={() => {
+                queryClient.invalidateQueries();
+                router.refresh();
+              }}
+            />
+          </div>
+        ) : null}
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -2873,18 +2848,26 @@ function ExpenseRow({ expense }: { expense: ExpenseDTO }) {
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
+  const tFinance = useTranslations('finance');
   const { shortDate } = useLocalizedFormat();
+  const { can } = useApp();
+  const canManage = can('FINANCE_MANAGE');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = React.useState(false);
+  const [paymentsOpen, setPaymentsOpen] = React.useState(false);
   const [removeOpen, setRemoveOpen] = React.useState(false);
+  const refresh = () => {
+    queryClient.invalidateQueries();
+    router.refresh();
+  };
 
+  // Deleting puts it in the campaign's deleted expenses, where it can be restored.
   const remove = useMutation({
     mutationFn: () => api.expenses.remove(expense.id),
     onSuccess: () => {
       toast.success(t('workspace.expenses.removedToast'));
-      queryClient.invalidateQueries();
-      router.refresh();
+      refresh();
       setRemoveOpen(false);
     },
     onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
@@ -2915,34 +2898,130 @@ function ExpenseRow({ expense }: { expense: ExpenseDTO }) {
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label={t('workspace.expenses.editAriaLabel', { name })}
-          onClick={() => setEditOpen(true)}
+          aria-label={t('workspace.expenses.paymentsAriaLabel', { name })}
+          title={tFinance('payments')}
+          onClick={() => setPaymentsOpen(true)}
         >
-          <Pencil className="h-4 w-4" />
+          <Wallet className="h-4 w-4" />
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t('workspace.expenses.removeAriaLabel', { name })}
-          className="text-muted-foreground hover:text-danger"
-          onClick={() => setRemoveOpen(true)}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        {canManage ? (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t('workspace.expenses.editAriaLabel', { name })}
+              onClick={() => setEditOpen(true)}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t('workspace.expenses.removeAriaLabel', { name })}
+              className="text-muted-foreground hover:text-danger"
+              onClick={() => setRemoveOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </>
+        ) : null}
       </div>
 
-      <EditExpenseDialog expense={expense} open={editOpen} onOpenChange={setEditOpen} />
+      {canManage ? <EditExpenseDialog expense={expense} open={editOpen} onOpenChange={setEditOpen} /> : null}
+      <Dialog open={paymentsOpen} onOpenChange={setPaymentsOpen}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{tFinance('payments')}</DialogTitle>
+            <DialogDescription>{t('workspace.expenses.paymentsDialogDescription', { name })}</DialogDescription>
+          </DialogHeader>
+          <PaymentHistory
+            target={{ kind: 'EXPENSE', id: expense.id }}
+            payeeName={name}
+            amount={expense.amount}
+            owed={Math.max(0, expense.amount - (expense.paidAmount ?? 0))}
+            currency={expense.currency}
+            receiptTarget={{ campaignId: expense.campaignId }}
+            onChanged={refresh}
+          />
+        </DialogContent>
+      </Dialog>
       <ConfirmDialog
         open={removeOpen}
         onOpenChange={setRemoveOpen}
         title={t('workspace.expenses.removeConfirmTitle')}
         description={t('workspace.expenses.removeConfirmDescription', { name })}
-        confirmLabel={tCommon('remove')}
+        confirmLabel={t('workspace.expenses.moveToTrash')}
         loading={remove.isPending}
         onConfirm={() => remove.mutate()}
       />
     </div>
+  );
+}
+
+/** The campaign's deleted expenses, each restorable by people who manage finance. */
+function DeletedExpenses({ campaignId }: { campaignId: string }) {
+  const t = useTranslations('finance');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
+  const { shortDate } = useLocalizedFormat();
+  const { can } = useApp();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const trash = useQuery({
+    queryKey: ['finance', 'expense-trash', campaignId],
+    queryFn: () => api.expenses.trash(campaignId),
+  });
+  const restore = useMutation({
+    mutationFn: (id: string) => api.expenses.restore(id),
+    onSuccess: () => {
+      toast.success(t('trash.restored'));
+      queryClient.invalidateQueries();
+      router.refresh();
+    },
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
+  });
+  const rows = trash.data ?? [];
+  if (rows.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Trash2 className="h-4 w-4 text-muted-foreground" /> {t('trash.title')}
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">{t('trash.hint')}</p>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="divide-y divide-border">
+          {rows.map((e) => {
+            const name = e.label || enumLabel(tEnums, 'expenseType', e.type);
+            return (
+              <div key={e.id} className="flex items-center gap-3 p-4 text-sm">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-muted-foreground line-through">
+                    <BidiText>{name}</BidiText>
+                  </p>
+                  {e.deletedAt ? <p className="text-xs text-muted-foreground">{t('trash.deletedOn', { date: shortDate(e.deletedAt) })}</p> : null}
+                </div>
+                <LtrText as="span" className="shrink-0 text-muted-foreground">{formatCurrency(e.amount, e.currency)}</LtrText>
+                {can('FINANCE_MANAGE') ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={restore.isPending}
+                    onClick={() => restore.mutate(e.id)}
+                  >
+                    {t('trash.restore')}
+                  </Button>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -3007,9 +3086,6 @@ function EditExpenseDialog({
   const [type, setType] = React.useState<ExpenseType>(expense.type);
   const [label, setLabel] = React.useState(expense.label ?? '');
   const [amount, setAmount] = React.useState(String(expense.amount));
-  const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus>(expense.paymentStatus);
-  const [paidAmount, setPaidAmount] = React.useState(expense.paidAmount != null ? String(expense.paidAmount) : '');
-  const [paidAt, setPaidAt] = React.useState(toDateInputValue(expense.paidAt));
   const [incurredAt, setIncurredAt] = React.useState(toDateInputValue(expense.incurredAt));
   const [notes, setNotes] = React.useState(expense.notes ?? '');
 
@@ -3018,9 +3094,6 @@ function EditExpenseDialog({
       setType(expense.type);
       setLabel(expense.label ?? '');
       setAmount(String(expense.amount));
-      setPaymentStatus(expense.paymentStatus);
-      setPaidAmount(expense.paidAmount != null ? String(expense.paidAmount) : '');
-      setPaidAt(toDateInputValue(expense.paidAt));
       setIncurredAt(toDateInputValue(expense.incurredAt));
       setNotes(expense.notes ?? '');
     }
@@ -3032,15 +3105,10 @@ function EditExpenseDialog({
       if (!amount.trim() || !Number.isFinite(parsed) || parsed < 0) {
         throw new Error(t('workspace.expenses.invalidAmount'));
       }
-      if (paymentStatus === 'PARTIALLY_PAID' && paidAmount.trim() && !Number.isFinite(Number(paidAmount))) {
-        throw new Error(t('workspace.influencers.invalidPaidAmount'));
-      }
       return api.expenses.update(expense.id, {
         type,
         label: label.trim() || null,
         amount: parsed,
-        paymentStatus,
-        ...paymentDetailPayload(paymentStatus, paidAmount, paidAt, parsed),
         incurredAt: incurredAt ? new Date(incurredAt) : null,
         notes: notes.trim() || null,
       });
@@ -3095,27 +3163,6 @@ function EditExpenseDialog({
               <Input type="date" value={incurredAt} onChange={(e) => setIncurredAt(e.target.value)} />
             </Field>
           </div>
-          <Field label={t('fields.paymentStatus')}>
-            <Select value={paymentStatus} onValueChange={(v) => setPaymentStatus(v as PaymentStatus)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PAYMENT_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {enumLabel(tEnums, 'paymentStatus', s)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <PaymentDetailFields
-            paymentStatus={paymentStatus}
-            paidAmount={paidAmount}
-            onPaidAmount={setPaidAmount}
-            paidAt={paidAt}
-            onPaidAt={setPaidAt}
-          />
           <Field label={t('fields.notes')} hint={t('fields.optionalHint')}>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </Field>
@@ -3287,6 +3334,7 @@ function CostsTab({
   costs: { expenses: ExpenseDTO[]; summary: CostSummaryDTO };
 }) {
   const t = useTranslations('campaigns');
+  const canManage = useApp().can('FINANCE_MANAGE');
   const s = costs.summary;
   const overspent = (s.budgetUsedPercent ?? 0) > 100;
 
@@ -3384,8 +3432,10 @@ function CostsTab({
           </CardContent>
         </Card>
 
-        <AddExpenseForm campaignId={campaignId} currency={currency} influencers={influencers} />
+        {canManage ? <AddExpenseForm campaignId={campaignId} currency={currency} influencers={influencers} /> : null}
       </div>
+
+      <DeletedExpenses campaignId={campaignId} />
     </div>
   );
 }

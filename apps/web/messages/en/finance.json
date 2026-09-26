@@ -1,0 +1,83 @@
+{
+  "title": "Finance",
+  "subtitle": "What is still owed to creators and suppliers, and every payment made.",
+  "noAccess": "You don't have access to finance. Ask an admin for the Finance view permission.",
+  "tabs": {
+    "payables": "To pay",
+    "payments": "Payments"
+  },
+  "filters": {
+    "search": "Search campaign, creator or item",
+    "allKinds": "Everything",
+    "fees": "Creator fees",
+    "expenses": "Expenses",
+    "showVoided": "Show voided payments",
+    "brand": "Brand",
+    "allBrands": "All brands"
+  },
+  "totalOwed": "Still owed",
+  "totalPaid": "Paid",
+  "downloadExcel": "Download Excel",
+  "nothingOwed": "Nothing is owed right now.",
+  "noPayments": "No payments recorded yet.",
+  "cols": {
+    "campaign": "Campaign",
+    "payee": "Creator / item",
+    "amount": "Amount",
+    "paid": "Paid",
+    "owed": "Still owed",
+    "due": "Due",
+    "date": "Date",
+    "method": "Method",
+    "reference": "Reference",
+    "recordedBy": "Recorded by"
+  },
+  "kind": {
+    "FEE": "Creator fee",
+    "EXPENSE": "Expense"
+  },
+  "recordPayment": "Record payment",
+  "payments": "Payments",
+  "paymentsCount": "{count, plural, one {# payment} other {# payments}}",
+  "lastPaid": "Last paid {date}",
+  "voided": "Voided",
+  "voidedBy": "Voided by {name} on {date}: {reason}",
+  "void": "Void",
+  "voidTitle": "Void this payment?",
+  "voidBody": "It stays in the history, marked voided, and stops counting as paid.",
+  "voidReason": "Why?",
+  "voidReasonPlaceholder": "e.g. Entered twice",
+  "voidConfirm": "Void payment",
+  "voidedToast": "Payment voided",
+  "receipt": "Receipt",
+  "dialog": {
+    "title": "Record a payment",
+    "for": "For {name}",
+    "owed": "Still owed: {amount}",
+    "amount": "Amount",
+    "date": "Date paid",
+    "method": "Method",
+    "reference": "Reference",
+    "referencePlaceholder": "Transfer or cheque number",
+    "notes": "Notes",
+    "receipt": "Receipt (optional)",
+    "attachReceipt": "Attach a receipt",
+    "uploading": "Uploading {percent}%",
+    "save": "Record payment",
+    "saved": "Payment recorded",
+    "invalidAmount": "Enter an amount above zero, no more than what is owed."
+  },
+  "ledger": {
+    "title": "Payments",
+    "paidOf": "{paid} paid of {amount}",
+    "none": "Nothing paid yet.",
+    "recordedBy": "by {name}"
+  },
+  "trash": {
+    "title": "Deleted expenses",
+    "hint": "Deleted expenses are left out of every total. Restore one if it was deleted by mistake.",
+    "restore": "Restore",
+    "restored": "Expense restored",
+    "deletedOn": "Deleted {date}"
+  }
+}

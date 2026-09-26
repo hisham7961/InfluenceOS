@@ -117,7 +117,7 @@ export async function computeCampaignProgressBatch(
       },
     }),
     prisma.campaignExpense.findMany({
-      where: { campaignId: { in: ids } },
+      where: { campaignId: { in: ids }, deletedAt: null },
       select: { campaignId: true, campaignInfluencerId: true, type: true, amount: true, paymentStatus: true, paidAmount: true },
     }),
   ]);
@@ -198,7 +198,7 @@ export async function computeCostSummary(
       },
     }),
     prisma.campaignExpense.findMany({
-      where: { campaignId },
+      where: { campaignId, deletedAt: null },
       select: { campaignInfluencerId: true, type: true, amount: true, paymentStatus: true, paidAmount: true },
     }),
   ]);

@@ -169,6 +169,7 @@ interface ExpenseLike {
   incurredAt: Date | null;
   notes: string | null;
   createdAt: Date;
+  deletedAt?: Date | null;
 }
 
 export function toExpenseDTO(e: ExpenseLike): ExpenseDTO {
@@ -186,6 +187,7 @@ export function toExpenseDTO(e: ExpenseLike): ExpenseDTO {
     incurredAt: iso(e.incurredAt),
     notes: e.notes,
     createdAt: e.createdAt.toISOString(),
+    deletedAt: iso(e.deletedAt ?? null),
   };
 }
 

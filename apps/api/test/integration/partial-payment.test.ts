@@ -67,7 +67,14 @@ describe('finance — partial payment splits paid/unpaid correctly', () => {
     expect(paidSummary.unpaid).toBe(0);
 
     // Reverting to UNPAID moves it all back to unpaid.
-    await app.inject({ method: 'PATCH', url: `/api/v1/campaign-influencers/${ciId}`, headers: auth, payload: { paymentStatus: 'UNPAID' } });
+    // Money already recorded is taken back by voiding the payments (P2.3
+    // ledger) — setting the status back to unpaid is refused.
+    const lower = await app.inject({ method: 'PATCH', url: `/api/v1/campaign-influencers/${ciId}`, headers: auth, payload: { paymentStatus: 'UNPAID' } });
+    expect(lower.statusCode).toBe(409);
+    const ledger = (await app.inject({ method: 'GET', url: `/api/v1/finance/payments?campaignInfluencerId=${ciId}`, headers: auth })).json() as { data: { id: string }[] };
+    for (const p of ledger.data) {
+      await app.inject({ method: 'POST', url: `/api/v1/payments/${p.id}/void`, headers: auth, payload: { reason: 'test reset' } });
+    }
     const unpaidSummary = await summary();
     expect(unpaidSummary.paid).toBe(0);
     expect(unpaidSummary.unpaid).toBe(3000);
@@ -77,6 +84,7 @@ describe('finance — partial payment splits paid/unpaid correctly', () => {
     // Clear the previous fee first so this assertion is isolated.
     const { PrismaClient } = await import('@influenceos/database');
     const prisma = new PrismaClient();
+    await prisma.payment.deleteMany({ where: { campaignId } });
     await prisma.campaignInfluencer.deleteMany({ where: { campaignId } });
     await prisma.$disconnect();
 

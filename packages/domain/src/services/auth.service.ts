@@ -18,7 +18,7 @@ import type { ClientType, User } from '@influenceos/database';
 import type { Actor, DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor, requireAdmin } from '../lib/authz';
-import { resolveCapabilitiesFor, resolveEffectiveCapabilities } from '../lib/capabilities';
+import { resolveCapabilities, resolveCapabilitiesFor, resolveEffectiveCapabilities } from '../lib/capabilities';
 import { open, seal } from '../lib/crypto';
 import { logActivity } from '../lib/helpers';
 
@@ -374,7 +374,9 @@ export function makeAuthService(ctx: DomainContext) {
     if (!ctx.actor) throw AppError.unauthorized();
     const user = await prisma.user.findUnique({ where: { id: ctx.actor.id } });
     if (!user) throw AppError.unauthorized();
-    return toUserDTO(user);
+    // The user's own capabilities, so a client can hide what it can't use.
+    const capabilities = [...(await resolveCapabilities(ctx))].sort();
+    return { ...toUserDTO(user), capabilities };
   }
 
   /** Persist the current user's UI preferences (locale/theme) on their account

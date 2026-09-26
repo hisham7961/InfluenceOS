@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/cn';
 import { useConversationUnread } from '@/lib/use-conversation-unread';
 import { NAV_SECTIONS } from './nav';
+import { useApp } from './app-context';
 
 const TEAM_CHAT_KEY = 'channel:general';
 
@@ -17,9 +18,13 @@ export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const teamUnread = useConversationUnread(TEAM_CHAT_KEY);
   const t = useTranslations('nav');
+  const { can } = useApp();
+  const sections = NAV_SECTIONS.map((s) => ({ ...s, items: s.items.filter((i) => !i.requires || can(i.requires)) })).filter(
+    (s) => s.items.length > 0,
+  );
   return (
     <nav className="flex flex-1 flex-col gap-4 px-3">
-      {NAV_SECTIONS.map((section, si) => (
+      {sections.map((section, si) => (
         <div key={section.labelKey ?? `section-${si}`} className="flex flex-col gap-1">
           {section.labelKey ? (
             <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">

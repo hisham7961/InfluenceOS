@@ -13,8 +13,10 @@ import {
   Sparkles,
   Store,
   Users,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react';
+import type { Capability } from '@influenceos/contracts';
 
 export interface NavItem {
   href: string;
@@ -22,6 +24,8 @@ export interface NavItem {
   labelKey: string;
   icon: LucideIcon;
   exact?: boolean;
+  /** Shown only to users with this capability (the server refuses the page's data anyway). */
+  requires?: Capability;
 }
 
 export interface NavSection {
@@ -54,6 +58,7 @@ export const NAV_SECTIONS: NavSection[] = [
     labelKey: 'insights',
     items: [
       { href: '/exec', labelKey: 'executive', icon: Gauge },
+      { href: '/finance', labelKey: 'finance', icon: Wallet, requires: 'FINANCE_VIEW' },
       { href: '/reports', labelKey: 'reports', icon: Sparkles },
       { href: '/data-quality', labelKey: 'dataQuality', icon: ShieldAlert },
     ],

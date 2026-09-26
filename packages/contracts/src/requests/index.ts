@@ -12,6 +12,7 @@ import {
   EXPENSE_TYPES,
   PARTICIPATION_STATUSES,
   PAYMENT_STATUSES,
+  PAYMENT_METHODS,
   PRIORITIES,
   RELATIONSHIP_STATUSES,
   SUBMISSION_DECISIONS,
@@ -894,6 +895,47 @@ export const expenseCreateSchema = z.object({
   notes: optionalString,
 });
 export const expenseUpdateSchema = expenseCreateSchema.partial().omit({ campaignId: true });
+
+// --- Payment ledger (P2.3) -------------------------------------------------
+/** Record a payment against a creator's fee or an expense. */
+export const paymentCreateSchema = z.object({
+  amount: z.coerce.number().positive().max(1_000_000_000),
+  /** Defaults to today. */
+  paidAt: isoDate,
+  method: z.enum(PAYMENT_METHODS).default('BANK_TRANSFER'),
+  reference: z.string().trim().max(200).optional().nullable(),
+  notes: optionalString,
+  /** A file already uploaded to the same campaign (or its roster row). */
+  receiptAttachmentId: cuid.optional().nullable(),
+});
+export const paymentVoidSchema = z.object({
+  reason: z.string().trim().min(1).max(500),
+});
+
+const financeFilters = {
+  brandId: cuid.optional(),
+  campaignId: cuid.optional(),
+  influencerId: cuid.optional(),
+  /** Campaign, creator or expense label. */
+  q: z.string().trim().max(200).optional(),
+};
+/** What is still owed. */
+export const payablesQuerySchema = offsetQuerySchema.extend({
+  ...financeFilters,
+  kind: z.enum(['FEE', 'EXPENSE']).optional(),
+});
+/** The payments made (the ledger). */
+export const paymentsQuerySchema = offsetQuerySchema.extend({
+  ...financeFilters,
+  campaignInfluencerId: cuid.optional(),
+  expenseId: cuid.optional(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+  includeVoided: z
+    .enum(['true', 'false', '1', '0'])
+    .optional()
+    .transform((v) => v === 'true' || v === '1'),
+});
 
 // --- Attachments ------------------------------------------------------------
 /** Target association for an attachment (at least one is required). */

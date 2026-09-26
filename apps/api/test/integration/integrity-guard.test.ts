@@ -57,9 +57,13 @@ describe('OI-9 — Workflow Integrity Guard', () => {
         method: 'POST',
         url: `/api/v1/campaigns/${campaignId}/influencers`,
         headers: auth,
-        payload: { influencerId, dealType: 'PAID', agreedCost: 100, paidAmount: 150 },
+        payload: { influencerId, dealType: 'PAID', agreedCost: 150 },
       }),
     );
+    // Paid in full, then the fee is lowered: what was paid is now more than
+    // the agreed cost (a payment can't be recorded above it directly).
+    await app.inject({ method: 'POST', url: `/api/v1/campaign-influencers/${ciId}/payments`, headers: auth, payload: { amount: 150 } });
+    await app.inject({ method: 'PATCH', url: `/api/v1/campaign-influencers/${ciId}`, headers: auth, payload: { agreedCost: 100 } });
 
     const findings = await findingsFor(brandId);
     const finding = findings.find((f) => f.rule === 'PAID_AMOUNT_EXCEEDS_AGREED_COST' && f.id === `PAID_AMOUNT_EXCEEDS_AGREED_COST:${ciId}`);
@@ -74,7 +78,7 @@ describe('OI-9 — Workflow Integrity Guard', () => {
 
     // Correcting the row makes the finding disappear on the next read — it
     // was never stored, only derived.
-    await app.inject({ method: 'PATCH', url: `/api/v1/campaign-influencers/${ciId}`, headers: auth, payload: { paidAmount: 100 } });
+    await app.inject({ method: 'PATCH', url: `/api/v1/campaign-influencers/${ciId}`, headers: auth, payload: { agreedCost: 150 } });
     const after = await findingsFor(brandId);
     expect(after.find((f) => f.id === finding!.id)).toBeUndefined();
   });
