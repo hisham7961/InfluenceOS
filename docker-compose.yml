@@ -13,6 +13,17 @@ x-app-env: &app-env
   S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
   S3_FORCE_PATH_STYLE: 'true'
   MAX_UPLOAD_MB: '50'
+  # Optional settings, passed through from .env when set (empty = not set):
+  # a separate encryption key for stored secrets, email, the uptime ping, the
+  # API docs switch, and a fallback Claude key/model for Settings → AI.
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+  SMTP_URL: ${SMTP_URL:-}
+  MAIL_FROM: ${MAIL_FROM:-}
+  APP_URL: ${APP_URL:-}
+  HEALTHCHECK_PING_URL: ${HEALTHCHECK_PING_URL:-}
+  API_DOCS: ${API_DOCS:-}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  AI_MODEL: ${AI_MODEL:-}
 
 services:
   postgres:

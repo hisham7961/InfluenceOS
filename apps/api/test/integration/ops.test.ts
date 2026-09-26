@@ -160,4 +160,27 @@ describe('env contract', () => {
       loadEnv();
     }
   });
+
+  it('treats an empty value (compose passes unset optional settings as "") as not set', async () => {
+    const keys = ['ENCRYPTION_KEY', 'API_DOCS', 'SMTP_URL', 'ANTHROPIC_API_KEY'] as const;
+    const original = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
+    const { resetEnv, loadEnv } = await import('../../src/env.ts');
+    try {
+      for (const k of keys) process.env[k] = '';
+      resetEnv();
+      // Without the rule, "" fails ENCRYPTION_KEY's length and API_DOCS's on/off.
+      const env = loadEnv();
+      expect(env.ENCRYPTION_KEY).toBeUndefined();
+      expect(env.API_DOCS).toBeUndefined();
+      expect(env.SMTP_URL).toBeUndefined();
+      expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+    } finally {
+      for (const k of keys) {
+        if (original[k] === undefined) delete process.env[k];
+        else process.env[k] = original[k];
+      }
+      resetEnv();
+      loadEnv();
+    }
+  });
 });

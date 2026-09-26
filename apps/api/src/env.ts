@@ -132,7 +132,10 @@ let cached: Env | null = null;
 
 export function loadEnv(): Env {
   if (cached) return cached;
-  const parsed = schema.safeParse(process.env);
+  // Compose passes optional settings through as `${VAR:-}`, so an unset one
+  // arrives as an empty string: treat that as not set.
+  const input = Object.fromEntries(Object.entries(process.env).filter(([, v]) => v !== ''));
+  const parsed = schema.safeParse(input);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `  - ${i.path.join('.') || '(root)'}: ${i.message}`).join('\n');
     // eslint-disable-next-line no-console
