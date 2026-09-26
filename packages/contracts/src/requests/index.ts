@@ -1697,3 +1697,29 @@ export const approvalsQuerySchema = z.object({
 });
 
 export { z };
+
+// --- AI assistance (P3.2 / P3.5) --------------------------------------------
+
+/** Admin: the AI switch, key, model and monthly limit. `apiKey: null` clears a stored key. */
+export const aiSettingsUpdateSchema = z.object({
+  enabled: z.boolean().optional(),
+  model: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9][A-Za-z0-9._:@\/-]{1,127}$/, 'Enter the model ID exactly as your Anthropic account shows it.')
+    .nullable()
+    .optional(),
+  apiKey: z.string().trim().min(20, 'That doesn\'t look like a Claude API key.').max(500).nullable().optional(),
+  monthlyLimit: z.coerce.number().int().min(0).max(100_000).optional(),
+  readScreenshots: z.boolean().optional(),
+  writingHelp: z.boolean().optional(),
+});
+export type AiSettingsUpdate = z.infer<typeof aiSettingsUpdateSchema>;
+
+/** Read a post's numbers from one of its attached insights screenshots. */
+export const readMetricsScreenshotSchema = z.object({
+  attachmentId: cuid,
+  /** The reader's language, for the note. */
+  locale: z.enum(['en', 'ar']).default('en'),
+});
+

@@ -51,6 +51,7 @@ only in the web app**. The API is the product core; the web is one client.
 | Audience insights and creator selection filters | ✅ | ✅ | ✅ | /influencers |
 | Suggested creators | ✅ | ✅ | ✅ | /campaigns |
 | Rate benchmarks | ✅ | ✅ | ✅ | /reports/benchmarks |
+| Read metrics from an insights screenshot (AI) | ✅ | ✅ | ✅ | /content |
 | Caption check | ✅ | ✅ | ✅ | /campaigns |
 | My work and approvals | ✅ | ✅ | ✅ | /my-work |
 
@@ -65,6 +66,7 @@ administration surface).
 | Provider Secrets | — | ✅ | — | — |
 | User Administration | ✅ | ✅ | — | /settings/users |
 | Advanced Roles & Capabilities | ✅ | ✅ | — | /settings/users |
+| AI assistance settings | ✅ | ✅ | — | /settings/ai |
 
 ## Definition of "Mobile Ready"
 
@@ -73,4 +75,4 @@ administration surface).
 6. Request/response contracts stable · 7. Media represented independently of web UI ·
 8. Filtering/pagination server-side · 9. API tests exist · 10. No web-only server behavior.
 
-Total documented endpoints: 166.
+Total documented endpoints: 170.

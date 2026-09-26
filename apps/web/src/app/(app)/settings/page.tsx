@@ -16,6 +16,7 @@ import {
   ScrollText,
   ServerCog,
   ShieldCheck,
+  Sparkles,
   Sun,
   UserCircle,
   Users,
@@ -152,6 +153,14 @@ export default async function SettingsPage() {
           icon={BadgeCheck}
           title={t('hub.cards.compliance.title')}
           description={t('hub.cards.compliance.description')}
+        />
+
+        <NavCard
+          href="/settings/ai"
+          icon={Sparkles}
+          title={t('hub.cards.ai.title')}
+          description={t('hub.cards.ai.description')}
+          badge={isAdmin ? t('hub.adminBadge') : undefined}
         />
 
         <NavCard

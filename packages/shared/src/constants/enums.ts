@@ -117,6 +117,15 @@ export type CreatorGender = (typeof CREATOR_GENDERS)[number];
 export const AUDIENCE_SOURCES = ['MANUAL', 'CREATOR', 'PLATFORM'] as const;
 export type AudienceSource = (typeof AUDIENCE_SOURCES)[number];
 
+/** What an AI request was for (P3.2 / P3.5). */
+export const AI_FEATURES = [
+  'READ_SCREENSHOT',
+  'SCRIPT_DRAFT',
+  'DRAFT_REVIEW',
+  'REPORT_SUMMARY',
+] as const;
+export type AiFeature = (typeof AI_FEATURES)[number];
+
 export const CAMPAIGN_STATUSES = [
   'DRAFT',
   'PLANNING',

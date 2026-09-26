@@ -52,6 +52,10 @@ export async function resealStoredSecrets(prisma: PrismaClient): Promise<ResealR
     }
   }
 
+  const ai = await prisma.aiSettings.findUnique({ where: { id: 'singleton' }, select: { sealedApiKey: true } });
+  const aiKey = reseal(ai?.sealedApiKey ?? null);
+  if (aiKey) await prisma.aiSettings.update({ where: { id: 'singleton' }, data: { sealedApiKey: aiKey } });
+
   // Grace-window refresh tokens live for seconds; re-seal the few that exist.
   const sessions = await prisma.deviceSession.findMany({
     where: { graceTokenSealed: { not: null } },

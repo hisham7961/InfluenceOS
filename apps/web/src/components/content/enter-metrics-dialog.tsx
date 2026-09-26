@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { BarChart3, Check } from 'lucide-react';
-import type { ContentMetricsDTO, PublishedContentDTO } from '@influenceos/contracts';
+import type { ContentMetricsDTO, MetricsReadDTO, PublishedContentDTO } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,8 +21,10 @@ import {
 import { Field, Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { AttachmentsPanel } from '@/components/common/attachments-panel';
+import { ReadMetricsScreenshot } from '@/components/content/read-metrics-screenshot';
 import { formatCompact, useLocalizedFormat } from '@/lib/format';
 import { errorMessage } from '@/lib/errors';
+import { cn } from '@/lib/cn';
 
 export const METRIC_FIELDS = ['views', 'likes', 'comments', 'shares', 'saves'] as const;
 export type MetricField = (typeof METRIC_FIELDS)[number];
@@ -64,7 +66,9 @@ export function parseCount(raw: string): number | null | 'invalid' {
  * Type in a post's numbers — the only way to get them for Snapchat, TikTok
  * and Stories, which have no metrics API. Prefilled with the latest numbers;
  * the as-of date lets an older insights screenshot join the history without
- * becoming "latest". The screenshot itself can be attached right here.
+ * becoming "latest". The screenshot itself can be attached right here, and
+ * when AI is on it can fill the numbers in from it (P3.2) for a person to
+ * check before saving.
  */
 export function EnterMetricsDialog({
   content,
@@ -82,13 +86,24 @@ export function EnterMetricsDialog({
   const [open, setOpen] = React.useState(false);
   const [values, setValues] = React.useState<Record<MetricField, string>>(() => blankValues(content.metrics));
   const [asOf, setAsOf] = React.useState(todayInput);
+  // Boxes the AI filled in, marked until someone edits them.
+  const [aiFilled, setAiFilled] = React.useState<ReadonlySet<MetricField>>(new Set());
 
   React.useEffect(() => {
     if (open) {
       setValues(blankValues(content.metrics));
       setAsOf(todayInput());
+      setAiFilled(new Set());
     }
   }, [open, content.metrics]);
+
+  function applyReading(res: MetricsReadDTO) {
+    if (!res.looksLikeInsights) return;
+    const filled = METRIC_FIELDS.filter((k) => res.values[k] != null);
+    setValues((v) => ({ ...v, ...Object.fromEntries(filled.map((k) => [k, String(res.values[k])])) }));
+    setAiFilled(new Set(filled));
+    if (res.capturedOn && res.capturedOn <= todayInput()) setAsOf(res.capturedOn);
+  }
 
   const parsed = Object.fromEntries(METRIC_FIELDS.map((k) => [k, parseCount(values[k])])) as Record<
     MetricField,
@@ -131,13 +146,22 @@ export function EnterMetricsDialog({
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {METRIC_FIELDS.map((k) => (
-            <Field key={k} label={t(`metricsEntry.fields.${k}`)} error={parsed[k] === 'invalid' ? t('metricsEntry.invalidNumber') : undefined}>
+            <Field
+              key={k}
+              label={t(`metricsEntry.fields.${k}`)}
+              error={parsed[k] === 'invalid' ? t('metricsEntry.invalidNumber') : undefined}
+              hint={aiFilled.has(k) ? t('metricsEntry.ai.filledLabel') : undefined}
+            >
               <Input
                 inputMode="numeric"
                 dir="ltr"
                 value={values[k]}
                 placeholder="—"
-                onChange={(e) => setValues((v) => ({ ...v, [k]: e.target.value }))}
+                className={cn(aiFilled.has(k) && 'border-brand ring-brand/30 ring-2')}
+                onChange={(e) => {
+                  setValues((v) => ({ ...v, [k]: e.target.value }));
+                  setAiFilled((s) => (s.has(k) ? new Set([...s].filter((x) => x !== k)) : s));
+                }}
               />
             </Field>
           ))}
@@ -152,6 +176,7 @@ export function EnterMetricsDialog({
         <div className="rounded-lg border border-border p-3">
           <p className="mb-2 text-xs font-medium text-muted-foreground">{t('metricsEntry.screenshot')}</p>
           <AttachmentsPanel target={{ publishedContentId: content.id }} inline />
+          {open ? <ReadMetricsScreenshot contentId={content.id} onRead={applyReading} /> : null}
         </div>
 
         <DialogFooter>

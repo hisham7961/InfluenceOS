@@ -883,6 +883,38 @@ export const FEATURES: FeatureEntry[] = [
     deepLink: '/reports/benchmarks',
   },
   {
+    key: 'ai_settings',
+    name: 'AI assistance settings',
+    description:
+      "Settings → AI: off by default. An admin turns AI assistance on with a Claude API key (stored encrypted, only its last four characters shown) and a model ID, chooses which AI features are allowed, and sets one monthly request limit shared by all of them (Kuwait calendar month). Every request is logged — who, what for, tokens — never the image or text.",
+    module: 'Settings',
+    classification: 'ADMIN_DESKTOP_ONLY',
+    apiStatus: 'READY',
+    webStatus: 'READY',
+    mobileReady: false,
+    permissions: ADMIN_ONLY,
+    flag: null,
+    minApiVersion: 'v1',
+    apiEndpoints: ['GET /api/v1/platform/ai', 'PATCH /api/v1/platform/ai'],
+    deepLink: '/settings/ai',
+  },
+  {
+    key: 'ai_screenshot_metrics',
+    name: 'Read metrics from an insights screenshot (AI)',
+    description:
+      "In \"Enter metrics\": Claude reads the numbers (views, likes, comments, shares, saves and the date, when shown) from a screenshot attached to the post and fills the form in, marked for checking — nothing is saved until a person saves. Numbers the screenshot doesn't show stay empty; an image that isn't an insights screen fills nothing. Only when an admin has turned it on.",
+    module: 'Content',
+    classification: 'SHARED',
+    apiStatus: 'READY',
+    webStatus: 'READY',
+    mobileReady: true,
+    permissions: ALL,
+    flag: null,
+    minApiVersion: 'v1',
+    apiEndpoints: ['GET /api/v1/ai/status', 'POST /api/v1/content/:id/metrics/read-screenshot'],
+    deepLink: '/content',
+  },
+  {
     key: 'caption_check',
     name: 'Caption check',
     description:

@@ -139,6 +139,9 @@ describe.skipIf(!ENDPOINT)('files — real MinIO/S3 round-trip (s3 driver)', () 
       await storage.copy(key, `quarantine/${key}`);
       expect(await storage.head(`quarantine/${key}`)).toEqual({ size: 7 });
       expect(await storage.head(key)).toEqual({ size: 7 });
+      // Server-side read (AI screenshot reading), and null for a missing key.
+      expect((await storage.read(`quarantine/${key}`))?.toString()).toBe('copy me');
+      expect(await storage.read(`${key}-missing`)).toBeNull();
     } finally {
       await storage.remove(key);
       await storage.remove(`quarantine/${key}`);

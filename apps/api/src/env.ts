@@ -70,6 +70,12 @@ const schema = z
     MAIL_FROM: z.string().optional(),
     APP_URL: z.string().optional(),
 
+    // AI assistance (P3.2, optional): normally set in Settings → AI, which
+    // takes precedence. These only fill in what Settings leaves empty; AI
+    // stays off until an admin switches it on there.
+    ANTHROPIC_API_KEY: z.string().optional(),
+    AI_MODEL: z.string().optional(),
+
     // Release metadata (surfaced on /health and Platform status; never secrets)
     APP_VERSION: z.string().optional(),
     GIT_SHA: z.string().optional(),

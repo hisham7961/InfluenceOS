@@ -34,6 +34,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "0.128.0",
     "@influenceos/api-client": "workspace:*",
     "@node-rs/argon2": "2.0.2",
     "@types/node": "22.10.5",

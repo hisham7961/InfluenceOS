@@ -196,6 +196,17 @@
     "asOf": "Numbers as of",
     "hint": "Leave a box empty if the platform doesn't show it. You can type 12.4k or 1.2m.",
     "screenshot": "Insights screenshot (optional, kept with the post)",
+    "ai": {
+      "read": "Read the numbers with AI",
+      "reading": "Reading the screenshot…",
+      "pick": "Screenshot to read",
+      "attachFirst": "Attach an insights screenshot above and AI can read the numbers for you.",
+      "filled": "{count, plural, =0 {No numbers could be read from this screenshot.} one {Filled in # number from the screenshot — check it against the screenshot before saving.} other {Filled in # numbers from the screenshot — check them against the screenshot before saving.}}",
+      "notInsights": "This doesn't look like a post's insights screen, so nothing was filled in.",
+      "dateFromShot": "The \"numbers as of\" date was set from the screenshot.",
+      "remaining": "{count, plural, =0 {No AI requests left this month.} one {# AI request left this month.} other {# AI requests left this month.}}",
+      "filledLabel": "Filled in by AI — check it"
+    },
     "saved": "Metrics saved.",
     "history": "{count, plural, one {# earlier entry} other {# earlier entries}}",
     "bulkOpen": "Enter metrics for all posts",

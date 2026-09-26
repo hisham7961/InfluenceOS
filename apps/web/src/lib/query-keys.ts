@@ -23,6 +23,9 @@ export const qk = {
     audience: (id: string) => ['influencer', id, 'audience'] as const,
   },
   complianceSettings: ['compliance-settings'] as const,
+  /** Whether AI assistance is on for the app, and requests left this month (P3.2). */
+  aiStatus: ['ai-status'] as const,
+  aiSettings: ['ai-settings'] as const,
   /** Rate benchmarks (P3.7) for the given narrowing. */
   benchmarks: (params: Record<string, string | number | undefined>) =>
     ['benchmarks', params] as const,

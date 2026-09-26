@@ -1,51 +1,62 @@
-# AI features — ready to build, waiting on a decision
+# AI assistance
 
-Two planned features call Claude: reading the numbers from an insights
-screenshot (P3.2) and writing help for briefs, captions and outreach (P3.5).
-Both are **off by default** and are **not built yet**, because they need three
-things only the owner can decide:
+Claude (Anthropic) helps in a few places. It is **off by default** and does
+nothing until an admin turns it on in **Settings → AI**. Every answer is a
+suggestion: a person checks it, and nothing is saved until they save.
 
-1. **A new dependency.** Claude is called through the official Anthropic SDK
-   (`@anthropic-ai/sdk`), not hand-written HTTP. Adding it means installing a
-   new npm package and updating `pnpm-lock.yaml`.
-2. **An API key.** Stored like the other provider keys: Settings →
-   Integrations (encrypted with `ENCRYPTION_KEY`), or `ANTHROPIC_API_KEY` in
-   `.env`.
-3. **A monthly limit.** How many AI requests a month the agency will pay for
-   (each screenshot read is one request; the cost depends on the model).
+## Turning it on (Settings → AI, admins only)
 
-## Design (P3.2 — read metrics from a screenshot)
+- **Claude API key** — from the Anthropic console. Stored encrypted (like the
+  platform keys, with `ENCRYPTION_KEY`, re-sealed by the reseal script); the
+  page shows only its last four characters. `ANTHROPIC_API_KEY` in the server
+  environment is used when none is saved here.
+- **Model ID** — typed exactly as the Anthropic account shows it (the app has
+  no model built in, so the agency picks and changes it without a release).
+  It must read images for screenshot reading. `AI_MODEL` in the environment is
+  used when none is saved here.
+- **Switches** — AI on/off, and each feature: reading screenshots, writing
+  help. Turning AI on without a key and a model is refused.
+- **Monthly limit** — one limit for all features per calendar month (Kuwait
+  time), 300 by default. Answered and declined requests count; failed ones
+  don't. The page shows this month's use by feature.
 
-The metrics dialog already accepts an insights screenshot as an attachment
-(P1.1). The AI step only adds a button:
+What is sent: only the screenshot or text the request needs. What is kept:
+one row per request — who, which feature, which post/campaign, tokens, and
+whether it worked — never the image or text (`AiRequest`).
 
-- **"Read the numbers"** next to an attached image. The server loads the image
-  from object storage (never from a URL the browser sends), and asks Claude to
-  return views, reach, likes, comments, shares, saves and the date shown —
-  through a strict tool schema, so the answer is always structured.
-- The result **pre-fills** the form; nothing is saved until a person checks it
-  and presses Save. Values the model couldn't see stay empty (never a guess or
-  a zero). The saved snapshot is marked as entered by hand from a screenshot.
-- Model: `claude-opus-5` (Anthropic's current default), adaptive thinking,
-  `max_tokens` ≈ 1,000, with server-side refusal fallback.
-- Guard rails: an admin switch (off by default), the monthly limit counted in
-  the database (the button is hidden when it's reached), only people with
-  CONTENT_MANAGE, brand scope as everywhere, images only (PNG/JPEG/WebP, ≤ 5 MB),
-  and every request logged (who, which post, tokens used) without storing the
-  image text.
-- API: `POST /api/v1/content/:id/metrics/read-screenshot { attachmentId }` →
-  suggested values + which ones were found; `GET /api/v1/platform/ai` for the
-  switch, limit and this month's use.
+Errors are plain and translated: AI off, feature off, limit reached, key
+refused, model not found, service busy, declined, or an answer that couldn't
+be used.
 
-## Design (P3.5 — writing help)
+## Built: read metrics from an insights screenshot (P3.2)
 
-Same switch, key and limit. Suggestions only, shown next to the field:
-a campaign brief from the objective and product notes, caption ideas that keep
-the required hashtags and mentions, and a polite outreach message in Arabic or
-English. Nothing is sent to creators automatically.
+In **Enter metrics** (a post's numbers), once a screenshot is attached:
 
-## What to tell us
+- **"Read the numbers with AI"** — the server loads the attachment from
+  storage (never a URL from the browser), checks it belongs to the post and is
+  a PNG/JPEG/WebP/GIF of at most 5 MB, and asks Claude for views, likes,
+  comments, shares and saves — plus the date, only when the screen shows the
+  date the numbers were for — as structured output.
+- The form is filled in and the filled boxes are marked until edited; the
+  "numbers as of" date is set when read. A number the screenshot doesn't show
+  stays empty (never a guess). An image that isn't an insights screen fills
+  nothing and says so. Claude's note (e.g. "saves are cut off") is shown in the
+  reader's language.
+- Needs CONTENT_MANAGE and the post in the reader's brands/countries.
 
-- "Yes, add the Anthropic SDK" (or "no AI").
-- Where the key will live (Settings screen or `.env`).
-- The monthly request limit (for example 300).
+API: `GET /api/v1/ai/status`, `GET|PATCH /api/v1/platform/ai` (admin),
+`POST /api/v1/content/:id/metrics/read-screenshot { attachmentId, locale }`.
+
+## Next: writing help (P3.5)
+
+Same switch, key and limit, under "Writing help":
+
+- **Script draft** — a first draft of a script version from the campaign and
+  deliverable brief (body, talking points, dos and don'ts, hashtags,
+  mentions), filled into the form for the team to edit.
+- **Draft review notes** — suggested notes on a creator's submitted draft
+  against the approved script and the caption rules, for the reviewer.
+- **Report summary** — a short summary of a campaign's results for the client
+  report, filled into the summary box for editing.
+
+Nothing is sent to creators or clients automatically.

@@ -52,6 +52,7 @@ import { makeLicenceService } from './services/licence.service';
 import { makeWorkService } from './services/work.service';
 import { makeAudienceService } from './services/audience.service';
 import { makeBenchmarkService } from './services/benchmark.service';
+import { makeAiService } from './services/ai.service';
 
 export function createServices(ctx: DomainContext) {
   return {
@@ -85,6 +86,7 @@ export function createServices(ctx: DomainContext) {
     work: makeWorkService(ctx),
     audience: makeAudienceService(ctx),
     benchmarks: makeBenchmarkService(ctx),
+    ai: makeAiService(ctx),
     scripts: makeScriptService(ctx),
     content: makeContentService(ctx),
     expenses: makeExpenseService(ctx),
@@ -126,6 +128,7 @@ export { getStorage, resetStorage, sanitizeFileName, buildStorageKey } from './l
 export { signDownloadTicket, verifyDownloadTicket } from './lib/tokens';
 export { diskUsage, type DiskUsage } from './lib/disk';
 export { resealStoredSecrets, type ResealResult } from './lib/reseal';
+export { setAiClientFactory, resetAiClientFactory, type AiClient } from './lib/ai';
 export {
   alertAdmins,
   recordSyncHealth,

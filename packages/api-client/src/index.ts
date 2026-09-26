@@ -41,6 +41,9 @@ import type {
   ApprovalItemDTO,
   CampaignLicenceCheckDTO,
   ComplianceSettingsDTO,
+  AiSettingsDTO,
+  AiStatusDTO,
+  MetricsReadDTO,
   PayablesPageDTO,
   PaymentDTO,
   PaymentsPageDTO,
@@ -601,6 +604,9 @@ export function createClient(config: ClientConfig) {
       monitoring: (id: string) => http.get<MonitoringEventDTO[]>(`${V}/content/${id}/monitoring`),
       addMetrics: (id: string, body: In<typeof requests.contentMetricSchema>) =>
         http.post<PublishedContentDTO>(`${V}/content/${id}/metrics`, body),
+      /** AI (P3.2): read the numbers off an attached insights screenshot — suggestions, nothing saved. */
+      readMetricsScreenshot: (id: string, body: In<typeof requests.readMetricsScreenshotSchema>) =>
+        http.post<MetricsReadDTO>(`${V}/content/${id}/metrics/read-screenshot`, body),
       /** End-of-campaign entry: numbers for many posts of one campaign. */
       addMetricsBulk: (campaignId: string, body: In<typeof requests.campaignMetricsBulkSchema>) =>
         http.post<{ recorded: number; skipped: number }>(
@@ -756,6 +762,14 @@ export function createClient(config: ClientConfig) {
       settings: () => http.get<ComplianceSettingsDTO>(`${V}/compliance/settings`),
       updateSettings: (body: In<typeof requests.complianceSettingsUpdateSchema>) =>
         http.put<ComplianceSettingsDTO>(`${V}/compliance/settings`, body),
+    },
+
+    // AI assistance (P3.2 / P3.5): off until an admin switches it on.
+    ai: {
+      status: () => http.get<AiStatusDTO>(`${V}/ai/status`),
+      settings: () => http.get<AiSettingsDTO>(`${V}/platform/ai`),
+      updateSettings: (body: In<typeof requests.aiSettingsUpdateSchema>) =>
+        http.patch<AiSettingsDTO>(`${V}/platform/ai`, body),
     },
 
     // Audience insights (P3.7): who follows each of a creator's accounts.

@@ -331,5 +331,19 @@
   "a_updated_audience_insights": "{name} updated audience insights for {displayName} (@{username}).",
   "a_removed_audience_insights": "{name} removed audience insights for {displayName} (@{username}).",
   "e_usual_fee_from_more_than_to": "The usual fee \"from\" must not be more than \"to\".",
-  "e_usual_fee_needs_currency": "Pick the currency of the usual fee."
+  "e_usual_fee_needs_currency": "Pick the currency of the usual fee.",
+  "e_ai_off": "AI assistance is turned off. An admin can turn it on in Settings → AI.",
+  "e_ai_feature_off": "This AI feature is turned off in Settings → AI.",
+  "e_ai_limit_reached": "This month's AI requests are used up. An admin can raise the limit in Settings → AI.",
+  "e_ai_key_refused": "The Claude API key was refused. An admin can check it in Settings → AI.",
+  "e_ai_model_not_found": "The AI model in Settings → AI was not found. An admin can check the model ID.",
+  "e_ai_busy": "The AI service is busy. Try again in a minute.",
+  "e_ai_rejected": "The AI service could not take this request.",
+  "e_ai_no_answer": "The AI service didn't answer. Try again.",
+  "e_ai_declined": "The AI declined this request.",
+  "e_ai_unusable": "The AI answer couldn't be used. Try again.",
+  "e_ai_needs_key_model": "Add a Claude API key and a model ID before turning AI on.",
+  "a_changed_ai_settings": "{name} changed the AI settings.",
+  "e_ai_image_type": "Only PNG, JPEG, WebP or GIF screenshots can be read.",
+  "e_ai_image_too_big": "This screenshot is too big to read (over 5 MB)."
 }

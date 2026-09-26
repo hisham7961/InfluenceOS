@@ -21,6 +21,7 @@ import type {
   PaymentMethod,
   Platform,
   FollowerTier,
+  AiFeature,
   Priority,
   RelationshipStatus,
   ShipmentStatus,
@@ -2731,4 +2732,60 @@ export interface AudienceInsightDTO {
   createdByName: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// --- AI assistance (P3.2 / P3.5) --------------------------------------------
+
+/** What the signed-in person can use right now (no secrets). */
+export interface AiStatusDTO {
+  /** Switched on by an admin, with a key and a model set. */
+  available: boolean;
+  readScreenshots: boolean;
+  writingHelp: boolean;
+  /** Requests left this month (all features together); null when unavailable. */
+  remaining: number | null;
+}
+
+/** Admin view of the AI settings. The key itself is never returned. */
+export interface AiSettingsDTO {
+  enabled: boolean;
+  /** Where the model comes from and what it is (settings, else AI_MODEL). */
+  model: string | null;
+  modelSource: 'SETTINGS' | 'ENV' | 'NONE';
+  apiKey: { source: 'SETTINGS' | 'ENV' | 'NONE'; last4: string | null };
+  monthlyLimit: number;
+  readScreenshots: boolean;
+  writingHelp: boolean;
+  available: boolean;
+  usage: {
+    /** This calendar month, Kuwait time (YYYY-MM). */
+    month: string;
+    /** Answered and declined requests — what counts against the limit. */
+    used: number;
+    failed: number;
+    byFeature: { feature: AiFeature; count: number }[];
+  };
+  updatedAt: string | null;
+}
+
+/**
+ * Numbers read from an insights screenshot (P3.2) — suggestions only; nothing
+ * is saved until a person checks them and saves. A number the screenshot
+ * doesn't show is null (never a guess).
+ */
+export interface MetricsReadDTO {
+  values: {
+    views: number | null;
+    likes: number | null;
+    comments: number | null;
+    shares: number | null;
+    saves: number | null;
+  };
+  /** The date the insights were for, when the screenshot shows one (YYYY-MM-DD). */
+  capturedOn: string | null;
+  /** False when the image doesn't look like a post's insights screen. */
+  looksLikeInsights: boolean;
+  /** Anything worth checking (in the reader's language). */
+  note: string | null;
+  remaining: number | null;
 }

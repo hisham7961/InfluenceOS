@@ -47,6 +47,10 @@
       "compliance": {
         "title": "Compliance",
         "description": "The countries where creators need an advertising licence."
+      },
+      "ai": {
+        "title": "AI assistance",
+        "description": "Let Claude read insights screenshots and help write scripts and reports. Off until an admin turns it on."
       }
     },
     "darkTheme": "Dark theme",
@@ -559,6 +563,63 @@
       "current": "Checked in: {countries}",
       "none": "No country is checked. Licences are not checked on any campaign.",
       "adminOnly": "Only an administrator can change this list."
+    }
+  },
+  "ai": {
+    "title": "AI assistance",
+    "description": "Claude can read a post's numbers from an insights screenshot and help with writing. Every suggestion is checked by a person before anything is saved.",
+    "savedToast": "AI settings saved",
+    "statusOn": "AI assistance is on.",
+    "statusOff": "AI assistance is off.",
+    "adminOnly": "Only an administrator can change the AI settings.",
+    "switch": {
+      "title": "AI assistance",
+      "on": "On",
+      "off": "Off",
+      "incomplete": "Needs a key and a model",
+      "description": "Off by default. When it's on, the AI buttons appear for the people who can use them.",
+      "label": "Turn on AI assistance",
+      "hint": "Needs a Claude API key and a model ID below."
+    },
+    "features": {
+      "readScreenshots": "Read numbers from insights screenshots",
+      "readScreenshotsHint": "In \"Enter metrics\": fills the numbers in from an attached screenshot, for you to check and save.",
+      "writingHelp": "Writing help",
+      "writingHelpHint": "Draft a script from the brief, suggest notes on a creator's draft, and sum up a campaign report."
+    },
+    "privacy": "Each request sends the screenshot or text it needs to Anthropic (Claude) and nothing else. The app keeps a count of requests — who, what for and how big — never the images or text.",
+    "connection": {
+      "title": "Claude connection",
+      "description": "From your Anthropic account (console.anthropic.com). The key is stored encrypted and never shown again."
+    },
+    "key": {
+      "label": "Claude API key",
+      "saved": "A key ending in {last4} is saved.",
+      "fromEnv": "Using the key from the server's environment (ending in {last4}). A key saved here replaces it.",
+      "none": "No key yet.",
+      "replacePlaceholder": "Paste a new key to replace it",
+      "remove": "Remove the saved key"
+    },
+    "model": {
+      "label": "Model ID",
+      "placeholder": "The model ID from your Anthropic account",
+      "hint": "Copy it exactly as your Anthropic account shows it. The model must read images for screenshot reading.",
+      "fromEnv": "Using {model} from the server's environment. Type one here to replace it."
+    },
+    "usage": {
+      "title": "Monthly limit",
+      "description": "All AI features share one limit per calendar month (Kuwait time). Declined requests count; failed ones don't.",
+      "limit": "Requests per month",
+      "limitHint": "0 stops all AI requests until next month or until you raise it.",
+      "limitInvalid": "A whole number from 0 to 100,000",
+      "used": "<n>{used}</n> of <n>{limit}</n> requests used this month",
+      "failed": "{count, plural, one {# request failed (not counted)} other {# requests failed (not counted)}}",
+      "features": {
+        "READ_SCREENSHOT": "Screenshot reading",
+        "SCRIPT_DRAFT": "Script drafts",
+        "DRAFT_REVIEW": "Draft review notes",
+        "REPORT_SUMMARY": "Report summaries"
+      }
     }
   }
 }

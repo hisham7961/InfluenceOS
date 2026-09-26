@@ -33,6 +33,7 @@ import { reportShareRoutes } from './report-shares.routes';
 import { creatorLinkRoutes } from './creator-links.routes';
 import { discoveryRoutes } from './discovery.routes';
 import { licenceRoutes } from './licences.routes';
+import { aiRoutes } from './ai.routes';
 import { workRoutes } from './work.routes';
 import { audienceRoutes } from './audience.routes';
 
@@ -72,6 +73,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   await creatorLinkRoutes(app);
   await discoveryRoutes(app);
   await licenceRoutes(app);
+  await aiRoutes(app);
   await workRoutes(app);
   await audienceRoutes(app);
 }

@@ -2294,3 +2294,56 @@ model AudienceCountryShare {
   @@unique([insightId, countryCode])
   @@index([countryCode, pct])
 }
+
+// ===========================================================================
+// AI ASSISTANCE (P3.2 / P3.5)
+// ===========================================================================
+
+enum AiFeature {
+  READ_SCREENSHOT
+  SCRIPT_DRAFT
+  DRAFT_REVIEW
+  REPORT_SUMMARY
+}
+
+enum AiRequestStatus {
+  OK
+  REFUSED
+  FAILED
+}
+
+/// AI assistance settings — one row. Off until an admin turns it on with a
+/// Claude API key and model; nothing calls Claude before that. The key is
+/// sealed (AES-256-GCM) and never returned; ANTHROPIC_API_KEY / AI_MODEL in
+/// the environment are used when these are empty.
+model AiSettings {
+  id              String   @id @default("singleton")
+  enabled         Boolean  @default(false)
+  model           String?
+  sealedApiKey    String?
+  /// Requests allowed per calendar month (Kuwait time), all features together.
+  monthlyLimit    Int      @default(300)
+  readScreenshots Boolean  @default(true)
+  writingHelp     Boolean  @default(true)
+  updatedById     String?
+  updatedAt       DateTime @updatedAt
+}
+
+/// One call to Claude: who asked, for what, and the tokens it used — counted
+/// against the monthly limit (answered and declined calls; failed ones are
+/// logged but not counted). What was sent and returned is not stored.
+model AiRequest {
+  id                 String          @id @default(cuid())
+  feature            AiFeature
+  status             AiRequestStatus
+  userId             String?
+  campaignId         String?
+  publishedContentId String?
+  inputTokens        Int?
+  outputTokens       Int?
+  error              String?
+  createdAt          DateTime        @default(now())
+
+  @@index([createdAt])
+  @@index([feature, createdAt])
+}

@@ -6,7 +6,7 @@ Every major capability, its backend/API/web status, and whether it is **Mobile R
 (business logic server-side, documented API, server-side auth + permissions, stable
 contracts, media represented independently of the web UI — spec addendum §37).
 
-**Coverage:** 46 features · API ready 45 · Web ready 46 · Mobile ready 42 · Admin-desktop-only 4 · **Mobile readiness 100%** (of SHARED features).
+**Coverage:** 48 features · API ready 47 · Web ready 48 · Mobile ready 43 · Admin-desktop-only 5 · **Mobile readiness 100%** (of SHARED features).
 
 | Feature | Module | Class | API | Web | Mobile Ready | Roles | Flag |
 |---|---|---|---|---|:---:|---|---|
@@ -54,6 +54,8 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Audience insights and creator selection filters | Influencers | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Suggested creators | Campaigns | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Rate benchmarks | Reports | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| AI assistance settings | Settings | ADMIN_DESKTOP_ONLY | READY | READY | — | ADMIN | — |
+| Read metrics from an insights screenshot (AI) | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Caption check | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | My work and approvals | Dashboard | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 
@@ -352,6 +354,16 @@ contracts, media represented independently of the web UI — spec addendum §37)
 ### Rate benchmarks
 
 - `GET /api/v1/reports/benchmarks`
+
+### AI assistance settings
+
+- `GET /api/v1/platform/ai`
+- `PATCH /api/v1/platform/ai`
+
+### Read metrics from an insights screenshot (AI)
+
+- `GET /api/v1/ai/status`
+- `POST /api/v1/content/:id/metrics/read-screenshot`
 
 ### Caption check
 

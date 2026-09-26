@@ -497,6 +497,7 @@ PII (phone/address/delivery instructions) is redacted server-side for the
 | PATCH | `/api/v1/content/:id` | Update content (caption, associations, manual status). |
 | GET | `/api/v1/content/:id/metrics` | Metric snapshot history. |
 | POST | `/api/v1/content/:id/metrics` | Add manual metrics (platforms without an official API). |
+| POST | `/api/v1/content/:id/metrics/read-screenshot` | AI (P3.2): read a post's numbers from one of its attached insights screenshots — `{ attachmentId, locale }` (PNG/JPEG/WebP/GIF ≤ 5 MB, attached to this post). Returns suggested `values` (views, likes, comments, shares, saves; null when not shown), `capturedOn` (only when the screen shows it), `looksLikeInsights`, a `note` in the reader's language and `remaining` requests this month. Nothing is saved. Needs CONTENT_MANAGE, scope, and AI turned on (409 when off, a feature is off or the month's limit is used). |
 | GET | `/api/v1/content/:id/monitoring` | Content availability monitoring events. |
 | POST | `/api/v1/content/:id/refresh` | Refresh availability + metrics via the platform adapter. |
 | GET | `/api/v1/content/summary` | Content Command Center — per-user New/Seen/Reviewed/Review-Later/Unassigned/Alert counts, a daily summary and a per-brand breakdown, all in one call. |
@@ -655,6 +656,9 @@ hands out is checked against the web app's pages by a test
 | GET | `/api/v1/platform/app-versions` | Mobile app version/rollout rules for iOS + Android. **(admin)** |
 | PATCH | `/api/v1/platform/app-versions/:platform` | Upsert version/rollout rules for one mobile platform (`IOS`\|`ANDROID`). **(admin)** |
 | PATCH | `/api/v1/platform/client-config` | Update the client-config singleton (maintenance mode, upload limits, etc). **(admin)** |
+| GET | `/api/v1/platform/ai` | AI settings (P3.2): switch, model and where it comes from, key source and last four characters (never the key), monthly limit, feature switches, this month's use by feature. **(admin)** |
+| PATCH | `/api/v1/platform/ai` | Change them: `enabled`, `model` (null clears), `apiKey` (stored encrypted; null removes), `monthlyLimit`, `readScreenshots`, `writingHelp`. Turning AI on without a key and a model is refused (422). **(admin)** |
+| GET | `/api/v1/ai/status` | For everyone: whether AI is available, which features are on, and requests left this month. |
 
 ### Client Config
 

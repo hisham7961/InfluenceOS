@@ -43,7 +43,7 @@ export interface StorageDriver {
   save(key: string, body: Buffer, contentType: string): Promise<void>;
   /** Confirm an object exists and its size, or null. */
   head(key: string): Promise<{ size: number } | null>;
-  /** Read bytes (local download proxy). */
+  /** Read bytes server-side (local download proxy, AI screenshot reading). */
   read(key: string): Promise<Buffer | null>;
   remove(key: string): Promise<void>;
   /** Server-side copy (used to quarantine orphaned files instead of deleting them). */
@@ -134,8 +134,16 @@ class S3Driver implements StorageDriver {
     }
   }
 
-  async read(): Promise<Buffer | null> {
-    return null; // S3 downloads use presigned GET, not the proxy.
+  /** Server-side read (browsers download through presigned GET instead). */
+  async read(key: string): Promise<Buffer | null> {
+    try {
+      const res = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+      return res.Body ? Buffer.from(await res.Body.transformToByteArray()) : null;
+    } catch (err) {
+      const status = (err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+      if (status === 404 || (err as { name?: string }).name === 'NoSuchKey') return null;
+      throw err;
+    }
   }
 
   async remove(key: string): Promise<void> {
