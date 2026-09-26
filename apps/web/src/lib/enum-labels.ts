@@ -41,6 +41,7 @@ export type EnumFamily =
   | 'audienceHealth'
   | 'creatorGender'
   | 'audienceSource'
+  | 'followerTier'
   | 'dataSource'
   | 'inspirationCategory'
   | 'roleProfile'

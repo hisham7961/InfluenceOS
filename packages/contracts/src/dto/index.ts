@@ -20,6 +20,7 @@ import type {
   PaymentStatus,
   PaymentMethod,
   Platform,
+  FollowerTier,
   Priority,
   RelationshipStatus,
   ShipmentStatus,
@@ -579,6 +580,9 @@ export interface CampaignInfluencerDTO {
   paidAt: string | null;
   expectedPublishAt: string | null;
   dateContacted: string | null;
+  /** The creator's main platform and follower count when booked (P3.7) — for rate benchmarks. */
+  platformAtBooking: Platform | null;
+  followersAtBooking: number | null;
   notes: string | null;
   deliverables: DeliverableDTO[];
   deliverableProgress: { published: number; total: number };
@@ -1736,6 +1740,60 @@ export interface TrendsDTO {
   /** Currencies that appear in `paid`, most paid first. */
   currencies: string[];
   points: TrendPointDTO[];
+}
+
+/** Median and middle-half range of one figure across past bookings (P3.7). */
+export interface BenchmarkSpreadDTO {
+  median: number;
+  /** A quarter of the bookings are at or below this… */
+  p25: number;
+  /** …and three quarters at or below this. */
+  p75: number;
+  /** Bookings the figure is based on. */
+  sampleSize: number;
+}
+
+export interface BenchmarkStatsDTO {
+  /** Matching paid bookings in the currency and period. */
+  bookings: number;
+  /** Agreed fee over the posts planned. Null below the minimum sample or without finance access. */
+  feePerPost: BenchmarkSpreadDTO | null;
+  /** Agreed fee over the views their posts got. Null below the minimum sample or without finance access. */
+  costPerView: BenchmarkSpreadDTO | null;
+  /** Engagements over views (percent). */
+  engagementRate: BenchmarkSpreadDTO | null;
+}
+
+export interface BenchmarkCellDTO extends BenchmarkStatsDTO {
+  platform: Platform;
+  tier: FollowerTier;
+}
+
+/**
+ * Rate benchmarks (P3.7): what similar creators were paid in past bookings,
+ * by the platform and follower tier they had when booked. Only confirmed
+ * paid bookings with an agreed fee count; no currency conversion (one
+ * currency at a time).
+ */
+export interface BenchmarkDTO {
+  currency: string;
+  /** Look-back in months; 0 = all time. */
+  months: number;
+  /** Bookings made on or after this (null = all time). */
+  since: string | null;
+  /** Fewer bookings than this and a figure is left out. */
+  minSample: number;
+  /** False when the reader may not see money: fee and cost figures are null. */
+  moneyVisible: boolean;
+  /** What the figures were narrowed to (platform and tier resolved from a creator or roster row). */
+  platform: Platform | null;
+  tier: FollowerTier | null;
+  countryCode: string | null;
+  overall: BenchmarkStatsDTO;
+  /** Every platform × tier with at least one booking (ignores the platform and tier narrowing). */
+  grid: BenchmarkCellDTO[];
+  /** Bookings in other currencies, left out of the figures. */
+  otherCurrencies: { currency: string; bookings: number }[];
 }
 
 /** A creator's results over time (P2.7), within what the reader can see. */

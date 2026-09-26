@@ -15,6 +15,7 @@ import { iso, logActivity } from '../lib/helpers';
 import { toMoneyNumber, type MoneyInput } from '../lib/money';
 import { toInfluencerSummary } from '../lib/mappers';
 import { loadCreatorResults } from '../lib/creator-results';
+import { mainAccount } from '../lib/benchmarks';
 import { isCountryOutOfScope, scopedCountryCodes } from '../lib/scope';
 import { makeCampaignService } from './campaign.service';
 import { toDeliverableDTO } from './deliverable.service';
@@ -108,6 +109,8 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
     paidAt: Date | null;
     expectedPublishAt: Date | null;
     dateContacted: Date | null;
+    platformAtBooking: CampaignInfluencerDTO['platformAtBooking'];
+    followersAtBooking: number | null;
     notes: string | null;
     influencer: Parameters<typeof toInfluencerSummary>[0];
     deliverables: Parameters<typeof toDeliverableDTO>[0][];
@@ -129,6 +132,8 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
       paidAt: iso(ci.paidAt),
       expectedPublishAt: iso(ci.expectedPublishAt),
       dateContacted: iso(ci.dateContacted),
+      platformAtBooking: ci.platformAtBooking,
+      followersAtBooking: ci.followersAtBooking,
       notes: ci.notes,
       deliverables,
       deliverableProgress: { published: progress.delivered, total: progress.total },
@@ -215,7 +220,13 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
     const campaign = await makeCampaignService(ctx).assertInScope(input.campaignId);
     const influencer = await prisma.influencer.findUnique({
       where: { id: input.influencerId },
-      select: { id: true, displayName: true, countryCode: true },
+      select: {
+        id: true,
+        displayName: true,
+        countryCode: true,
+        primaryPlatform: true,
+        socialAccounts: { select: { platform: true, followers: true, isPrimary: true } },
+      },
     });
     if (!influencer) throw AppError.notFound('Influencer');
     // The campaign being in scope never authorizes an out-of-scope CREATOR —
@@ -234,6 +245,7 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
       input.paymentStatus ??
       (input.dealType === 'FREE' || input.dealType === 'GIFTED_PRODUCT' ? 'NOT_APPLICABLE' : 'UNPAID');
 
+    const booked = mainAccount(influencer.socialAccounts, influencer.primaryPlatform);
     const ci = await prisma.$transaction(async (tx) => {
       const row = await tx.campaignInfluencer.create({
         data: {
@@ -248,6 +260,9 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
           participationStatus: input.participationStatus ?? 'INVITED',
           paymentStatus,
           notes: input.notes ?? null,
+          // Their main platform and size today, for rate benchmarks (P3.7).
+          platformAtBooking: booked?.platform ?? null,
+          followersAtBooking: booked?.followers ?? null,
         },
       });
       // Anything already paid goes into the payment ledger (P2.3).

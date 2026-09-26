@@ -27,6 +27,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Spinner } from '@/components/ui/spinner';
 import { EmptyState } from '@/components/ui/empty-state';
 import { errorMessage } from '@/lib/errors';
+import { FeeBenchmark } from '@/components/benchmarks/fee-benchmark';
 
 
 /**
@@ -35,9 +36,12 @@ import { errorMessage } from '@/lib/errors';
  */
 export function AddInfluencerDialog({
   campaignId,
+  currency,
   existingInfluencerIds = [],
 }: {
   campaignId: string;
+  /** The campaign's currency, for the fee benchmark. */
+  currency: string;
   existingInfluencerIds?: string[];
 }) {
   const t = useTranslations('campaigns');
@@ -203,6 +207,9 @@ export function AddInfluencerDialog({
                   placeholder="0.00"
                 />
               </Field>
+              {dealType === 'PAID' || dealType === 'PAID_PLUS_GIFTED' ? (
+                <FeeBenchmark className="col-span-2" influencerId={selected.id} currency={currency} />
+              ) : null}
             </div>
           </div>
         )}

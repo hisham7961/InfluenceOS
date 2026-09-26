@@ -26,6 +26,7 @@ export * from './utils/server-text';
 export * from './utils/periods';
 export * from './utils/caption-check';
 export * from './utils/languages';
+export * from './utils/follower-tiers';
 export * as providers from './providers';
 export * as metrics from './metrics';
 

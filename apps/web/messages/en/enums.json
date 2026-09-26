@@ -152,6 +152,13 @@
     "CREATOR": "From the creator",
     "PLATFORM": "From the platform"
   },
+  "followerTier": {
+    "NANO": "Nano (under 10K)",
+    "MICRO": "Micro (10K–100K)",
+    "MID": "Mid-tier (100K–500K)",
+    "MACRO": "Macro (500K–1M)",
+    "MEGA": "Mega (1M+)"
+  },
   "dataSource": {
     "MANUAL": "Manual",
     "OFFICIAL_API": "Official API",

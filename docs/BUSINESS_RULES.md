@@ -146,3 +146,29 @@ profile's free-text languages ("Arabic", "arabic", "العربية"…). The fee
 filter reads the creator's usual fee per post (a from–to range in one
 currency) and matches when the ranges overlap; creators without a usual fee
 don't match a fee filter.
+
+## Rate benchmarks (P3.7)
+
+When a creator is added to a campaign, the booking keeps their main
+platform and its follower count at that moment (their main platform's
+account, else the account marked primary, else the biggest). Creators are
+grouped by that size: nano under 10K, micro 10K–100K, mid 100K–500K, macro
+500K–1M, mega 1M and up — so a benchmark still holds after they grow.
+
+A booking counts when it is paid (paid, or paid plus gifted), the creator
+said yes (confirmed, in progress or completed) and the fee is above zero.
+Each figure is the median and the middle half of those bookings:
+
+- fee per post — the agreed fee over the posts planned (not counting
+  cancelled or UGC deliverables); with none planned, over the posts they
+  made, else one;
+- cost per view — the agreed fee over the views on their posts for that
+  campaign (latest numbers);
+- engagement rate — engagements over views on those posts.
+
+One currency at a time (the row's currency, else the campaign's; no
+conversion), over the last 12 months by default. A figure needs at least 3
+bookings. Beside a fee being edited, that booking itself is left out, and
+the fee typed (over its planned posts) is called within, above or below the
+middle half. Everything keeps to the reader's brands and countries; fee and
+cost figures are shown only to people with finance access.

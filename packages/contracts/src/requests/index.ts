@@ -33,6 +33,8 @@ import {
   TREND_BUCKETS,
   CREATOR_GENDERS,
   AUDIENCE_SOURCES,
+  FOLLOWER_TIERS,
+  BENCHMARK_MONTHS,
 } from '@influenceos/shared';
 import { offsetQuerySchema, pageNumberSchema } from '../pagination';
 
@@ -1345,6 +1347,34 @@ export const trendsQuerySchema = z.object({
   to: dayKey.optional(),
 });
 export type TrendsQuery = z.infer<typeof trendsQuerySchema>;
+
+/**
+ * Rate benchmarks (P3.7): what similar creators were paid in past bookings.
+ * Pass a platform and follower tier, or a creator (their main account now),
+ * or a roster row (the platform and size they had when booked — that booking
+ * itself is left out of the figures).
+ */
+export const benchmarkQuerySchema = z.object({
+  platform: platformEnum.optional(),
+  tier: z.enum(FOLLOWER_TIERS).optional(),
+  influencerId: cuid.optional(),
+  campaignInfluencerId: cuid.optional(),
+  /** The creator's country. */
+  countryCode: countryCode.optional(),
+  brandId: cuid.optional(),
+  currency: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z]{3}$/, 'Use a three-letter currency code.')
+    .transform((v) => v.toUpperCase())
+    .default('KWD'),
+  months: z.coerce
+    .number()
+    .int()
+    .refine((v) => (BENCHMARK_MONTHS as readonly number[]).includes(v), 'Choose 3, 6, 12 or 24 months, or 0 for all time.')
+    .default(12),
+});
+export type BenchmarkQuery = z.infer<typeof benchmarkQuerySchema>;
 export type ExecDashboardQuery = z.infer<typeof execDashboardQuerySchema>;
 
 // --- Saved views / segments (W3-6) -----------------------------------------

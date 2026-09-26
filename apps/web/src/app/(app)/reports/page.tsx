@@ -1,6 +1,9 @@
+import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
+import { Scale } from 'lucide-react';
 import { getServerApi } from '@/lib/api-server';
 import { PageHeader } from '@/components/common/page-header';
+import { Button } from '@/components/ui/button';
 import { ReportsView } from './reports-view';
 import { REPORT_TYPES, type ReportType } from './reports-types';
 
@@ -26,7 +29,18 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
   return (
     <div>
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href="/reports/benchmarks">
+              <Scale className="h-4 w-4" />
+              {t('benchmarks.open')}
+            </Link>
+          </Button>
+        }
+      />
       <ReportsView initial={report} brands={brands} type={type} brandId={brandId} from={from} to={to} />
     </div>
   );

@@ -85,6 +85,8 @@ import type {
   NoteDTO,
   NotificationDTO,
   TrendsDTO,
+  BenchmarkDTO,
+  FollowerTier,
   CreatorPerformanceDTO,
   ReportPeriod,
   NotificationSettingsDTO,
@@ -698,6 +700,17 @@ export function createClient(config: ClientConfig) {
       // Week- or month-by-month results (P2.7).
       trends: (params?: QueryParams) =>
         http.get<TrendsDTO>(`${V}/reports/trends`, { query: params }),
+      // What similar creators were paid in past bookings (P3.7).
+      benchmarks: (params?: {
+        platform?: Platform;
+        tier?: FollowerTier;
+        influencerId?: string;
+        campaignInfluencerId?: string;
+        countryCode?: string;
+        brandId?: string;
+        currency?: string;
+        months?: number;
+      }) => http.get<BenchmarkDTO>(`${V}/reports/benchmarks`, { query: params }),
     },
 
     // Post discovery (P3.4): posts found on the roster creators' own accounts.

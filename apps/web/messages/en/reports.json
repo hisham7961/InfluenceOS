@@ -194,5 +194,77 @@
       "open": "Open"
     },
     "loadError": "Could not load the calendar."
+  },
+  "benchmarks": {
+    "title": "Rate benchmarks",
+    "description": "What creators like these were paid in your own past bookings — the usual fee per post, cost per view and engagement, by platform and follower size.",
+    "back": "Reports",
+    "open": "Rate benchmarks",
+    "controls": {
+      "currency": "Currency",
+      "period": "Period",
+      "country": "Creator country",
+      "anyCountry": "All countries",
+      "platform": "Platform",
+      "anyPlatform": "All platforms",
+      "tier": "Follower size",
+      "anyTier": "All sizes",
+      "months": {
+        "3": "Last 3 months",
+        "6": "Last 6 months",
+        "12": "Last 12 months",
+        "24": "Last 2 years",
+        "0": "All time"
+      }
+    },
+    "basis": "Based on confirmed paid bookings with an agreed fee in {currency}, booked {period}. The creator's platform and size are as they were when booked. A figure needs at least {min} bookings.",
+    "basisPeriod": {
+      "all": "at any time",
+      "since": "since {date}"
+    },
+    "otherCurrencies": "{count, plural, one {# booking} other {# bookings}} in other currencies ({list}) are not included — switch currency to see them.",
+    "moneyHidden": "Fee and cost figures are shown to people with finance access.",
+    "selection": {
+      "all": "All platforms and sizes",
+      "some": "{platform} · {tier}",
+      "platformOnly": "{platform} · all sizes",
+      "tierOnly": "All platforms · {tier}"
+    },
+    "stats": {
+      "bookings": "Bookings",
+      "feePerPost": "Fee per post",
+      "costPerView": "Cost per view",
+      "engagementRate": "Engagement rate",
+      "middleHalf": "Middle half: <r>{from} – {to}</r>",
+      "basedOn": "From {count, plural, one {# booking} other {# bookings}}",
+      "notEnough": "Not enough bookings yet"
+    },
+    "grid": {
+      "title": "By platform and follower size",
+      "tier": "Follower size",
+      "bookings": "Bookings",
+      "feePerPost": "Fee per post",
+      "costPerView": "Cost per view",
+      "engagementRate": "Engagement",
+      "notEnough": "Fewer than {min} bookings",
+      "selected": "Selected"
+    },
+    "empty": {
+      "title": "No bookings to compare yet",
+      "description": "Benchmarks come from confirmed paid bookings with an agreed fee. None match this currency, period and country yet."
+    },
+    "hint": {
+      "loading": "Checking past bookings…",
+      "noAccount": "Add this creator's main account and follower count to compare their fee with past bookings.",
+      "who": "{platform} · {tier}",
+      "summary": "Creators like this ({who}) usually cost <b>{median}</b> a post; the middle half of {count, plural, one {# booking} other {# bookings}} paid <r>{from} – {to}</r>.",
+      "notEnough": "Not enough past bookings like this ({who}) to compare yet — {count} so far, {min} needed.",
+      "seeAll": "See all benchmarks",
+      "verdict": {
+        "within": "{fee} a post{posts, plural, =0 {} one { (# post planned)} other { (# posts planned)}} is within the usual range.",
+        "above": "{fee} a post{posts, plural, =0 {} one { (# post planned)} other { (# posts planned)}} is above the usual range.",
+        "below": "{fee} a post{posts, plural, =0 {} one { (# post planned)} other { (# posts planned)}} is below the usual range."
+      }
+    }
   }
 }

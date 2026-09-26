@@ -851,6 +851,22 @@ export const FEATURES: FeatureEntry[] = [
     deepLink: '/influencers',
   },
   {
+    key: 'rate_benchmarks',
+    name: 'Rate benchmarks',
+    description:
+      "What creators like these were paid in the agency's own confirmed paid bookings — the median fee per post, cost per view and engagement rate with the middle half of bookings — by the platform and follower size (nano to mega) the creator had when booked. Shown beside the fee when booking a creator, and as a platform × size grid; one currency at a time, at least three bookings per figure, fee figures only with finance access.",
+    module: 'Reports',
+    classification: 'SHARED',
+    apiStatus: 'READY',
+    webStatus: 'READY',
+    mobileReady: true,
+    permissions: ALL,
+    flag: null,
+    minApiVersion: 'v1',
+    apiEndpoints: ['GET /api/v1/reports/benchmarks'],
+    deepLink: '/reports/benchmarks',
+  },
+  {
     key: 'caption_check',
     name: 'Caption check',
     description:

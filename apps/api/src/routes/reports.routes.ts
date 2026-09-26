@@ -65,4 +65,18 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     },
     async (req) => servicesFor(req).analytics.trends(req.query),
   );
+
+  r.get(
+    '/reports/benchmarks',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Reports'],
+        summary:
+          'Rate benchmarks from past confirmed paid bookings: fee per post, cost per view and engagement rate (median and middle half) by platform and follower tier when booked; fee figures need finance access',
+        querystring: requests.benchmarkQuerySchema,
+      },
+    },
+    async (req) => servicesFor(req).benchmarks.benchmarks(req.query),
+  );
 }

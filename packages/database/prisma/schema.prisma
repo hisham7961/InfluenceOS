@@ -900,6 +900,11 @@ model CampaignInfluencer {
   giftedProductValue  Decimal?            @db.Decimal(18, 3)
   dateContacted       DateTime?
   expectedPublishAt   DateTime?
+  /// The creator's main platform and its follower count when they were
+  /// booked (P3.7) — kept so rate benchmarks by platform and follower tier
+  /// still hold after their audience grows.
+  platformAtBooking   Platform?
+  followersAtBooking  Int?
   participationStatus ParticipationStatus @default(INVITED)
   paymentStatus       PaymentStatus       @default(NOT_APPLICABLE)
   /// Amount of `agreedCost` actually paid — the source of truth for the
@@ -925,6 +930,7 @@ model CampaignInfluencer {
   @@unique([campaignId, influencerId])
   @@index([campaignId])
   @@index([influencerId])
+  @@index([platformAtBooking, followersAtBooking])
 }
 
 /// A small, deliberately minimal product catalog (W3-5 → Logistics evolution)

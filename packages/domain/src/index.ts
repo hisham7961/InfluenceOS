@@ -51,6 +51,7 @@ import { makeDiscoveryService } from './services/discovery.service';
 import { makeLicenceService } from './services/licence.service';
 import { makeWorkService } from './services/work.service';
 import { makeAudienceService } from './services/audience.service';
+import { makeBenchmarkService } from './services/benchmark.service';
 
 export function createServices(ctx: DomainContext) {
   return {
@@ -83,6 +84,7 @@ export function createServices(ctx: DomainContext) {
     licences: makeLicenceService(ctx),
     work: makeWorkService(ctx),
     audience: makeAudienceService(ctx),
+    benchmarks: makeBenchmarkService(ctx),
     scripts: makeScriptService(ctx),
     content: makeContentService(ctx),
     expenses: makeExpenseService(ctx),

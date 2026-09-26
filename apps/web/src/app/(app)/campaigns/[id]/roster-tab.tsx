@@ -69,6 +69,7 @@ import { BulkAddInfluencersDialog } from './bulk-add-influencers-dialog';
 import { errorMessage } from '@/lib/errors';
 import { toDateInputValue } from './workspace-shared';
 import { DeliverableDialog, DeliverableRow } from './deliverables-tab';
+import { FeeBenchmark } from '@/components/benchmarks/fee-benchmark';
 
 // ---------------------------------------------------------------------------
 // Influencers
@@ -139,6 +140,7 @@ export function InfluencersTab({
           />
           <AddInfluencerDialog
             campaignId={campaign.id}
+            currency={campaign.currency}
             existingInfluencerIds={influencers.map((ci) => ci.influencer.id)}
           />
         </div>
@@ -536,7 +538,7 @@ function InfluencerRow({
           </div>
           <p className="text-foreground text-lg font-semibold">
             {ci.agreedCost != null ? (
-              <LtrText>{formatCurrency(ci.agreedCost, ci.currency ?? undefined)}</LtrText>
+              <LtrText>{formatCurrency(ci.agreedCost, ci.currency ?? campaign.currency)}</LtrText>
             ) : ci.dealType === 'GIFTED_PRODUCT' ? (
               t('workspace.influencers.gifted')
             ) : (
@@ -546,7 +548,7 @@ function InfluencerRow({
           {ci.giftedProductValue != null ? (
             <p className="text-muted-foreground text-xs">
               {t.rich('workspace.influencers.giftValue', {
-                value: formatCurrency(ci.giftedProductValue, ci.currency ?? undefined),
+                value: formatCurrency(ci.giftedProductValue, ci.currency ?? campaign.currency),
                 ltr: (chunks) => <LtrText>{chunks}</LtrText>,
               })}
             </p>
@@ -886,6 +888,15 @@ function EditInfluencerDialog({
               placeholder="0.00"
             />
           </Field>
+          {dealType === 'PAID' || dealType === 'PAID_PLUS_GIFTED' ? (
+            <FeeBenchmark
+              className="col-span-2"
+              campaignInfluencerId={ci.id}
+              currency={ci.currency ?? currency}
+              fee={agreedCost.trim() === '' ? null : Number(agreedCost)}
+              postsPlanned={ci.results.postsPlanned}
+            />
+          ) : null}
           <Field label={t('workspace.influencers.giftValueLabel')} hint={t('fields.optionalHint')}>
             <Input
               type="number"
