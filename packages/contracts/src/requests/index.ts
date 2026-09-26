@@ -1757,4 +1757,11 @@ export const readMetricsScreenshotSchema = z.object({
   /** The reader's language, for the note. */
   locale: z.enum(['en', 'ar']).default('en'),
 });
+/** Read an audience-insights screenshot (one of the creator's own files). */
+export const readAudienceScreenshotSchema = z.object({
+  attachmentId: cuid,
+  /** The account the screenshot is of, so the reader knows the platform. */
+  socialAccountId: cuid.optional().nullable(),
+  locale: z.enum(['en', 'ar']).default('en'),
+});
 

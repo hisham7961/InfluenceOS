@@ -65,6 +65,22 @@ export async function aiRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).ai.readScreenshot(req.params.id, req.body),
   );
 
+  r.post(
+    '/influencers/:id/audience/read-screenshot',
+    {
+      preHandler: [requireAuth],
+      config: aiLimit,
+      schema: {
+        tags: ['Influencers'],
+        summary:
+          "Read a creator's audience breakdown from one of their screenshots (suggestions; nothing is saved)",
+        params: idParam,
+        body: requests.readAudienceScreenshotSchema,
+      },
+    },
+    async (req) => servicesFor(req).ai.readAudienceScreenshot(req.params.id, req.body),
+  );
+
   // Writing help (P3.5): suggestions for the team to edit — nothing is saved.
   r.post(
     '/campaigns/:id/scripts/ai-draft',

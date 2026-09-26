@@ -47,6 +47,21 @@ In **Enter metrics** (a post's numbers), once a screenshot is attached:
 API: `GET /api/v1/ai/status`, `GET|PATCH /api/v1/platform/ai` (admin),
 `POST /api/v1/content/:id/metrics/read-screenshot { attachmentId, locale }`.
 
+## Built: read a creator's audience from a screenshot
+
+In a creator's **Audience** dialog, once an image screenshot is attached (one
+of the creator's own files): **"Read it with AI"** fills the top countries
+(as country codes; unknown or repeated ones dropped), women/men, the age
+groups (the screen's 45–54, 55–64, 55+ and 65+ added up into 45+) and the
+engagement rate when shown, plus the date when the screen shows one. Same
+switch ("reading screenshots"), key, limit and rules as reading a post's
+numbers: the server loads the file from storage, PNG/JPEG/WebP/GIF up to
+5 MB, nothing is saved until the person saves, and it needs
+INFLUENCERS_MANAGE and the creator in the reader's brands/countries.
+
+API: `POST /api/v1/influencers/:id/audience/read-screenshot
+{ attachmentId, socialAccountId?, locale }`.
+
 ## Built: writing help (P3.5)
 
 Same switch, key and limit, under "Writing help". Only people who could do

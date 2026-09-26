@@ -2812,6 +2812,31 @@ export interface ReportSummaryDraftDTO {
  * is saved until a person checks them and saves. A number the screenshot
  * doesn't show is null (never a guess).
  */
+/** What was read from an audience-insights screenshot — a person checks it before saving. */
+export interface AudienceReadDTO {
+  values: {
+    /** Biggest share first, ISO country codes. */
+    countries: { countryCode: string; pct: number }[];
+    femalePct: number | null;
+    malePct: number | null;
+    ages: {
+      age13to17Pct: number | null;
+      age18to24Pct: number | null;
+      age25to34Pct: number | null;
+      age35to44Pct: number | null;
+      /** 45 and over, added up from the screen's older groups. */
+      age45PlusPct: number | null;
+    };
+    engagementRate: number | null;
+  };
+  /** The date the insights were for, when the screenshot shows one (YYYY-MM-DD). */
+  capturedOn: string | null;
+  /** False when the image doesn't look like an audience/insights screen. */
+  looksLikeAudience: boolean;
+  note: string | null;
+  remaining: number | null;
+}
+
 export interface MetricsReadDTO {
   values: {
     views: number | null;

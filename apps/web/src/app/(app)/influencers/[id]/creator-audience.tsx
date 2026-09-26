@@ -2,15 +2,16 @@
 
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { FileText, Pencil, Plus, Trash2, Upload, X } from 'lucide-react';
-import type { AudienceInsightDTO, SocialAccountDTO } from '@influenceos/contracts';
+import { AlertTriangle, FileText, Pencil, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import type { AudienceInsightDTO, AudienceReadDTO, SocialAccountDTO } from '@influenceos/contracts';
 import { PLATFORM_META, businessDateKey, startOfBusinessDay } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { cn } from '@/lib/cn';
 import { errorMessage } from '@/lib/errors';
 import { qk } from '@/lib/query-keys';
+import { useAiStatus } from '@/lib/ai-status';
 import { toBrowserUrl, uploadAttachment } from '@/lib/upload';
 import { GULF_COUNTRY_CODES, useCountryName, useSortedCountries } from '@/lib/country-names';
 import { useLocalizedFormat } from '@/lib/format';
@@ -384,8 +385,13 @@ function AudienceDialog({
   });
   const [er, setEr] = React.useState('');
   const [notes, setNotes] = React.useState('');
-  const [doc, setDoc] = React.useState<{ id: string; fileName: string } | null>(null);
+  const [doc, setDoc] = React.useState<{ id: string; fileName: string; isImage: boolean } | null>(
+    null,
+  );
   const [uploading, setUploading] = React.useState(false);
+  const locale = useLocale();
+  const readScreenshots = useAiStatus().data?.readScreenshots === true;
+  const [read, setRead] = React.useState<{ result: AudienceReadDTO; filled: number } | null>(null);
 
   const str = (n: number | null | undefined) => (n == null ? '' : String(n));
   React.useEffect(() => {
@@ -414,8 +420,15 @@ function AudienceDialog({
     setEr(str(insight?.engagementRate));
     setNotes(insight?.notes ?? '');
     setDoc(
-      insight?.document ? { id: insight.document.id, fileName: insight.document.fileName } : null,
+      insight?.document
+        ? {
+            id: insight.document.id,
+            fileName: insight.document.fileName,
+            isImage: insight.document.mimeType.startsWith('image/'),
+          }
+        : null,
     );
+    setRead(null);
     // Resets when the dialog opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, insight]);
@@ -428,7 +441,8 @@ function AudienceDialog({
     setUploading(true);
     try {
       const uploaded = await uploadAttachment(file, { influencerId });
-      setDoc({ id: uploaded.id, fileName: uploaded.fileName });
+      setDoc({ id: uploaded.id, fileName: uploaded.fileName, isImage: uploaded.isImage });
+      setRead(null);
       queryClient.invalidateQueries({ queryKey: ['attachments'] });
     } catch (e) {
       toast.error(errorMessage(e, tCommon('somethingWentWrong')));
@@ -437,6 +451,55 @@ function AudienceDialog({
       if (fileRef.current) fileRef.current.value = '';
     }
   }
+
+  // AI (when an admin turned screenshot reading on): fill the form from the
+  // attached screenshot for a person to check — nothing is saved here.
+  const readShot = useMutation({
+    mutationFn: () =>
+      api.audience.readScreenshot(influencerId, {
+        attachmentId: doc!.id,
+        socialAccountId: accountId || null,
+        locale: locale.startsWith('ar') ? 'ar' : 'en',
+      }),
+    onSuccess: (r) => {
+      const v = r.values;
+      let filled = 0;
+      if (v.countries.length) {
+        setRows(
+          v.countries.map((c) => ({ key: nextKey.current++, code: c.countryCode, pct: str(c.pct) })),
+        );
+        filled += v.countries.length;
+      }
+      if (v.femalePct != null) {
+        setWomen(str(v.femalePct));
+        filled += 1;
+      }
+      if (v.malePct != null) {
+        setMen(str(v.malePct));
+        filled += 1;
+      }
+      const ageValues = Object.entries(v.ages).filter(([, n]) => n != null) as [AgeKey, number][];
+      if (ageValues.length) {
+        setAges((prev) => {
+          const next = { ...prev };
+          for (const [k, n] of ageValues) next[k] = str(n);
+          return next;
+        });
+        filled += ageValues.length;
+      }
+      if (v.engagementRate != null) {
+        setEr(str(v.engagementRate));
+        filled += 1;
+      }
+      if (r.capturedOn) setDate(r.capturedOn);
+      setRead({ result: r, filled });
+      queryClient.invalidateQueries({ queryKey: qk.aiStatus });
+    },
+    onError: (e) => {
+      toast.error(errorMessage(e, tCommon('somethingWentWrong')));
+      queryClient.invalidateQueries({ queryKey: qk.aiStatus });
+    },
+  });
 
   const save = useMutation({
     mutationFn: () => {
@@ -633,18 +696,60 @@ function AudienceDialog({
               onChange={(e) => e.target.files?.[0] && pickFile(e.target.files[0])}
             />
             {doc ? (
-              <div className="border-border flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
-                <FileText className="text-muted-foreground h-4 w-4 shrink-0" />
-                <span className="min-w-0 flex-1 truncate">{doc.fileName}</span>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  aria-label={t('fields.removeScreenshot')}
-                  onClick={() => setDoc(null)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+              <div className="space-y-2">
+                <div className="border-border flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
+                  <FileText className="text-muted-foreground h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{doc.fileName}</span>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={t('fields.removeScreenshot')}
+                    onClick={() => {
+                      setDoc(null);
+                      setRead(null);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                {readScreenshots && doc.isImage ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="w-fit"
+                    disabled={readShot.isPending}
+                    onClick={() => readShot.mutate()}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {readShot.isPending ? t('ai.reading') : t('ai.read')}
+                  </Button>
+                ) : null}
+                {read ? (
+                  <div role="status" className="bg-surface-muted space-y-1 rounded-lg p-2.5 text-xs">
+                    {read.result.looksLikeAudience ? (
+                      <p className="font-medium">{t('ai.filled', { count: read.filled })}</p>
+                    ) : (
+                      <p className="text-warning flex items-center gap-1.5 font-medium">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> {t('ai.notAudience')}
+                      </p>
+                    )}
+                    {read.result.capturedOn ? (
+                      <p className="text-muted-foreground">{t('ai.dateFromShot')}</p>
+                    ) : null}
+                    {read.result.note ? (
+                      <p className="text-muted-foreground" dir="auto">
+                        {read.result.note}
+                      </p>
+                    ) : null}
+                    {read.result.remaining != null ? (
+                      <p className="text-muted-foreground">
+                        {t('ai.remaining', { count: read.result.remaining })}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ) : (
               <Button

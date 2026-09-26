@@ -35,6 +35,7 @@ import type {
   DiscoveryRunDTO,
   CreatorLicenceDTO,
   AudienceInsightDTO,
+  AudienceReadDTO,
   CaptionRulesDTO,
   MyWorkDTO,
   WorkCountsDTO,
@@ -791,6 +792,15 @@ export function createClient(config: ClientConfig) {
       update: (id: string, body: In<typeof requests.audienceInsightUpdateSchema>) =>
         http.patch<AudienceInsightDTO>(`${V}/audience/${id}`, body),
       remove: (id: string) => http.del<void>(`${V}/audience/${id}`),
+      /** AI reads a screenshot of the creator's audience (suggestions; nothing is saved). */
+      readScreenshot: (
+        influencerId: string,
+        body: In<typeof requests.readAudienceScreenshotSchema>,
+      ) =>
+        http.post<AudienceReadDTO>(
+          `${V}/influencers/${influencerId}/audience/read-screenshot`,
+          body,
+        ),
     },
 
     // Creator task links (P3.3): a creator's part of a campaign without an account.

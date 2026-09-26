@@ -391,4 +391,111 @@ describe('P3.2 — AI screenshot reading', () => {
       delete process.env.ANTHROPIC_API_KEY;
     }
   });
+
+  it("reads a creator's audience screenshot as suggestions, within scope", async () => {
+    await admin.ai.updateSettings({
+      enabled: true,
+      apiKey: KEY,
+      model: 'test-model',
+      readScreenshots: true,
+      monthlyLimit: 500,
+    });
+    await prisma.brandInfluencer.create({ data: { brandId, influencerId } });
+    const other = await prisma.influencer.create({
+      data: { displayName: `${tag} Other creator`, countryCode: 'KW' },
+    });
+    const own = async (id: string, mimeType: string, body: Buffer) => {
+      const { getStorage } = await import('@influenceos/domain');
+      const key = `attachments/${tag}/aud-${keys.length}-${mimeType.replace('/', '.')}`;
+      await getStorage().save(key, body, mimeType);
+      keys.push(key);
+      return (
+        await prisma.attachment.create({
+          data: {
+            fileName: 'audience.png',
+            mimeType,
+            sizeBytes: body.length,
+            storageKey: key,
+            influencerId: id,
+          },
+        })
+      ).id;
+    };
+    const shot = await own(influencerId, 'image/png', PNG);
+    const text = await own(influencerId, 'text/plain', Buffer.from('not an image'));
+    const othersShot = await own(other.id, 'image/png', PNG);
+    try {
+      next = () => ({
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 1400, output_tokens: 120 },
+        parsed_output: {
+          looksLikeAudience: true,
+          countries: [
+            { countryCode: 'kw', pct: 41.26 },
+            { countryCode: 'SA', pct: 20 },
+            { countryCode: 'XX', pct: 5 },
+            { countryCode: 'KW', pct: 3 },
+            { countryCode: 'AE', pct: 140 },
+          ],
+          femalePct: 62,
+          malePct: 38,
+          age13to17: null,
+          age18to24: 30,
+          age25to34: 40,
+          age35to44: 15,
+          age45to54: 8,
+          age55to64: 4,
+          age55plus: null,
+          age65plus: 1,
+          engagementRate: 3.4,
+          capturedOn: '2026-09-01',
+          note: 'Only the top five countries are shown.',
+        },
+      });
+      const readAudience = (client = staff, attachmentId = shot, id = influencerId) =>
+        client.audience.readScreenshot(id, { attachmentId, locale: 'en' });
+      const res = await readAudience();
+      expect(res).toMatchObject({
+        values: {
+          // Unknown and repeated countries and impossible shares are dropped.
+          countries: [
+            { countryCode: 'KW', pct: 41.3 },
+            { countryCode: 'SA', pct: 20 },
+          ],
+          femalePct: 62,
+          malePct: 38,
+          // 45+ is the screen's older groups added up.
+          ages: {
+            age13to17Pct: null,
+            age18to24Pct: 30,
+            age25to34Pct: 40,
+            age35to44Pct: 15,
+            age45PlusPct: 13,
+          },
+          engagementRate: 3.4,
+        },
+        capturedOn: '2026-09-01',
+        looksLikeAudience: true,
+        note: 'Only the top five countries are shown.',
+      });
+      const req = calls.at(-1)!.req as { messages: { content: { type: string }[] }[] };
+      expect(req.messages[0]!.content.some((c) => c.type === 'image')).toBe(true);
+      // Nothing saved.
+      expect(
+        await prisma.audienceInsight.count({ where: { socialAccount: { influencerId } } }),
+      ).toBe(0);
+
+      const before = calls.length;
+      expect(await status(readAudience(staff, text))).toBe(400);
+      expect(await status(readAudience(staff, othersShot))).toBe(404);
+      expect(await status(readAudience(outsider))).toBe(404);
+      expect(calls.length).toBe(before);
+    } finally {
+      await prisma.aiRequest.deleteMany({
+        where: { feature: 'READ_SCREENSHOT', publishedContentId: null, userId: { in: users } },
+      });
+      await prisma.brandInfluencer.deleteMany({ where: { influencerId } });
+      await prisma.influencer.deleteMany({ where: { id: other.id } });
+    }
+  });
 });
