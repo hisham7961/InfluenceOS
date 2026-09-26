@@ -421,7 +421,8 @@
       "errorDescription": "حدث خطأ أثناء جلب تسليمات UGC لهذا المؤثر. حاول مرة أخرى بعد قليل.",
       "emptyTitle": "لا توجد تسليمات بعد",
       "emptyDescription": "ستظهر هنا تسليمات المسودات/UGC من أي حملة يشارك فيها هذا المؤثر، مع حالة مراجعتها.",
-      "openAssetAriaLabel": "فتح الملف"
+      "openAssetAriaLabel": "فتح الملف",
+      "fromCreator": "المؤثر (رابط المهام)"
     },
     "socialAccounts": {
       "subtitle": "المنصات التي ينشط عليها هذا المؤثر.",

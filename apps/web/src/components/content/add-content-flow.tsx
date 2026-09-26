@@ -64,6 +64,8 @@ export interface AddContentFlowProps {
    * instead of relying solely on the server rejecting it after the fact.
    */
   rosterScope?: CampaignInfluencerDTO[];
+  /** A link to start with (e.g. the post link a creator sent from their task link). */
+  initialUrl?: string;
 }
 
 function errMessage(e: unknown, fallback: string): string {
@@ -90,12 +92,13 @@ export function AddContentFlow({
   lockDeliverableId,
   lockDeliverableLabel,
   rosterScope,
+  initialUrl,
 }: AddContentFlowProps) {
   const t = useTranslations('content');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
   const [mode, setMode] = React.useState<'link' | 'story'>('link');
-  const [url, setUrl] = React.useState('');
+  const [url, setUrl] = React.useState(initialUrl ?? '');
   const [influencerId, setInfluencerId] = React.useState(lockInfluencerId ?? '');
   const [influencerLabel, setInfluencerLabel] = React.useState<string | null>(null);
   const [campaignId, setCampaignId] = React.useState(lockCampaignId ?? '');

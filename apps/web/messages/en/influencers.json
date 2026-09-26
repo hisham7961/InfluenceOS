@@ -421,7 +421,8 @@
       "errorDescription": "Something went wrong fetching this creator's UGC submissions. Try again shortly.",
       "emptyTitle": "No submissions yet",
       "emptyDescription": "Draft/UGC submissions from any campaign this creator is on will appear here with their review status.",
-      "openAssetAriaLabel": "Open asset"
+      "openAssetAriaLabel": "Open asset",
+      "fromCreator": "The creator (task link)"
     },
     "socialAccounts": {
       "subtitle": "Platforms this creator is active on.",

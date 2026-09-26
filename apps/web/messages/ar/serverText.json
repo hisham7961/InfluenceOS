@@ -295,5 +295,17 @@
   "a_shared_client_report": "{name} شارك تقرير العميل برابط.",
   "a_turned_off_report_link": "{name} أوقف رابط تقرير العميل.",
   "e_only_cost_viewers_share_costs": "مشاركة التكاليف متاحة فقط لمن يستطيع رؤيتها.",
-  "e_report_link_not_found": "لم يتم العثور على رابط التقرير."
+  "e_report_link_not_found": "لم يتم العثور على رابط التقرير.",
+  "a_made_task_link": "{name} أنشأ رابط مهام للمؤثر {displayName}.",
+  "e_task_link_not_found": "لم يتم العثور على رابط المهام.",
+  "a_turned_off_task_link": "{name} أوقف رابط مهام المؤثر {displayName}.",
+  "e_task_already_approved_finished": "هذه المهمة معتمدة أو منتهية بالفعل.",
+  "e_last_draft_in_review": "مسودتك السابقة ما زالت قيد المراجعة.",
+  "a_creator_sent_draft": "{name} أرسل المسودة v{version} من رابط المهام.",
+  "n_draft_sent_by_creator": "المؤثر أرسل مسودة",
+  "n_creator_sent_draft_body": "{name} أرسل المسودة v{version} للمراجعة.",
+  "e_task_already_finished": "هذه المهمة منتهية بالفعل.",
+  "a_creator_sent_post": "{name} أرسل رابط منشوره بعد النشر.",
+  "n_creator_says_post_live": "المؤثر يقول إن المنشور نُشر",
+  "n_creator_sent_post_body": "{name} أرسل رابط منشوره. تحقق منه وأضفه إلى الحملة."
 }

@@ -484,6 +484,9 @@ export interface DeliverableDTO {
   internalNotes: string | null;
   requiresProduct: boolean;
   publishedContentCount: number;
+  /** The live post link the creator sent from their task link (P3.3), to check and add. */
+  creatorPostUrl: string | null;
+  creatorPostedAt: string | null;
 }
 
 /** A review comment on a deliverable submission (W3-1). */
@@ -508,6 +511,8 @@ export interface DeliverableSubmissionDTO {
   /** The draft file uploaded to the deliverable, when there is one. */
   attachment: AttachmentDTO | null;
   submittedByName: string | null;
+  /** Sent by the creator from their task link (P3.3). */
+  fromCreator: boolean;
   reviewedByName: string | null;
   reviewedAt: string | null;
   reviewNote: string | null;
@@ -2268,4 +2273,92 @@ export interface ReportShareDTO {
   lastViewedAt: string | null;
   createdByName: string | null;
   createdAt: string;
+}
+
+// --- Creator task links (P3.3) ---------------------------------------------------
+
+export interface CreatorLinkDTO {
+  id: string;
+  campaignInfluencerId: string;
+  /** Path on the web app: `/share/c/<token>`. */
+  path: string;
+  locale: 'en' | 'ar';
+  expiresAt: string | null;
+  revokedAt: string | null;
+  /** Still opens (not turned off, not expired). */
+  active: boolean;
+  openCount: number;
+  lastOpenedAt: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+/** A draft as the creator sees it: what they sent and the team's decision and note. */
+export interface CreatorDraftDTO {
+  id: string;
+  version: number;
+  status: SubmissionStatus;
+  assetUrl: string | null;
+  caption: string | null;
+  notes: string | null;
+  /** Sent from the creator's link (otherwise the team added it). */
+  fromCreator: boolean;
+  /** The team's note with its decision (changes requested, approved, …). */
+  feedback: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+/** The approved script version, without the team's internal comments. */
+export interface CreatorScriptDTO {
+  title: string;
+  version: number;
+  body: string | null;
+  captionSuggestion: string | null;
+  talkingPoints: string[];
+  dos: string[];
+  donts: string[];
+  requiredClaims: string[];
+  hashtags: string[];
+  mentions: string[];
+  referenceLinks: string[];
+}
+
+export interface CreatorTaskDTO {
+  id: string;
+  platform: Platform;
+  type: DeliverableType;
+  quantity: number;
+  dueDate: string | null;
+  requirements: string | null;
+  requiredHashtags: string[];
+  requiredMentions: string[];
+  status: DeliverableStatus;
+  script: CreatorScriptDTO | null;
+  drafts: CreatorDraftDTO[];
+  /** The live post link the creator sent, if any. */
+  postUrl: string | null;
+  postedAt: string | null;
+  /** The creator may send a draft now (none waiting for review, not finished). */
+  canSendDraft: boolean;
+  /** The creator may send the live post link (not finished or cancelled). */
+  canSendPost: boolean;
+}
+
+/** Everything a creator sees on their task link — no money, no internal notes. */
+export interface CreatorPortalDTO {
+  locale: 'en' | 'ar';
+  creatorName: string;
+  campaign: {
+    name: string;
+    brandName: string;
+    brandLogoUrl: string | null;
+    startDate: string | null;
+    endDate: string | null;
+    brief: string | null;
+    /** Every deliverable goes through a draft review before posting. */
+    draftReview: boolean;
+  };
+  tasks: CreatorTaskDTO[];
+  expiresAt: string | null;
 }

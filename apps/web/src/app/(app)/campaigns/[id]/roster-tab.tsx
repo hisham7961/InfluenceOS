@@ -43,6 +43,7 @@ import { AttachmentsPanel } from '@/components/common/attachments-panel';
 import { useApp } from '@/components/shell/app-context';
 import { PaymentHistory } from '@/components/finance/payment-history';
 import { WhatsAppDialog } from '@/components/influencers/whatsapp-dialog';
+import { CreatorLinkButton } from './creator-link-dialog';
 import { AddInfluencerDialog } from './add-influencer-dialog';
 import { BulkAddInfluencersDialog } from './bulk-add-influencers-dialog';
 import { errorMessage } from '@/lib/errors';
@@ -283,6 +284,7 @@ function InfluencerRow({
   // full today by bank transfer — recorded in the payment ledger, with an
   // Undo that voids that payment again.
   const { can } = useApp();
+  const canManageCreators = can('CAMPAIGNS_MANAGE') || can('INFLUENCERS_MANAGE');
   const owed = Math.max(0, (ci.agreedCost ?? 0) - (ci.paidAmount ?? 0));
   const canMarkPaid =
     can('FINANCE_MANAGE') &&
@@ -376,6 +378,7 @@ function InfluencerRow({
                 gifted: ci.dealType === 'GIFTED_PRODUCT' || ci.dealType === 'PAID_PLUS_GIFTED',
               }}
             />
+            {canManageCreators ? <CreatorLinkButton ci={ci} campaign={campaign} /> : null}
             <Button
               type="button"
               variant="ghost"

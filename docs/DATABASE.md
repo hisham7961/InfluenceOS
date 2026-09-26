@@ -106,6 +106,7 @@ shape and the rules behind it.
 | Model | Purpose | Key fields / relations |
 |---|---|---|
 | **ReportShareLink** | A no-login link to a campaign's client report. | `tokenHash` (unique SHA-256 of the link's token — how a visit finds it), `tokenSealed` (the token encrypted with `ENCRYPTION_KEY`, so the link can be copied again), `locale`, `includeCosts`, `expiresAt` (null = no end date), `revokedAt`, `viewCount`, `lastViewedAt`, `createdById`. Deleted with its campaign. |
+| **CreatorAccessLink** | A creator's no-login task link for one roster row. | `campaignInfluencerId` (deleted with the row), `tokenHash` (unique), `tokenSealed`, `locale` (default `ar`), `expiresAt`, `revokedAt`, `openCount`, `lastOpenedAt`, `createdById`. Also: `DeliverableSubmission.fromCreator` (sent from the link) and `Deliverable.creatorPostUrl` / `creatorPostedAt` (the post link the creator sent, waiting for the team). |
 
 ## Mobile / API-readiness additions
 

@@ -29,6 +29,8 @@ import type {
   CampaignEfficiencyDTO,
   CampaignReportDTO,
   ReportShareDTO,
+  CreatorLinkDTO,
+  CreatorPortalDTO,
   PayablesPageDTO,
   PaymentDTO,
   PaymentsPageDTO,
@@ -596,6 +598,24 @@ export function createClient(config: ClientConfig) {
         http.get<ExecDashboardDTO>(`${V}/reports/exec-dashboard`, { query: params }),
       // Week- or month-by-month results (P2.7).
       trends: (params?: QueryParams) => http.get<TrendsDTO>(`${V}/reports/trends`, { query: params }),
+    },
+
+    // Creator task links (P3.3): a creator's part of a campaign without an account.
+    creatorLinks: {
+      list: (campaignInfluencerId: string) =>
+        http.get<CreatorLinkDTO[]>(`${V}/campaign-influencers/${campaignInfluencerId}/creator-links`),
+      create: (campaignInfluencerId: string, body: In<typeof requests.creatorLinkCreateSchema>) =>
+        http.post<CreatorLinkDTO>(`${V}/campaign-influencers/${campaignInfluencerId}/creator-links`, body),
+      revoke: (id: string) => http.post<CreatorLinkDTO>(`${V}/creator-links/${id}/revoke`, {}),
+      /** Public: the creator's page (counts the visit unless `preview`). */
+      portal: (token: string, params?: { preview?: '1' }) =>
+        http.get<CreatorPortalDTO>(`${V}/public/creator/${token}`, { query: params }),
+      /** Public: the creator sends a draft for review. */
+      sendDraft: (token: string, deliverableId: string, body: In<typeof requests.creatorDraftSchema>) =>
+        http.post<CreatorPortalDTO>(`${V}/public/creator/${token}/deliverables/${deliverableId}/drafts`, body),
+      /** Public: the creator sends the link to their live post. */
+      sendPost: (token: string, deliverableId: string, body: In<typeof requests.creatorPostedSchema>) =>
+        http.post<CreatorPortalDTO>(`${V}/public/creator/${token}/deliverables/${deliverableId}/posted`, body),
     },
 
     // Sales & ROI (P3.1): promo codes, tracking links, the brand's sales.

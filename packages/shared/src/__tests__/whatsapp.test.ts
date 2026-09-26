@@ -58,6 +58,15 @@ describe('renderWhatsAppTemplate', () => {
     expect(text).toContain('• Reel on Instagram — by Thursday 1 October');
   });
 
+  it("adds the creator's task link to a brief when there is one", () => {
+    const url = 'https://app.example.com/share/c/abc';
+    const ar = renderWhatsAppTemplate('BRIEF', 'ar', { ...brief, taskLinkUrl: url });
+    expect(ar).toContain(`ومنه ترسل المسودة ورابط المنشور:\n${url}\n\nأرجو تأكيد الاستلام`);
+    const en = renderWhatsAppTemplate('BRIEF', 'en', { ...brief, taskLinkUrl: url });
+    expect(en).toContain(`where to send your draft and post link:\n${url}`);
+    expect(renderWhatsAppTemplate('BRIEF', 'en', brief)).not.toContain('post link');
+  });
+
   it('puts the fee in the offer, and says so when the deal is a product', () => {
     const paid = renderWhatsAppTemplate('OFFER', 'en', { ...brief, fee: { amount: 250, currency: 'KWD' } });
     expect(paid).toMatch(/Fee: KWD\s?250/);

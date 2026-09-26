@@ -94,7 +94,7 @@ export function CreatorSubmissionsTab({ influencerId }: { influencerId: string }
                   v{s.version}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {s.submittedByName ?? '—'} · {relativeTime(s.createdAt)}
+                  {s.fromCreator ? t('detail.submissions.fromCreator') : (s.submittedByName ?? '—')} · {relativeTime(s.createdAt)}
                 </TableCell>
                 <TableCell className="text-muted-foreground">{s.reviewedByName ?? '—'}</TableCell>
                 <TableCell className="max-w-[260px] truncate text-muted-foreground">

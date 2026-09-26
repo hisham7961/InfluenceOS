@@ -104,6 +104,7 @@ export function DeliverableRow({
   const queryClient = useQueryClient();
   const [removeOpen, setRemoveOpen] = React.useState(false);
   const [addContentOpen, setAddContentOpen] = React.useState(false);
+  const [prefillUrl, setPrefillUrl] = React.useState<string | undefined>(undefined);
   const [submitDraftOpen, setSubmitDraftOpen] = React.useState(false);
   const [commentsOpen, setCommentsOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
@@ -180,13 +181,41 @@ export function DeliverableRow({
         </a>
       ) : null}
 
+      {deliverable.creatorPostUrl && deliverable.publishedContentCount === 0 ? (
+        <span className="inline-flex flex-wrap items-center gap-1.5 text-xs">
+          <Badge tone="info">{t('workspace.deliverables.creatorSentPost')}</Badge>
+          <a href={deliverable.creatorPostUrl} target="_blank" rel="noreferrer" className="text-brand hover:underline">
+            {t('workspace.deliverables.openCreatorPost')}
+          </a>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setPrefillUrl(deliverable.creatorPostUrl ?? undefined);
+              setAddContentOpen(true);
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" /> {t('workspace.deliverables.addCreatorPost')}
+          </Button>
+        </span>
+      ) : null}
+
       {deliverable.requiresProduct ? (
         <Badge tone="warning" className="inline-flex items-center gap-1">
           <Package className="h-3 w-3" /> {t('workspace.deliverables.needsProduct')}
         </Badge>
       ) : null}
 
-      <Button type="button" variant="ghost" size="sm" onClick={() => setAddContentOpen(true)}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          setPrefillUrl(undefined);
+          setAddContentOpen(true);
+        }}
+      >
         <Plus className="h-3.5 w-3.5" /> {t('workspace.liveContent.addContent')}
       </Button>
       {draftReview ? (
@@ -277,6 +306,8 @@ export function DeliverableRow({
             </DialogDescription>
           </DialogHeader>
           <AddContentFlow
+            key={prefillUrl ?? 'blank'}
+            initialUrl={prefillUrl}
             lockDeliverableId={deliverable.id}
             lockDeliverableLabel={
               influencerName

@@ -1402,4 +1402,23 @@ export const reportShareCreateSchema = z.object({
 });
 export type ReportShareCreateInput = z.infer<typeof reportShareCreateSchema>;
 
+// --- Creator task links (P3.3) ---------------------------------------------------
+export const creatorLinkCreateSchema = z.object({
+  /** The language the creator's page opens in (they can switch). */
+  locale: z.enum(['en', 'ar']).default('ar'),
+  /** Days until the link stops working; null = until it's turned off. */
+  expiresInDays: z.coerce.number().int().min(1).max(365).nullable().default(90),
+});
+/** A draft the creator sends from their link: where to watch it, and what they'll post with it. */
+export const creatorDraftSchema = z.object({
+  assetUrl: httpUrl,
+  caption: z.string().trim().max(2200).optional().nullable(),
+  notes: z.string().trim().max(1000).optional().nullable(),
+});
+/** The creator's live post, for the team to check and add. */
+export const creatorPostedSchema = z.object({ url: httpUrl });
+export type CreatorLinkCreateInput = z.infer<typeof creatorLinkCreateSchema>;
+export type CreatorDraftInput = z.infer<typeof creatorDraftSchema>;
+export type CreatorPostedInput = z.infer<typeof creatorPostedSchema>;
+
 export { z };

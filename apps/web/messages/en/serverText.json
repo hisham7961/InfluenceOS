@@ -295,5 +295,17 @@
   "a_shared_client_report": "{name} shared the client report by link.",
   "a_turned_off_report_link": "{name} turned off a client report link.",
   "e_only_cost_viewers_share_costs": "Only people who can see costs can share them.",
-  "e_report_link_not_found": "Report link not found."
+  "e_report_link_not_found": "Report link not found.",
+  "a_made_task_link": "{name} made a task link for {displayName}.",
+  "e_task_link_not_found": "Task link not found.",
+  "a_turned_off_task_link": "{name} turned off {displayName}'s task link.",
+  "e_task_already_approved_finished": "This task is already approved or finished.",
+  "e_last_draft_in_review": "Your last draft is still being reviewed.",
+  "a_creator_sent_draft": "{name} sent draft v{version} from their task link.",
+  "n_draft_sent_by_creator": "Draft sent by the creator",
+  "n_creator_sent_draft_body": "{name} sent draft v{version} for review.",
+  "e_task_already_finished": "This task is already finished.",
+  "a_creator_sent_post": "{name} sent the link to their live post.",
+  "n_creator_says_post_live": "The creator says the post is live",
+  "n_creator_sent_post_body": "{name} sent the link to their live post. Check it and add it to the campaign."
 }

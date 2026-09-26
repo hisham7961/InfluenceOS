@@ -51,6 +51,7 @@ export async function toSubmissionDTO(s: Row): Promise<DeliverableSubmissionDTO>
     caption: s.caption,
     attachment: s.attachment ? await toAttachmentDTO(s.attachment) : null,
     submittedByName: s.submittedBy?.name ?? null,
+    fromCreator: s.fromCreator,
     reviewedByName: s.reviewedBy?.name ?? null,
     reviewedAt: iso(s.reviewedAt),
     reviewNote: s.reviewNote,

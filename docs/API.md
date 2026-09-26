@@ -351,6 +351,26 @@ requires `role === 'ADMIN'`.
 | POST | `/api/v1/report-shares/:id/revoke` | Turn a link off (it stops working at once; can't be turned back on). |
 | GET | `/api/v1/public/reports/:token` | **Public.** The report for a link, built from live numbers in the link's language and with costs only if the link includes them. 404 for an unknown, expired or turned-off link. Counts a visit unless the visitor is a link preview/script or `preview=1`. `Cache-Control: private, no-store`; rate limit 60/min per IP. |
 | GET | `/api/v1/public/reports/:token/xlsx` | **Public.** The same as an Excel workbook (not counted as a visit). |
+
+**Creator task links (P3.3).** A creator's part of one campaign without an
+account. Making and turning off links needs `CAMPAIGNS_MANAGE` or
+`INFLUENCERS_MANAGE`, with brand and country scope. The public endpoints only
+ever read or change that creator's own deliverables on that campaign, and
+record their actions without a team member as the actor. A link stops working
+when it is turned off, expires, the creator is declined/dropped, or the
+campaign is cancelled (404).
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/campaign-influencers/:id/creator-links` | A roster row's task links: `path` (`/share/c/<token>`), `locale`, `expiresAt`, `revokedAt`, `active`, `openCount`, `lastOpenedAt`, who made it. |
+| POST | `/api/v1/campaign-influencers/:id/creator-links` | `locale` (`ar` default / `en`), `expiresInDays` (1–365, default 90; `null` = no end date). Only a SHA-256 of the token finds the link; the token is stored encrypted. |
+| POST | `/api/v1/creator-links/:id/revoke` | Turn a link off. |
+| GET | `/api/v1/public/creator/:token` | **Public.** The creator's page: campaign name, brand, dates, brief, `draftReview`; each deliverable with due date, requirements, hashtags/mentions, status, the brand-approved script version (without internal comments), drafts (version, status, link, caption, note, `fromCreator`, the team's decision note as `feedback`), the post link they sent, and `canSendDraft` / `canSendPost`. Never fees, internal notes, team comments or other creators. Counts a visit unless a link preview/script or `preview=1`. Rate limit 60/min. |
+| POST | `/api/v1/public/creator/:token/deliverables/:deliverableId/drafts` | **Public.** `assetUrl` (http/https, required), `caption`, `notes`. Creates the next draft version in review (`fromCreator: true`), moves the deliverable to in review, logs it and notifies the team. 409 while a draft is still in review or when the task is approved/finished; 404 for another creator's deliverable. Rate limit 20/min. |
+| POST | `/api/v1/public/creator/:token/deliverables/:deliverableId/posted` | **Public.** `url` (http/https). Saved on the deliverable as `creatorPostUrl` / `creatorPostedAt` for the team to check and add as content; it never counts as published by itself. Notifies the team. |
+
+Drafts carry `fromCreator` in `DeliverableSubmissionDTO`; deliverables carry
+`creatorPostUrl` and `creatorPostedAt`.
 | GET | `/api/v1/campaigns/:id/influencers` | Influencers on a campaign. Each row carries `results`: posts live / total / planned, latest views and engagements, engagement rate, and the creator's own spend (fee + expenses recorded against them, gift purchases excluded) with cost per view and per engagement. |
 | GET | `/api/v1/campaigns/:idOrSlug/efficiency` | Campaign spend efficiency (CPV/CPM/CPE), metric freshness and sources, `perContent` (each post's estimated CPV from its own creator's spend) and `perCreator` (the roster's `results` side by side). |
 | POST | `/api/v1/campaigns/:id/influencers` | Add an influencer to a campaign. |

@@ -486,6 +486,7 @@ model User {
   salesImports            SalesImport[]            @relation("SalesImportCreatedBy")
   recordedSales           Sale[]                   @relation("SaleCreatedBy")
   reportShares            ReportShareLink[]        @relation("ReportShareCreatedBy")
+  creatorLinks            CreatorAccessLink[]      @relation("CreatorAccessCreatedBy")
 
   @@index([role])
   @@index([roleProfile])
@@ -865,14 +866,15 @@ model CampaignInfluencer {
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
-  campaign         Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  influencer       Influencer         @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  campaign         Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  influencer       Influencer          @relation(fields: [influencerId], references: [id], onDelete: Cascade)
   deliverables     Deliverable[]
   publishedContent PublishedContent[]
   expenses         CampaignExpense[]
   payments         Payment[]
   shipments        ProductShipment[]
   attachments      Attachment[]
+  accessLinks      CreatorAccessLink[]
 
   @@unique([campaignId, influencerId])
   @@index([campaignId])
@@ -1047,6 +1049,10 @@ model Deliverable {
   status               DeliverableStatus @default(PLANNED)
   publishedUrl         String?
   publishedAt          DateTime?
+  /// The live post link the creator sent from their task link (P3.3), for
+  /// the team to check and add as content. Never counts as published itself.
+  creatorPostUrl       String?
+  creatorPostedAt      DateTime?
   internalNotes        String?
   /// Logistics: does completing this deliverable require shipping the
   /// creator a physical product? Drives the "Physical product required"
@@ -1093,6 +1099,8 @@ model DeliverableSubmission {
   /// The draft file uploaded to the deliverable, if one was.
   attachmentId  String?
   submittedById String?
+  /// Sent by the creator from their task link (P3.3), not by a team member.
+  fromCreator   Boolean          @default(false)
   reviewedById  String?
   reviewedAt    DateTime?
   reviewNote    String?
@@ -1653,6 +1661,29 @@ model ReportShareLink {
   createdBy User?    @relation("ReportShareCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([campaignId, createdAt])
+}
+
+/// A creator's no-login link to their part of one campaign (P3.3): the
+/// brief, their deliverables and the approved script, where they send drafts
+/// and the live post link, and see the team's feedback. Found by a hash of
+/// the token; the token is kept encrypted so the link can be copied again.
+model CreatorAccessLink {
+  id                   String    @id @default(cuid())
+  campaignInfluencerId String
+  tokenHash            String    @unique
+  tokenSealed          String
+  locale               String    @default("ar")
+  expiresAt            DateTime?
+  revokedAt            DateTime?
+  openCount            Int       @default(0)
+  lastOpenedAt         DateTime?
+  createdById          String?
+  createdAt            DateTime  @default(now())
+
+  campaignInfluencer CampaignInfluencer @relation(fields: [campaignInfluencerId], references: [id], onDelete: Cascade)
+  createdBy          User?              @relation("CreatorAccessCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([campaignInfluencerId, createdAt])
 }
 
 // ===========================================================================

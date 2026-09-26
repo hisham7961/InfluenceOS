@@ -34,6 +34,8 @@ export interface WhatsAppTemplateContext {
   requirements?: string | null;
   hashtags?: string[];
   mentions?: string[];
+  /** The creator's task link (P3.3): brief, tasks, and where to send drafts and the post link. */
+  taskLinkUrl?: string | null;
 }
 
 const TYPE_AR: Record<string, string> = {
@@ -134,6 +136,14 @@ function join(lines: (string | null | undefined | false)[]): string {
   return lines.filter((l): l is string => typeof l === 'string').join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+/** The creator's task link, when there is one. */
+function taskLink(ctx: WhatsAppTemplateContext, lang: WhatsAppLanguage): string | null {
+  if (!ctx.taskLinkUrl) return null;
+  return lang === 'ar'
+    ? `كل التفاصيل في مكان واحد، ومنه ترسل المسودة ورابط المنشور:\n${ctx.taskLinkUrl}`
+    : `Everything in one place, and where to send your draft and post link:\n${ctx.taskLinkUrl}`;
+}
+
 /** Requirements, hashtags and mentions to include in a brief. */
 function briefExtras(ctx: WhatsAppTemplateContext, lang: WhatsAppLanguage): (string | null)[] {
   const ar = lang === 'ar';
@@ -161,6 +171,8 @@ export function renderWhatsAppTemplate(purpose: ContactPurpose, lang: WhatsAppLa
             '',
             ...briefExtras(ctx, lang),
             '',
+            taskLink(ctx, lang),
+            taskLink(ctx, lang) ? '' : null,
             'أرجو تأكيد الاستلام، وإذا عندك أي سؤال أنا في الخدمة.',
             'شكراً لك!',
           ])
@@ -171,6 +183,8 @@ export function renderWhatsAppTemplate(purpose: ContactPurpose, lang: WhatsAppLa
             '',
             ...briefExtras(ctx, lang),
             '',
+            taskLink(ctx, lang),
+            taskLink(ctx, lang) ? '' : null,
             "Please confirm you've got this, and let me know if you have any questions.",
             'Thank you!',
           ]);

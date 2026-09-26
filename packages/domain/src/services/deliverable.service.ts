@@ -24,6 +24,8 @@ interface DeliverableRow {
   publishedAt: Date | null;
   internalNotes: string | null;
   requiresProduct: boolean;
+  creatorPostUrl?: string | null;
+  creatorPostedAt?: Date | null;
 }
 
 export function toDeliverableDTO(d: DeliverableRow, publishedContentCount = 0): DeliverableDTO {
@@ -43,6 +45,8 @@ export function toDeliverableDTO(d: DeliverableRow, publishedContentCount = 0): 
     internalNotes: d.internalNotes,
     requiresProduct: d.requiresProduct,
     publishedContentCount,
+    creatorPostUrl: d.creatorPostUrl ?? null,
+    creatorPostedAt: iso(d.creatorPostedAt ?? null),
   };
 }
 

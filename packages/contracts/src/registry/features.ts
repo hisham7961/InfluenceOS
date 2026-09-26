@@ -740,6 +740,29 @@ export const FEATURES: FeatureEntry[] = [
     ],
     deepLink: '/campaigns',
   },
+  {
+    key: 'creator_task_links',
+    name: 'Creator task links',
+    description:
+      "A creator's part of one campaign on a no-login link (/share/c/<token>), made from their roster row and sent on WhatsApp with the brief: the brief, their deliverables with due dates and requirements, the brand-approved script, their drafts with the team's decision and note, and where they send a new draft (a link to the file) or the live post link. Drafts land in the normal review queue marked as sent by the creator; a post link waits on the deliverable for the team to check and add. Fees, internal notes, team comments and other creators' work are never shown. The link fixes the page language (the creator can switch), can expire (90 days by default) and be turned off, and stops working if the creator leaves the campaign. Making links needs CAMPAIGNS_MANAGE or INFLUENCERS_MANAGE; brand and country scope apply.",
+    module: 'Campaigns',
+    classification: 'SHARED',
+    apiStatus: 'READY',
+    webStatus: 'READY',
+    mobileReady: true,
+    permissions: ALL,
+    flag: null,
+    minApiVersion: 'v1',
+    apiEndpoints: [
+      'GET /api/v1/campaign-influencers/:id/creator-links',
+      'POST /api/v1/campaign-influencers/:id/creator-links',
+      'POST /api/v1/creator-links/:id/revoke',
+      'GET /api/v1/public/creator/:token',
+      'POST /api/v1/public/creator/:token/deliverables/:deliverableId/drafts',
+      'POST /api/v1/public/creator/:token/deliverables/:deliverableId/posted',
+    ],
+    deepLink: '/campaigns',
+  },
 ];
 
 export const FEATURE_MODULES = Array.from(new Set(FEATURES.map((f) => f.module)));

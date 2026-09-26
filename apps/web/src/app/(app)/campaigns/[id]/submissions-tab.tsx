@@ -142,7 +142,7 @@ export function SubmissionsTab({
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {s.submittedByName ? <BidiText>{s.submittedByName}</BidiText> : '—'} · {relativeTime(s.createdAt)}
+                      {s.fromCreator ? t('submissions.fromCreator') : s.submittedByName ? <BidiText>{s.submittedByName}</BidiText> : '—'} · {relativeTime(s.createdAt)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {s.reviewedByName ? <BidiText>{s.reviewedByName}</BidiText> : '—'}
