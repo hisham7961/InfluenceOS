@@ -107,6 +107,29 @@ describe.skipIf(!ENDPOINT)('files — real MinIO/S3 round-trip (s3 driver)', () 
     expect(del.statusCode).toBe(204);
   });
 
+  it('ensureReady creates a missing bucket once, then reports it exists', async () => {
+    const { getStorage, resetStorage: reset } = await import('@influenceos/domain');
+    const { S3Client, DeleteBucketCommand } = await import('@aws-sdk/client-s3');
+    const bucket = `ensure-${Date.now()}`;
+    const original = process.env.S3_BUCKET;
+    process.env.S3_BUCKET = bucket;
+    reset();
+    try {
+      await expect(getStorage(process.env).ensureReady()).resolves.toBe('created');
+      await expect(getStorage(process.env).ensureReady()).resolves.toBe('exists');
+    } finally {
+      const client = new S3Client({
+        endpoint: ENDPOINT,
+        region: 'us-east-1',
+        forcePathStyle: true,
+        credentials: { accessKeyId: process.env.S3_ACCESS_KEY_ID!, secretAccessKey: process.env.S3_SECRET_ACCESS_KEY! },
+      });
+      await client.send(new DeleteBucketCommand({ Bucket: bucket })).catch(() => undefined);
+      process.env.S3_BUCKET = original;
+      reset();
+    }
+  });
+
   it('rejects a presigned PUT whose body differs from the declared size (W2-2 edge cap)', async () => {
     const declared = 8;
     const initiate = await app.inject({

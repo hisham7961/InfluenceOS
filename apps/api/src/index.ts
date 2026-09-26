@@ -1,5 +1,5 @@
 import { prisma } from '@influenceos/database';
-import { refreshProviderCredentialOverrides } from '@influenceos/domain';
+import { getStorage, refreshProviderCredentialOverrides } from '@influenceos/domain';
 import { buildApp } from './app';
 import { loadEnv } from './env';
 import { releaseInfo } from './release';
@@ -20,6 +20,16 @@ async function main() {
   // Load any admin-stored (encrypted) provider credentials into the runtime
   // overlay before serving traffic (INT-4). No-op when none are stored.
   await refreshProviderCredentialOverrides(prisma);
+
+  // A fresh object store has no bucket (new server, restored volume, or a
+  // compose file without the minio-setup job). Storage being down must not
+  // block the rest of the app, so this only logs.
+  try {
+    const state = await getStorage(process.env).ensureReady();
+    if (state === 'created') app.log.info('Created the private storage bucket/upload directory');
+  } catch (err) {
+    app.log.warn({ err }, 'Object storage is not ready; uploads will fail until it is reachable');
+  }
 
   // Graceful shutdown: on SIGTERM/SIGINT stop accepting new connections, let
   // in-flight requests drain (Fastify close), then release the DB pool. An

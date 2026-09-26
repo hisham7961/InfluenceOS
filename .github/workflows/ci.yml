@@ -11,18 +11,17 @@ concurrency:
   cancel-in-progress: true
 
 # Single source of truth for the object-storage image used by every job that
-# starts MinIO (build-images, e2e, e2e-s3). The official `minio/minio` image
-# is no longer anonymously pullable from EITHER Docker Hub or quay.io (both
-# registries now gate the repository behind auth as of Sep 2026) — this uses
-# Bitnami's community-maintained MinIO build instead, which still honours the
-# same MINIO_ROOT_USER/MINIO_ROOT_PASSWORD/MINIO_API_CORS_ALLOW_ORIGIN env vars
-# and exposes the same port 9000 API / /minio/health/live endpoint, so no
-# other CI step needed to change. Its own entrypoint already starts the
-# server, so (unlike the old quay.io image) no `server /data` command suffix
-# is passed. The compose files still default to the old quay.io pin; see
-# .env.example for the legacy-CPU (no-AVX) override rationale.
+# starts MinIO (build, e2e, e2e-s3). MinIO Inc. archived the open-source
+# project: dl.min.io answers 410 for every release and quay.io / Docker Hub
+# refuse anonymous pulls, so the `minio-image` job builds MinIO + mc from the
+# upstream release tags (docker/minio/) into this repo's GHCR. It is the same
+# image and release the production compose files default to, so CI tests
+# exactly what the server runs.
 env:
-  MINIO_IMAGE: bitnamilegacy/minio:2025.7.23-debian-12-r5
+  MINIO_IMAGE: ghcr.io/${{ github.repository_owner }}/influenceos-minio:RELEASE.2022-10-24T18-35-07Z
+  # Used only if the self-built image can't be pulled, so a MinIO build problem
+  # never blocks the app images (a warning is printed when it's used).
+  MINIO_FALLBACK_IMAGE: bitnamilegacy/minio:2025.7.23-debian-12-r5
 
 jobs:
   security:
@@ -83,9 +82,73 @@ jobs:
             && echo "OK: full+registry"
           echo "::endgroup::"
 
+  minio-image:
+    name: MinIO image (self-built → GHCR) · compose images pullable
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Rebuilt only when docker/minio/ changes: the content hash names an
+      # immutable tag, and the release tag (what compose + CI pull) is moved to
+      # it. Every other run is a quick existence check.
+      - name: Build and push MinIO if docker/minio changed
+        run: |
+          HASH=$(cat docker/minio/Dockerfile docker/minio/docker-entrypoint.sh | sha256sum | cut -c1-12)
+          REPO="${MINIO_IMAGE%:*}"
+          BUILD_TAG="$REPO:build-$HASH"
+          if docker manifest inspect "$BUILD_TAG" >/dev/null 2>&1 \
+             && docker manifest inspect "$MINIO_IMAGE" >/dev/null 2>&1; then
+            echo "Up to date: $BUILD_TAG"
+            exit 0
+          fi
+          docker buildx build --platform linux/amd64 --push \
+            --build-arg SOURCE_REPO="${{ github.server_url }}/${{ github.repository }}" \
+            -t "$BUILD_TAG" -t "$MINIO_IMAGE" docker/minio
+      - name: Smoke the MinIO image (server starts, mc and curl present)
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin "$MINIO_IMAGE"
+          for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break || sleep 1; done
+          curl -sf http://localhost:9000/minio/health/live || { docker logs minio; exit 1; }
+          docker exec minio mc --version
+          docker exec minio sh -c 'mc alias set t http://localhost:9000 minioadmin minioadmin && mc mb --ignore-existing t/smoke && mc ls t'
+      # A deploy host runs `docker compose pull`: one missing or auth-gated
+      # image there aborts the whole update (the quay.io MinIO outage did
+      # exactly that). Reported as warnings, not a failure, while the compose
+      # defaults still point at quay.io (switching them is an owner decision).
+      - name: Every production compose image is pullable
+        continue-on-error: true
+        run: |
+          export POSTGRES_PASSWORD=x AUTH_SECRET=0123456789012345678901234567890123 \
+            S3_PUBLIC_ENDPOINT=https://files.example.com MINIO_ROOT_USER=k MINIO_ROOT_PASSWORD=s \
+            WEB_ORIGIN=https://app.example.com NEXT_PUBLIC_APP_URL=https://app.example.com \
+            SITE_ADDRESS=app.example.com BOOTSTRAP_ADMIN_EMAIL=a@b.c BOOTSTRAP_ADMIN_PASSWORD=pw
+          IMAGES=$( {
+            docker compose -f docker-compose.full.yml -f docker-compose.registry.yml config --images
+            docker compose -f docker-compose.staging.yml config --images
+            docker compose -f docker-compose.yml config --images
+          } | grep -E '[:@]' | sort -u )
+          FAILED=0
+          for img in $IMAGES; do
+            if docker manifest inspect "$img" >/dev/null 2>&1; then echo "OK      $img"; else echo "::warning::Cannot pull $img"; FAILED=1; fi
+          done
+          exit $FAILED
+
   build:
     name: Lint · Typecheck · Tests (incl. MinIO) · Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
 
     services:
       postgres:
@@ -147,11 +210,19 @@ jobs:
           INTERNAL_API_URL=${INTERNAL_API_URL}
           EOF
 
+      - name: Log in to GHCR (self-built MinIO image)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Start MinIO (private object storage)
         run: |
+          IMG="${{ env.MINIO_IMAGE }}"
+          docker pull "$IMG" || { echo "::warning::$IMG unavailable, using $MINIO_FALLBACK_IMAGE"; IMG="$MINIO_FALLBACK_IMAGE"; }
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-            ${{ env.MINIO_IMAGE }}
+            "$IMG"
           for i in $(seq 1 30); do
             curl -sf http://localhost:9000/minio/health/live && break || sleep 1
           done
@@ -277,6 +348,9 @@ jobs:
     name: Full stack E2E (pg · redis · minio · api · worker · web)
     runs-on: ubuntu-latest
     needs: build
+    permissions:
+      contents: read
+      packages: read
 
     services:
       postgres:
@@ -347,11 +421,19 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      - name: Log in to GHCR (self-built MinIO image)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Start MinIO
         run: |
+          IMG="${{ env.MINIO_IMAGE }}"
+          docker pull "$IMG" || { echo "::warning::$IMG unavailable, using $MINIO_FALLBACK_IMAGE"; IMG="$MINIO_FALLBACK_IMAGE"; }
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-            ${{ env.MINIO_IMAGE }}
+            "$IMG"
           for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break || sleep 1; done
           curl -sf http://localhost:9000/minio/health/live || { echo "MinIO failed"; docker logs minio; exit 1; }
 
@@ -431,6 +513,9 @@ jobs:
     name: Browser S3 E2E (DoD journey against MinIO/S3)
     runs-on: ubuntu-latest
     needs: build
+    permissions:
+      contents: read
+      packages: read
 
     services:
       postgres:
@@ -484,15 +569,23 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      - name: Log in to GHCR (self-built MinIO image)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Start MinIO
         run: |
           # MINIO_API_CORS_ALLOW_ORIGIN="*" makes MinIO answer the browser's
           # cross-origin presigned PUT/GET preflight — required for the browser
           # to upload directly to object storage from the web origin.
+          IMG="${{ env.MINIO_IMAGE }}"
+          docker pull "$IMG" || { echo "::warning::$IMG unavailable, using $MINIO_FALLBACK_IMAGE"; IMG="$MINIO_FALLBACK_IMAGE"; }
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
             -e MINIO_API_CORS_ALLOW_ORIGIN="*" \
-            ${{ env.MINIO_IMAGE }}
+            "$IMG"
           for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break || sleep 1; done
           curl -sf http://localhost:9000/minio/health/live || { echo "MinIO failed"; docker logs minio; exit 1; }
 

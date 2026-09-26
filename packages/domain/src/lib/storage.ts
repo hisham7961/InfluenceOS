@@ -2,8 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import {
+  CreateBucketCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadBucketCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -45,6 +47,8 @@ export interface StorageDriver {
   remove(key: string): Promise<void>;
   /** List objects under a key prefix (for orphan/abandoned-upload cleanup). */
   list(prefix: string): Promise<StoredObject[]>;
+  /** Make sure the private bucket (s3) or upload dir (local) exists. */
+  ensureReady(): Promise<'exists' | 'created'>;
 }
 
 export interface StoredObject {
@@ -149,6 +153,27 @@ class S3Driver implements StorageDriver {
     } while (token);
     return out;
   }
+
+  // A fresh object store (new server, restored volume, compose variant with
+  // no minio-setup job) has no bucket, and every upload would fail. Created
+  // private: no bucket policy is ever attached.
+  async ensureReady(): Promise<'exists' | 'created'> {
+    try {
+      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      return 'exists';
+    } catch (err) {
+      const status = (err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+      if (status !== 404) throw err;
+    }
+    try {
+      await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
+    } catch (err) {
+      const name = (err as { name?: string }).name;
+      if (name === 'BucketAlreadyOwnedByYou' || name === 'BucketAlreadyExists') return 'exists';
+      throw err;
+    }
+    return 'created';
+  }
 }
 
 class LocalDriver implements StorageDriver {
@@ -222,6 +247,15 @@ class LocalDriver implements StorageDriver {
     };
     await walk(root);
     return out;
+  }
+
+  async ensureReady(): Promise<'exists' | 'created'> {
+    const existed = await stat(this.baseDir).then(
+      () => true,
+      () => false,
+    );
+    await mkdir(this.baseDir, { recursive: true });
+    return existed ? 'exists' : 'created';
   }
 }
 
