@@ -2,16 +2,18 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Check, Pencil } from 'lucide-react';
 import type { InfluencerDetailDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import {
+  CONTACT_METHODS,
   COUNTRIES,
   PRIORITIES,
   RELATIONSHIP_STATUSES,
+  type ContactMethod,
   type Priority,
   type RelationshipStatus,
 } from '@influenceos/shared';
@@ -44,6 +46,7 @@ function errorMessage(e: unknown, fallback: string): string {
 }
 
 const NO_COUNTRY = '__none__';
+const NONE = '__none__';
 
 /** "Edit influencer" trigger + dialog for the 360 profile. Patches the core profile + contact fields. */
 export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDetailDTO }) {
@@ -84,6 +87,13 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
   const [tags, setTags] = React.useState(influencer.tags.join(', '));
   const [bio, setBio] = React.useState(influencer.bio ?? '');
   const [isActive, setIsActive] = React.useState(influencer.isActive);
+  const [managerName, setManagerName] = React.useState(influencer.contact.managerName ?? '');
+  const [managerContact, setManagerContact] = React.useState(influencer.contact.managerContact ?? '');
+  const [preferredContact, setPreferredContact] = React.useState<string>(influencer.contact.preferredContact ?? NONE);
+  const [ownerId, setOwnerId] = React.useState<string>(influencer.ownerId ?? NONE);
+  const [pricingNotes, setPricingNotes] = React.useState(influencer.pricingNotes ?? '');
+  const [internalNotes, setInternalNotes] = React.useState(influencer.internalNotes ?? '');
+  const team = useQuery({ queryKey: ['team-directory'], queryFn: () => api.users.directory(), enabled: open });
 
   // Re-seed from the latest server data whenever the dialog is closed.
   React.useEffect(() => {
@@ -109,6 +119,12 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
     setTags(influencer.tags.join(', '));
     setBio(influencer.bio ?? '');
     setIsActive(influencer.isActive);
+    setManagerName(influencer.contact.managerName ?? '');
+    setManagerContact(influencer.contact.managerContact ?? '');
+    setPreferredContact(influencer.contact.preferredContact ?? NONE);
+    setOwnerId(influencer.ownerId ?? NONE);
+    setPricingNotes(influencer.pricingNotes ?? '');
+    setInternalNotes(influencer.internalNotes ?? '');
   }, [influencer, open]);
 
   const update = useMutation({
@@ -143,6 +159,12 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
         tags: splitList(tags),
         bio: bio.trim() || null,
         isActive,
+        managerName: managerName.trim() || null,
+        managerContact: managerContact.trim() || null,
+        preferredContact: preferredContact === NONE ? null : (preferredContact as ContactMethod),
+        ownerId: ownerId === NONE ? null : ownerId,
+        pricingNotes: pricingNotes.trim() || null,
+        internalNotes: internalNotes.trim() || null,
       }),
     onSuccess: (updated) => {
       toast.success(t('form.edit.updatedToast', { name: updated.displayName }));
@@ -271,12 +293,59 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
             <Input value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder={t('form.fields.languagesPlaceholder')} />
           </Field>
 
+          <Field label={t('form.fields.managerName')} hint={t('form.fields.managerHint')}>
+            <Input value={managerName} onChange={(e) => setManagerName(e.target.value)} />
+          </Field>
+          <Field label={t('form.fields.managerContact')}>
+            <Input value={managerContact} onChange={(e) => setManagerContact(e.target.value)} placeholder="+965 …" />
+          </Field>
+          <Field label={t('form.fields.preferredContact')}>
+            <Select value={preferredContact} onValueChange={setPreferredContact}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>{t('form.fields.notSet')}</SelectItem>
+                {CONTACT_METHODS.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {enumLabel(te, 'contactMethod', m)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label={t('form.fields.owner')} hint={t('form.fields.ownerHint')}>
+            <Select value={ownerId} onValueChange={setOwnerId}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>{t('form.fields.noOwner')}</SelectItem>
+                {/* Keep the current owner selectable even before the team list loads. */}
+                {influencer.ownerId && !(team.data ?? []).some((u) => u.id === influencer.ownerId) ? (
+                  <SelectItem value={influencer.ownerId}>{influencer.ownerName ?? '…'}</SelectItem>
+                ) : null}
+                {(team.data ?? []).map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
           <Field label={t('form.fields.tags')} hint={t('form.fields.tagsHint')} className="sm:col-span-2">
             <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t('form.fields.tagsPlaceholder')} />
           </Field>
 
           <Field label={t('form.fields.bio')} className="sm:col-span-2">
             <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder={t('form.fields.bioPlaceholder')} rows={3} />
+          </Field>
+          <Field label={t('form.fields.pricingNotes')} className="sm:col-span-2">
+            <Textarea value={pricingNotes} onChange={(e) => setPricingNotes(e.target.value)} rows={2} placeholder={t('form.fields.pricingNotesPlaceholder')} />
+          </Field>
+          <Field label={t('form.fields.internalNotes')} className="sm:col-span-2">
+            <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} rows={2} placeholder={t('form.fields.internalNotesPlaceholder')} />
           </Field>
 
           <div className="flex items-center justify-between rounded-lg border border-border bg-surface-muted/50 px-3 py-2.5 sm:col-span-2">

@@ -194,6 +194,7 @@ export function Workspace({ campaign, influencers, costs, scripts }: WorkspacePr
     router.replace(`/campaigns/${campaign.id}?tab=${next}`, { scroll: false });
   }
   return (
+    <CampaignScriptsContext.Provider value={scripts}>
     <Tabs value={tab} onValueChange={changeTab}>
       <TabsList className="flex-wrap">
         <TabsTrigger value="overview">{t('workspace.tabs.overview')}</TabsTrigger>
@@ -296,6 +297,7 @@ export function Workspace({ campaign, influencers, costs, scripts }: WorkspacePr
         </Card>
       </TabsContent>
     </Tabs>
+    </CampaignScriptsContext.Provider>
   );
 }
 
@@ -696,7 +698,7 @@ function InfluencersTab({ campaign, influencers }: { campaign: CampaignDetailDTO
         </div>
       )}
 
-      <AddDeliverableDialog
+      <DeliverableDialog
         campaignInfluencer={addDeliverableFor}
         open={addDeliverableFor != null}
         onOpenChange={(nextOpen) => {
@@ -1139,6 +1141,10 @@ function EditInfluencerDialog({
   );
   const [participationStatus, setParticipationStatus] = React.useState<ParticipationStatus>(ci.participationStatus);
   const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus>(ci.paymentStatus);
+  const [paidAmount, setPaidAmount] = React.useState(ci.paidAmount != null ? String(ci.paidAmount) : '');
+  const [paidAt, setPaidAt] = React.useState(toDateInputValue(ci.paidAt));
+  const [dateContacted, setDateContacted] = React.useState(toDateInputValue(ci.dateContacted));
+  const [expectedPublishAt, setExpectedPublishAt] = React.useState(toDateInputValue(ci.expectedPublishAt));
   const [notes, setNotes] = React.useState(ci.notes ?? '');
 
   React.useEffect(() => {
@@ -1148,22 +1154,40 @@ function EditInfluencerDialog({
       setGiftedProductValue(ci.giftedProductValue != null ? String(ci.giftedProductValue) : '');
       setParticipationStatus(ci.participationStatus);
       setPaymentStatus(ci.paymentStatus);
+      setPaidAmount(ci.paidAmount != null ? String(ci.paidAmount) : '');
+      setPaidAt(toDateInputValue(ci.paidAt));
+      setDateContacted(toDateInputValue(ci.dateContacted));
+      setExpectedPublishAt(toDateInputValue(ci.expectedPublishAt));
       setNotes(ci.notes ?? '');
     }
   }, [open, ci]);
+
+  // A part payment needs the amount paid so far; a payment of either kind can carry its date.
+  const partlyPaid = paymentStatus === 'PARTIALLY_PAID';
+  const hasPayment = partlyPaid || paymentStatus === 'PAID';
+  const day = (v: string) => (v ? new Date(`${v}T12:00:00`) : null);
 
   const save = useMutation({
     mutationFn: () => {
       const cost = agreedCost.trim();
       const gift = giftedProductValue.trim();
+      const paid = paidAmount.trim();
       if (cost !== '' && !Number.isFinite(Number(cost))) throw new Error(t('workspace.influencers.invalidAgreedCost'));
       if (gift !== '' && !Number.isFinite(Number(gift))) throw new Error(t('workspace.influencers.invalidGiftValue'));
+      if (partlyPaid && paid !== '' && !Number.isFinite(Number(paid))) {
+        throw new Error(t('workspace.influencers.invalidPaidAmount'));
+      }
       return api.campaignInfluencers.update(ci.id, {
         dealType,
         agreedCost: cost === '' ? null : Number(cost),
         giftedProductValue: gift === '' ? null : Number(gift),
         participationStatus,
         paymentStatus,
+        // Paid in full is the agreed fee; unpaid / not applicable clear what was recorded.
+        paidAmount: partlyPaid ? (paid === '' ? null : Number(paid)) : paymentStatus === 'PAID' ? (cost === '' ? null : Number(cost)) : null,
+        paidAt: hasPayment ? day(paidAt) : null,
+        dateContacted: day(dateContacted),
+        expectedPublishAt: day(expectedPublishAt),
         notes: notes.trim() || null,
       });
     },
@@ -1178,7 +1202,7 @@ function EditInfluencerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t('workspace.influencers.editDialogTitle')}</DialogTitle>
           <DialogDescription>
@@ -1235,7 +1259,7 @@ function EditInfluencerDialog({
               </SelectContent>
             </Select>
           </Field>
-          <Field label={t('fields.paymentStatus')} className="col-span-2">
+          <Field label={t('fields.paymentStatus')} className={hasPayment ? undefined : 'col-span-2'}>
             <Select value={paymentStatus} onValueChange={(v) => setPaymentStatus(v as PaymentStatus)}>
               <SelectTrigger>
                 <SelectValue />
@@ -1248,6 +1272,33 @@ function EditInfluencerDialog({
                 ))}
               </SelectContent>
             </Select>
+          </Field>
+          {hasPayment ? (
+            <Field label={t('workspace.influencers.paidAtLabel')} hint={t('fields.optionalHint')}>
+              <Input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+            </Field>
+          ) : null}
+          {partlyPaid ? (
+            <Field
+              label={t('workspace.influencers.paidAmountLabel')}
+              hint={t('workspace.influencers.paidAmountHint')}
+              className="col-span-2"
+            >
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={paidAmount}
+                onChange={(e) => setPaidAmount(e.target.value)}
+                placeholder="0.00"
+              />
+            </Field>
+          ) : null}
+          <Field label={t('workspace.influencers.dateContactedLabel')} hint={t('fields.optionalHint')}>
+            <Input type="date" value={dateContacted} onChange={(e) => setDateContacted(e.target.value)} />
+          </Field>
+          <Field label={t('workspace.influencers.expectedPublishLabel')} hint={t('fields.optionalHint')}>
+            <Input type="date" value={expectedPublishAt} onChange={(e) => setExpectedPublishAt(e.target.value)} />
           </Field>
           <Field label={t('fields.notes')} hint={t('fields.optionalHint')} className="col-span-2">
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
@@ -1298,6 +1349,7 @@ function DeliverableRow({
   const [addContentOpen, setAddContentOpen] = React.useState(false);
   const [submitDraftOpen, setSubmitDraftOpen] = React.useState(false);
   const [commentsOpen, setCommentsOpen] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
   const typeLabel = enumLabel(tEnums, 'deliverableType', deliverable.type);
 
   const updateStatus = useMutation({
@@ -1411,6 +1463,15 @@ function DeliverableRow({
           type="button"
           variant="ghost"
           size="icon-sm"
+          aria-label={t('workspace.deliverables.editAriaLabel', { type: typeLabel })}
+          onClick={() => setEditOpen(true)}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
           aria-label={t('workspace.deliverables.removeAriaLabel')}
           className="text-muted-foreground hover:text-danger"
           onClick={() => setRemoveOpen(true)}
@@ -1418,6 +1479,8 @@ function DeliverableRow({
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
+
+      <DeliverableDialog campaignInfluencer={null} deliverable={deliverable} open={editOpen} onOpenChange={setEditOpen} />
 
       <ConfirmDialog
         open={removeOpen}
@@ -1635,6 +1698,7 @@ function SubmitDraftDialog({
 
 function DeliverablesTab({ campaign, influencers }: { campaign: CampaignDetailDTO; influencers: CampaignInfluencerDTO[] }) {
   const t = useTranslations('campaigns');
+  const [applyOpen, setApplyOpen] = React.useState(false);
   const rows = React.useMemo(() => {
     const flat = influencers.flatMap((ci) => ci.deliverables.map((d) => ({ ci, d })));
     return flat.sort((a, b) => {
@@ -1644,39 +1708,55 @@ function DeliverablesTab({ campaign, influencers }: { campaign: CampaignDetailDT
     });
   }, [influencers]);
 
-  if (rows.length === 0) {
-    return (
-      <EmptyState
-        icon={ListChecks}
-        title={t('workspace.deliverables.emptyTitle')}
-        description={t('workspace.deliverables.emptyDescription')}
-      />
-    );
-  }
-
   return (
-    <div className="space-y-2">
-      {rows.map(({ ci, d }) => (
-        <DeliverableRow
-          key={d.id}
-          deliverable={d}
-          campaign={campaign}
-          influencer={ci.influencer}
-          campaignInfluencerId={ci.id}
-          influencerName={ci.influencer.displayName}
-          influencerAvatar={ci.influencer.avatarUrl}
+    <div className="space-y-3">
+      {influencers.length > 0 ? (
+        <div className="flex justify-end">
+          <Button size="sm" variant="secondary" onClick={() => setApplyOpen(true)}>
+            <ListChecks className="h-4 w-4" /> {t('workspace.deliverables.applyToRoster')}
+          </Button>
+        </div>
+      ) : null}
+      {rows.length === 0 ? (
+        <EmptyState
+          icon={ListChecks}
+          title={t('workspace.deliverables.emptyTitle')}
+          description={t('workspace.deliverables.emptyDescription')}
         />
-      ))}
+      ) : (
+        <div className="space-y-2">
+          {rows.map(({ ci, d }) => (
+            <DeliverableRow
+              key={d.id}
+              deliverable={d}
+              campaign={campaign}
+              influencer={ci.influencer}
+              campaignInfluencerId={ci.id}
+              influencerName={ci.influencer.displayName}
+              influencerAvatar={ci.influencer.avatarUrl}
+            />
+          ))}
+        </div>
+      )}
+      <ApplyDeliverablesDialog campaignId={campaign.id} influencers={influencers} open={applyOpen} onOpenChange={setApplyOpen} />
     </div>
   );
 }
 
-function AddDeliverableDialog({
-  campaignInfluencer,
+type TemplateItem = { key: number; platform: Platform; type: DeliverableType; quantity: string; dueDate: string; requiresProduct: boolean };
+
+/**
+ * The same deliverables for many creators at once — "2 Reels and 3 Stories
+ * each, due the 20th" — for the whole roster or the creators picked.
+ */
+function ApplyDeliverablesDialog({
+  campaignId,
+  influencers,
   open,
   onOpenChange,
 }: {
-  campaignInfluencer: CampaignInfluencerDTO | null;
+  campaignId: string;
+  influencers: CampaignInfluencerDTO[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -1685,38 +1765,47 @@ function AddDeliverableDialog({
   const tEnums = useTranslations('enums');
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [platform, setPlatform] = React.useState<Platform>('INSTAGRAM');
-  const [type, setType] = React.useState<DeliverableType>('POST');
-  const [quantity, setQuantity] = React.useState('1');
-  const [dueDate, setDueDate] = React.useState('');
-  const [requirements, setRequirements] = React.useState('');
-  const [requiresProduct, setRequiresProduct] = React.useState(false);
+  const nextKey = React.useRef(1);
+  const blank = (): TemplateItem => ({
+    key: nextKey.current++,
+    platform: 'INSTAGRAM',
+    type: 'REEL',
+    quantity: '1',
+    dueDate: '',
+    requiresProduct: false,
+  });
+  const [items, setItems] = React.useState<TemplateItem[]>(() => [blank()]);
+  const [everyone, setEveryone] = React.useState(true);
+  const [picked, setPicked] = React.useState<Set<string>>(new Set());
 
   React.useEffect(() => {
-    if (campaignInfluencer) {
-      setPlatform(campaignInfluencer.influencer.primaryPlatform ?? 'INSTAGRAM');
-      setType('POST');
-      setQuantity('1');
-      setDueDate('');
-      setRequirements('');
-      setRequiresProduct(false);
+    if (open) {
+      setItems([blank()]);
+      setEveryone(true);
+      setPicked(new Set());
     }
-  }, [campaignInfluencer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
-  const addDeliverable = useMutation({
-    mutationFn: () => {
-      if (!campaignInfluencer) throw new Error(t('workspace.deliverables.noInfluencerSelected'));
-      return api.campaignInfluencers.addDeliverable(campaignInfluencer.id, {
-        platform,
-        type,
-        quantity: Number(quantity) || 1,
-        dueDate: dueDate ? new Date(dueDate) : undefined,
-        requirements: requirements.trim() || undefined,
-        requiresProduct,
-      });
-    },
-    onSuccess: () => {
-      toast.success(t('workspace.deliverables.addedToast'));
+  const update = (key: number, patch: Partial<TemplateItem>) =>
+    setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));
+
+  const apply = useMutation({
+    mutationFn: () =>
+      api.campaigns.applyDeliverableTemplate(campaignId, {
+        target: everyone ? 'all' : Array.from(picked),
+        deliverables: items.map((it) => ({
+          platform: it.platform,
+          type: it.type,
+          quantity: Math.min(100, Math.max(1, Number(it.quantity) || 1)),
+          dueDate: it.dueDate ? new Date(`${it.dueDate}T12:00:00`) : undefined,
+          requiresProduct: it.requiresProduct,
+        })),
+      }),
+    onSuccess: (res) => {
+      toast.success(
+        t('workspace.deliverables.appliedToast', { created: res.deliverablesCreated, creators: res.rostersTargeted }),
+      );
       queryClient.invalidateQueries();
       router.refresh();
       onOpenChange(false);
@@ -1724,15 +1813,244 @@ function AddDeliverableDialog({
     onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
+  const targetCount = everyone ? influencers.length : picked.size;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{t('workspace.deliverables.addDeliverable')}</DialogTitle>
+          <DialogTitle>{t('workspace.deliverables.applyTitle')}</DialogTitle>
+          <DialogDescription>{t('workspace.deliverables.applyDescription')}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          {items.map((it) => (
+            <div key={it.key} className="grid grid-cols-2 items-end gap-3 rounded-xl border border-border p-3 sm:grid-cols-[1fr_1fr_5rem_9.5rem_auto]">
+              <Field label={t('fields.platform')}>
+                <Select value={it.platform} onValueChange={(v) => update(it.key, { platform: v as Platform })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PLATFORMS.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {PLATFORM_META[p].label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label={t('fields.type')}>
+                <Select value={it.type} onValueChange={(v) => update(it.key, { type: v as DeliverableType })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DELIVERABLE_TYPES.map((dt) => (
+                      <SelectItem key={dt} value={dt}>
+                        {enumLabel(tEnums, 'deliverableType', dt)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label={t('fields.quantity')}>
+                <Input type="number" min={1} max={100} value={it.quantity} onChange={(e) => update(it.key, { quantity: e.target.value })} />
+              </Field>
+              <Field label={t('fields.dueDate')}>
+                <Input type="date" value={it.dueDate} onChange={(e) => update(it.key, { dueDate: e.target.value })} />
+              </Field>
+              <div className="flex items-center gap-2 pb-2">
+                <label
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+                  title={t('workspace.deliverables.physicalProductRequired')}
+                >
+                  <Switch
+                    checked={it.requiresProduct}
+                    onCheckedChange={(v) => update(it.key, { requiresProduct: v })}
+                    aria-label={t('workspace.deliverables.physicalProductRequired')}
+                  />
+                  <Package className="h-3.5 w-3.5" />
+                </label>
+                {items.length > 1 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t('workspace.deliverables.removeTemplateRow')}
+                    onClick={() => setItems((prev) => prev.filter((x) => x.key !== it.key))}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ))}
+          {items.length < 50 ? (
+            <Button type="button" variant="ghost" size="sm" onClick={() => setItems((prev) => [...prev, blank()])}>
+              <Plus className="h-3.5 w-3.5" /> {t('workspace.deliverables.addTemplateRow')}
+            </Button>
+          ) : null}
+        </div>
+
+        <div className="space-y-2 rounded-xl border border-border p-3">
+          <label className="flex items-center justify-between gap-3 text-sm font-medium">
+            {t('workspace.deliverables.applyEveryone', { count: influencers.length })}
+            <Switch checked={everyone} onCheckedChange={setEveryone} aria-label={t('workspace.deliverables.applyEveryone', { count: influencers.length })} />
+          </label>
+          {everyone ? null : (
+            <ul className="grid max-h-48 gap-1 overflow-y-auto sm:grid-cols-2">
+              {influencers.map((ci) => (
+                <li key={ci.id}>
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-muted">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-brand"
+                      checked={picked.has(ci.id)}
+                      onChange={(e) =>
+                        setPicked((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(ci.id);
+                          else next.delete(ci.id);
+                          return next;
+                        })
+                      }
+                    />
+                    <Avatar name={ci.influencer.displayName} src={ci.influencer.avatarUrl} size="xs" />
+                    <BidiText className="truncate">{ci.influencer.displayName}</BidiText>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {tCommon('cancel')}
+          </Button>
+          <Button disabled={apply.isPending || targetCount === 0} onClick={() => apply.mutate()}>
+            {t('workspace.deliverables.applyButton', { count: targetCount })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** The campaign's scripts, for linking one to a deliverable. */
+const CampaignScriptsContext = React.createContext<ScriptDTO[]>([]);
+
+/**
+ * Add a deliverable to a roster row, or edit one (pass `deliverable`): what,
+ * where and when, the brief, required hashtags and mentions, the script it
+ * follows, internal notes, and whether it needs a product shipped first.
+ */
+function DeliverableDialog({
+  campaignInfluencer,
+  deliverable,
+  open,
+  onOpenChange,
+}: {
+  campaignInfluencer: CampaignInfluencerDTO | null;
+  deliverable?: DeliverableDTO | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const tEnums = useTranslations('enums');
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const scripts = React.useContext(CampaignScriptsContext);
+  const editing = !!deliverable;
+  const [platform, setPlatform] = React.useState<Platform>('INSTAGRAM');
+  const [type, setType] = React.useState<DeliverableType>('POST');
+  const [quantity, setQuantity] = React.useState('1');
+  const [dueDate, setDueDate] = React.useState('');
+  const [requirements, setRequirements] = React.useState('');
+  const [hashtags, setHashtags] = React.useState('');
+  const [mentions, setMentions] = React.useState('');
+  const [scriptId, setScriptId] = React.useState(NONE);
+  const [internalNotes, setInternalNotes] = React.useState('');
+  const [requiresProduct, setRequiresProduct] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!open) return;
+    if (deliverable) {
+      setPlatform(deliverable.platform);
+      setType(deliverable.type);
+      setQuantity(String(deliverable.quantity));
+      setDueDate(toDateInputValue(deliverable.dueDate));
+      setRequirements(deliverable.requirements ?? '');
+      setHashtags(deliverable.requiredHashtags.join(', '));
+      setMentions(deliverable.requiredMentions.join(', '));
+      setScriptId(deliverable.scriptReferenceId ?? NONE);
+      setInternalNotes(deliverable.internalNotes ?? '');
+      setRequiresProduct(deliverable.requiresProduct);
+    } else if (campaignInfluencer) {
+      setPlatform(campaignInfluencer.influencer.primaryPlatform ?? 'INSTAGRAM');
+      setType('POST');
+      setQuantity('1');
+      setDueDate('');
+      setRequirements('');
+      setHashtags('');
+      setMentions('');
+      setScriptId(NONE);
+      setInternalNotes('');
+      setRequiresProduct(false);
+    }
+  }, [open, deliverable, campaignInfluencer]);
+
+  const save = useMutation({
+    mutationFn: () => {
+      const fields = {
+        platform,
+        type,
+        quantity: Math.min(100, Math.max(1, Number(quantity) || 1)),
+        requiresProduct,
+        requiredHashtags: splitList(hashtags).map((h) => (h.startsWith('#') ? h : `#${h}`)),
+        requiredMentions: splitList(mentions).map((m) => (m.startsWith('@') ? m : `@${m}`)),
+      };
+      if (deliverable) {
+        return api.deliverables.update(deliverable.id, {
+          ...fields,
+          dueDate: dueDate ? new Date(`${dueDate}T12:00:00`) : null,
+          requirements: requirements.trim() || null,
+          scriptReferenceId: scriptId === NONE ? null : scriptId,
+          internalNotes: internalNotes.trim() || null,
+        });
+      }
+      if (!campaignInfluencer) throw new Error(t('workspace.deliverables.noInfluencerSelected'));
+      return api.campaignInfluencers.addDeliverable(campaignInfluencer.id, {
+        ...fields,
+        dueDate: dueDate ? new Date(`${dueDate}T12:00:00`) : undefined,
+        requirements: requirements.trim() || undefined,
+        scriptReferenceId: scriptId === NONE ? undefined : scriptId,
+        internalNotes: internalNotes.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      toast.success(editing ? t('workspace.deliverables.updatedToast') : t('workspace.deliverables.addedToast'));
+      queryClient.invalidateQueries();
+      router.refresh();
+      onOpenChange(false);
+    },
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
+  });
+
+  const name = campaignInfluencer?.influencer.displayName;
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{editing ? t('workspace.deliverables.editTitle') : t('workspace.deliverables.addDeliverable')}</DialogTitle>
           <DialogDescription>
-            {campaignInfluencer
-              ? t('workspace.deliverables.addDialogDescriptionNamed', { name: campaignInfluencer.influencer.displayName })
-              : t('workspace.deliverables.addDialogDescriptionGeneric')}
+            {editing
+              ? t('workspace.deliverables.editDescription')
+              : name
+                ? t('workspace.deliverables.addDialogDescriptionNamed', { name })
+                : t('workspace.deliverables.addDialogDescriptionGeneric')}
           </DialogDescription>
         </DialogHeader>
 
@@ -1779,6 +2097,32 @@ function AddDeliverableDialog({
               rows={3}
             />
           </Field>
+          <Field label={t('workspace.deliverables.hashtagsLabel')} hint={t('workspace.deliverables.listHint')}>
+            <Input value={hashtags} onChange={(e) => setHashtags(e.target.value)} placeholder="#brand, #ramadan" dir="ltr" />
+          </Field>
+          <Field label={t('workspace.deliverables.mentionsLabel')} hint={t('workspace.deliverables.listHint')}>
+            <Input value={mentions} onChange={(e) => setMentions(e.target.value)} placeholder="@brand" dir="ltr" />
+          </Field>
+          {scripts.length > 0 ? (
+            <Field label={t('workspace.deliverables.scriptLabel')} hint={t('fields.optionalHint')} className="col-span-2">
+              <Select value={scriptId} onValueChange={setScriptId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>{t('workspace.deliverables.noScript')}</SelectItem>
+                  {scripts.map((sc) => (
+                    <SelectItem key={sc.id} value={sc.id}>
+                      <BidiText>{sc.title}</BidiText>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          ) : null}
+          <Field label={t('workspace.deliverables.internalNotesLabel')} hint={t('workspace.deliverables.internalNotesHint')} className="col-span-2">
+            <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} rows={2} />
+          </Field>
           <div className="col-span-2 flex items-center justify-between rounded-lg border border-border bg-surface-muted px-3 py-2.5">
             <div>
               <p className="text-sm font-medium text-foreground">{t('workspace.deliverables.physicalProductRequired')}</p>
@@ -1798,8 +2142,12 @@ function AddDeliverableDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {tCommon('cancel')}
           </Button>
-          <Button disabled={addDeliverable.isPending} onClick={() => addDeliverable.mutate()}>
-            {addDeliverable.isPending ? t('workspace.deliverables.adding') : t('workspace.deliverables.addDeliverable')}
+          <Button disabled={save.isPending} onClick={() => save.mutate()}>
+            {save.isPending
+              ? tCommon('saving')
+              : editing
+                ? t('workspace.saveChanges')
+                : t('workspace.deliverables.addDeliverable')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2311,6 +2659,50 @@ function ExpenseRow({ expense }: { expense: ExpenseDTO }) {
   );
 }
 
+/**
+ * The "how much / when" of a payment, shown under a payment status: the date
+ * for a paid or part-paid item, and the amount paid so far for a part
+ * payment (the money totals count exactly that much as paid).
+ */
+function PaymentDetailFields({
+  paymentStatus,
+  paidAmount,
+  onPaidAmount,
+  paidAt,
+  onPaidAt,
+}: {
+  paymentStatus: PaymentStatus;
+  paidAmount: string;
+  onPaidAmount: (v: string) => void;
+  paidAt: string;
+  onPaidAt: (v: string) => void;
+}) {
+  const t = useTranslations('campaigns');
+  if (paymentStatus !== 'PAID' && paymentStatus !== 'PARTIALLY_PAID') return null;
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      {paymentStatus === 'PARTIALLY_PAID' ? (
+        <Field label={t('workspace.influencers.paidAmountLabel')} hint={t('workspace.influencers.paidAmountHint')}>
+          <Input type="number" min={0} step="0.01" value={paidAmount} onChange={(e) => onPaidAmount(e.target.value)} placeholder="0.00" />
+        </Field>
+      ) : null}
+      <Field label={t('workspace.influencers.paidAtLabel')} hint={t('fields.optionalHint')}>
+        <Input type="date" value={paidAt} onChange={(e) => onPaidAt(e.target.value)} />
+      </Field>
+    </div>
+  );
+}
+
+/** Paid amount and date to send for a payment status (cleared when not paid). */
+function paymentDetailPayload(paymentStatus: PaymentStatus, paidAmount: string, paidAt: string, fullAmount: number) {
+  const hasPayment = paymentStatus === 'PAID' || paymentStatus === 'PARTIALLY_PAID';
+  const partial = paidAmount.trim() ? Number(paidAmount) : null;
+  return {
+    paidAmount: paymentStatus === 'PARTIALLY_PAID' ? partial : paymentStatus === 'PAID' ? fullAmount : null,
+    paidAt: hasPayment && paidAt ? new Date(`${paidAt}T12:00:00`) : null,
+  };
+}
+
 function EditExpenseDialog({
   expense,
   open,
@@ -2329,6 +2721,8 @@ function EditExpenseDialog({
   const [label, setLabel] = React.useState(expense.label ?? '');
   const [amount, setAmount] = React.useState(String(expense.amount));
   const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus>(expense.paymentStatus);
+  const [paidAmount, setPaidAmount] = React.useState(expense.paidAmount != null ? String(expense.paidAmount) : '');
+  const [paidAt, setPaidAt] = React.useState(toDateInputValue(expense.paidAt));
   const [incurredAt, setIncurredAt] = React.useState(toDateInputValue(expense.incurredAt));
   const [notes, setNotes] = React.useState(expense.notes ?? '');
 
@@ -2338,6 +2732,8 @@ function EditExpenseDialog({
       setLabel(expense.label ?? '');
       setAmount(String(expense.amount));
       setPaymentStatus(expense.paymentStatus);
+      setPaidAmount(expense.paidAmount != null ? String(expense.paidAmount) : '');
+      setPaidAt(toDateInputValue(expense.paidAt));
       setIncurredAt(toDateInputValue(expense.incurredAt));
       setNotes(expense.notes ?? '');
     }
@@ -2349,11 +2745,15 @@ function EditExpenseDialog({
       if (!amount.trim() || !Number.isFinite(parsed) || parsed < 0) {
         throw new Error(t('workspace.expenses.invalidAmount'));
       }
+      if (paymentStatus === 'PARTIALLY_PAID' && paidAmount.trim() && !Number.isFinite(Number(paidAmount))) {
+        throw new Error(t('workspace.influencers.invalidPaidAmount'));
+      }
       return api.expenses.update(expense.id, {
         type,
         label: label.trim() || null,
         amount: parsed,
         paymentStatus,
+        ...paymentDetailPayload(paymentStatus, paidAmount, paidAt, parsed),
         incurredAt: incurredAt ? new Date(incurredAt) : null,
         notes: notes.trim() || null,
       });
@@ -2422,6 +2822,13 @@ function EditExpenseDialog({
               </SelectContent>
             </Select>
           </Field>
+          <PaymentDetailFields
+            paymentStatus={paymentStatus}
+            paidAmount={paidAmount}
+            onPaidAmount={setPaidAmount}
+            paidAt={paidAt}
+            onPaidAt={setPaidAt}
+          />
           <Field label={t('fields.notes')} hint={t('fields.optionalHint')}>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </Field>
@@ -2458,6 +2865,8 @@ function AddExpenseForm({
   const [label, setLabel] = React.useState('');
   const [amount, setAmount] = React.useState('');
   const [paymentStatus, setPaymentStatus] = React.useState<PaymentStatus>('UNPAID');
+  const [paidAmount, setPaidAmount] = React.useState('');
+  const [paidAt, setPaidAt] = React.useState('');
   const [incurredAt, setIncurredAt] = React.useState('');
   const [campaignInfluencerId, setCampaignInfluencerId] = React.useState(NONE);
   const [notes, setNotes] = React.useState('');
@@ -2474,6 +2883,7 @@ function AddExpenseForm({
         amount: parsed,
         currency,
         paymentStatus,
+        ...paymentDetailPayload(paymentStatus, paidAmount, paidAt, parsed),
         incurredAt: incurredAt ? new Date(incurredAt) : undefined,
         notes: notes.trim() || undefined,
         campaignInfluencerId: campaignInfluencerId === NONE ? undefined : campaignInfluencerId,
@@ -2485,6 +2895,8 @@ function AddExpenseForm({
       setLabel('');
       setAmount('');
       setPaymentStatus('UNPAID');
+      setPaidAmount('');
+      setPaidAt('');
       setIncurredAt('');
       setCampaignInfluencerId(NONE);
       setNotes('');
@@ -2539,6 +2951,13 @@ function AddExpenseForm({
             </SelectContent>
           </Select>
         </Field>
+        <PaymentDetailFields
+          paymentStatus={paymentStatus}
+          paidAmount={paidAmount}
+          onPaidAmount={setPaidAmount}
+          paidAt={paidAt}
+          onPaidAt={setPaidAt}
+        />
         {influencers.length > 0 ? (
           <Field label={t('workspace.expenses.attributedInfluencerLabel')} hint={t('fields.optionalHint')}>
             <Select value={campaignInfluencerId} onValueChange={setCampaignInfluencerId}>

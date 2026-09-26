@@ -99,7 +99,8 @@
     "copyLink": "Copy link",
     "linkCopied": "Link copied — anyone on the team can open it.",
     "editLinks": "Change creator or campaign",
-    "editLinksDescription": "Link this post to the creator who made it and the campaign it belongs to."
+    "editLinksDescription": "Link this post to the creator who made it and the campaign it belongs to.",
+    "recordUsageRights": "Record usage rights"
   },
   "reviewMode": {
     "markReviewed": "Mark Reviewed",

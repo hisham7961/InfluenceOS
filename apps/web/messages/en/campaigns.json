@@ -216,7 +216,13 @@
         "noPostsYet": "No posts yet — results show up once their content is linked to this campaign.",
         "numbersOn": "Numbers on {measured} of {total} posts — add the rest from the Performance tab.",
         "spendNote": "Spent is their fee plus the expenses recorded for them (gift purchases not included)."
-      }
+      },
+      "paidAtLabel": "Paid on",
+      "paidAmountLabel": "Paid so far",
+      "paidAmountHint": "How much of the fee has been paid",
+      "invalidPaidAmount": "Enter a valid amount paid.",
+      "dateContactedLabel": "First contacted",
+      "expectedPublishLabel": "Expected to post on"
     },
     "deliverables": {
       "addDeliverable": "Add deliverable",
@@ -259,7 +265,26 @@
       "physicalProductRequiredDescription": "Enables creating a logistics shipment for this deliverable.",
       "adding": "Adding…",
       "noInfluencerSelected": "No influencer selected.",
-      "addedToast": "Deliverable added"
+      "addedToast": "Deliverable added",
+      "updatedToast": "Deliverable updated",
+      "editTitle": "Edit deliverable",
+      "editDescription": "Change what is due, when, and the brief.",
+      "editAriaLabel": "Edit {type}",
+      "hashtagsLabel": "Required hashtags",
+      "mentionsLabel": "Required mentions",
+      "listHint": "Separate with commas",
+      "scriptLabel": "Script",
+      "noScript": "No script",
+      "internalNotesLabel": "Internal notes",
+      "internalNotesHint": "Only the team sees these — never in messages to the creator",
+      "applyToRoster": "Add deliverables to several creators",
+      "applyTitle": "Add the same deliverables to several creators",
+      "applyDescription": "For example 2 Reels and 3 Stories each, due on the same day. Each creator gets their own copy to track.",
+      "addTemplateRow": "Add another",
+      "removeTemplateRow": "Remove this line",
+      "applyEveryone": "Everyone on the campaign ({count})",
+      "applyButton": "Add to {count, plural, one {# creator} other {# creators}}",
+      "appliedToast": "{created, plural, one {# deliverable} other {# deliverables}} added for {creators, plural, one {# creator} other {# creators}}"
     },
     "scripts": {
       "countForCampaign": "{count, plural, one {# script} other {# scripts}} for this campaign",

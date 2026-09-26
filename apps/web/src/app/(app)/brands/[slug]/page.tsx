@@ -35,7 +35,7 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
 
   const { brand } = dashboard;
   const stats = brand.stats;
-  // Usage-rights ledger (W3-2) — surfaced read-only; a failure here must not
+  // Usage-rights ledger (W3-2) — a failure here must not
   // take down the whole brand workspace.
   const usageRights = await api.brands.usageRights(brand.id).catch(() => []);
   // Brand content (Content Command Center pass, item 19) — the SAME
@@ -154,7 +154,7 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
         />
       </section>
 
-      <UsageRightsCard rights={usageRights} />
+      <UsageRightsCard brandId={brand.id} rights={usageRights} />
       <BrandNotesCard brandId={brand.id} />
     </div>
   );

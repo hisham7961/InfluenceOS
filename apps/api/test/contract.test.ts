@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { FEATURES } from '@influenceos/contracts';
 import { makeApp } from './helpers.ts';
@@ -112,6 +114,29 @@ describe('contract — OpenAPI document', () => {
       if (!existsSync(join(webApp, route, 'page.tsx'))) missing.push(`${key} → ${route}/page.tsx`);
     }
     expect(missing, `READY web features without a page:\n${missing.join('\n')}`).toEqual([]);
+  });
+
+  it('gives every API route a typed-client method (so no feature is reachable only by hand-written fetch)', () => {
+    // Routes a person's browser or a provider calls directly, never through
+    // the typed client: the signed upload/download targets for local file
+    // storage, and the OAuth redirect a provider sends the user back to.
+    const notForClient = new Set([
+      'PUT /api/v1/files/blob',
+      'GET /api/v1/files/{}/blob',
+      'GET /api/v1/integrations/{}/oauth/callback',
+    ]);
+    const source = readFileSync(join(process.cwd(), '..', '..', 'packages', 'api-client', 'src', 'index.ts'), 'utf8');
+    const client = new Set<string>();
+    for (const m of source.matchAll(/http\.(get|post|patch|put|del)\b[^(]*\(\s*`\$\{V\}([^`]*)`/g)) {
+      const method = m[1] === 'del' ? 'DELETE' : m[1]!.toUpperCase();
+      client.add(normalize(method, '/api/v1' + m[2]!.replace(/\$\{[^}]+\}/g, '{}')));
+    }
+    const versioned = [...available].filter((r) => r.includes(' /api/v1/'));
+    const missing = versioned.filter((r) => !client.has(r) && !notForClient.has(r)).sort();
+    expect(missing, `API routes with no api-client method:\n${missing.join('\n')}`).toEqual([]);
+    // And the client never calls a route that doesn't exist.
+    const dangling = [...client].filter((r) => !available.has(r)).sort();
+    expect(dangling, `api-client methods for routes that don't exist:\n${dangling.join('\n')}`).toEqual([]);
   });
 
   it('exposes the core operations through the typed client (client-method availability)', async () => {

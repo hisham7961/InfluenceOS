@@ -19,11 +19,13 @@ import {
   Pencil,
   Pin,
   RefreshCw,
+  ShieldCheck,
   SkipForward,
   Trash2,
   Undo2,
 } from 'lucide-react';
 import type { ContentViewerStateDTO, PublishedContentDTO } from '@influenceos/contracts';
+import { UsageRightDialog } from '@/components/usage-rights/usage-right-dialog';
 import { contentReviewStatus } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
@@ -110,6 +112,7 @@ export function ContentViewer({
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [captionOpen, setCaptionOpen] = React.useState(false);
   const [linkOpen, setLinkOpen] = React.useState(false);
+  const [rightsOpen, setRightsOpen] = React.useState(false);
   const raw = items[index];
   const content: PublishedContentDTO | undefined = raw
     ? { ...raw, viewerState: localState[raw.id] ?? raw.viewerState }
@@ -306,6 +309,11 @@ export function ContentViewer({
                     <Pencil className="h-4 w-4" /> {t('editContent.edit')}
                   </DropdownMenuItem>
                 ) : null}
+                {content.brand ? (
+                  <DropdownMenuItem onSelect={() => setRightsOpen(true)}>
+                    <ShieldCheck className="h-4 w-4" /> {t('viewer.recordUsageRights')}
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setDeleteOpen(true)} className="text-danger focus:text-danger">
                   <Trash2 className="h-4 w-4" /> {tCommon('delete')}
@@ -369,6 +377,20 @@ export function ContentViewer({
         onDeleted={() => onOpenChange(false)}
       />
       <EditCaptionDialog content={content} open={captionOpen} onOpenChange={setCaptionOpen} />
+      {content.brand ? (
+        <UsageRightDialog
+          brandId={content.brand.id}
+          defaults={{
+            influencerId: content.influencer?.id ?? null,
+            influencerName: content.influencer?.displayName ?? null,
+            campaignId: content.campaign?.id ?? null,
+            campaignName: content.campaign?.name ?? null,
+            publishedContentId: content.id,
+          }}
+          open={rightsOpen}
+          onOpenChange={setRightsOpen}
+        />
+      ) : null}
       <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
         <DialogContent>
           <DialogHeader>

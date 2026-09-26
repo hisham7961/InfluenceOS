@@ -10,11 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tabl
 import { BidiText } from '@/components/common/bidi-text';
 import { shortDate } from '@/lib/format';
 import { enumLabel } from '@/lib/enum-labels';
+import { RecordUsageRightButton, UsageRightRowActions } from '@/components/usage-rights/usage-right-dialog';
 
 /** Usage-rights ledger for a brand (W3-2 web surface): what each licence covers,
  *  where it applies, and how close it is to expiry — the legal-risk view that
- *  the worker also alerts on. Read-only; server-rendered. */
-export async function UsageRightsCard({ rights }: { rights: UsageRightDTO[] }) {
+ *  the worker also alerts on. Record a licence, edit or extend it, or revoke
+ *  it from here. */
+export async function UsageRightsCard({ brandId, rights }: { brandId: string; rights: UsageRightDTO[] }) {
   const t = await getTranslations('brands');
   const tc = await getTranslations('common');
   const tEnums = await getTranslations('enums');
@@ -27,7 +29,10 @@ export async function UsageRightsCard({ rights }: { rights: UsageRightDTO[] }) {
         <CardTitle className="flex items-center gap-2">
           <ShieldCheck className="size-5 text-muted-foreground" aria-hidden /> {t('usageRights.title')}
         </CardTitle>
-        {expiring > 0 ? <Badge tone="warning">{t('usageRights.expiringSoon', { count: expiring })}</Badge> : null}
+        <div className="flex items-center gap-2">
+          {expiring > 0 ? <Badge tone="warning">{t('usageRights.expiringSoon', { count: expiring })}</Badge> : null}
+          <RecordUsageRightButton brandId={brandId} />
+        </div>
       </CardHeader>
       {rights.length === 0 ? (
         <CardContent>
@@ -43,6 +48,9 @@ export async function UsageRightsCard({ rights }: { rights: UsageRightDTO[] }) {
                 <TableHeaderCell>{t('usageRights.creatorColumn')}</TableHeaderCell>
                 <TableHeaderCell>{t('usageRights.expiresColumn')}</TableHeaderCell>
                 <TableHeaderCell align="end">{tc('status')}</TableHeaderCell>
+                <TableHeaderCell align="end">
+                  <span className="sr-only">{tc('actions')}</span>
+                </TableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -70,6 +78,9 @@ export async function UsageRightsCard({ rights }: { rights: UsageRightDTO[] }) {
                     <Badge tone={USAGE_RIGHT_EFFECTIVE_STATUS_TONE[r.effectiveStatus]}>
                       {enumLabel(tEnums, 'usageRightEffectiveStatus', r.effectiveStatus)}
                     </Badge>
+                  </TableCell>
+                  <TableCell align="end" className="w-12 pe-3">
+                    <UsageRightRowActions right={r} />
                   </TableCell>
                 </TableRow>
               ))}

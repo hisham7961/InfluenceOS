@@ -1,5 +1,8 @@
 import { requests, z } from '@influenceos/contracts';
 import type {
+  Platform,
+  SearchPageDTO,
+  AudienceHealthDTO,
   ActivityDTO,
   ApiEndpointDTO,
   ApiModuleDTO,
@@ -217,6 +220,12 @@ export function createClient(config: ClientConfig) {
         http.post<SocialAccountDTO>(`${V}/influencers/${id}/social-accounts`, { ...body, influencerId: id }),
       notes: (id: string) => http.get<NoteDTO[]>(`${V}/influencers/${id}/notes`),
       brandRelationships: (id: string) => http.get<BrandInfluencerDTO[]>(`${V}/influencers/${id}/brands`),
+      /** Follower counts over time, per social account. */
+      followers: (id: string) =>
+        http.get<
+          { accountId: string; platform: Platform; username: string; points: { capturedAt: string; followers: number | null }[] }[]
+        >(`${V}/influencers/${id}/followers`),
+      audienceHealth: (id: string) => http.get<AudienceHealthDTO>(`${V}/influencers/${id}/audience-health`),
       // Creator 360 (Operations Intelligence pass).
       snapshot: (id: string) => http.get<CreatorSnapshotDTO>(`${V}/influencers/${id}/snapshot`),
       reliability: (id: string) => http.get<CreatorReliabilityDTO>(`${V}/influencers/${id}/reliability`),
@@ -524,6 +533,8 @@ export function createClient(config: ClientConfig) {
 
     search: {
       query: (params: QueryParams) => http.get<SearchResultDTO[]>(`${V}/search`, { query: params }),
+      /** Full ranked, paginated results (includes notes and tags). */
+      page: (params: QueryParams) => http.get<SearchPageDTO>(`${V}/search/page`, { query: params }),
     },
 
     // Saved directory views / segments (W3-6 web surface).
@@ -531,6 +542,9 @@ export function createClient(config: ClientConfig) {
       list: (scope?: string) => http.get<SavedViewDTO[]>(`${V}/saved-views`, { query: { scope } }),
       create: (body: In<typeof requests.savedViewCreateSchema>) =>
         http.post<SavedViewDTO>(`${V}/saved-views`, body),
+      get: (id: string) => http.get<SavedViewDTO>(`${V}/saved-views/${id}`),
+      update: (id: string, body: In<typeof requests.savedViewUpdateSchema>) =>
+        http.patch<SavedViewDTO>(`${V}/saved-views/${id}`, body),
       remove: (id: string) => http.del<void>(`${V}/saved-views/${id}`),
     },
 
@@ -572,6 +586,8 @@ export function createClient(config: ClientConfig) {
       setFlag: (key: string, enabled: boolean) =>
         http.patch<unknown>(`${V}/platform/flags/${key}`, { enabled }),
       appVersions: () => http.get<unknown>(`${V}/platform/app-versions`),
+      updateAppVersion: (platform: 'IOS' | 'ANDROID', body: In<typeof requests.appVersionUpdateSchema>) =>
+        http.patch<unknown>(`${V}/platform/app-versions/${platform}`, body),
       updateClientConfig: (body: In<typeof requests.clientConfigUpdateSchema>) =>
         http.patch<ClientConfigDTO>(`${V}/platform/client-config`, body),
     },

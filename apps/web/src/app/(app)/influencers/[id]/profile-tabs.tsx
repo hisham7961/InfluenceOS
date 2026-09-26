@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
-import { Building2, Coins, Languages, Megaphone, PackageCheck, Plus } from 'lucide-react';
+import { Building2, Coins, Languages, Megaphone, PackageCheck, Pencil, Plus } from 'lucide-react';
 import type {
   BrandInfluencerDTO,
   InfluencerDetailDTO,
@@ -32,6 +32,7 @@ import { SocialAccountsPanel } from './social-accounts-panel';
 import { CreatorTimeline } from './creator-timeline';
 import { CreatorSubmissionsTab } from './creator-submissions-tab';
 import { CreatorShipmentsTab } from './creator-shipments-tab';
+import { BrandRelationshipDialog } from './brand-relationship-dialog';
 
 /** "Add Content" preselecting this influencer — Critical Business Question 3. */
 function AddContentButton({ influencerId, influencerName }: { influencerId: string; influencerName: string }) {
@@ -313,47 +314,90 @@ export function ProfileTabs({
 
       {/* Brands */}
       <TabsContent value="brands">
-        {brandRelationships.length === 0 ? (
-          <EmptyState
-            icon={Building2}
-            title={t('detail.brands.emptyTitle')}
-            description={t('detail.brands.emptyDescription')}
-          />
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {brandRelationships.map((rel) => (
-              <Card key={rel.id} className="flex flex-col gap-3 p-4">
-                <div className="flex items-center gap-3">
-                  <Avatar name={rel.brand.name} src={rel.brand.logoUrl ?? rel.brand.iconUrl} size="md" rounded="lg" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">
-                      <BidiText>{rel.brand.name}</BidiText>
-                    </p>
-                    <RelationshipStatusBadge status={rel.relationshipStatus} className="mt-1" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <div>
-                    <p className="uppercase tracking-wide">{t('detail.brands.collaborations')}</p>
-                    <p className="mt-0.5 text-sm font-medium text-foreground">{rel.totalCollaborations}</p>
-                  </div>
-                  <div>
-                    <p className="uppercase tracking-wide">{t('detail.brands.defaultRate')}</p>
-                    <p className="mt-0.5 text-sm font-medium text-foreground">
-                      {rel.defaultRate != null ? <LtrText>{formatCurrency(rel.defaultRate, rel.currency ?? undefined)}</LtrText> : '—'}
-                    </p>
-                  </div>
-                </div>
-                {rel.lastCampaignAt ? (
-                  <p className="text-xs text-muted-foreground">
-                    {t('detail.brands.lastCampaign', { time: relativeTime(rel.lastCampaignAt) })}
-                  </p>
-                ) : null}
-              </Card>
-            ))}
-          </div>
-        )}
+        <BrandRelationshipsPanel influencerId={influencer.id} relationships={brandRelationships} />
       </TabsContent>
     </Tabs>
+  );
+}
+
+/** The creator's standing with each brand — status, usual rate, notes — editable. */
+function BrandRelationshipsPanel({
+  influencerId,
+  relationships,
+}: {
+  influencerId: string;
+  relationships: BrandInfluencerDTO[];
+}) {
+  const t = useTranslations('influencers');
+  const { relativeTime } = useLocalizedFormat();
+  const [editing, setEditing] = React.useState<BrandInfluencerDTO | null>(null);
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const open = (rel: BrandInfluencerDTO | null) => {
+    setEditing(rel);
+    setDialogOpen(true);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button size="sm" variant="secondary" onClick={() => open(null)}>
+          <Plus className="h-4 w-4" /> {t('detail.brands.addButton')}
+        </Button>
+      </div>
+      {relationships.length === 0 ? (
+        <EmptyState icon={Building2} title={t('detail.brands.emptyTitle')} description={t('detail.brands.emptyDescription')} />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {relationships.map((rel) => (
+            <Card key={rel.id} className="flex flex-col gap-3 p-4">
+              <div className="flex items-center gap-3">
+                <Avatar name={rel.brand.name} src={rel.brand.logoUrl ?? rel.brand.iconUrl} size="md" rounded="lg" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">
+                    <BidiText>{rel.brand.name}</BidiText>
+                  </p>
+                  <RelationshipStatusBadge status={rel.relationshipStatus} className="mt-1" />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('detail.brands.editAria', { brand: rel.brand.name })}
+                  onClick={() => open(rel)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                <div>
+                  <p className="uppercase tracking-wide">{t('detail.brands.collaborations')}</p>
+                  <p className="mt-0.5 text-sm font-medium text-foreground">{rel.totalCollaborations}</p>
+                </div>
+                <div>
+                  <p className="uppercase tracking-wide">{t('detail.brands.defaultRate')}</p>
+                  <p className="mt-0.5 text-sm font-medium text-foreground">
+                    {rel.defaultRate != null ? <LtrText>{formatCurrency(rel.defaultRate, rel.currency ?? undefined)}</LtrText> : '—'}
+                  </p>
+                </div>
+              </div>
+              {rel.internalNotes ? (
+                <p className="line-clamp-3 whitespace-pre-wrap text-xs text-muted-foreground">{rel.internalNotes}</p>
+              ) : null}
+              {rel.lastCampaignAt ? (
+                <p className="text-xs text-muted-foreground">
+                  {t('detail.brands.lastCampaign', { time: relativeTime(rel.lastCampaignAt) })}
+                </p>
+              ) : null}
+            </Card>
+          ))}
+        </div>
+      )}
+      <BrandRelationshipDialog
+        influencerId={influencerId}
+        relationship={editing}
+        existingBrandIds={relationships.map((r) => r.brand.id)}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
+    </div>
   );
 }

@@ -216,7 +216,13 @@
         "noPostsYet": "لا منشورات بعد — تظهر النتائج بعد ربط محتواه بهذه الحملة.",
         "numbersOn": "الأرقام متوفرة لـ {measured} من {total} منشورات — أضف الباقي من تبويب الأداء.",
         "spendNote": "المصروف = أجر المؤثر + المصاريف المسجلة عليه (لا تشمل مشتريات الهدايا)."
-      }
+      },
+      "paidAtLabel": "تاريخ الدفع",
+      "paidAmountLabel": "المدفوع حتى الآن",
+      "paidAmountHint": "كم دُفع من الأجر",
+      "invalidPaidAmount": "أدخل مبلغًا مدفوعًا صحيحًا.",
+      "dateContactedLabel": "أول تواصل",
+      "expectedPublishLabel": "موعد النشر المتوقع"
     },
     "deliverables": {
       "addDeliverable": "إضافة محتوى مطلوب",
@@ -259,7 +265,26 @@
       "physicalProductRequiredDescription": "يتيح إنشاء شحنة لوجستية لهذا المحتوى المطلوب.",
       "adding": "جارٍ الإضافة…",
       "noInfluencerSelected": "لم يتم اختيار مؤثر.",
-      "addedToast": "تمت إضافة المحتوى المطلوب"
+      "addedToast": "تمت إضافة المحتوى المطلوب",
+      "updatedToast": "تم تحديث المحتوى المطلوب",
+      "editTitle": "تعديل المحتوى المطلوب",
+      "editDescription": "غيّر المطلوب وموعده والتعليمات.",
+      "editAriaLabel": "تعديل {type}",
+      "hashtagsLabel": "الوسوم المطلوبة",
+      "mentionsLabel": "الإشارات المطلوبة",
+      "listHint": "افصل بينها بفواصل",
+      "scriptLabel": "النص",
+      "noScript": "بدون نص",
+      "internalNotesLabel": "ملاحظات داخلية",
+      "internalNotesHint": "يراها الفريق فقط — لا تظهر في الرسائل إلى صانع المحتوى",
+      "applyToRoster": "إضافة محتوى مطلوب لعدة مؤثرين",
+      "applyTitle": "إضافة المحتوى المطلوب نفسه لعدة مؤثرين",
+      "applyDescription": "مثلًا ريلزان و3 ستوري لكل مؤثر، بموعد واحد. يحصل كل مؤثر على نسخته الخاصة للمتابعة.",
+      "addTemplateRow": "إضافة سطر آخر",
+      "removeTemplateRow": "إزالة هذا السطر",
+      "applyEveryone": "جميع مؤثري الحملة ({count})",
+      "applyButton": "إضافة لـ {count}",
+      "appliedToast": "تمت إضافة {created} محتوى مطلوب لـ {creators} مؤثر"
     },
     "scripts": {
       "countForCampaign": "{count, plural, zero {# نص} one {نص واحد} two {نصان} few {# نصوص} many {# نصًا} other {# نص}} لهذه الحملة",
