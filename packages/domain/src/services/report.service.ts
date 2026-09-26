@@ -1,4 +1,4 @@
-import { metrics } from '@influenceos/shared';
+import { businessDayRange, isDeliverableDelivered, metrics } from '@influenceos/shared';
 import { requests, type ReportColumnDTO, type ReportDTO } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
@@ -13,6 +13,7 @@ import {
   type MoneyInput,
 } from '../lib/money';
 import { computeCampaignProgressBatch } from '../lib/progress';
+import { EMPTY_CAMPAIGN_MONEY, loadCampaignMoney, participationMoney } from '../lib/spend';
 import { scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
 /**
@@ -24,7 +25,6 @@ import { scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 type ReportFilter = z.infer<typeof requests.reportFilterSchema>;
 type ReportRow = Record<string, string | number | null>;
 
-const PAID_DEAL_TYPES = ['PAID', 'PAID_PLUS_GIFTED'] as const;
 const MAX_ROWS = 500;
 
 /** Sum numeric/currency columns across rows; skip string/date/percent columns.
@@ -104,9 +104,12 @@ export function makeReportService(ctx: DomainContext) {
     if (filter.campaignId) and.push({ campaignId: filter.campaignId });
     if (filter.platform) and.push({ platform: filter.platform });
     if (filter.from || filter.to) {
+      // Whole Kuwait days, the "to" day included (it used to stop at 00:00 UTC
+      // of that day, dropping everything posted on it).
+      const { start, end } = businessDayRange(filter.from, filter.to);
       const range: Prisma.DateTimeFilter = {};
-      if (filter.from) range.gte = filter.from;
-      if (filter.to) range.lte = filter.to;
+      if (start) range.gte = start;
+      if (end) range.lt = end;
       // publishedAt is the natural date to filter on, but it can be null for
       // content detected before a publish date was confirmed — fall back to
       // detectedAt in that case rather than silently dropping the row.
@@ -203,8 +206,10 @@ export function makeReportService(ctx: DomainContext) {
           select: {
             agreedCost: true,
             dealType: true,
+            participationStatus: true,
             paymentStatus: true,
-            deliverables: { select: { status: true } },
+            paidAmount: true,
+            deliverables: { select: { status: true, type: true } },
           },
         },
       },
@@ -229,14 +234,10 @@ export function makeReportService(ctx: DomainContext) {
       const paidCosts: MoneyInput[] = [];
       for (const ci of inf.campaignInfluencers) {
         for (const d of ci.deliverables) {
-          if (d.status === 'PUBLISHED' || d.status === 'VERIFIED') publishedDeliverables += 1;
+          if (isDeliverableDelivered(d)) publishedDeliverables += 1;
         }
-        if (
-          (ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED') &&
-          ci.paymentStatus === 'PAID'
-        ) {
-          paidCosts.push(ci.agreedCost);
-        }
+        // What was actually paid, part payments included (shared rule).
+        paidCosts.push(participationMoney(ci).paid);
       }
       // Exact Decimal sum of paid fees (never JS float accumulation).
       const totalPaid = moneyNumberOr0(sumMoney(paidCosts));
@@ -306,7 +307,7 @@ export function makeReportService(ctx: DomainContext) {
     });
     const campaignIds = scopedCampaigns.map((c) => c.id);
 
-    const [biCounts, contentCounts, feeSums, expenseSums] = await Promise.all([
+    const [biCounts, contentCounts, moneyByCampaign] = await Promise.all([
       prisma.brandInfluencer.groupBy({
         by: ['brandId'],
         where: { brandId: { in: brandIds }, ...influencerCountryWhere },
@@ -317,32 +318,18 @@ export function makeReportService(ctx: DomainContext) {
         where: { AND: [await contentWhere(filter), { brandId: { in: brandIds } }, contentCountryWhere] },
         _count: { _all: true },
       }),
-      campaignIds.length
-        ? prisma.campaignInfluencer.groupBy({
-            by: ['campaignId'],
-            where: { campaignId: { in: campaignIds }, dealType: { in: [...PAID_DEAL_TYPES] } },
-            _sum: { agreedCost: true },
-          })
-        : Promise.resolve([] as { campaignId: string; _sum: { agreedCost: Prisma.Decimal | null } }[]),
-      campaignIds.length
-        ? prisma.campaignExpense.groupBy({
-            by: ['campaignId'],
-            where: { campaignId: { in: campaignIds }, type: { not: 'GIFT_PRODUCT' } },
-            _sum: { amount: true },
-          })
-        : Promise.resolve([] as { campaignId: string; _sum: { amount: Prisma.Decimal | null } }[]),
+      // Spend under the shared money rules (spend.ts).
+      loadCampaignMoney(prisma, campaignIds),
     ]);
 
-    const feeByCampaign = new Map(feeSums.map((f) => [f.campaignId, f._sum.agreedCost]));
-    const expenseByCampaign = new Map(expenseSums.map((e) => [e.campaignId, e._sum.amount]));
     const campaignCountByBrand = new Map<string, number>();
-    // Per brand, collect each campaign's paid fees + non-gift expenses; sum them
-    // as exact Decimals (currency-agnostic, matching the previous spendForCampaigns).
+    // Per brand, sum each campaign's spend as exact Decimals (currency-agnostic,
+    // matching the previous spendForCampaigns).
     const spendPartsByBrand = new Map<string, MoneyInput[]>();
     for (const c of scopedCampaigns) {
       campaignCountByBrand.set(c.brandId, (campaignCountByBrand.get(c.brandId) ?? 0) + 1);
       const parts = spendPartsByBrand.get(c.brandId) ?? [];
-      parts.push(feeByCampaign.get(c.id) ?? null, expenseByCampaign.get(c.id) ?? null);
+      parts.push((moneyByCampaign.get(c.id) ?? EMPTY_CAMPAIGN_MONEY).totalSpend);
       spendPartsByBrand.set(c.brandId, parts);
     }
     const influencersByBrand = new Map(biCounts.map((x) => [x.brandId, x._count._all]));

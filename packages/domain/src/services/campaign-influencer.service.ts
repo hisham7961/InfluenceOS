@@ -5,6 +5,7 @@ import {
 } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
+import { deliverableCompletion } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireAnyCapability } from '../lib/authz';
@@ -24,8 +25,6 @@ const influencerSummaryInclude = {
   },
   tags: { include: { tag: { select: { name: true } } } },
 } satisfies Prisma.InfluencerInclude;
-
-const PUBLISHED = ['PUBLISHED', 'VERIFIED', 'APPROVED'] as const;
 
 // A participation only counts as a real collaboration once it is committed —
 // an INVITED/DECLINED/DROPPED row must NOT inflate relationship history (DB-10).
@@ -95,9 +94,8 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
     deliverables: Parameters<typeof toDeliverableDTO>[0][];
   }, extra: { contentCount: number; allTimeCampaignCount: number }): CampaignInfluencerDTO {
     const deliverables = ci.deliverables.map((d) => toDeliverableDTO(d));
-    const published = ci.deliverables.filter((d) =>
-      (PUBLISHED as readonly string[]).includes(d.status),
-    ).length;
+    // Shared rules: approved counts only for UGC; cancelled work is off the plan.
+    const progress = deliverableCompletion(ci.deliverables);
     return {
       id: ci.id,
       campaignId: ci.campaignId,
@@ -114,7 +112,7 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
       dateContacted: iso(ci.dateContacted),
       notes: ci.notes,
       deliverables,
-      deliverableProgress: { published, total: ci.deliverables.length },
+      deliverableProgress: { published: progress.delivered, total: progress.total },
       contentCount: extra.contentCount,
       allTimeCampaignCount: extra.allTimeCampaignCount,
     };

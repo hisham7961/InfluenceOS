@@ -1,5 +1,7 @@
 import { type IntegrityFindingDTO, type IntegrityRuleId } from '@influenceos/contracts';
+import { isDeliverableOutstanding } from '@influenceos/shared';
 import type { DomainContext } from '../context';
+import { deliveredWhere } from '../lib/deliverable-rules';
 import { requireActor } from '../lib/authz';
 import { scopedBrandIds } from '../lib/scope';
 
@@ -8,8 +10,6 @@ import { scopedBrandIds } from '../lib/scope';
 // reach a done state either via AWAITING_PUBLICATION (no submission ever
 // required) or via the submission review path. Both count as "finished" for
 // the rules below.
-const DONE_DELIVERABLE_STATUSES = ['PUBLISHED', 'VERIFIED'] as const;
-const TERMINAL_DELIVERABLE_STATUSES = new Set(['PUBLISHED', 'VERIFIED', 'MISSED', 'CANCELLED']);
 const APPROVED_OR_LATER = new Set(['APPROVED', 'AWAITING_PUBLICATION', 'PUBLISHED', 'VERIFIED']);
 
 function mkFinding(
@@ -89,7 +89,7 @@ export function makeIntegrityGuardService(ctx: DomainContext) {
       prisma.deliverable.findMany({
         where: {
           requiresProduct: true,
-          status: { in: [...DONE_DELIVERABLE_STATUSES] },
+          AND: [deliveredWhere],
           campaignInfluencer: { campaign: campaignBrandWhere },
         },
         select: {
@@ -128,7 +128,7 @@ export function makeIntegrityGuardService(ctx: DomainContext) {
           name: true,
           campaignInfluencers: {
             select: {
-              deliverables: { select: { id: true, status: true, dueDate: true } },
+              deliverables: { select: { id: true, status: true, type: true, dueDate: true } },
               influencer: { select: { displayName: true } },
             },
           },
@@ -233,7 +233,7 @@ export function makeIntegrityGuardService(ctx: DomainContext) {
 
     for (const camp of completedCampaigns) {
       const open = camp.campaignInfluencers.flatMap((ci) =>
-        ci.deliverables.filter((d) => !TERMINAL_DELIVERABLE_STATUSES.has(d.status)).map((d) => ({ ...d, influencer: ci.influencer.displayName })),
+        ci.deliverables.filter(isDeliverableOutstanding).map((d) => ({ ...d, influencer: ci.influencer.displayName })),
       );
       if (open.length === 0) continue;
       const names = [...new Set(open.map((d) => d.influencer))].slice(0, 3).join(', ');

@@ -4,13 +4,13 @@ import {
   type CampaignOperationsStageDTO,
   type CampaignOperationsStageState,
 } from '@influenceos/contracts';
+import { daysUntilDue, isDeliverableDelivered, isDeliverableOutstanding, isDeliverableOverdue } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { requireActor } from '../lib/authz';
 import { makeCampaignService } from './campaign.service';
 
 type FilterBucket = CampaignOperationsRowDTO['filterBuckets'][number];
 
-const PUBLISHED_STATUSES = new Set(['PUBLISHED', 'VERIFIED']);
 // AWAITING_PUBLICATION is grouped with PLANNED/SENT_TO_INFLUENCER elsewhere as
 // an "open" deliverable (analytics.service.ts's OPEN_DELIVERABLE) because some
 // deliverables skip formal review entirely — the creator is trusted to publish
@@ -23,6 +23,7 @@ const CLEARED_TO_PUBLISH = new Set(['APPROVED', 'AWAITING_PUBLICATION', 'PUBLISH
 
 interface DeliverableRow {
   status: string;
+  type: string;
   dueDate: Date | null;
   requiresProduct: boolean;
   hasSubmission: boolean;
@@ -36,10 +37,6 @@ function mk(
   link: string | null,
 ): CampaignOperationsStageDTO {
   return { key, label, state, detail, link };
-}
-
-function daysBetween(a: Date, b: Date): number {
-  return Math.round((a.getTime() - b.getTime()) / 86_400_000);
 }
 
 /**
@@ -102,7 +99,9 @@ function deriveStages(
   const countable = live.filter((d) => d.status !== 'MISSED');
 
   // 3. Content due — are outstanding deliverables tracking to their due dates?
-  const unpublished = countable.filter((d) => !PUBLISHED_STATUSES.has(d.status));
+  // Shared rules: an approved UGC asset is delivered; an approved post is not
+  // until it is up. Overdue = the due day has fully passed in Kuwait.
+  const unpublished = countable.filter(isDeliverableOutstanding);
   let contentDue: CampaignOperationsStageDTO;
   if (live.length === 0) {
     contentDue = mk('contentDue', 'Content Due', 'na', 'No deliverables yet', tabLink('deliverables'));
@@ -111,7 +110,7 @@ function deriveStages(
   } else if (unpublished.length === 0) {
     contentDue = mk('contentDue', 'Content Due', 'done', 'All due dates met', tabLink('deliverables'));
   } else {
-    const overdueOnes = unpublished.filter((d) => d.dueDate && d.dueDate.getTime() < now.getTime());
+    const overdueOnes = unpublished.filter((d) => isDeliverableOverdue(d, now));
     const withDueDate = unpublished.filter((d) => d.dueDate);
     contentDue =
       overdueOnes.length > 0
@@ -123,7 +122,7 @@ function deriveStages(
               'pending',
               (() => {
                 const soonest = withDueDate.reduce((a, b) => (a.dueDate! < b.dueDate! ? a : b));
-                const days = daysBetween(soonest.dueDate!, now);
+                const days = daysUntilDue(soonest.dueDate!, now);
                 return days === 0 ? 'Due today' : `Due in ${days} day${days === 1 ? '' : 's'}`;
               })(),
               tabLink('deliverables'),
@@ -179,9 +178,9 @@ function deriveStages(
     published = mk('published', 'Published', 'na', null, tabLink('content'));
   } else if (missed.length > 0) {
     published = mk('published', 'Published', 'overdue', `${missed.length} deliverable${missed.length === 1 ? '' : 's'} missed`, tabLink('content'));
-  } else if (countable.length > 0 && countable.every((d) => PUBLISHED_STATUSES.has(d.status))) {
+  } else if (countable.length > 0 && countable.every(isDeliverableDelivered)) {
     published = mk('published', 'Published', 'done', 'Published', tabLink('content'));
-  } else if (ci.expectedPublishAt && ci.expectedPublishAt.getTime() < now.getTime()) {
+  } else if (ci.expectedPublishAt && daysUntilDue(ci.expectedPublishAt, now) < 0) {
     published = mk('published', 'Published', 'overdue', 'Past the expected publish date', tabLink('content'));
   } else if (approved.state === 'done') {
     published = mk('published', 'Published', 'pending', 'Approved, awaiting publish', tabLink('content'));
@@ -275,6 +274,7 @@ export function makeCampaignOperationsService(ctx: DomainContext) {
           where: { status: { not: 'CANCELLED' } },
           select: {
             status: true,
+            type: true,
             dueDate: true,
             requiresProduct: true,
             submissions: { select: { id: true }, take: 1 },
@@ -290,6 +290,7 @@ export function makeCampaignOperationsService(ctx: DomainContext) {
     const board: CampaignOperationsRowDTO[] = rows.map((ci) => {
       const deliverables: DeliverableRow[] = ci.deliverables.map((d) => ({
         status: d.status,
+        type: d.type,
         dueDate: d.dueDate,
         requiresProduct: d.requiresProduct,
         hasSubmission: d.submissions.length > 0,

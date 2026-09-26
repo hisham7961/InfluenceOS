@@ -1,13 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import {
-  buildEmbed,
-  contentReviewStatus,
-  getAdapter,
-  metrics as sharedMetrics,
-  normalizeContentUrl,
-  resolveContentThumbnail,
-  type Platform,
-} from '@influenceos/shared';
+import { buildEmbed, businessToday, contentReviewStatus, getAdapter, metrics as sharedMetrics, normalizeContentUrl, resolveContentThumbnail, type Platform } from '@influenceos/shared';
 import {
   buildOffsetPagination,
   requests,
@@ -984,8 +976,10 @@ export function makeContentService(ctx: DomainContext) {
     const scopeWhere: Prisma.PublishedContentWhereInput = scope ? { brandId: { in: scope } } : {};
 
     const now = new Date();
-    const todayStart = query.todayStart ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const todayEnd = query.todayEnd ?? new Date(todayStart.getTime() + 86_400_000);
+    // The client sends its own day bounds; without them, today in Kuwait.
+    const kuwaitToday = businessToday(now);
+    const todayStart = query.todayStart ?? kuwaitToday.start;
+    const todayEnd = query.todayEnd ?? (query.todayStart ? new Date(query.todayStart.getTime() + 86_400_000) : kuwaitToday.end);
     // publishedAt when trustworthy/available, detectedAt fallback — same
     // date-source rule the Timeline uses (never mislabel detection time as
     // publication time).

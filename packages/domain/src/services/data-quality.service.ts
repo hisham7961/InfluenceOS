@@ -10,6 +10,7 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { requireActor } from '../lib/authz';
+import { outstandingWhere } from '../lib/deliverable-rules';
 import { scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
 // Matches the established z.infer<typeof requests.xSchema> pattern the rest
@@ -24,7 +25,6 @@ type DuplicateCheckInput = z.infer<typeof requests.duplicateCheckSchema>;
 // applies to findings too: don't flag what's expected to be absent).
 const PAID_DEAL_TYPES = ['PAID', 'PAID_PLUS_GIFTED'] as const;
 const OPEN_CAMPAIGN_STATUSES = ['PLANNING', 'ACTIVE', 'PAUSED'] as const;
-const ACTIVE_DELIVERABLE_STATUSES = ['PLANNED', 'SENT_TO_INFLUENCER', 'AWAITING_PUBLICATION', 'IN_REVIEW', 'CHANGES_REQUESTED', 'APPROVED'] as const;
 // "Campaign missing an owner" mirrors the canonical status set
 // dashboard.service.ts::attention() uses for its 'campaigns-missing-owner'
 // item (ownerlessCount) exactly — kept in sync by this cross-reference
@@ -219,7 +219,7 @@ export function makeDataQualityService(ctx: DomainContext) {
         where: { campaign: campaignBrandWhere, dealType: { in: [...PAID_DEAL_TYPES] }, agreedCost: null },
       }),
       prisma.deliverable.count({
-        where: { campaignInfluencer: { campaign: campaignBrandWhere }, status: { in: [...ACTIVE_DELIVERABLE_STATUSES] }, dueDate: null },
+        where: { AND: [outstandingWhere], campaignInfluencer: { campaign: campaignBrandWhere }, dueDate: null },
       }),
       // 1. Missing canonical country — split by relationship engagement (see
       // ENGAGED_RELATIONSHIP_STATUSES doc comment for the severity rule).

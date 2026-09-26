@@ -1,5 +1,5 @@
 import net from 'node:net';
-import { buildIdentity, slugify } from '@influenceos/shared';
+import { buildIdentity, businessDayRange, slugify } from '@influenceos/shared';
 import {
   requests,
   z,
@@ -301,7 +301,9 @@ export function makePlatformService(ctx: DomainContext) {
       and.push({ [entityColumn[filter.entityType]]: filter.entityId });
     }
     if (filter.from || filter.to) {
-      and.push({ createdAt: { ...(filter.from ? { gte: filter.from } : {}), ...(filter.to ? { lte: filter.to } : {}) } });
+      // Whole Kuwait days, the "to" day included.
+      const { start, end } = businessDayRange(filter.from, filter.to);
+      and.push({ createdAt: { ...(start ? { gte: start } : {}), ...(end ? { lt: end } : {}) } });
     }
     if (filter.q) and.push({ message: { contains: filter.q, mode: 'insensitive' } });
 

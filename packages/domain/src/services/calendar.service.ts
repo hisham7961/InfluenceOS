@@ -3,6 +3,7 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { iso } from '../lib/helpers';
+import { scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
 type CalendarQuery = z.infer<typeof requests.calendarQuerySchema>;
 
@@ -18,8 +19,16 @@ export function makeCalendarService(ctx: DomainContext) {
   async function events(q: CalendarQuery): Promise<CalendarEventDTO[]> {
     const { from, to, brandId, campaignId, influencerId, platform } = q;
 
+    // Brand and country scope, the same as every list: a scoped user only
+    // sees their brands' campaigns and their countries' creators here too.
+    const brandScope = await scopedBrandIds(ctx);
+    const countryScope = await scopedCountryCodes(ctx);
+    const inBrands = brandScope ? { brandId: { in: brandScope } } : {};
+    const inCountries = countryScope ? { influencer: { countryCode: { in: countryScope } } } : {};
+
     // --- (1) Campaigns: start/end within range -----------------------------
     const campaignWhere: Prisma.CampaignWhereInput = {
+      AND: [inBrands],
       ...(brandId ? { brandId } : {}),
       ...(campaignId ? { id: campaignId } : {}),
       OR: [
@@ -31,7 +40,11 @@ export function makeCalendarService(ctx: DomainContext) {
     // --- (2) Deliverables: dueDate within range -----------------------------
     const deliverableWhere: Prisma.DeliverableWhereInput = {
       dueDate: { gte: from, lte: to },
+      // Cancelled work is off the plan; everything else (including what's
+      // already delivered) stays visible on its day.
+      status: { not: 'CANCELLED' },
       ...(platform ? { platform } : {}),
+      AND: [{ campaignInfluencer: { campaign: inBrands, ...inCountries } }],
       campaignInfluencer: {
         ...(influencerId ? { influencerId } : {}),
         ...(campaignId ? { campaignId } : {}),
@@ -42,6 +55,7 @@ export function makeCalendarService(ctx: DomainContext) {
     // --- (3) CampaignInfluencer.expectedPublishAt within range --------------
     const expectedPublishWhere: Prisma.CampaignInfluencerWhereInput = {
       expectedPublishAt: { gte: from, lte: to },
+      AND: [{ campaign: inBrands, ...inCountries }],
       ...(influencerId ? { influencerId } : {}),
       ...(campaignId ? { campaignId } : {}),
       ...(brandId ? { campaign: { brandId } } : {}),
@@ -50,6 +64,12 @@ export function makeCalendarService(ctx: DomainContext) {
     // --- (4) PublishedContent.publishedAt within range -----------------------
     const publishedWhere: Prisma.PublishedContentWhereInput = {
       publishedAt: { gte: from, lte: to },
+      // Same posture as the content wall: unassigned content stays visible,
+      // anything tied to an out-of-scope brand or creator country does not.
+      AND: [
+        brandScope ? { OR: [{ brandId: { in: brandScope } }, { brandId: null }] } : {},
+        countryScope ? { OR: [{ influencerId: null }, { influencer: { countryCode: { in: countryScope } } }] } : {},
+      ],
       ...(platform ? { platform } : {}),
       ...(brandId ? { brandId } : {}),
       ...(campaignId ? { campaignId } : {}),

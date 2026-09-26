@@ -1,4 +1,4 @@
-import { countryName, metrics as sharedMetrics, type Platform } from '@influenceos/shared';
+import { countryName, countsTowardCompletion, isDeliverableDelivered, metrics as sharedMetrics, type Platform } from '@influenceos/shared';
 import {
   buildOffsetPagination,
   requests,
@@ -19,6 +19,7 @@ import { buildCursorPage } from '../lib/cursor';
 import { resolveAvatarUrl } from '../lib/avatar';
 import { iso, logActivity } from '../lib/helpers';
 import { sumMoney, toDecimal } from '../lib/money';
+import { participationMoney } from '../lib/spend';
 import { toInfluencerSummary, toSocialAccountDTO } from '../lib/mappers';
 import { isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
@@ -408,6 +409,8 @@ export function makeInfluencerService(ctx: DomainContext) {
         select: {
           agreedCost: true,
           paymentStatus: true,
+          paidAmount: true,
+          participationStatus: true,
           dealType: true,
           createdAt: true,
           campaign: {
@@ -419,7 +422,7 @@ export function makeInfluencerService(ctx: DomainContext) {
               brand: { select: { id: true, name: true } },
             },
           },
-          deliverables: { select: { status: true } },
+          deliverables: { select: { status: true, type: true } },
         },
       }),
       prisma.publishedContent.count({ where: { influencerId: id } }),
@@ -446,13 +449,13 @@ export function makeInfluencerService(ctx: DomainContext) {
         activeCampaignNames.push(ci.campaign.name);
       }
       const cost = toDecimal(ci.agreedCost);
-      if (cost != null && (ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED')) {
-        paidRates.push(cost);
-        if (ci.paymentStatus === 'PAID') totalPaid = totalPaid.plus(cost);
-      }
+      if (cost != null && (ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED')) paidRates.push(cost);
+      // What was actually paid, part payments included (shared rule, spend.ts).
+      totalPaid = totalPaid.plus(participationMoney(ci).paid);
       for (const d of ci.deliverables) {
+        if (!countsTowardCompletion(d)) continue;
         deliverablesTotal += 1;
-        if (d.status === 'PUBLISHED' || d.status === 'VERIFIED') deliverablesPublished += 1;
+        if (isDeliverableDelivered(d)) deliverablesPublished += 1;
       }
     }
 

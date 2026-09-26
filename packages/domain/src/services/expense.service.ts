@@ -7,6 +7,7 @@ import { logActivity } from '../lib/helpers';
 import { moneyNumberOr0, toMoneyNumber } from '../lib/money';
 import { toExpenseDTO } from '../lib/mappers';
 import { computeCostSummary } from '../lib/progress';
+import { PAID_DEALS } from '../lib/spend';
 import { makeCampaignService } from './campaign.service';
 
 type ExpenseCreate = z.infer<typeof requests.expenseCreateSchema>;
@@ -36,6 +37,25 @@ export function makeExpenseService(ctx: DomainContext) {
     return { expenses: rows.map(toExpenseDTO), summary };
   }
 
+  /**
+   * A creator's fee lives on their roster row (agreed cost). An
+   * INFLUENCER_FEE expense for a creator who already has one would count the
+   * same fee twice in spend, so it is refused; extra costs for that creator
+   * go under another type (production, other…).
+   */
+  async function assertNotRepeatedFee(type: string, campaignInfluencerId: string | null | undefined): Promise<void> {
+    if (type !== 'INFLUENCER_FEE' || !campaignInfluencerId) return;
+    const ci = await prisma.campaignInfluencer.findUnique({
+      where: { id: campaignInfluencerId },
+      select: { dealType: true, agreedCost: true },
+    });
+    if (ci && ci.agreedCost != null && (PAID_DEALS as readonly string[]).includes(ci.dealType)) {
+      throw AppError.conflict(
+        "This creator's fee is already recorded as their agreed cost on the roster. Update it there (or record the payment), or add extra costs under another expense type.",
+      );
+    }
+  }
+
   async function create(input: ExpenseCreate): Promise<ExpenseDTO> {
     const actor = await requireCapability(ctx, 'FINANCE_MANAGE');
     // FINANCE_MANAGE grants WHAT; brand scope grants WHERE — a brand-scoped
@@ -52,6 +72,7 @@ export function makeExpenseService(ctx: DomainContext) {
         throw AppError.badRequest('The selected influencer is not part of this campaign.');
       }
     }
+    await assertNotRepeatedFee(input.type, input.campaignInfluencerId);
 
     const expense = await prisma.campaignExpense.create({
       data: {
@@ -94,6 +115,13 @@ export function makeExpenseService(ctx: DomainContext) {
       if (!ci || ci.campaignId !== existing.campaignId) {
         throw AppError.badRequest('The selected influencer is not part of this campaign.');
       }
+    }
+    // Only a change of type or creator is checked, so older rows stay editable.
+    if (input.type !== undefined || input.campaignInfluencerId !== undefined) {
+      await assertNotRepeatedFee(
+        input.type ?? existing.type,
+        input.campaignInfluencerId === undefined ? existing.campaignInfluencerId : input.campaignInfluencerId,
+      );
     }
 
     const expense = await prisma.campaignExpense.update({

@@ -14,7 +14,9 @@ import { LOGISTICS_ISSUE_TYPE_LABELS } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { requireActor } from '../lib/authz';
 import { iso } from '../lib/helpers';
-import { moneyNumberOr0, sumMoney } from '../lib/money';
+import { moneyNumberOr0 } from '../lib/money';
+import { dueWithinWhere, overdueWhere } from '../lib/deliverable-rules';
+import { loadCampaignMoney, sumCampaignMoney } from '../lib/spend';
 import { toActivityDTO } from '../lib/mappers';
 import { scopedBrandIds } from '../lib/scope';
 import { makeBrandService } from './brand.service';
@@ -22,7 +24,6 @@ import { makeCampaignService } from './campaign.service';
 import { makeContentService } from './content.service';
 
 const REMOVED_STATUSES = ['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BROKEN_LINK'] as const;
-const OPEN_DELIVERABLE_STATUSES = ['PLANNED', 'SENT_TO_INFLUENCER', 'AWAITING_PUBLICATION'] as const;
 // Real, already-recorded event categories worth surfacing in "What's New" —
 // deliberately excludes GENERAL/SYNC_FAILURE/DELIVERABLE_DUE_SOON/
 // CAMPAIGN_ENDING to avoid noise (item 38: this is not an ActivityLog dump).
@@ -74,24 +75,17 @@ export function makeDashboardService(ctx: DomainContext) {
 
   async function totalSpend(brandId?: string): Promise<number> {
     const bf = await scopedBrandFilter(brandId);
-    const campaignWhere = bf.brandId !== undefined ? { campaign: { brandId: bf.brandId } } : {};
-    const [fees, expenses] = await Promise.all([
-      prisma.campaignInfluencer.aggregate({
-        _sum: { agreedCost: true },
-        where: { ...campaignWhere, dealType: { in: ['PAID', 'PAID_PLUS_GIFTED'] } },
-      }),
-      prisma.campaignExpense.aggregate({
-        _sum: { amount: true },
-        where: { ...campaignWhere, type: { not: 'GIFT_PRODUCT' } },
-      }),
-    ]);
-    return moneyNumberOr0(sumMoney([fees._sum.agreedCost, expenses._sum.amount]));
+    const campaigns = await prisma.campaign.findMany({
+      where: bf.brandId !== undefined ? { brandId: bf.brandId } : {},
+      select: { id: true },
+    });
+    const money = await loadCampaignMoney(prisma, campaigns.map((c) => c.id));
+    return moneyNumberOr0(sumCampaignMoney(money.values(), 'totalSpend'));
   }
 
   async function pulse(brandId?: string): Promise<PulseDTO> {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 864e5);
-    const in14 = new Date(now.getTime() + 14 * 864e5);
 
     // Brand scope (Security & Authorization Freeze Gate, aggregate-leak-
     // audit) — pulse() backs the Mission Control "at a glance" KPIs and is
@@ -121,20 +115,8 @@ export function makeDashboardService(ctx: DomainContext) {
       prisma.publishedContent.count({
         where: { detectedAt: { gte: weekAgo }, ...bf },
       }),
-      prisma.deliverable.count({
-        where: {
-          dueDate: { gte: now, lte: in14 },
-          status: { in: [...OPEN_DELIVERABLE_STATUSES] },
-          ...dbf,
-        },
-      }),
-      prisma.deliverable.count({
-        where: {
-          dueDate: { lt: now },
-          status: { in: [...OPEN_DELIVERABLE_STATUSES] },
-          ...dbf,
-        },
-      }),
+      prisma.deliverable.count({ where: { AND: [dueWithinWhere(14, now), dbf] } }),
+      prisma.deliverable.count({ where: { AND: [overdueWhere(now), dbf] } }),
       totalSpend(brandId),
       prisma.publishedContent.count({
         where: { availabilityStatus: { in: [...REMOVED_STATUSES] }, ...bf },
@@ -319,7 +301,7 @@ export function makeDashboardService(ctx: DomainContext) {
     const [overdue, removed, endingSoon, unassignedCount, shipmentIssues, expiringRights, ownerlessCount, ugcAwaiting, logisticsIssues] =
       await Promise.all([
         prisma.deliverable.findMany({
-          where: { dueDate: { lt: now }, status: { in: [...OPEN_DELIVERABLE_STATUSES] }, ...deliverableBf },
+          where: { AND: [overdueWhere(now), deliverableBf] },
           include: {
             campaignInfluencer: {
               select: { campaignId: true, influencer: { select: { displayName: true } }, campaign: { select: { name: true, brandId: true } } },

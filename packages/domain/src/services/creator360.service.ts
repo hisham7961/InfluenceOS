@@ -5,13 +5,20 @@ import {
   type DeliverableSubmissionDTO,
 } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
-import { USAGE_RIGHT_TYPE_LABELS } from '@influenceos/shared';
+import {
+  USAGE_RIGHT_TYPE_LABELS,
+  businessDateKey,
+  businessDaysBetween,
+  isDeliverableOutstanding,
+  overdueAfter,
+} from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { requireActor } from '../lib/authz';
 import { iso } from '../lib/helpers';
 import { toActivityDTO } from '../lib/mappers';
-import { resolveScopeCurrency, subtractMoney, sumMoney, toDecimal } from '../lib/money';
+import { resolveScopeCurrency, sumMoney, toDecimal } from '../lib/money';
+import { participationMoney } from '../lib/spend';
 import { isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
 
 /** submissions()'s return shape — the real DeliverableSubmissionDTO fields
@@ -23,7 +30,6 @@ export interface CreatorSubmissionDTO extends DeliverableSubmissionDTO {
   campaignName: string;
 }
 
-const ACTIVE_DELIVERABLE_STATUSES = ['PLANNED', 'SENT_TO_INFLUENCER', 'AWAITING_PUBLICATION', 'IN_REVIEW', 'CHANGES_REQUESTED', 'APPROVED'] as const;
 const ACTIVE_SHIPMENT_STATUSES = ['PENDING', 'SHIPPED', 'IN_TRANSIT'] as const;
 const PAID_DEAL_TYPES = ['PAID', 'PAID_PLUS_GIFTED'] as const;
 
@@ -90,11 +96,12 @@ export function makeCreator360Service(ctx: DomainContext) {
           paidAmount: true,
           currency: true,
           dealType: true,
+          participationStatus: true,
           paymentStatus: true,
           dateContacted: true,
           createdAt: true,
           campaign: { select: { status: true, startDate: true, brandId: true } },
-          deliverables: { select: { status: true } },
+          deliverables: { select: { status: true, type: true } },
           shipments: {
             select: {
               id: true,
@@ -152,7 +159,7 @@ export function makeCreator360Service(ctx: DomainContext) {
       if (!lastCollaborationAt || at > lastCollaborationAt) lastCollaborationAt = at;
       if (ci.dateContacted && (!lastContactAt || ci.dateContacted > lastContactAt)) lastContactAt = ci.dateContacted;
       for (const d of ci.deliverables) {
-        if (ACTIVE_DELIVERABLE_STATUSES.includes(d.status as (typeof ACTIVE_DELIVERABLE_STATUSES)[number])) activeDeliverables += 1;
+        if (isDeliverableOutstanding(d)) activeDeliverables += 1;
       }
       for (const s of ci.shipments) {
         if (ACTIVE_SHIPMENT_STATUSES.includes(s.status as (typeof ACTIVE_SHIPMENT_STATUSES)[number])) activeShipments += 1;
@@ -178,10 +185,9 @@ export function makeCreator360Service(ctx: DomainContext) {
       ? { min: Prisma.Decimal.min(...rates).toNumber(), max: Prisma.Decimal.max(...rates).toNumber(), currency: dominantCurrency! }
       : null;
 
-    const outstandingRows = dominantRows.filter((r) => r.paymentStatus !== 'PAID');
-    const outstandingPayment = sumMoney(
-      outstandingRows.map((r) => subtractMoney(r.agreedCost, r.paidAmount) ?? 0),
-    ).toNumber();
+    // Still owed under the shared payment rules (spend.ts): part payments
+    // count for what's left; nothing is owed to a creator who dropped out.
+    const outstandingPayment = sumMoney(dominantRows.map((r) => participationMoney(r).unpaid)).toNumber();
 
     return {
       ownerName: influencer.owner?.name ?? null,
@@ -221,13 +227,12 @@ export function makeCreator360Service(ctx: DomainContext) {
     let late = 0;
     let delaySumDays = 0;
     for (const r of rows) {
-      const due = r.dueDate!.getTime();
-      const published = r.publishedAt!.getTime();
-      if (published <= due) {
+      // On time = posted any time on the due day (Kuwait), not before 03:00.
+      if (r.publishedAt! < overdueAfter(r.dueDate!)) {
         onTime += 1;
       } else {
         late += 1;
-        delaySumDays += (published - due) / 86_400_000;
+        delaySumDays += businessDaysBetween(businessDateKey(r.dueDate!), businessDateKey(r.publishedAt!));
       }
     }
 

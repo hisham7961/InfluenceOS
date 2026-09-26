@@ -1,32 +1,9 @@
-import { Prisma } from '@influenceos/database';
 import type { CampaignProgressDTO, CostSummaryDTO } from '@influenceos/contracts';
 import type { DomainContext } from '../context';
-import { percentOf, toDecimal, toMoneyNumber, type MoneyInput } from './money';
-
-const PUBLISHED_DELIVERABLE_STATUSES = ['PUBLISHED', 'VERIFIED', 'APPROVED'] as const;
-
-/**
- * Split an amount into its paid / unpaid parts by payment status. A
- * PARTIALLY_PAID row uses its recorded `paidAmount` (clamped to [0, amount]) so
- * a 1,500-of-3,000 fee reports 1,500 paid + 1,500 unpaid, not 3,000 unpaid
- * (finance P1). A missing paidAmount on a partial payment counts as 0 paid.
- */
-function splitPayment(
-  amount: Prisma.Decimal,
-  status: string,
-  paidAmount: MoneyInput,
-): { paid: Prisma.Decimal; unpaid: Prisma.Decimal } {
-  const zero = new Prisma.Decimal(0);
-  if (status === 'PAID') return { paid: amount, unpaid: zero };
-  if (status === 'UNPAID') return { paid: zero, unpaid: amount };
-  if (status === 'PARTIALLY_PAID') {
-    let paid = toDecimal(paidAmount) ?? zero;
-    if (paid.lt(zero)) paid = zero;
-    if (paid.gt(amount)) paid = amount;
-    return { paid, unpaid: amount.minus(paid) };
-  }
-  return { paid: zero, unpaid: zero }; // NOT_APPLICABLE
-}
+import { countsTowardCompletion, daysUntilDue, isDeliverableDelivered } from '@influenceos/shared';
+import { percentOf, toMoneyNumber } from './money';
+import { countedWhere, deliveredWhere } from './deliverable-rules';
+import { campaignMoney, type ExpenseMoneyRow, type ParticipationMoneyRow } from './spend';
 
 interface CampaignForProgress {
   id: string;
@@ -63,10 +40,9 @@ function progressFrom(
     if (end > start) {
       timeElapsedPercent = Math.min(100, Math.max(0, Math.round(((now - start) / (end - start)) * 100)));
     }
-    daysRemaining = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
-  } else if (campaign.endDate) {
-    daysRemaining = Math.ceil((campaign.endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   }
+  // Calendar days in Kuwait: 0 on the last day, not a rounded 24-hour count.
+  if (campaign.endDate) daysRemaining = daysUntilDue(campaign.endDate);
 
   return {
     deliverablesTotal: counts.deliverablesTotal,
@@ -96,10 +72,8 @@ export async function computeCampaignProgress(
 
   const [deliverablesTotal, deliverablesPublished, influencersTotal, influencersCompleted, cost] =
     await Promise.all([
-      prisma.deliverable.count({ where }),
-      prisma.deliverable.count({
-        where: { ...where, status: { in: [...PUBLISHED_DELIVERABLE_STATUSES] } },
-      }),
+      prisma.deliverable.count({ where: { AND: [where, countedWhere] } }),
+      prisma.deliverable.count({ where: { AND: [where, deliveredWhere] } }),
       prisma.campaignInfluencer.count({ where: { campaignId: campaign.id } }),
       prisma.campaignInfluencer.count({
         where: { campaignId: campaign.id, participationStatus: 'COMPLETED' },
@@ -113,17 +87,6 @@ export async function computeCampaignProgress(
     cost,
   );
 }
-
-// Cost input rows (already fetched). Kept structural so both the per-campaign
-// and the batched paths can share the exact Decimal accumulation.
-type CiCostRow = {
-  dealType: string;
-  agreedCost: MoneyInput;
-  giftedProductValue: MoneyInput;
-  paymentStatus: string;
-  paidAmount: MoneyInput;
-};
-type ExpenseCostRow = { type: string; amount: MoneyInput; paymentStatus: string; paidAmount: MoneyInput };
 
 /**
  * Compute the whole campaign list's progress in a fixed THREE queries regardless
@@ -155,7 +118,7 @@ export async function computeCampaignProgressBatch(
     }),
     prisma.campaignExpense.findMany({
       where: { campaignId: { in: ids } },
-      select: { campaignId: true, type: true, amount: true, paymentStatus: true, paidAmount: true },
+      select: { campaignId: true, campaignInfluencerId: true, type: true, amount: true, paymentStatus: true, paidAmount: true },
     }),
   ]);
 
@@ -163,7 +126,7 @@ export async function computeCampaignProgressBatch(
   const deliverables = ciIds.length
     ? await prisma.deliverable.findMany({
         where: { campaignInfluencerId: { in: ciIds } },
-        select: { campaignInfluencerId: true, status: true },
+        select: { campaignInfluencerId: true, status: true, type: true },
       })
     : [];
 
@@ -178,17 +141,16 @@ export async function computeCampaignProgressBatch(
   for (const d of deliverables) {
     const cid = ciToCampaign.get(d.campaignInfluencerId);
     if (!cid) continue;
+    if (!countsTowardCompletion(d)) continue;
     delTotal.set(cid, (delTotal.get(cid) ?? 0) + 1);
-    if ((PUBLISHED_DELIVERABLE_STATUSES as readonly string[]).includes(d.status)) {
-      delPublished.set(cid, (delPublished.get(cid) ?? 0) + 1);
-    }
+    if (isDeliverableDelivered(d)) delPublished.set(cid, (delPublished.get(cid) ?? 0) + 1);
   }
 
   for (const campaign of campaigns) {
     const cCis = cisByCampaign.get(campaign.id) ?? [];
     const cost = costSummaryFrom(
-      cCis as CiCostRow[],
-      (expByCampaign.get(campaign.id) ?? []) as ExpenseCostRow[],
+      cCis,
+      expByCampaign.get(campaign.id) ?? [],
       campaign.currency,
       toMoneyNumber(campaign.plannedBudget as never),
     );
@@ -210,9 +172,9 @@ export async function computeCampaignProgressBatch(
 }
 
 /**
- * Single source of truth for campaign money. Influencer fees come from
- * CampaignInfluencer.agreedCost (paid deals); CampaignExpense holds all other
- * expenses. No double counting.
+ * Campaign money summary — the rules live in spend.ts (fees from the roster's
+ * agreed cost, ended participations count only what was paid, a fee expense
+ * that repeats a roster fee is not counted twice).
  */
 export async function computeCostSummary(
   ctx: DomainContext,
@@ -225,11 +187,19 @@ export async function computeCostSummary(
   const [cis, expenses] = await Promise.all([
     prisma.campaignInfluencer.findMany({
       where: { campaignId },
-      select: { dealType: true, agreedCost: true, giftedProductValue: true, paymentStatus: true, paidAmount: true },
+      select: {
+        id: true,
+        dealType: true,
+        agreedCost: true,
+        giftedProductValue: true,
+        participationStatus: true,
+        paymentStatus: true,
+        paidAmount: true,
+      },
     }),
     prisma.campaignExpense.findMany({
       where: { campaignId },
-      select: { type: true, amount: true, paymentStatus: true, paidAmount: true },
+      select: { campaignInfluencerId: true, type: true, amount: true, paymentStatus: true, paidAmount: true },
     }),
   ]);
 
@@ -242,43 +212,12 @@ export async function computeCostSummary(
  * batched (W7-1) paths so both produce identical money.
  */
 function costSummaryFrom(
-  cis: CiCostRow[],
-  expenses: ExpenseCostRow[],
+  cis: ParticipationMoneyRow[],
+  expenses: ExpenseMoneyRow[],
   currency: string,
   plannedBudget: number | null,
 ): CostSummaryDTO {
-  let influencerFees = new Prisma.Decimal(0);
-  let giftValue = new Prisma.Decimal(0);
-  let paid = new Prisma.Decimal(0);
-  let unpaid = new Prisma.Decimal(0);
-
-  for (const ci of cis) {
-    // FREE deals keep an exact 0; a missing cost contributes nothing (not 0-as-fact).
-    const fee = toDecimal(ci.agreedCost) ?? new Prisma.Decimal(0);
-    const gift = toDecimal(ci.giftedProductValue) ?? new Prisma.Decimal(0);
-    if (ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED') {
-      influencerFees = influencerFees.plus(fee);
-      const split = splitPayment(fee, ci.paymentStatus, ci.paidAmount);
-      paid = paid.plus(split.paid);
-      unpaid = unpaid.plus(split.unpaid);
-    }
-    giftValue = giftValue.plus(gift);
-  }
-
-  let otherExpenses = new Prisma.Decimal(0);
-  for (const e of expenses) {
-    const amount = toDecimal(e.amount) ?? new Prisma.Decimal(0);
-    if (e.type === 'GIFT_PRODUCT') {
-      giftValue = giftValue.plus(amount);
-    } else {
-      otherExpenses = otherExpenses.plus(amount);
-    }
-    const split = splitPayment(amount, e.paymentStatus, e.paidAmount);
-    paid = paid.plus(split.paid);
-    unpaid = unpaid.plus(split.unpaid);
-  }
-
-  const totalSpend = influencerFees.plus(otherExpenses);
+  const { influencerFees, giftValue, otherExpenses, totalSpend, paid, unpaid } = campaignMoney(cis, expenses);
 
   return {
     currency,

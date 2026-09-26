@@ -67,6 +67,7 @@ import {
   PAYMENT_STATUSES,
   PLATFORM_META,
   PLATFORMS,
+  isDeliverableOverdue,
 } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
 import { useConversationUnread } from '@/lib/use-conversation-unread';
@@ -1007,8 +1008,6 @@ function EditInfluencerDialog({
 // Deliverables (shared row + flat cross-influencer tab)
 // ---------------------------------------------------------------------------
 
-const TERMINAL_DELIVERABLE_STATUSES: DeliverableStatus[] = ['PUBLISHED', 'VERIFIED', 'CANCELLED', 'MISSED'];
-
 function DeliverableRow({
   deliverable,
   campaign,
@@ -1057,10 +1056,9 @@ function DeliverableRow({
     onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
 
-  const isOverdue =
-    Boolean(deliverable.dueDate) &&
-    new Date(deliverable.dueDate as string).getTime() < Date.now() &&
-    !TERMINAL_DELIVERABLE_STATUSES.includes(deliverable.status);
+  // Shared rule: overdue once the due day has fully passed in Kuwait, for
+  // work that is still owed (an approved post not yet up still counts).
+  const isOverdue = isDeliverableOverdue(deliverable);
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">

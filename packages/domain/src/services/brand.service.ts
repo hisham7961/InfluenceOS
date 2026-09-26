@@ -6,7 +6,8 @@ import { AppError } from '../errors';
 import { requireAdmin } from '../lib/authz';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
 import { logActivity, uniqueSlug } from '../lib/helpers';
-import { moneyNumberOr0, sumMoney } from '../lib/money';
+import { moneyNumberOr0 } from '../lib/money';
+import { loadCampaignMoney, sumCampaignMoney } from '../lib/spend';
 import { toBrandSummary } from '../lib/mappers';
 
 const summarySelect = {
@@ -54,23 +55,18 @@ export function makeBrandService(ctx: DomainContext) {
 
   async function detail(idOrSlug: string): Promise<BrandDetailDTO> {
     const brand = await findByIdOrSlug(idOrSlug);
-    const [activeCampaigns, totalCampaigns, influencers, contentCount, fees, expenses] =
+    const [activeCampaigns, totalCampaigns, influencers, contentCount, campaignIds] =
       await Promise.all([
         prisma.campaign.count({ where: { brandId: brand.id, status: 'ACTIVE' } }),
         prisma.campaign.count({ where: { brandId: brand.id } }),
         prisma.brandInfluencer.count({ where: { brandId: brand.id } }),
         prisma.publishedContent.count({ where: { brandId: brand.id } }),
-        prisma.campaignInfluencer.aggregate({
-          _sum: { agreedCost: true },
-          where: { campaign: { brandId: brand.id }, dealType: { in: ['PAID', 'PAID_PLUS_GIFTED'] } },
-        }),
-        prisma.campaignExpense.aggregate({
-          _sum: { amount: true },
-          where: { campaign: { brandId: brand.id }, type: { not: 'GIFT_PRODUCT' } },
-        }),
+        prisma.campaign.findMany({ where: { brandId: brand.id }, select: { id: true } }),
       ]);
 
-    const totalSpend = moneyNumberOr0(sumMoney([fees._sum.agreedCost, expenses._sum.amount]));
+    // Shared money rules (spend.ts) — the same figure as the campaigns add up to.
+    const money = await loadCampaignMoney(prisma, campaignIds.map((c) => c.id));
+    const totalSpend = moneyNumberOr0(sumCampaignMoney(money.values(), 'totalSpend'));
 
     return {
       ...toBrandSummary(brand),

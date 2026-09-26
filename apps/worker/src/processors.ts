@@ -6,12 +6,12 @@ import {
   countStaleAccounts,
   createNotification,
   createServices,
+  dueWithinWhere,
+  overdueWhere,
   systemContext,
   type UploadCleanupResult,
 } from '@influenceos/domain';
 import { USAGE_RIGHT_EXPIRY_WARNING_DAYS, daysUntilExpiry } from '@influenceos/shared';
-
-const OPEN_DELIVERABLE = ['PLANNED', 'SENT_TO_INFLUENCER', 'AWAITING_PUBLICATION'] as const;
 
 /** Availability + metric refresh for one piece of content (domain logic). */
 export async function checkContent(id: string): Promise<void> {
@@ -69,7 +69,6 @@ export async function monitoringBacklog(): Promise<{ dueContent: number; staleAc
 export async function generateNotifications(): Promise<{ created: number }> {
   const ctx = systemContext();
   const now = new Date();
-  const soon = new Date(now.getTime() + 2 * 864e5);
   const ending = new Date(now.getTime() + 3 * 864e5);
   const dedupeSince = new Date(now.getTime() - 20 * 3600 * 1000);
   let created = 0;
@@ -85,7 +84,8 @@ export async function generateNotifications(): Promise<{ created: number }> {
   const campaignSelect = { name: true, brandId: true, ownerId: true } as const;
 
   const overdue = await prisma.deliverable.findMany({
-    where: { dueDate: { lt: now }, status: { in: [...OPEN_DELIVERABLE] } },
+    // Overdue once the whole due day has passed in Kuwait (shared rule).
+    where: overdueWhere(now),
     include: { campaignInfluencer: { select: { campaignId: true, campaign: { select: campaignSelect } } } },
     take: 100,
   });
@@ -108,7 +108,8 @@ export async function generateNotifications(): Promise<{ created: number }> {
   }
 
   const dueSoon = await prisma.deliverable.findMany({
-    where: { dueDate: { gte: now, lte: soon }, status: { in: [...OPEN_DELIVERABLE] } },
+    // Due today, tomorrow or the day after (Kuwait calendar days).
+    where: dueWithinWhere(2, now),
     include: { campaignInfluencer: { select: { campaignId: true, campaign: { select: campaignSelect } } } },
     take: 100,
   });
@@ -121,7 +122,7 @@ export async function generateNotifications(): Promise<{ created: number }> {
     await createNotification(ctx, {
       category: 'DELIVERABLE_DUE_SOON',
       title: 'Deliverable due soon',
-      body: `A deliverable in ${d.campaignInfluencer.campaign.name} is due within 48 hours.`,
+      body: `A deliverable in ${d.campaignInfluencer.campaign.name} is due in the next 2 days.`,
       targetUrl: `/campaigns/${campaignId}`,
       campaignId,
       brandId: d.campaignInfluencer.campaign.brandId,

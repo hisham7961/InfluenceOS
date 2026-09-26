@@ -1,4 +1,4 @@
-import { METRICS_FRESHNESS_DAYS, metrics } from '@influenceos/shared';
+import { METRICS_FRESHNESS_DAYS, businessToday, isDeliverableDelivered, metrics } from '@influenceos/shared';
 import {
   requests,
   type CampaignEfficiencyDTO,
@@ -15,26 +15,21 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { moneyNumberOr0, percentOf, subtractMoney, sumMoney, toDecimal, toMoneyNumber } from '../lib/money';
+import { moneyNumberOr0, percentOf, sumMoney, toDecimal, toMoneyNumber } from '../lib/money';
 import { computeCostSummary } from '../lib/progress';
+import { deliveredWhere, dueWithinWhere, overdueWhere } from '../lib/deliverable-rules';
+import { loadCampaignMoney, participationMoney, sumCampaignMoney, EMPTY_CAMPAIGN_MONEY } from '../lib/spend';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
 
 type LeaderboardQuery = z.infer<typeof requests.leaderboardQuerySchema>;
 type ExecDashboardQuery = z.infer<typeof requests.execDashboardQuerySchema>;
 
-// Deliverables not yet delivered (open) — the set that can be overdue or due today.
-const OPEN_DELIVERABLE = ['PLANNED', 'SENT_TO_INFLUENCER', 'AWAITING_PUBLICATION'] as const;
 // Content that has left the feed (a brand-health alert).
 const REMOVED_CONTENT = ['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BROKEN_LINK'] as const;
-// Deals that carry an influencer fee (gift-only deals contribute no spend).
-const PAID_DEALS = ['PAID', 'PAID_PLUS_GIFTED'] as const;
 
 // A collaboration only counts once committed — an invited/declined/dropped
 // participation never inflates a creator's standing (consistent with DB-10).
 const COMMITTED = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'] as const;
-// A deliverable counts as delivered once it reaches a published/verified/
-// approved state (UGC completes via approval, W3-1).
-const PUBLISHED = ['PUBLISHED', 'VERIFIED', 'APPROVED'] as const;
 
 /** Deterministic performance score and tier from delivered work (W6-2). */
 function tierFor(published: number): CreatorTier {
@@ -69,12 +64,14 @@ export function makeAnalyticsService(ctx: DomainContext) {
         influencerId: true,
         agreedCost: true,
         dealType: true,
+        participationStatus: true,
         paymentStatus: true,
+        paidAmount: true,
         influencer: {
           select: { displayName: true, primaryUsername: true, category: true, avatarOverrideUrl: true, resolvedAvatarUrl: true },
         },
         campaign: { select: { brandId: true } },
-        deliverables: { select: { status: true } },
+        deliverables: { select: { status: true, type: true } },
       },
       take: 5000,
     });
@@ -112,11 +109,12 @@ export function makeAnalyticsService(ctx: DomainContext) {
       }
       acc.campaigns += 1;
       acc.brands.add(r.campaign.brandId);
-      acc.deliverablesTotal += r.deliverables.length;
-      acc.deliverablesPublished += r.deliverables.filter((d) => (PUBLISHED as readonly string[]).includes(d.status)).length;
-      if ((r.dealType === 'PAID' || r.dealType === 'PAID_PLUS_GIFTED') && r.paymentStatus === 'PAID' && r.agreedCost != null) {
-        acc.paid.push(new Prisma.Decimal(r.agreedCost));
-      }
+      const planned = r.deliverables.filter((d) => d.status !== 'CANCELLED');
+      acc.deliverablesTotal += planned.length;
+      acc.deliverablesPublished += planned.filter(isDeliverableDelivered).length;
+      // Part payments count as paid too (what was actually paid).
+      const paidPart = participationMoney(r).paid;
+      if (paidPart.gt(0)) acc.paid.push(paidPart);
     }
 
     const entries: LeaderboardEntryDTO[] = [...byInfluencer.values()].map((a) => {
@@ -164,8 +162,8 @@ export function makeAnalyticsService(ctx: DomainContext) {
     const brandIds: string[] | null = query.brandId ? [query.brandId] : scope;
 
     const now = new Date();
-    const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const endOfToday = new Date(startOfToday.getTime() + 864e5);
+    // "Today" is the Kuwait calendar day, not UTC's (which starts at 03:00 there).
+    const { start: startOfToday, end: endOfToday } = businessToday(now);
     const dayAgo = new Date(now.getTime() - 864e5);
 
     const inBrands = <T extends object>(filter: T): T | (T & { brandId: { in: string[] } }) =>
@@ -181,15 +179,8 @@ export function makeAnalyticsService(ctx: DomainContext) {
     ]);
     const campaignIds = campaigns.map((c) => c.id);
 
-    // Per-campaign spend in two grouped queries (never a per-campaign fan-out).
-    const [feeGroups, expGroups] = campaignIds.length
-      ? await Promise.all([
-          prisma.campaignInfluencer.groupBy({ by: ['campaignId'], _sum: { agreedCost: true }, where: { campaignId: { in: campaignIds }, dealType: { in: [...PAID_DEALS] } } }),
-          prisma.campaignExpense.groupBy({ by: ['campaignId'], _sum: { amount: true }, where: { campaignId: { in: campaignIds }, type: { not: 'GIFT_PRODUCT' } } }),
-        ])
-      : [[], []];
-    const feeByCampaign = new Map(feeGroups.map((g) => [g.campaignId, g._sum.agreedCost]));
-    const expByCampaign = new Map(expGroups.map((g) => [g.campaignId, g._sum.amount]));
+    // Per-campaign money under the shared rules (spend.ts), in two queries.
+    const moneyByCampaign = await loadCampaignMoney(prisma, campaignIds);
 
     const [
       todayContent,
@@ -207,39 +198,25 @@ export function makeAnalyticsService(ctx: DomainContext) {
       digestShipmentsDelivered,
       digestShipmentsFailed,
       ugcAwaitingReviewCount,
-      unpaidFeeRows,
-      unpaidExpenseRows,
     ] = await Promise.all([
       prisma.publishedContent.count({ where: { detectedAt: { gte: startOfToday, lt: endOfToday }, ...pcBrand } }),
-      prisma.deliverable.count({ where: { dueDate: { gte: startOfToday, lt: endOfToday }, status: { in: [...OPEN_DELIVERABLE] }, ...delBrand } }),
+      prisma.deliverable.count({ where: { AND: [dueWithinWhere(0, now), delBrand] } }),
       prisma.campaign.count({ where: { startDate: { gte: startOfToday, lt: endOfToday }, ...campBrand } }),
       prisma.campaign.count({ where: { endDate: { gte: startOfToday, lt: endOfToday }, ...campBrand } }),
       prisma.publishedContent.count({ where: { detectedAt: { gte: dayAgo }, ...pcBrand } }),
-      prisma.deliverable.count({ where: { status: { in: ['PUBLISHED', 'VERIFIED', 'APPROVED'] }, updatedAt: { gte: dayAgo }, ...delBrand } }),
+      prisma.deliverable.count({ where: { AND: [deliveredWhere, { updatedAt: { gte: dayAgo } }, delBrand] } }),
       prisma.campaign.count({ where: { createdAt: { gte: dayAgo }, ...campBrand } }),
       prisma.campaign.count({ where: { status: 'COMPLETED', updatedAt: { gte: dayAgo }, ...campBrand } }),
       prisma.campaignInfluencer.count({ where: { createdAt: { gte: dayAgo }, ...ciBrand } }),
       prisma.publishedContent.count({ where: { availabilityStatus: { in: [...REMOVED_CONTENT] }, lastCheckedAt: { gte: dayAgo }, ...pcBrand } }),
       prisma.deliverable.findMany({
-        where: { dueDate: { lt: now }, status: { in: [...OPEN_DELIVERABLE] }, ...delBrand },
+        where: { AND: [overdueWhere(now), delBrand] },
         select: { campaignInfluencer: { select: { campaign: { select: { brandId: true } } } } },
       }),
       prisma.publishedContent.groupBy({ by: ['brandId'], _count: true, where: inBrands({ availabilityStatus: { in: [...REMOVED_CONTENT] } }) }),
       prisma.productShipment.count({ where: { status: 'DELIVERED', updatedAt: { gte: dayAgo }, ...delBrand } }),
       prisma.productShipment.count({ where: { status: 'FAILED', updatedAt: { gte: dayAgo }, ...delBrand } }),
       prisma.deliverableSubmission.count({ where: { status: 'IN_REVIEW', deliverable: delBrand } }),
-      prisma.campaignInfluencer.findMany({
-        where: { paymentStatus: { in: ['UNPAID', 'PARTIALLY_PAID'] }, dealType: { in: [...PAID_DEALS] }, ...ciBrand },
-        select: { agreedCost: true, paidAmount: true },
-      }),
-      // `campaignId: { in: campaignIds } ` is safe even when campaignIds is
-      // empty (an in-scope brand with zero campaigns) — Prisma/SQL correctly
-      // returns zero rows for `IN ()`, unlike an omitted filter which would
-      // return every campaign's expenses regardless of scope.
-      prisma.campaignExpense.findMany({
-        where: { paymentStatus: { in: ['UNPAID', 'PARTIALLY_PAID'] }, type: { not: 'GIFT_PRODUCT' }, campaignId: { in: campaignIds } },
-        select: { amount: true, paidAmount: true },
-      }),
     ]);
 
     // Aggregate spend / budget, per brand and overall, from the grouped rows.
@@ -251,7 +228,7 @@ export function makeAnalyticsService(ctx: DomainContext) {
     const spendByBrand = new Map<string, Prisma.Decimal>();
     for (const c of campaigns) {
       const budget = toDecimal(c.plannedBudget) ?? new Prisma.Decimal(0);
-      const spend = sumMoney([feeByCampaign.get(c.id), expByCampaign.get(c.id)]);
+      const spend = (moneyByCampaign.get(c.id) ?? EMPTY_CAMPAIGN_MONEY).totalSpend;
       totalBudget = totalBudget.plus(budget);
       totalSpend = totalSpend.plus(spend);
       if (budget.gt(0) && spend.gt(budget)) campaignsOverBudget += 1;
@@ -260,13 +237,9 @@ export function makeAnalyticsService(ctx: DomainContext) {
       spendByBrand.set(c.brandId, (spendByBrand.get(c.brandId) ?? new Prisma.Decimal(0)).plus(spend));
     }
 
-    // Outstanding = the agreed/billed amount minus whatever's already recorded
-    // as paid — never just a count of UNPAID rows, since PARTIALLY_PAID rows
-    // still have a real remainder (finance P1's partial-payment field).
-    const unpaidSpend = sumMoney([
-      ...unpaidFeeRows.map((r) => subtractMoney(r.agreedCost, r.paidAmount ?? 0) ?? 0),
-      ...unpaidExpenseRows.map((r) => subtractMoney(r.amount, r.paidAmount ?? 0) ?? 0),
-    ]);
+    // Outstanding = everything still owed on these campaigns, part payments
+    // counted for what's left (same rule as each campaign's cost summary).
+    const unpaidSpend = sumCampaignMoney(moneyByCampaign.values(), 'unpaid');
 
     const overdueByBrand = new Map<string, number>();
     for (const d of overdueRows) {

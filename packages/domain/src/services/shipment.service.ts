@@ -9,7 +9,7 @@ import {
   type ShipmentStatus,
 } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
-import { countryName } from '@influenceos/shared';
+import { businessDayRange, countryName } from '@influenceos/shared';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
@@ -311,10 +311,9 @@ export function makeShipmentService(ctx: DomainContext) {
     if (filter.courier) where.courier = { contains: filter.courier, mode: 'insensitive' };
     if (filter.productName) where.items = { some: { product: { name: { contains: filter.productName, mode: 'insensitive' } } } };
     if (filter.dateFrom || filter.dateTo) {
-      where.createdAt = {
-        ...(filter.dateFrom ? { gte: filter.dateFrom } : {}),
-        ...(filter.dateTo ? { lte: filter.dateTo } : {}),
-      };
+      // Whole Kuwait days, the "to" day included.
+      const { start, end } = businessDayRange(filter.dateFrom, filter.dateTo);
+      where.createdAt = { ...(start ? { gte: start } : {}), ...(end ? { lt: end } : {}) };
     }
     if (filter.hasOpenIssue) where.issues = { some: { status: 'OPEN' } };
     if (filter.needsAttention) where.OR = [{ issues: { some: { status: 'OPEN' } } }, { status: { in: ATTENTION_STATUSES } }];

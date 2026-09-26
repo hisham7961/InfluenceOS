@@ -1320,7 +1320,7 @@ export interface SpendVsBudgetDTO {
   unpaidSpend: number;
 }
 
-/** What happened "today" — since server-local midnight (W6-3). */
+/** What happened "today" — the current calendar day in Kuwait (W6-3). */
 export interface ExecTodayDTO {
   /** Published content first detected today. */
   contentPublished: number;
