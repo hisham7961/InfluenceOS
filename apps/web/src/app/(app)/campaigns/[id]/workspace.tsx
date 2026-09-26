@@ -8,6 +8,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { toast } from 'sonner';
 import {
   AlertCircle,
+  ArrowDown,
+  ArrowUp,
   BarChart3,
   CheckCircle2,
   ChevronDown,
@@ -28,6 +30,7 @@ import {
   Percent as PercentIcon,
   Plus,
   Receipt,
+  Search,
   Target,
   Trash2,
   TrendingUp,
@@ -41,7 +44,10 @@ import type {
   CampaignDetailDTO,
   CampaignEfficiencyDTO,
   CampaignInfluencerDTO,
+  CampaignInfluencerResultsDTO,
+  CampaignOperationsRowDTO,
   CostSummaryDTO,
+  CreatorEfficiencyDTO,
   DealType,
   DeliverableDTO,
   DeliverableStatus,
@@ -90,6 +96,7 @@ import { InfoTooltip } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Pagination } from '@/components/ui/pagination';
+import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
 import { ContentGrid } from '@/components/content/content-grid';
 import { AddContentFlow } from '@/components/content/add-content-flow';
 import { ReviewNewContentButton } from '@/components/content/review-new-content-button';
@@ -98,7 +105,7 @@ import { CommentThread } from '@/components/collaboration/comment-thread';
 import { SourcingTab } from './sourcing-tab';
 import { ShipmentsTab } from './shipments-tab';
 import { SubmissionsTab } from './submissions-tab';
-import { OperationsBoardTab } from './operations-board-tab';
+import { OPERATIONS_FILTER_KEYS, OperationsBoardTab, StageStrip } from './operations-board-tab';
 import { formatCompact, formatCurrency, formatPercent, useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import {
@@ -572,9 +579,39 @@ function OverviewTab({ campaign }: { campaign: CampaignDetailDTO }) {
 // Influencers
 // ---------------------------------------------------------------------------
 
+type RosterFilter = CampaignOperationsRowDTO['filterBuckets'][number] | 'ALL';
+
 function InfluencersTab({ campaign, influencers }: { campaign: CampaignDetailDTO; influencers: CampaignInfluencerDTO[] }) {
   const t = useTranslations('campaigns');
   const [addDeliverableFor, setAddDeliverableFor] = React.useState<CampaignInfluencerDTO | null>(null);
+  const [filter, setFilter] = React.useState<RosterFilter>('ALL');
+  const [search, setSearch] = React.useState('');
+
+  // Each row's 8 stages come from the Operations Board, so the roster and the
+  // board always agree on where every creator is.
+  const board = useQuery({
+    queryKey: ['campaign-operations-board', campaign.id],
+    queryFn: () => api.campaigns.operationsBoard(campaign.id),
+    enabled: influencers.length > 0,
+  });
+  const opsById = React.useMemo(
+    () => new Map((board.data?.rows ?? []).map((r) => [r.campaignInfluencerId, r])),
+    [board.data],
+  );
+
+  const needle = search.trim().toLowerCase().replace(/^@/, '');
+  const visible = influencers.filter((ci) => {
+    if (filter !== 'ALL' && !opsById.get(ci.id)?.filterBuckets.includes(filter)) return false;
+    if (!needle) return true;
+    return (
+      ci.influencer.displayName.toLowerCase().includes(needle) ||
+      (ci.influencer.primaryUsername ?? '').toLowerCase().includes(needle)
+    );
+  });
+  const chips = OPERATIONS_FILTER_KEYS.map((key) => ({
+    key,
+    count: influencers.filter((ci) => opsById.get(ci.id)?.filterBuckets.includes(key)).length,
+  })).filter((c) => c.count > 0);
 
   return (
     <div className="space-y-4">
@@ -588,16 +625,73 @@ function InfluencersTab({ campaign, influencers }: { campaign: CampaignDetailDTO
         </div>
       </div>
 
+      {influencers.length > 1 ? (
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+          <div className="relative lg:w-64 lg:shrink-0">
+            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('workspace.influencers.searchPlaceholder')}
+              aria-label={t('workspace.influencers.searchPlaceholder')}
+              className="ps-9"
+            />
+          </div>
+          {chips.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              <Button variant={filter === 'ALL' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter('ALL')}>
+                {t('operations.chipWithCount', { label: t('operations.allChip'), count: influencers.length })}
+              </Button>
+              {chips.map((c) => (
+                <Button
+                  key={c.key}
+                  variant={filter === c.key ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setFilter(filter === c.key ? 'ALL' : c.key)}
+                >
+                  {t('operations.chipWithCount', { label: t(`operations.filters.${c.key}`), count: c.count })}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {influencers.length === 0 ? (
         <EmptyState
           icon={Users}
           title={t('workspace.influencers.emptyTitle')}
           description={t('workspace.influencers.emptyDescription')}
         />
+      ) : visible.length === 0 ? (
+        <EmptyState
+          icon={Search}
+          title={t('workspace.influencers.noMatchesTitle')}
+          description={t('workspace.influencers.noMatchesDescription')}
+          action={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setFilter('ALL');
+                setSearch('');
+              }}
+            >
+              {t('workspace.influencers.showEveryone')}
+            </Button>
+          }
+        />
       ) : (
         <div className="space-y-4">
-          {influencers.map((ci) => (
-            <InfluencerRow key={ci.id} ci={ci} campaign={campaign} onAddDeliverable={() => setAddDeliverableFor(ci)} />
+          {visible.map((ci) => (
+            <InfluencerRow
+              key={ci.id}
+              ci={ci}
+              campaign={campaign}
+              ops={opsById.get(ci.id) ?? null}
+              onAddDeliverable={() => setAddDeliverableFor(ci)}
+            />
           ))}
         </div>
       )}
@@ -613,13 +707,82 @@ function InfluencersTab({ campaign, influencers }: { campaign: CampaignDetailDTO
   );
 }
 
+/**
+ * What one creator has delivered on this campaign and what it cost: posts up
+ * vs planned, their latest views and engagements, and their own spend over
+ * those — so the expensive creator's cost per view isn't averaged away.
+ */
+function RosterResults({ results, currency }: { results: CampaignInfluencerResultsDTO; currency: string }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const r = results;
+  const na = tCommon('na');
+  // "1 of 2" is a sentence and follows the page's direction; money and counts stay left-to-right.
+  const items: { label: string; value: React.ReactNode; hint?: string | null; sentence?: boolean }[] = [
+    {
+      label: t('workspace.influencers.results.posts'),
+      sentence: true,
+      value:
+        r.postsPlanned > 0
+          ? t('workspace.influencers.results.postsOfPlanned', { live: r.postsLive, planned: r.postsPlanned })
+          : String(r.postsLive),
+      hint:
+        r.postsTotal > r.postsLive
+          ? t('workspace.influencers.results.postsDown', { count: r.postsTotal - r.postsLive })
+          : null,
+    },
+    { label: t('workspace.influencers.results.views'), value: r.views != null ? formatCompact(r.views) : na },
+    {
+      label: t('workspace.influencers.results.engagements'),
+      value: r.engagements != null ? formatCompact(r.engagements) : na,
+      hint:
+        r.engagementRate != null
+          ? t('workspace.influencers.results.engagementRate', { rate: formatPercent(r.engagementRate) })
+          : null,
+    },
+    { label: t('workspace.influencers.results.spend'), value: formatCurrency(r.spend, currency) },
+    {
+      label: t('workspace.influencers.results.costPerView'),
+      value: r.costPerView != null ? formatCurrency(r.costPerView, currency) : na,
+    },
+    {
+      label: t('workspace.influencers.results.costPerEngagement'),
+      value: r.costPerEngagement != null ? formatCurrency(r.costPerEngagement, currency) : na,
+    },
+  ];
+  return (
+    <div className="space-y-2">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 xl:grid-cols-6">
+        {items.map((item) => (
+          <div key={item.label} className="min-w-0">
+            <dt className="truncate text-xs text-muted-foreground">{item.label}</dt>
+            <dd className="text-sm font-semibold tabular-nums text-foreground">
+              {item.sentence ? item.value : <LtrText>{item.value}</LtrText>}
+            </dd>
+            {item.hint ? <dd className="truncate text-xs text-muted-foreground">{item.hint}</dd> : null}
+          </div>
+        ))}
+      </dl>
+      <p className="text-xs text-muted-foreground">
+        {r.postsTotal === 0
+          ? t('workspace.influencers.results.noPostsYet')
+          : r.postsWithMetrics < r.postsTotal
+            ? t('workspace.influencers.results.numbersOn', { measured: r.postsWithMetrics, total: r.postsTotal })
+            : t('workspace.influencers.results.spendNote')}
+      </p>
+    </div>
+  );
+}
+
 function InfluencerRow({
   ci,
   campaign,
+  ops,
   onAddDeliverable,
 }: {
   ci: CampaignInfluencerDTO;
   campaign: CampaignDetailDTO;
+  ops: CampaignOperationsRowDTO | null;
   onAddDeliverable: () => void;
 }) {
   const t = useTranslations('campaigns');
@@ -639,6 +802,47 @@ function InfluencerRow({
       queryClient.invalidateQueries();
       router.refresh();
       setRemoveOpen(false);
+    },
+    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
+  });
+
+  // One click for the common case — the agreed fee paid in full today — with
+  // an Undo that puts back exactly what was there.
+  const canMarkPaid =
+    (ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED') &&
+    ci.agreedCost != null &&
+    ci.agreedCost > 0 &&
+    ci.paymentStatus !== 'PAID' &&
+    ci.paymentStatus !== 'NOT_APPLICABLE';
+  const refresh = () => {
+    queryClient.invalidateQueries();
+    router.refresh();
+  };
+  const markPaid = useMutation({
+    mutationFn: () =>
+      api.campaignInfluencers.update(ci.id, {
+        paymentStatus: 'PAID',
+        paidAmount: ci.agreedCost,
+        paidAt: new Date(),
+      }),
+    onSuccess: () => {
+      const before = { paymentStatus: ci.paymentStatus, paidAmount: ci.paidAmount, paidAt: ci.paidAt };
+      refresh();
+      toast.success(t('workspace.influencers.markedPaidToast', { name: ci.influencer.displayName }), {
+        action: {
+          label: t('workspace.influencers.undo'),
+          onClick: () => {
+            api.campaignInfluencers
+              .update(ci.id, {
+                paymentStatus: before.paymentStatus,
+                paidAmount: before.paidAmount,
+                paidAt: before.paidAt ? new Date(before.paidAt) : null,
+              })
+              .then(refresh)
+              .catch((e: unknown) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))));
+          },
+        },
+      });
     },
     onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
   });
@@ -753,7 +957,25 @@ function InfluencerRow({
           <p className="text-xs text-muted-foreground">
             {t('workspace.influencers.deliveredCount', { published: dp.published, total: dp.total })}
           </p>
+          {canMarkPaid ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-1"
+              disabled={markPaid.isPending}
+              onClick={() => markPaid.mutate()}
+            >
+              {markPaid.isPending ? <Spinner className="h-3.5 w-3.5" /> : <Wallet className="h-3.5 w-3.5" />}
+              {t('workspace.influencers.markPaid')}
+            </Button>
+          ) : null}
         </div>
+      </div>
+
+      <div className="space-y-4 border-t border-border px-5 py-4">
+        {ops ? <StageStrip stages={ops.stages} /> : null}
+        <RosterResults results={ci.results} currency={campaign.currency} />
       </div>
 
       <EditInfluencerDialog ci={ci} open={editOpen} onOpenChange={setEditOpen} />
@@ -2542,6 +2764,137 @@ function MetricsFreshnessBanner({ efficiency }: { efficiency: CampaignEfficiency
   );
 }
 
+type CreatorSortKey = 'postsLive' | 'views' | 'engagements' | 'engagementRate' | 'spend' | 'costPerView' | 'costPerEngagement';
+/** Cost columns sort cheapest first on the first click; everything else biggest first. */
+const CHEAPEST_FIRST: CreatorSortKey[] = ['costPerView', 'costPerEngagement'];
+
+/**
+ * Every creator on the roster side by side — their own posts, reach and cost
+ * per view — so the one who delivered and the one who didn't are obvious.
+ * Sort by any column; creators without a number sort last either way.
+ */
+function CreatorComparison({ rows, currency }: { rows: CreatorEfficiencyDTO[]; currency: string }) {
+  const t = useTranslations('campaigns');
+  const tCommon = useTranslations('common');
+  const [sort, setSort] = React.useState<{ key: CreatorSortKey; dir: 'asc' | 'desc' }>({ key: 'views', dir: 'desc' });
+  const na = tCommon('na');
+
+  const sorted = [...rows].sort((a, b) => {
+    const av = a[sort.key];
+    const bv = b[sort.key];
+    if (av == null && bv == null) return a.influencerName.localeCompare(b.influencerName);
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    return sort.dir === 'asc' ? av - bv : bv - av;
+  });
+
+  const columns: { key: CreatorSortKey; label: string; value: (r: CreatorEfficiencyDTO) => string; sentence?: boolean }[] = [
+    {
+      key: 'postsLive',
+      sentence: true,
+      label: t('workspace.performance.byCreator.posts'),
+      value: (r) =>
+        r.postsPlanned > 0
+          ? t('workspace.influencers.results.postsOfPlanned', { live: r.postsLive, planned: r.postsPlanned })
+          : String(r.postsLive),
+    },
+    { key: 'views', label: t('workspace.performance.viewsHeader'), value: (r) => (r.views != null ? formatCompact(r.views) : na) },
+    {
+      key: 'engagements',
+      label: t('workspace.performance.engagementHeader'),
+      value: (r) => (r.engagements != null ? formatCompact(r.engagements) : na),
+    },
+    {
+      key: 'engagementRate',
+      label: t('workspace.performance.engRateHeader'),
+      value: (r) => (r.engagementRate != null ? formatPercent(r.engagementRate) : na),
+    },
+    { key: 'spend', label: t('workspace.performance.byCreator.spend'), value: (r) => formatCurrency(r.spend, currency) },
+    {
+      key: 'costPerView',
+      label: t('workspace.performance.byCreator.costPerView'),
+      value: (r) => (r.costPerView != null ? formatCurrency(r.costPerView, currency) : na),
+    },
+    {
+      key: 'costPerEngagement',
+      label: t('workspace.performance.byCreator.costPerEngagement'),
+      value: (r) => (r.costPerEngagement != null ? formatCurrency(r.costPerEngagement, currency) : na),
+    },
+  ];
+
+  function sortBy(key: CreatorSortKey) {
+    setSort((prev) =>
+      prev.key === key
+        ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: CHEAPEST_FIRST.includes(key) ? 'asc' : 'desc' },
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="space-y-1">
+        <CardTitle className="inline-flex items-center gap-1.5">
+          {t('workspace.performance.byCreator.title')}
+          <InfoTooltip text={t('workspace.performance.byCreator.tooltip')} />
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <TableScroll>
+          <Table className="min-w-[860px]">
+            <TableHead>
+              <TableRow className="hover:bg-transparent">
+                <TableHeaderCell>{t('operations.influencerHeader')}</TableHeaderCell>
+                {columns.map((c) => {
+                  const active = sort.key === c.key;
+                  const Arrow = sort.dir === 'asc' ? ArrowUp : ArrowDown;
+                  return (
+                    <TableHeaderCell
+                      key={c.key}
+                      align="end"
+                      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => sortBy(c.key)}
+                        className={cn(
+                          'inline-flex items-center gap-1 uppercase tracking-wide hover:text-foreground',
+                          active && 'text-foreground',
+                        )}
+                      >
+                        {c.label}
+                        {active ? <Arrow className="h-3 w-3" /> : null}
+                      </button>
+                    </TableHeaderCell>
+                  );
+                })}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {sorted.map((r) => (
+                <TableRow key={r.campaignInfluencerId}>
+                  <TableCell>
+                    <Link href={`/influencers/${r.influencerId}`} className="flex items-center gap-2 hover:underline">
+                      <Avatar name={r.influencerName} src={r.influencerAvatarUrl} size="xs" />
+                      <span className="max-w-[14rem] truncate font-medium">
+                        <BidiText>{r.influencerName}</BidiText>
+                      </span>
+                    </Link>
+                  </TableCell>
+                  {columns.map((c) => (
+                    <TableCell key={c.key} align="end">
+                      {c.sentence ? c.value(r) : <LtrText>{c.value(r)}</LtrText>}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableScroll>
+      </CardContent>
+    </Card>
+  );
+}
+
 function PerformanceTab({ campaignId }: { campaignId: string }) {
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
@@ -2641,6 +2994,8 @@ function PerformanceTab({ campaignId }: { campaignId: string }) {
           tooltip={t('workspace.performance.cpeTooltip')}
         />
       </div>
+
+      {data.perCreator.length > 0 ? <CreatorComparison rows={data.perCreator} currency={currency} /> : null}
 
       <Card>
         <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0">

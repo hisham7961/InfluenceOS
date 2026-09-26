@@ -195,7 +195,28 @@
       "updatedToast": "Influencer updated",
       "contentLinkedBadge": "{count, plural, one {# video linked} other {# videos linked}}",
       "noContentBadge": "No video yet",
-      "pastCampaignsBadge": "{count, plural, one {# past campaign} other {# past campaigns}}"
+      "pastCampaignsBadge": "{count, plural, one {# past campaign} other {# past campaigns}}",
+      "searchPlaceholder": "Search this roster",
+      "noMatchesTitle": "No one matches",
+      "noMatchesDescription": "Try another name, or clear the filter.",
+      "showEveryone": "Show everyone",
+      "markPaid": "Mark paid",
+      "markedPaidToast": "{name} marked as paid",
+      "undo": "Undo",
+      "results": {
+        "posts": "Posts live",
+        "postsOfPlanned": "{live} of {planned}",
+        "postsDown": "{count} taken down",
+        "views": "Views",
+        "engagements": "Engagements",
+        "engagementRate": "{rate} engagement rate",
+        "spend": "Spent",
+        "costPerView": "Cost per view",
+        "costPerEngagement": "Cost per engagement",
+        "noPostsYet": "No posts yet — results show up once their content is linked to this campaign.",
+        "numbersOn": "Numbers on {measured} of {total} posts — add the rest from the Performance tab.",
+        "spendNote": "Spent is their fee plus the expenses recorded for them (gift purchases not included)."
+      }
     },
     "deliverables": {
       "addDeliverable": "Add deliverable",
@@ -338,7 +359,15 @@
       "engagementHeader": "Engagement",
       "engRateHeader": "Eng. rate",
       "estCpvHeader": "Est. CPV",
-      "estCpvTooltip": "Cost per view, assuming total spend is split evenly across this campaign's published content."
+      "estCpvTooltip": "Estimated cost per view: the creator's own spend shared across their posts on this campaign, over this post's views.",
+      "byCreator": {
+        "title": "By creator",
+        "tooltip": "Each creator's own posts, numbers and cost. Spent is their fee plus the expenses recorded for them; gift purchases are not included.",
+        "posts": "Posts",
+        "spend": "Spent",
+        "costPerView": "Cost / view",
+        "costPerEngagement": "Cost / engagement"
+      }
     },
     "activity": {
       "emptyDescription": "Actions taken on this campaign will show up here."

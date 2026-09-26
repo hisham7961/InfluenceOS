@@ -1,6 +1,7 @@
 import {
   requests,
   type CampaignInfluencerDTO,
+  type CampaignInfluencerResultsDTO,
   type InfluencerSummaryDTO,
 } from '@influenceos/contracts';
 import type { z } from '@influenceos/contracts';
@@ -12,6 +13,7 @@ import { requireAnyCapability } from '../lib/authz';
 import { iso, logActivity } from '../lib/helpers';
 import { toMoneyNumber, type MoneyInput } from '../lib/money';
 import { toInfluencerSummary } from '../lib/mappers';
+import { loadCreatorResults } from '../lib/creator-results';
 import { isCountryOutOfScope, scopedCountryCodes } from '../lib/scope';
 import { makeCampaignService } from './campaign.service';
 import { toDeliverableDTO } from './deliverable.service';
@@ -32,6 +34,22 @@ const COMMITTED_PARTICIPATION = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'] as con
 // Auto-promotion to ACTIVE happens only from a pre-active pipeline stage, so a
 // human-curated status (RECURRING/PAST/DECLINED/BLACKLISTED) is never stomped.
 const PRE_ACTIVE_STATUSES = new Set(['PROSPECT', 'CONTACTED', 'NEGOTIATING']);
+
+type RosterExtra = { contentCount: number; allTimeCampaignCount: number; results: CampaignInfluencerResultsDTO };
+
+const EMPTY_RESULTS: CampaignInfluencerResultsDTO = {
+  postsLive: 0,
+  postsTotal: 0,
+  postsPlanned: 0,
+  postsWithMetrics: 0,
+  views: null,
+  engagements: null,
+  engagementRate: null,
+  spend: 0,
+  costPerView: null,
+  costPerEngagement: null,
+};
+const EMPTY_EXTRA: RosterExtra = { contentCount: 0, allTimeCampaignCount: 0, results: EMPTY_RESULTS };
 
 export function makeCampaignInfluencerService(ctx: DomainContext) {
   const { prisma } = ctx;
@@ -92,7 +110,7 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
     notes: string | null;
     influencer: Parameters<typeof toInfluencerSummary>[0];
     deliverables: Parameters<typeof toDeliverableDTO>[0][];
-  }, extra: { contentCount: number; allTimeCampaignCount: number }): CampaignInfluencerDTO {
+  }, extra: RosterExtra): CampaignInfluencerDTO {
     const deliverables = ci.deliverables.map((d) => toDeliverableDTO(d));
     // Shared rules: approved counts only for UGC; cancelled work is off the plan.
     const progress = deliverableCompletion(ci.deliverables);
@@ -115,18 +133,20 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
       deliverableProgress: { published: progress.delivered, total: progress.total },
       contentCount: extra.contentCount,
       allTimeCampaignCount: extra.allTimeCampaignCount,
+      results: extra.results,
     };
   }
 
-  // Batched (N+1-safe) lookup of per-influencer content/history counts for a
-  // whole roster page — same shape as influencer.service.ts's toSummaries().
+  // Batched (N+1-safe) lookup of per-row content/history counts and results
+  // for a whole roster — same shape as influencer.service.ts's toSummaries().
   async function rosterExtras(
     campaignId: string,
-    influencerIds: string[],
-  ): Promise<Map<string, { contentCount: number; allTimeCampaignCount: number }>> {
-    const extras = new Map<string, { contentCount: number; allTimeCampaignCount: number }>();
-    if (!influencerIds.length) return extras;
-    const [contentGrouped, campaignGrouped] = await Promise.all([
+    rows: Parameters<typeof loadCreatorResults>[2],
+  ): Promise<Map<string, RosterExtra>> {
+    const extras = new Map<string, RosterExtra>();
+    if (!rows.length) return extras;
+    const influencerIds = rows.map((r) => r.influencerId);
+    const [contentGrouped, campaignGrouped, results] = await Promise.all([
       prisma.publishedContent.groupBy({
         by: ['influencerId'],
         where: { campaignId, influencerId: { in: influencerIds } },
@@ -137,13 +157,16 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
         where: { influencerId: { in: influencerIds } },
         _count: { _all: true },
       }),
+      loadCreatorResults(prisma, campaignId, rows),
     ]);
-    for (const id of influencerIds) extras.set(id, { contentCount: 0, allTimeCampaignCount: 0 });
-    for (const g of contentGrouped) {
-      if (g.influencerId) extras.set(g.influencerId, { ...extras.get(g.influencerId)!, contentCount: g._count._all });
-    }
-    for (const g of campaignGrouped) {
-      extras.set(g.influencerId, { ...extras.get(g.influencerId)!, allTimeCampaignCount: g._count._all });
+    const content = new Map(contentGrouped.map((g) => [g.influencerId, g._count._all]));
+    const campaigns = new Map(campaignGrouped.map((g) => [g.influencerId, g._count._all]));
+    for (const r of rows) {
+      extras.set(r.id, {
+        contentCount: content.get(r.influencerId) ?? 0,
+        allTimeCampaignCount: campaigns.get(r.influencerId) ?? 0,
+        results: results.byRosterRow.get(r.id) ?? EMPTY_RESULTS,
+      });
     }
     return extras;
   }
@@ -164,8 +187,8 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
       // top of the roster, not get buried behind everyone already on it.
       orderBy: { createdAt: 'desc' },
     });
-    const extras = await rosterExtras(campaignId, rows.map((r) => r.influencerId));
-    return rows.map((r) => toDTO(r, extras.get(r.influencerId) ?? { contentCount: 0, allTimeCampaignCount: 0 }));
+    const extras = await rosterExtras(campaignId, rows);
+    return rows.map((r) => toDTO(r, extras.get(r.id) ?? EMPTY_EXTRA));
   }
 
   async function get(id: string): Promise<CampaignInfluencerDTO> {
@@ -178,8 +201,8 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
     });
     if (!ci) throw AppError.notFound('Campaign influencer');
     await makeCampaignService(ctx).assertInScope(ci.campaignId);
-    const extras = await rosterExtras(ci.campaignId, [ci.influencerId]);
-    return toDTO(ci, extras.get(ci.influencerId) ?? { contentCount: 0, allTimeCampaignCount: 0 });
+    const extras = await rosterExtras(ci.campaignId, [ci]);
+    return toDTO(ci, extras.get(ci.id) ?? EMPTY_EXTRA);
   }
 
   async function add(input: CIAdd): Promise<CampaignInfluencerDTO> {

@@ -134,7 +134,8 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
                 <Wallet className="size-5" />
               </span>
             </div>
-            <p className="text-3xl font-semibold tracking-tight text-foreground">
+            {/* Shrinks on a phone's half-width card instead of spilling out of it. */}
+            <p className="break-words text-xl font-semibold tracking-tight text-foreground sm:text-3xl">
               <LtrText>{formatCurrency(p.spend, campaign.currency)}</LtrText>
             </p>
             {p.plannedBudget != null ? (

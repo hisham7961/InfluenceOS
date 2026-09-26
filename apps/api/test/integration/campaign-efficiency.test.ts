@@ -21,8 +21,10 @@ describe('W6-1 — server-computed campaign efficiency', () => {
   const stamp = Date.now();
   const videoId = (n: number) => (stamp.toString(36) + n + 'zzzzzzzzzzz').slice(0, 11);
 
+  let influencerId: string;
+
   async function addContent(vid: string, metrics: Record<string, number>): Promise<string> {
-    const id = idOf(await app.inject({ method: 'POST', url: '/api/v1/content', headers: auth, payload: { url: `https://www.youtube.com/watch?v=${vid}`, campaignId } }));
+    const id = idOf(await app.inject({ method: 'POST', url: '/api/v1/content', headers: auth, payload: { url: `https://www.youtube.com/watch?v=${vid}`, campaignId, influencerId } }));
     await app.inject({ method: 'POST', url: `/api/v1/content/${id}/metrics`, headers: auth, payload: metrics });
     return id;
   }
@@ -35,9 +37,9 @@ describe('W6-1 — server-computed campaign efficiency', () => {
 
     brandId = idOf(await app.inject({ method: 'POST', url: '/api/v1/brands', headers: auth, payload: { name: `Eff Brand ${stamp}` } }));
     campaignId = idOf(await app.inject({ method: 'POST', url: '/api/v1/campaigns', headers: auth, payload: { brandId, name: `Eff Camp ${stamp}`, plannedBudget: 1000, currency: 'KWD' } }));
-    const inf = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Eff Inf ${stamp}`, countryCode: 'KW' } }));
+    influencerId = idOf(await app.inject({ method: 'POST', url: '/api/v1/influencers', headers: auth, payload: { displayName: `Eff Inf ${stamp}`, countryCode: 'KW' } }));
     // One PAID fee of 500 → campaign spend is exactly 500.
-    await app.inject({ method: 'POST', url: `/api/v1/campaigns/${campaignId}/influencers`, headers: auth, payload: { influencerId: inf, dealType: 'PAID', agreedCost: 500, currency: 'KWD', paymentStatus: 'PAID' } });
+    await app.inject({ method: 'POST', url: `/api/v1/campaigns/${campaignId}/influencers`, headers: auth, payload: { influencerId, dealType: 'PAID', agreedCost: 500, currency: 'KWD', paymentStatus: 'PAID' } });
 
     // Two measured content pieces: totalViews 1000, totalEngagement 250.
     contentA = await addContent(videoId(1), { views: 600, likes: 100 }); // engagement 100
@@ -82,7 +84,7 @@ describe('W6-1 — server-computed campaign efficiency', () => {
     const a = eff.perContent.find((p) => p.contentId === contentA)!;
     expect(a.views).toBe(600);
     expect(a.totalEngagement).toBe(100);
-    expect(a.costPerView).toBeCloseTo(250 / 600, 6); // est. CPV = cost-per-content ÷ views
+    expect(a.costPerView).toBeCloseTo(500 / 2 / 600, 6); // est. CPV = the creator's spend over their 2 posts ÷ views
     expect(a.source).toBe('MANUAL');
   });
 

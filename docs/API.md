@@ -343,7 +343,8 @@ requires `role === 'ADMIN'`.
 | POST | `/api/v1/campaigns` | Create a campaign. |
 | GET | `/api/v1/campaigns/:idOrSlug` | Get a campaign by id or slug. |
 | PATCH | `/api/v1/campaigns/:id` | Update a campaign. |
-| GET | `/api/v1/campaigns/:id/influencers` | Influencers on a campaign. |
+| GET | `/api/v1/campaigns/:id/influencers` | Influencers on a campaign. Each row carries `results`: posts live / total / planned, latest views and engagements, engagement rate, and the creator's own spend (fee + expenses recorded against them, gift purchases excluded) with cost per view and per engagement. |
+| GET | `/api/v1/campaigns/:idOrSlug/efficiency` | Campaign spend efficiency (CPV/CPM/CPE), metric freshness and sources, `perContent` (each post's estimated CPV from its own creator's spend) and `perCreator` (the roster's `results` side by side). |
 | POST | `/api/v1/campaigns/:id/influencers` | Add an influencer to a campaign. |
 | GET | `/api/v1/campaign-influencers/:id` | Campaign-influencer detail. |
 | PATCH | `/api/v1/campaign-influencers/:id` | Update a campaign influencer (deal, status, notes). |

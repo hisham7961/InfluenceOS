@@ -195,7 +195,28 @@
       "updatedToast": "تم تحديث بيانات المؤثر",
       "contentLinkedBadge": "{count, plural, zero {لا فيديو مرتبط} one {فيديو واحد مرتبط} two {فيديوهان مرتبطان} few {# فيديوهات مرتبطة} many {# فيديو مرتبط} other {# فيديو مرتبط}}",
       "noContentBadge": "لا يوجد فيديو بعد",
-      "pastCampaignsBadge": "{count, plural, zero {لا حملات سابقة} one {حملة سابقة واحدة} two {حملتان سابقتان} few {# حملات سابقة} many {# حملة سابقة} other {# حملة سابقة}}"
+      "pastCampaignsBadge": "{count, plural, zero {لا حملات سابقة} one {حملة سابقة واحدة} two {حملتان سابقتان} few {# حملات سابقة} many {# حملة سابقة} other {# حملة سابقة}}",
+      "searchPlaceholder": "ابحث في مؤثري الحملة",
+      "noMatchesTitle": "لا يوجد مؤثر مطابق",
+      "noMatchesDescription": "جرّب اسمًا آخر أو ألغِ الفلتر.",
+      "showEveryone": "عرض الجميع",
+      "markPaid": "تسجيل كمدفوع",
+      "markedPaidToast": "تم تسجيل الدفع لـ {name}",
+      "undo": "تراجع",
+      "results": {
+        "posts": "المنشورات الظاهرة",
+        "postsOfPlanned": "{live} من {planned}",
+        "postsDown": "{count} محذوف",
+        "views": "المشاهدات",
+        "engagements": "التفاعلات",
+        "engagementRate": "معدل التفاعل {rate}",
+        "spend": "المصروف",
+        "costPerView": "تكلفة المشاهدة",
+        "costPerEngagement": "تكلفة التفاعل",
+        "noPostsYet": "لا منشورات بعد — تظهر النتائج بعد ربط محتواه بهذه الحملة.",
+        "numbersOn": "الأرقام متوفرة لـ {measured} من {total} منشورات — أضف الباقي من تبويب الأداء.",
+        "spendNote": "المصروف = أجر المؤثر + المصاريف المسجلة عليه (لا تشمل مشتريات الهدايا)."
+      }
     },
     "deliverables": {
       "addDeliverable": "إضافة محتوى مطلوب",
@@ -338,7 +359,15 @@
       "engagementHeader": "التفاعل",
       "engRateHeader": "معدل التفاعل",
       "estCpvHeader": "CPV التقديري",
-      "estCpvTooltip": "تكلفة المشاهدة التقديرية، بافتراض توزيع إجمالي الإنفاق بالتساوي على محتوى هذه الحملة المنشور."
+      "estCpvTooltip": "تكلفة المشاهدة التقديرية: مصروف المؤثر نفسه موزعًا على منشوراته في هذه الحملة، مقسومًا على مشاهدات هذا المنشور.",
+      "byCreator": {
+        "title": "حسب المؤثر",
+        "tooltip": "منشورات كل مؤثر وأرقامه وتكلفته. المصروف = أجره + المصاريف المسجلة عليه، ولا تشمل مشتريات الهدايا.",
+        "posts": "المنشورات",
+        "spend": "المصروف",
+        "costPerView": "تكلفة المشاهدة",
+        "costPerEngagement": "تكلفة التفاعل"
+      }
     },
     "activity": {
       "emptyDescription": "ستظهر هنا الإجراءات المتخذة على هذه الحملة."

@@ -17,6 +17,7 @@ import type { DomainContext } from '../context';
 import { AppError } from '../errors';
 import { moneyNumberOr0, percentOf, sumMoney, toDecimal, toMoneyNumber } from '../lib/money';
 import { computeCostSummary } from '../lib/progress';
+import { loadCreatorResults, postCostPerView } from '../lib/creator-results';
 import { deliveredWhere, dueWithinWhere, overdueWhere } from '../lib/deliverable-rules';
 import { loadCampaignMoney, participationMoney, sumCampaignMoney, EMPTY_CAMPAIGN_MONEY } from '../lib/spend';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
@@ -323,7 +324,7 @@ export function makeAnalyticsService(ctx: DomainContext) {
     const scope = await scopedBrandIds(ctx);
     if (isBrandOutOfScope(scope, campaign.brandId)) throw AppError.notFound('Campaign');
 
-    const [cost, contents] = await Promise.all([
+    const [cost, contents, roster] = await Promise.all([
       computeCostSummary(ctx, campaign.id, campaign.currency, toMoneyNumber(campaign.plannedBudget)),
       prisma.publishedContent.findMany({
         where: { campaignId: campaign.id },
@@ -348,7 +349,36 @@ export function makeAnalyticsService(ctx: DomainContext) {
           },
         },
       }),
+      prisma.campaignInfluencer.findMany({
+        where: { campaignId: campaign.id },
+        select: {
+          id: true,
+          influencerId: true,
+          dealType: true,
+          agreedCost: true,
+          giftedProductValue: true,
+          participationStatus: true,
+          paymentStatus: true,
+          paidAmount: true,
+          deliverables: { select: { type: true, status: true, quantity: true } },
+          influencer: {
+            select: {
+              displayName: true,
+              avatarOverrideUrl: true,
+              resolvedAvatarUrl: true,
+              socialAccounts: { where: { isPrimary: true }, select: { avatarUrl: true }, take: 1 },
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
     ]);
+
+    // Each creator's own spend against their own posts — the per-post and
+    // per-creator cost figures below both come from this.
+    const creatorResults = await loadCreatorResults(prisma, campaign.id, roster);
+    const rowByInfluencer = new Map(roster.map((r) => [r.influencerId, r.id]));
+    const postById = new Map(creatorResults.posts.map((p) => [p.id, p]));
 
     const totalSpend = cost.totalSpend;
     const contentCount = contents.length;
@@ -398,8 +428,11 @@ export function makeAnalyticsService(ctx: DomainContext) {
         views: snap?.views ?? null,
         totalEngagement: contentEngagement,
         engagementRate: snap?.engagementRate ?? null,
-        // Est. CPV: an even spend allocation per content ÷ this piece's views.
-        costPerView: metrics.costPerView(costPerContent, snap?.views ?? null),
+        // Est. CPV: the creator's own spend shared across their posts ÷ this piece's views.
+        costPerView: (() => {
+          const post = postById.get(c.id);
+          return post ? postCostPerView(post, creatorResults, rowByInfluencer) : null;
+        })(),
         source,
         capturedAt: capturedAt ? capturedAt.toISOString() : null,
       });
@@ -431,6 +464,14 @@ export function makeAnalyticsService(ctx: DomainContext) {
       freshnessWindowDays: METRICS_FRESHNESS_DAYS,
       sources,
       perContent,
+      perCreator: roster.map((r) => ({
+        campaignInfluencerId: r.id,
+        influencerId: r.influencerId,
+        influencerName: r.influencer.displayName,
+        influencerAvatarUrl:
+          r.influencer.avatarOverrideUrl ?? r.influencer.resolvedAvatarUrl ?? r.influencer.socialAccounts[0]?.avatarUrl ?? null,
+        ...creatorResults.byRosterRow.get(r.id)!,
+      })),
     };
   }
 

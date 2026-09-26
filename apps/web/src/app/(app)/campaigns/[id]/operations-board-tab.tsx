@@ -70,6 +70,49 @@ function StageCell({ stage, stageLabels }: { stage: CampaignOperationsStageDTO; 
   );
 }
 
+export const OPERATIONS_FILTER_KEYS = FILTER_CHIP_KEYS;
+
+export function useStageLabels(): Record<CampaignOperationsStageDTO['key'], string> {
+  const t = useTranslations('campaigns');
+  return {
+    agreement: t('operations.stages.agreement'),
+    product: t('operations.stages.product'),
+    contentDue: t('operations.stages.contentDue'),
+    draft: t('operations.stages.draft'),
+    review: t('operations.stages.review'),
+    approved: t('operations.stages.approved'),
+    published: t('operations.stages.published'),
+    payment: t('operations.stages.payment'),
+  };
+}
+
+/**
+ * The same 8 stages as the Operations Board, as a compact strip for a roster
+ * row: a coloured icon per stage with its name under it, the detail on hover,
+ * and the stage's own link when it has one.
+ */
+export function StageStrip({ stages }: { stages: CampaignOperationsStageDTO[] }) {
+  const stageLabels = useStageLabels();
+  return (
+    <ol className="flex flex-wrap items-start gap-x-1 gap-y-2">
+      {stages.map((stage) => (
+        <li key={stage.key} className="flex w-16 flex-col items-center gap-0.5 text-center">
+          <StageCell stage={stage} stageLabels={stageLabels} />
+          <span
+            className={cn(
+              'text-[10px] leading-tight',
+              stage.state === 'na' ? 'text-muted-foreground/50' : 'text-muted-foreground',
+              stage.state === 'overdue' && 'font-medium text-danger',
+            )}
+          >
+            {stageLabels[stage.key]}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 /**
  * The Campaign Operations Board (Operations Intelligence pass, PART 33-36) —
  * one row per influencer on the roster, 8 read-time-derived stage columns

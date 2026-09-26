@@ -449,6 +449,31 @@ export interface CampaignInfluencerDTO {
   contentCount: number;
   /** All-time CampaignInfluencer rows for this influencer, across every campaign/status — same semantics as InfluencerRelationshipHistoryDTO.campaignCount. */
   allTimeCampaignCount: number;
+  /** This creator's results on this campaign — their posts, latest numbers and what they cost. */
+  results: CampaignInfluencerResultsDTO;
+}
+
+/**
+ * One creator's results on one campaign. Cost is their own fee plus the
+ * expenses recorded against them (gift purchases aren't spend), so cost per
+ * view reflects what that creator was actually paid.
+ */
+export interface CampaignInfluencerResultsDTO {
+  /** Posts on this campaign that are still up. */
+  postsLive: number;
+  /** Every post of theirs linked to this campaign, up or not. */
+  postsTotal: number;
+  /** Posts their deliverables call for (not counting cancelled or UGC). */
+  postsPlanned: number;
+  /** Posts with at least one number recorded. */
+  postsWithMetrics: number;
+  views: number | null;
+  engagements: number | null;
+  /** Percent. */
+  engagementRate: number | null;
+  spend: number;
+  costPerView: number | null;
+  costPerEngagement: number | null;
 }
 
 /**
@@ -825,7 +850,7 @@ export interface ContentEfficiencyDTO {
   views: number | null;
   totalEngagement: number | null;
   engagementRate: number | null;
-  /** Estimated cost per view: spend-per-content ÷ this piece's views. */
+  /** Estimated cost per view: the creator's spend shared across their own posts, over this piece's views. */
   costPerView: number | null;
   /** Provenance of this piece's latest metrics. */
   source: DataSource;
@@ -871,6 +896,15 @@ export interface CampaignEfficiencyDTO {
   sources: MetricSourceCountDTO[];
   /** Per-content efficiency rows for the performance table. */
   perContent: ContentEfficiencyDTO[];
+  /** One row per creator on the roster, for the per-creator comparison. */
+  perCreator: CreatorEfficiencyDTO[];
+}
+
+export interface CreatorEfficiencyDTO extends CampaignInfluencerResultsDTO {
+  campaignInfluencerId: string;
+  influencerId: string;
+  influencerName: string;
+  influencerAvatarUrl: string | null;
 }
 
 // --- Notifications ---------------------------------------------------------
