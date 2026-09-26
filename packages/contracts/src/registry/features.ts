@@ -829,6 +829,28 @@ export const FEATURES: FeatureEntry[] = [
     deepLink: '/settings/compliance',
   },
   {
+    key: 'audience_insights',
+    name: 'Audience insights and creator selection filters',
+    description:
+      "Who follows each of a creator's accounts — top countries, women/men, age groups, engagement — typed from the creator's insights screenshot (kept with their files), newest first per account. The directory filters on the newest breakdown (\"audience in Kuwait ≥ 40%\"), on engagement rate, language, gender and the creator's usual fee per post.",
+    module: 'Influencers',
+    classification: 'SHARED',
+    apiStatus: 'READY',
+    webStatus: 'READY',
+    mobileReady: true,
+    permissions: ALL,
+    flag: null,
+    minApiVersion: 'v1',
+    apiEndpoints: [
+      'GET /api/v1/influencers/:id/audience',
+      'POST /api/v1/social-accounts/:id/audience',
+      'PATCH /api/v1/audience/:id',
+      'DELETE /api/v1/audience/:id',
+      'GET /api/v1/influencers',
+    ],
+    deepLink: '/influencers',
+  },
+  {
     key: 'caption_check',
     name: 'Caption check',
     description:

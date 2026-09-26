@@ -323,5 +323,12 @@
   "a_recorded_licence": "{name} recorded {displayName}'s advertising licence for {countryCode}.",
   "a_updated_licence": "{name} updated {displayName}'s advertising licence for {countryCode}.",
   "a_removed_licence": "{name} removed {displayName}'s advertising licence for {countryCode}.",
-  "a_changed_licence_countries": "{name} changed the countries where creators need an advertising licence."
+  "a_changed_licence_countries": "{name} changed the countries where creators need an advertising licence.",
+  "e_audience_screenshot_not_creators": "The screenshot must be one of this creator's files.",
+  "e_audience_insights_not_found": "Audience insights not found.",
+  "a_added_audience_insights": "{name} added audience insights for {displayName} (@{username}).",
+  "a_updated_audience_insights": "{name} updated audience insights for {displayName} (@{username}).",
+  "a_removed_audience_insights": "{name} removed audience insights for {displayName} (@{username}).",
+  "e_usual_fee_from_more_than_to": "The usual fee \"from\" must not be more than \"to\".",
+  "e_usual_fee_needs_currency": "Pick the currency of the usual fee."
 }

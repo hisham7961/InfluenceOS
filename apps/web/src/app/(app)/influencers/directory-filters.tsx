@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { SavedViews } from './saved-views';
+import { MORE_FILTER_KEYS, MoreFilters, useMoreFilterChips } from './more-filters';
 import { InfluencerCountryStrip } from './influencer-country-strip';
 
 /** Sentinel value for Radix Select's "no filter" option (Select forbids an empty-string item value). */
@@ -50,6 +51,7 @@ const FILTER_KEYS = [
   'missingOwner',
   'missingPhone',
   'missingSocial',
+  ...MORE_FILTER_KEYS,
 ] as const;
 
 export interface DirectoryFiltersProps {
@@ -116,6 +118,7 @@ export function DirectoryFilters({
       : min
         ? t('directory.filters.followersAtLeast', { min: formatCompact(Number(min)) })
         : t('directory.filters.followersUnder', { max: formatCompact(Number(max) + 1) });
+  const moreChips = useMoreFilterChips();
   const chips: ActiveFilter[] = [];
   if (q) chips.push({ keys: ['q'], label: t('directory.chips.search', { q }) });
   if (platform) chips.push({ keys: ['platform'], label: PLATFORM_META[platform as Platform]?.label ?? platform });
@@ -135,11 +138,13 @@ export function DirectoryFilters({
   if (sp.get('missingOwner') === 'true') chips.push({ keys: ['missingOwner'], label: t('directory.chips.noOwner') });
   if (sp.get('missingPhone') === 'true') chips.push({ keys: ['missingPhone'], label: t('directory.chips.missingPhone') });
   if (sp.get('missingSocial') === 'true') chips.push({ keys: ['missingSocial'], label: t('directory.chips.missingSocial') });
+  chips.push(...moreChips);
+  const moreFilterValues = Object.fromEntries(MORE_FILTER_KEYS.map((k) => [k, sp.get(k) ?? undefined]));
 
   return (
     <div className="mb-6 space-y-3">
       <InfluencerCountryStrip
-        filters={{ q, platform, relationshipStatus, countryCode, city }}
+        filters={{ q, platform, relationshipStatus, countryCode, city, ...moreFilterValues }}
         selected={countryCode ?? ''}
         onSelect={(code) => navigate({ countryCode: code })}
       />
@@ -274,6 +279,8 @@ export function DirectoryFilters({
             </SelectContent>
           </Select>
 
+          <MoreFilters />
+
           <div className="flex flex-wrap items-center gap-2 sm:ms-auto">
             <SavedViews
               scope="influencers"
@@ -288,6 +295,7 @@ export function DirectoryFilters({
                 minFollowers,
                 maxFollowers,
                 ownerId,
+                ...Object.fromEntries(MORE_FILTER_KEYS.map((k) => [k, sp.get(k) ?? ''])),
                 sort: sp.get('sort') ?? '',
                 order: sp.get('order') ?? '',
               }}

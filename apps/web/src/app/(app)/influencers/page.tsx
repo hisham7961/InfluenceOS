@@ -56,6 +56,15 @@ export default async function InfluencersPage({
     missingOwner: sp.missingOwner === 'true' ? true : undefined,
     missingPhone: sp.missingPhone === 'true' ? true : undefined,
     missingSocial: sp.missingSocial === 'true' ? true : undefined,
+    // Smarter creator selection (P3.7).
+    audienceCountry: sp.audienceCountry || undefined,
+    audienceMinPct: sp.audienceCountry && sp.audienceMinPct ? Number(sp.audienceMinPct) : undefined,
+    minEngagementRate: sp.minEngagementRate ? Number(sp.minEngagementRate) : undefined,
+    language: sp.language || undefined,
+    gender: sp.gender || undefined,
+    minRate: sp.minRate ? Number(sp.minRate) : undefined,
+    maxRate: sp.maxRate ? Number(sp.maxRate) : undefined,
+    rateCurrency: sp.minRate || sp.maxRate ? sp.rateCurrency || undefined : undefined,
     page,
     pageSize: 24,
   });
@@ -74,7 +83,13 @@ export default async function InfluencersPage({
       sp.missingCountry ||
       sp.missingOwner ||
       sp.missingPhone ||
-      sp.missingSocial,
+      sp.missingSocial ||
+      sp.audienceCountry ||
+      sp.minEngagementRate ||
+      sp.language ||
+      sp.gender ||
+      sp.minRate ||
+      sp.maxRate,
   );
 
   return (

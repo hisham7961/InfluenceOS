@@ -109,6 +109,14 @@ export type ContactPurpose = (typeof CONTACT_PURPOSES)[number];
 export const AUDIENCE_HEALTH_LABELS = ['HEALTHY', 'REVIEW', 'LIMITED_DATA'] as const;
 export type AudienceHealthLabel = (typeof AUDIENCE_HEALTH_LABELS)[number];
 
+/** The creator's own gender (P3.7). */
+export const CREATOR_GENDERS = ['FEMALE', 'MALE'] as const;
+export type CreatorGender = (typeof CREATOR_GENDERS)[number];
+
+/** Where an audience breakdown came from (P3.7). */
+export const AUDIENCE_SOURCES = ['MANUAL', 'CREATOR', 'PLATFORM'] as const;
+export type AudienceSource = (typeof AUDIENCE_SOURCES)[number];
+
 export const CAMPAIGN_STATUSES = [
   'DRAFT',
   'PLANNING',

@@ -104,6 +104,22 @@ enum DataSource {
   UNAVAILABLE
 }
 
+/// The creator's own gender (P3.7) — for briefs that ask for one.
+enum CreatorGender {
+  FEMALE
+  MALE
+}
+
+/// Where an audience breakdown came from (P3.7).
+enum AudienceSource {
+  /// The team typed it from the creator's insights screenshot.
+  MANUAL
+  /// The creator entered it themselves.
+  CREATOR
+  /// Read from the platform through the creator's own connection.
+  PLATFORM
+}
+
 enum RelationshipStatus {
   PROSPECT
   CONTACTED
@@ -491,6 +507,7 @@ model User {
   creatorLinks            CreatorAccessLink[]      @relation("CreatorAccessCreatedBy")
   decidedDiscoveries      DiscoveredPost[]         @relation("DiscoveryDecidedBy")
   createdLicences         CreatorLicence[]         @relation("CreatorLicenceCreatedBy")
+  createdAudience         AudienceInsight[]        @relation("AudienceInsightCreatedBy")
 
   @@index([role])
   @@index([roleProfile])
@@ -652,6 +669,12 @@ model Influencer {
   priority             Priority            @default(MEDIUM)
   relationshipStatus   RelationshipStatus  @default(PROSPECT)
   audienceHealth       AudienceHealthLabel @default(LIMITED_DATA)
+  gender               CreatorGender?
+  /// Their usual fee per post (P3.7), as a range in `rateCurrency` — what the
+  /// directory's fee filter reads. Agreed fees per campaign stay on the roster.
+  rateMin              Decimal?            @db.Decimal(18, 3)
+  rateMax              Decimal?            @db.Decimal(18, 3)
+  rateCurrency         String?
   pricingNotes         String?
   internalNotes        String?
   isActive             Boolean             @default(true)
@@ -688,6 +711,7 @@ model Influencer {
 
   @@index([relationshipStatus])
   @@index([ownerId])
+  @@index([gender])
   @@index([primaryPlatform])
   @@index([country])
   @@index([countryCode])
@@ -726,6 +750,9 @@ model SocialAccount {
   postCount          Int?
   isVerified         Boolean?
   isPrimary          Boolean    @default(false)
+  /// Engagement rate (percent) as last recorded — from a sync or the newest
+  /// audience insights (P3.7). What the directory's engagement filter reads.
+  engagementRate     Float?
   dataSource         DataSource @default(MANUAL)
   lastSyncedAt       DateTime?
   /// Last time the worker tried to sync (success or not): failing accounts
@@ -744,8 +771,10 @@ model SocialAccount {
   influencer      Influencer             @relation(fields: [influencerId], references: [id], onDelete: Cascade)
   metricSnapshots SocialMetricSnapshot[]
   discoveredPosts DiscoveredPost[]
+  audience        AudienceInsight[]
 
   @@unique([platform, username])
+  @@index([engagementRate])
   @@index([lastDiscoveryAt])
   @@index([influencerId])
   @@index([platform])
@@ -1427,6 +1456,7 @@ model Attachment {
   submissions        DeliverableSubmission[]
   paymentReceipts    Payment[]
   licences           CreatorLicence[]
+  audienceInsights   AudienceInsight[]
   influencer         Influencer?             @relation(fields: [influencerId], references: [id], onDelete: Cascade)
   deliverable        Deliverable?            @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
   scriptReference    ScriptReference?        @relation(fields: [scriptReferenceId], references: [id], onDelete: Cascade)
@@ -2055,19 +2085,19 @@ model FeatureFlag {
 /// Singleton server-owned client configuration surfaced to clients via
 /// GET /api/v1/client-config (addendum §16). Never contains secrets.
 model ClientConfig {
-  id                 String   @id @default(cuid())
-  maintenanceMode    Boolean  @default(false)
-  maintenanceMessage String?
-  defaultLanguage    String   @default("en")
-  supportedLanguages String[] @default(["en", "ar"])
-  maxUploadMb        Int      @default(50)
-  supportInfo        String?
-  extra              Json?
+  id                  String   @id @default(cuid())
+  maintenanceMode     Boolean  @default(false)
+  maintenanceMessage  String?
+  defaultLanguage     String   @default("en")
+  supportedLanguages  String[] @default(["en", "ar"])
+  maxUploadMb         Int      @default(50)
+  supportInfo         String?
+  extra               Json?
   /// Countries where a creator needs an advertising licence to post for a
   /// brand (P3.5). A campaign aimed at one of these checks every creator on
   /// its roster for a valid licence there. Admins change it in Settings.
   licenceCountryCodes String[] @default(["KW", "SA", "AE"])
-  updatedAt          DateTime @updatedAt
+  updatedAt           DateTime @updatedAt
 }
 
 /// Per-mobile-platform version rules (addendum §17). The mobile app is not
@@ -2209,4 +2239,52 @@ model SavedView {
 
   @@index([scope])
   @@index([userId])
+}
+
+/// One audience breakdown for a social account (P3.7), usually typed from the
+/// creator's insights screenshot. `isLatest` marks the newest per account —
+/// the one the directory's "audience in" filter and the creator page use.
+model AudienceInsight {
+  id              String         @id @default(cuid())
+  socialAccountId String
+  /// The date the insights were taken (not when they were typed in).
+  capturedAt      DateTime
+  source          AudienceSource @default(MANUAL)
+  isLatest        Boolean        @default(false)
+  femalePct       Float?
+  malePct         Float?
+  age13to17Pct    Float?
+  age18to24Pct    Float?
+  age25to34Pct    Float?
+  age35to44Pct    Float?
+  age45PlusPct    Float?
+  /// Percent, as the insights showed it.
+  engagementRate  Float?
+  attachmentId    String?
+  notes           String?
+  createdById     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  socialAccount SocialAccount          @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  attachment    Attachment?            @relation(fields: [attachmentId], references: [id], onDelete: SetNull)
+  createdBy     User?                  @relation("AudienceInsightCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  countries     AudienceCountryShare[]
+
+  @@index([socialAccountId, capturedAt])
+  @@index([isLatest])
+  @@index([attachmentId])
+}
+
+/// Share of an account's audience in one country (percent).
+model AudienceCountryShare {
+  id          String @id @default(cuid())
+  insightId   String
+  countryCode String
+  pct         Float
+
+  insight AudienceInsight @relation(fields: [insightId], references: [id], onDelete: Cascade)
+
+  @@unique([insightId, countryCode])
+  @@index([countryCode, pct])
 }

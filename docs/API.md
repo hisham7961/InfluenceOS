@@ -309,15 +309,19 @@ requires `role === 'ADMIN'`.
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/v1/influencers` | List/filter the influencer directory. Offset-paginated. Filters: `q`, `platform`, `relationshipStatus`, `countryCode`, `city`, `category`, `minFollowers`/`maxFollowers` (any account), `ownerId` (a user id, or `unowned`), `tag`, `brandId`, `campaignId` and the Data Quality deep links (`missingCountry`, `missingOwner`, `missingPhone`, `missingSocial`). Sort: `sort=createdAt\|name\|updatedAt` with `order=asc\|desc` (newest first by default); the CSV export takes the same. |
+| GET | `/api/v1/influencers` | List/filter the influencer directory. Offset-paginated. Filters: `q`, `platform`, `relationshipStatus`, `countryCode`, `city`, `category`, `minFollowers`/`maxFollowers` (any account), `ownerId` (a user id, or `unowned`), `tag`, `brandId`, `campaignId` the Data Quality deep links (`missingCountry`, `missingOwner`, `missingPhone`, `missingSocial`), and (P3.7) `audienceCountry` + `audienceMinPct` (default 1; the account's newest audience insights, on `platform` when set), `minEngagementRate`/`maxEngagementRate` (an account's last recorded engagement rate), `language` (a code — ar, en, fr…; matches the usual spellings in the profile), `gender`, and `minRate`/`maxRate` + `rateCurrency` (default KWD; the creator's usual fee per post overlaps the range). Sort: `sort=createdAt\|name\|updatedAt` with `order=asc\|desc` (newest first by default); the CSV export takes the same. |
 | POST | `/api/v1/influencers` | Create an influencer → `201`. |
 | GET | `/api/v1/influencers/:id` | Influencer 360 profile. |
-| PATCH | `/api/v1/influencers/:id` | Update an influencer. |
+| PATCH | `/api/v1/influencers/:id` | Update an influencer. Also takes `gender` and the usual fee per post `rateMin`/`rateMax` + `rateCurrency` (P3.7; from ≤ to, a currency once there's an amount → `400` otherwise). |
 | POST | `/api/v1/influencers/resolve` | Resolve a pasted profile URL/handle (official provider data or manual fallback). |
 | POST | `/api/v1/influencers/:id/contact-log` | Log a message sent outside the app (`channel`, `purpose`, optional `campaignInfluencerId`) → `204`. Shows on the creator's timeline and "last contact"; the first one on a roster row fills its contacted date. |
 | GET | `/api/v1/influencers/:id/social-accounts` | Social accounts for an influencer. |
 | GET | `/api/v1/influencers/:id/followers` | Follower growth time series. |
 | GET | `/api/v1/influencers/:id/audience-health` | Audience health signals. |
+| GET | `/api/v1/influencers/:id/audience` | Audience insights for the creator's accounts, newest first; `isLatest` marks the one per account the filters use (P3.7). |
+| POST | `/api/v1/social-accounts/:id/audience` | Add audience insights: `capturedAt` (not in the future), `countries` [{`countryCode`, `pct`}] (≤10, no repeats), `femalePct`/`malePct`, five age groups, `engagementRate`, `attachmentId` (the screenshot — one of the creator's files), `notes`. Each group of shares must add up to ≤ 100 (0.5 slack for rounding) → `422` otherwise. The newest per account also sets the account's engagement rate. |
+| PATCH | `/api/v1/audience/:id` | Correct audience insights (same fields; `countries` replaces the list). |
+| DELETE | `/api/v1/audience/:id` | Remove audience insights → `204`; the one before it becomes the latest. |
 | GET | `/api/v1/influencers/:id/notes` | Internal notes for an influencer. |
 | GET | `/api/v1/influencers/:id/brands` | Brand relationships for an influencer. |
 | GET | `/api/v1/influencers/:id/performance` | A creator's results over time: posts (all / last 90 days), median views and engagement, brands that booked again, on-time rate, paid and cost per view (money with finance access only), per platform. |

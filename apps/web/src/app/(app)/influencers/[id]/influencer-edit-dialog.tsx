@@ -9,10 +9,12 @@ import { Check, Pencil } from 'lucide-react';
 import type { InfluencerDetailDTO } from '@influenceos/contracts';
 import {
   CONTACT_METHODS,
+  CREATOR_GENDERS,
   COUNTRIES,
   PRIORITIES,
   RELATIONSHIP_STATUSES,
   type ContactMethod,
+  type CreatorGender,
   type Priority,
   type RelationshipStatus,
 } from '@influenceos/shared';
@@ -89,6 +91,10 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
   const [preferredContact, setPreferredContact] = React.useState<string>(influencer.contact.preferredContact ?? NONE);
   const [ownerId, setOwnerId] = React.useState<string>(influencer.ownerId ?? NONE);
   const [pricingNotes, setPricingNotes] = React.useState(influencer.pricingNotes ?? '');
+  const [gender, setGender] = React.useState<string>(influencer.gender ?? NONE);
+  const [rateMin, setRateMin] = React.useState(influencer.rateMin?.toString() ?? '');
+  const [rateMax, setRateMax] = React.useState(influencer.rateMax?.toString() ?? '');
+  const [rateCurrency, setRateCurrency] = React.useState(influencer.rateCurrency ?? 'KWD');
   const [internalNotes, setInternalNotes] = React.useState(influencer.internalNotes ?? '');
   const team = useQuery({ queryKey: ['team-directory'], queryFn: () => api.users.directory(), enabled: open });
 
@@ -121,6 +127,10 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
     setPreferredContact(influencer.contact.preferredContact ?? NONE);
     setOwnerId(influencer.ownerId ?? NONE);
     setPricingNotes(influencer.pricingNotes ?? '');
+    setGender(influencer.gender ?? NONE);
+    setRateMin(influencer.rateMin?.toString() ?? '');
+    setRateMax(influencer.rateMax?.toString() ?? '');
+    setRateCurrency(influencer.rateCurrency ?? 'KWD');
     setInternalNotes(influencer.internalNotes ?? '');
   }, [influencer, open]);
 
@@ -161,6 +171,10 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
         preferredContact: preferredContact === NONE ? null : (preferredContact as ContactMethod),
         ownerId: ownerId === NONE ? null : ownerId,
         pricingNotes: pricingNotes.trim() || null,
+        gender: gender === NONE ? null : (gender as CreatorGender),
+        rateMin: rateMin.trim() === '' ? null : Number(rateMin),
+        rateMax: rateMax.trim() === '' ? null : Number(rateMax),
+        rateCurrency: rateMin.trim() === '' && rateMax.trim() === '' ? null : rateCurrency,
         internalNotes: internalNotes.trim() || null,
       }),
     onSuccess: (updated) => {
@@ -288,6 +302,54 @@ export function InfluencerEditDialog({ influencer }: { influencer: InfluencerDet
           </Field>
           <Field label={t('form.fields.languages')} hint={t('form.fields.languagesHint')}>
             <Input value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder={t('form.fields.languagesPlaceholder')} />
+          </Field>
+          <Field label={t('form.fields.gender')}>
+            <Select value={gender} onValueChange={setGender}>
+              <SelectTrigger aria-label={t('form.fields.gender')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>{t('form.fields.notSet')}</SelectItem>
+                {CREATOR_GENDERS.map((g) => (
+                  <SelectItem key={g} value={g}>
+                    {enumLabel(te, 'creatorGender', g)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label={t('form.fields.usualFee')} hint={t('form.fields.usualFeeHint')}>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                value={rateMin}
+                onChange={(e) => setRateMin(e.target.value)}
+                aria-label={t('form.fields.usualFeeFrom')}
+                placeholder={t('form.fields.usualFeeFrom')}
+                dir="ltr"
+              />
+              <span className="text-muted-foreground">–</span>
+              <Input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                value={rateMax}
+                onChange={(e) => setRateMax(e.target.value)}
+                aria-label={t('form.fields.usualFeeTo')}
+                placeholder={t('form.fields.usualFeeTo')}
+                dir="ltr"
+              />
+              <Input
+                value={rateCurrency}
+                onChange={(e) => setRateCurrency(e.target.value.toUpperCase().slice(0, 3))}
+                aria-label={t('form.fields.usualFeeCurrency')}
+                className="w-20"
+                dir="ltr"
+                maxLength={3}
+              />
+            </div>
           </Field>
 
           <Field label={t('form.fields.managerName')} hint={t('form.fields.managerHint')}>

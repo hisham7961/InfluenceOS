@@ -40,6 +40,7 @@ import { CreatorTimeline } from './creator-timeline';
 import { CreatorSubmissionsTab } from './creator-submissions-tab';
 import { CreatorShipmentsTab } from './creator-shipments-tab';
 import { CreatorLicences } from './creator-licences';
+import { CreatorAudience } from './creator-audience';
 import { BrandRelationshipDialog } from './brand-relationship-dialog';
 
 /** "Add Content" preselecting this influencer — Critical Business Question 3. */
@@ -211,6 +212,11 @@ export function ProfileTabs({
               )}
             </CardContent>
           </Card>
+          <CreatorAudience
+            influencerId={influencer.id}
+            influencerName={influencer.displayName}
+            accounts={influencer.socialAccounts}
+          />
           <CreatorLicences influencerId={influencer.id} influencerName={influencer.displayName} />
         </div>
       </TabsContent>

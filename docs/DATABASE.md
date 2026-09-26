@@ -119,6 +119,7 @@ shape and the rules behind it.
 | Model | Purpose | Key fields / relations |
 |---|---|---|
 | **CreatorLicence** | A creator's advertising licence in one country. | `influencerId` + `countryCode` (unique — a renewal updates the record), `authority`, `number`, `issuedAt`, `expiresAt` (null = no end date), `attachmentId` (the scanned licence, one of the creator's files; cleared if the file is deleted), `notes`, `createdById`, `expiryRemindedAt` (the 30-day warning was sent; cleared when the end date changes). Deleted with the creator. Also `Campaign.marketCountryCodes` (the countries a campaign is for; backfilled from `targetMarket` where it plainly names them) and `ClientConfig.licenceCountryCodes` (countries needing a licence, default KW/SA/AE). |
+| **AudienceInsight** | One audience breakdown for a social account (P3.7). | `socialAccountId`, `capturedAt` (the insights' date), `source` (MANUAL / CREATOR / PLATFORM), `isLatest` (the newest per account — kept by the service), `femalePct`/`malePct`, `age13to17Pct`…`age45PlusPct`, `engagementRate`, `attachmentId` (the screenshot, one of the creator's files), `notes`, `createdById`; children **AudienceCountryShare** (`countryCode`, `pct`, unique per insight, indexed by country+pct for the directory filter). Deleted with the account. Also `Influencer.gender`, `Influencer.rateMin`/`rateMax`/`rateCurrency` (usual fee per post) and `SocialAccount.engagementRate` (last recorded; backfilled from the newest snapshot that had one). |
 
 ## Mobile / API-readiness additions
 

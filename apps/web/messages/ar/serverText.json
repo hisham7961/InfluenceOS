@@ -323,5 +323,12 @@
   "a_recorded_licence": "{name} سجّل رخصة الإعلان الخاصة بـ {displayName} في {countryCode}.",
   "a_updated_licence": "{name} حدّث رخصة الإعلان الخاصة بـ {displayName} في {countryCode}.",
   "a_removed_licence": "{name} حذف رخصة الإعلان الخاصة بـ {displayName} في {countryCode}.",
-  "a_changed_licence_countries": "{name} غيّر قائمة الدول التي يحتاج فيها المؤثر رخصة إعلان."
+  "a_changed_licence_countries": "{name} غيّر قائمة الدول التي يحتاج فيها المؤثر رخصة إعلان.",
+  "e_audience_screenshot_not_creators": "يجب أن تكون صورة الإحصاءات من ملفات هذا المؤثر.",
+  "e_audience_insights_not_found": "بيانات الجمهور غير موجودة.",
+  "a_added_audience_insights": "أضاف {name} بيانات الجمهور لـ {displayName} (@{username}).",
+  "a_updated_audience_insights": "عدّل {name} بيانات الجمهور لـ {displayName} (@{username}).",
+  "a_removed_audience_insights": "حذف {name} بيانات الجمهور لـ {displayName} (@{username}).",
+  "e_usual_fee_from_more_than_to": "يجب ألّا يكون الأجر المعتاد «من» أكبر من «إلى».",
+  "e_usual_fee_needs_currency": "اختر عملة الأجر المعتاد."
 }

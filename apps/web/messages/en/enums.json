@@ -143,6 +143,15 @@
     "REVIEW": "Needs Review",
     "LIMITED_DATA": "Limited Data"
   },
+  "creatorGender": {
+    "FEMALE": "Female",
+    "MALE": "Male"
+  },
+  "audienceSource": {
+    "MANUAL": "Typed from their insights",
+    "CREATOR": "From the creator",
+    "PLATFORM": "From the platform"
+  },
   "dataSource": {
     "MANUAL": "Manual",
     "OFFICIAL_API": "Official API",

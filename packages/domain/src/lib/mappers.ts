@@ -62,6 +62,7 @@ interface SocialAccountLike {
   postCount: number | null;
   isVerified: boolean | null;
   isPrimary: boolean;
+  engagementRate?: number | null;
   dataSource: DataSource;
   lastSyncedAt: Date | null;
 }
@@ -83,6 +84,7 @@ export function toSocialAccountDTO(
     isVerified: a.isVerified,
     isPrimary: a.isPrimary,
     followerDelta7d: extra.followerDelta7d ?? null,
+    engagementRate: a.engagementRate ?? null,
     provenance: { source: a.dataSource, updatedAt: iso(a.lastSyncedAt) },
   };
 }

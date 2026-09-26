@@ -1,4 +1,4 @@
-import { countryName, countsTowardCompletion, isDeliverableDelivered, metrics as sharedMetrics, type Platform } from '@influenceos/shared';
+import { countryName, countsTowardCompletion, isDeliverableDelivered, languageAliases, metrics as sharedMetrics, type Platform } from '@influenceos/shared';
 import {
   buildOffsetPagination,
   requests,
@@ -18,7 +18,7 @@ import { requireAnyCapability, requireCapability } from '../lib/authz';
 import { buildCursorPage } from '../lib/cursor';
 import { resolveAvatarUrl } from '../lib/avatar';
 import { iso, logActivity } from '../lib/helpers';
-import { sumMoney, toDecimal } from '../lib/money';
+import { sumMoney, toDecimal, toMoneyNumber } from '../lib/money';
 import { participationMoney } from '../lib/spend';
 import { toInfluencerSummary, toSocialAccountDTO } from '../lib/mappers';
 import { isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
@@ -151,6 +151,42 @@ export function makeInfluencerService(ctx: DomainContext) {
         },
       });
       void deal;
+    }
+    // Smarter creator selection (P3.7).
+    if (filter.audienceCountry) {
+      and.push({
+        socialAccounts: {
+          some: {
+            ...(filter.platform ? { platform: filter.platform } : {}),
+            audience: {
+              some: {
+                isLatest: true,
+                countries: {
+                  some: { countryCode: filter.audienceCountry, pct: { gte: filter.audienceMinPct ?? 1 } },
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+    if (filter.minEngagementRate != null || filter.maxEngagementRate != null) {
+      const engagementRate: Prisma.FloatNullableFilter = {};
+      if (filter.minEngagementRate != null) engagementRate.gte = filter.minEngagementRate;
+      if (filter.maxEngagementRate != null) engagementRate.lte = filter.maxEngagementRate;
+      and.push({
+        socialAccounts: { some: { ...(filter.platform ? { platform: filter.platform } : {}), engagementRate } },
+      });
+    }
+    if (filter.language) and.push({ languages: { hasSome: languageAliases(filter.language) } });
+    if (filter.gender) and.push({ gender: filter.gender });
+    if (filter.minRate != null || filter.maxRate != null) {
+      // Their usual fee range overlaps the one asked for, in one currency.
+      and.push({ rateCurrency: filter.rateCurrency ?? 'KWD' });
+      if (filter.minRate != null)
+        and.push({ OR: [{ rateMax: { gte: filter.minRate } }, { rateMax: null, rateMin: { gte: filter.minRate } }] });
+      if (filter.maxRate != null)
+        and.push({ OR: [{ rateMin: { lte: filter.maxRate } }, { rateMin: null, rateMax: { lte: filter.maxRate } }] });
     }
     if (filter.minFollowers != null || filter.maxFollowers != null) {
       const followers: Prisma.IntFilter = {};
@@ -495,6 +531,10 @@ export function makeInfluencerService(ctx: DomainContext) {
       postalCode: inf.postalCode,
       deliveryInstructions: inf.deliveryInstructions,
       languages: inf.languages,
+      gender: inf.gender,
+      rateMin: toMoneyNumber(inf.rateMin),
+      rateMax: toMoneyNumber(inf.rateMax),
+      rateCurrency: inf.rateCurrency,
       pricingNotes: inf.pricingNotes,
       internalNotes: inf.internalNotes,
       ownerId: inf.ownerId,
@@ -527,8 +567,23 @@ export function makeInfluencerService(ctx: DomainContext) {
     };
   }
 
+  /** A usual fee range reads low → high, and needs a currency once it has an amount. */
+  function checkRate(
+    rateMin: number | null | undefined,
+    rateMax: number | null | undefined,
+    currency: string | null | undefined,
+  ) {
+    if (rateMin != null && rateMax != null && rateMin > rateMax) {
+      throw AppError.badRequest('The usual fee "from" must not be more than "to".');
+    }
+    if ((rateMin != null || rateMax != null) && !currency) {
+      throw AppError.badRequest('Pick the currency of the usual fee.');
+    }
+  }
+
   async function create(input: InfluencerCreate): Promise<InfluencerDetailDTO> {
     await requireCapability(ctx, 'INFLUENCERS_MANAGE');
+    checkRate(input.rateMin, input.rateMax, input.rateCurrency ?? 'KWD');
     const email = input.email === '' ? null : (input.email ?? null);
     const influencer = await prisma.influencer.create({
       data: {
@@ -559,6 +614,11 @@ export function makeInfluencerService(ctx: DomainContext) {
         pricingNotes: input.pricingNotes ?? null,
         internalNotes: input.internalNotes ?? null,
         isActive: input.isActive ?? true,
+        gender: input.gender ?? null,
+        rateMin: input.rateMin ?? null,
+        rateMax: input.rateMax ?? null,
+        rateCurrency:
+          input.rateMin != null || input.rateMax != null ? (input.rateCurrency ?? 'KWD') : null,
       },
     });
 
@@ -591,6 +651,11 @@ export function makeInfluencerService(ctx: DomainContext) {
     if (isCountryOutOfScope(countryScope, existing.countryCode)) throw AppError.notFound('Influencer');
     if (await isInfluencerBrandOutOfScope(id)) throw AppError.notFound('Influencer');
     const email = input.email === '' ? null : input.email;
+    const rateMin = input.rateMin === undefined ? toMoneyNumber(existing.rateMin) : input.rateMin;
+    const rateMax = input.rateMax === undefined ? toMoneyNumber(existing.rateMax) : input.rateMax;
+    const rateCurrency =
+      input.rateCurrency === undefined ? existing.rateCurrency : input.rateCurrency;
+    checkRate(rateMin, rateMax, rateCurrency ?? (rateMin != null || rateMax != null ? 'KWD' : null));
     await prisma.influencer.update({
       where: { id },
       data: {
@@ -621,6 +686,11 @@ export function makeInfluencerService(ctx: DomainContext) {
         pricingNotes: input.pricingNotes === undefined ? undefined : input.pricingNotes,
         internalNotes: input.internalNotes === undefined ? undefined : input.internalNotes,
         isActive: input.isActive ?? undefined,
+        gender: input.gender === undefined ? undefined : input.gender,
+        rateMin: input.rateMin === undefined ? undefined : input.rateMin,
+        rateMax: input.rateMax === undefined ? undefined : input.rateMax,
+        rateCurrency:
+          rateMin == null && rateMax == null ? null : (rateCurrency ?? 'KWD'),
       },
     });
     if (input.tags) await setTags(id, input.tags);

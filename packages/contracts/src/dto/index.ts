@@ -1,6 +1,8 @@
 import type { EmbedDescriptor } from '@influenceos/shared';
 import type {
   AudienceHealthLabel,
+  AudienceSource,
+  CreatorGender,
   CampaignObjective,
   CampaignStatus,
   CandidateStatus,
@@ -166,6 +168,8 @@ export interface SocialAccountDTO {
   isVerified: boolean | null;
   isPrimary: boolean;
   followerDelta7d: number | null;
+  /** Percent, as last recorded (a sync or the newest audience insights). */
+  engagementRate: number | null;
   provenance: ProvenanceDTO;
 }
 
@@ -242,6 +246,12 @@ export interface InfluencerDetailDTO extends InfluencerSummaryDTO {
   postalCode: string | null;
   deliveryInstructions: string | null;
   languages: string[];
+  /** The creator's own gender (P3.7). */
+  gender: CreatorGender | null;
+  /** Their usual fee per post, as a range (P3.7). */
+  rateMin: number | null;
+  rateMax: number | null;
+  rateCurrency: string | null;
   pricingNotes: string | null;
   internalNotes: string | null;
   /** Relationship owner / assignee (W4-5). */
@@ -2591,4 +2601,37 @@ export interface MyWorkDTO {
 export interface WorkCountsDTO {
   myWork: number;
   approvals: number;
+}
+
+// --- Audience insights (P3.7) ------------------------------------------------------
+
+/** One audience breakdown for a social account, usually from the creator's insights screenshot. */
+export interface AudienceInsightDTO {
+  id: string;
+  socialAccountId: string;
+  platform: Platform;
+  username: string;
+  /** The date the insights were taken. */
+  capturedAt: string;
+  source: AudienceSource;
+  /** The newest for its account — what the directory filter reads. */
+  isLatest: boolean;
+  /** Biggest share first. */
+  countries: { countryCode: string; pct: number }[];
+  femalePct: number | null;
+  malePct: number | null;
+  ages: {
+    age13to17Pct: number | null;
+    age18to24Pct: number | null;
+    age25to34Pct: number | null;
+    age35to44Pct: number | null;
+    age45PlusPct: number | null;
+  };
+  engagementRate: number | null;
+  /** The insights screenshot; open it with GET /files/:id. */
+  document: NoteAttachmentRefDTO | null;
+  notes: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

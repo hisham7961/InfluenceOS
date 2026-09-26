@@ -25,6 +25,7 @@ export * from './utils/app-routes';
 export * from './utils/server-text';
 export * from './utils/periods';
 export * from './utils/caption-check';
+export * from './utils/languages';
 export * as providers from './providers';
 export * as metrics from './metrics';
 

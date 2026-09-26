@@ -105,7 +105,11 @@
       "ownedBySomeone": "مسؤولية زميل",
       "missingCountry": "بلا دولة",
       "missingPhone": "بلا رقم هاتف",
-      "missingSocial": "بلا حسابات تواصل"
+      "missingSocial": "بلا حسابات تواصل",
+      "audience": "الجمهور في {country} ≥ {pct}%",
+      "engagement": "التفاعل ≥ {pct}%",
+      "language": "يتحدث {language}",
+      "fee": "الأجر {from}–{to} {currency}"
     },
     "sort": {
       "newest": "الأحدث أولًا",
@@ -113,6 +117,24 @@
       "nameAsc": "الاسم أ–ي",
       "nameDesc": "الاسم ي–أ",
       "updated": "آخر تحديث"
+    },
+    "moreFilters": {
+      "button": "فلاتر إضافية",
+      "any": "أي",
+      "audience": "الجمهور في",
+      "audienceHint": "من أحدث إحصاءات الجمهور.",
+      "audienceCountry": "دولة الجمهور",
+      "audienceShare": "نسبة الجمهور",
+      "atLeast": "{pct}%+",
+      "engagement": "التفاعل",
+      "gender": "الجنس",
+      "language": "يتحدث",
+      "fee": "الأجر المعتاد للمنشور",
+      "feeHint": "المؤثرون الذين يتقاطع أجرهم المعتاد مع هذا النطاق.",
+      "feeFrom": "من",
+      "feeTo": "إلى",
+      "feeCurrency": "العملة",
+      "apply": "تطبيق الأجر"
     }
   },
   "form": {
@@ -212,7 +234,13 @@
       "notSet": "غير محدد",
       "owner": "المسؤول",
       "ownerHint": "من يتابعه في الفريق",
-      "noOwner": "بدون مسؤول"
+      "noOwner": "بدون مسؤول",
+      "gender": "الجنس",
+      "usualFee": "الأجر المعتاد للمنشور",
+      "usualFeeHint": "من – إلى، مع العملة. فلتر الأجر في دليل المؤثرين يعتمد عليه.",
+      "usualFeeFrom": "من",
+      "usualFeeTo": "إلى",
+      "usualFeeCurrency": "العملة"
     },
     "validation": {
       "displayNameRequired": "الاسم المعروض إلزامي.",
@@ -571,6 +599,58 @@
       "uploading": "جارٍ الرفع…",
       "removeDocument": "إزالة الملف",
       "notes": "ملاحظات"
+    }
+  },
+  "audienceInsights": {
+    "title": "الجمهور",
+    "description": "من يتابع كل حساب، مُدخل من صورة إحصاءات المؤثر. فلاتر دليل المؤثرين تعتمد على الأحدث لكل حساب.",
+    "add": "إضافة إحصاءات",
+    "addTitle": "إضافة إحصاءات الجمهور",
+    "editTitle": "تصحيح إحصاءات الجمهور",
+    "dialogDescription": "انسخ الأرقام من صورة إحصاءات {name}. اترك أي خانة لا تظهر في الصورة.",
+    "empty": "لا توجد إحصاءات جمهور بعد. اطلب من المؤثر صورة إحصاءاته وأدخل الأرقام.",
+    "noAccounts": "أضف حساب تواصل أولاً — الإحصاءات تخص حساباً محدداً.",
+    "asOf": "بتاريخ {date}",
+    "engagement": "التفاعل {rate}%",
+    "topCountries": "أعلى الدول",
+    "gender": "النساء والرجال",
+    "women": "نساء",
+    "men": "رجال",
+    "ages": "الفئات العمرية",
+    "earlier": "{count, plural, one {سجل سابق واحد} two {سجلان سابقان} few {# سجلات سابقة} many {# سجلًا سابقًا} other {# سجل سابق}}",
+    "openScreenshot": "فتح الصورة",
+    "edit": "تصحيح",
+    "remove": "حذف",
+    "removeTitle": "حذف هذه الإحصاءات؟",
+    "removeDescription": "ستُحذف إحصاءات @{username} بتاريخ {date}.",
+    "addedToast": "حُفظت إحصاءات الجمهور.",
+    "updatedToast": "عُدّلت إحصاءات الجمهور.",
+    "removedToast": "حُذفت إحصاءات الجمهور.",
+    "fields": {
+      "account": "الحساب",
+      "capturedAt": "تاريخ الإحصاءات",
+      "countries": "أعلى الدول",
+      "country": "الدولة",
+      "share": "النسبة (%)",
+      "addCountry": "إضافة دولة",
+      "removeCountry": "حذف الدولة",
+      "women": "نساء (%)",
+      "men": "رجال (%)",
+      "ages": "الفئات العمرية (%)",
+      "engagementRate": "نسبة التفاعل (%)",
+      "screenshot": "صورة الإحصاءات",
+      "upload": "رفع الصورة",
+      "uploading": "جارٍ الرفع…",
+      "removeScreenshot": "إزالة الصورة",
+      "notes": "ملاحظات"
+    },
+    "optional": "اختياري",
+    "errors": {
+      "future": "لا يمكن أن يكون تاريخ الإحصاءات في المستقبل.",
+      "countriesOver": "مجموع نسب الدول أكثر من 100%.",
+      "countriesRepeated": "لا يمكن تكرار الدولة.",
+      "genderOver": "مجموع النساء والرجال أكثر من 100%.",
+      "agesOver": "مجموع الفئات العمرية أكثر من 100%."
     }
   }
 }

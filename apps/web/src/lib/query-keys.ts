@@ -20,6 +20,7 @@ export const qk = {
   },
   influencer: {
     licences: (id: string) => ['influencer', id, 'licences'] as const,
+    audience: (id: string) => ['influencer', id, 'audience'] as const,
   },
   complianceSettings: ['compliance-settings'] as const,
 };

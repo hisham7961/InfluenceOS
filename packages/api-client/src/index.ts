@@ -34,6 +34,7 @@ import type {
   DiscoveredPostDTO,
   DiscoveryRunDTO,
   CreatorLicenceDTO,
+  AudienceInsightDTO,
   CaptionRulesDTO,
   MyWorkDTO,
   WorkCountsDTO,
@@ -738,6 +739,17 @@ export function createClient(config: ClientConfig) {
       settings: () => http.get<ComplianceSettingsDTO>(`${V}/compliance/settings`),
       updateSettings: (body: In<typeof requests.complianceSettingsUpdateSchema>) =>
         http.put<ComplianceSettingsDTO>(`${V}/compliance/settings`, body),
+    },
+
+    // Audience insights (P3.7): who follows each of a creator's accounts.
+    audience: {
+      forInfluencer: (influencerId: string) =>
+        http.get<AudienceInsightDTO[]>(`${V}/influencers/${influencerId}/audience`),
+      create: (socialAccountId: string, body: In<typeof requests.audienceInsightCreateSchema>) =>
+        http.post<AudienceInsightDTO>(`${V}/social-accounts/${socialAccountId}/audience`, body),
+      update: (id: string, body: In<typeof requests.audienceInsightUpdateSchema>) =>
+        http.patch<AudienceInsightDTO>(`${V}/audience/${id}`, body),
+      remove: (id: string) => http.del<void>(`${V}/audience/${id}`),
     },
 
     // Creator task links (P3.3): a creator's part of a campaign without an account.

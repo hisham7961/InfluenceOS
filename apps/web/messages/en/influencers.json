@@ -105,7 +105,11 @@
       "ownedBySomeone": "Owned by a teammate",
       "missingCountry": "No country",
       "missingPhone": "No phone number",
-      "missingSocial": "No social accounts"
+      "missingSocial": "No social accounts",
+      "audience": "Audience in {country} ≥ {pct}%",
+      "engagement": "Engagement ≥ {pct}%",
+      "language": "Speaks {language}",
+      "fee": "Fee {from}–{to} {currency}"
     },
     "sort": {
       "newest": "Newest first",
@@ -113,6 +117,24 @@
       "nameAsc": "Name A–Z",
       "nameDesc": "Name Z–A",
       "updated": "Recently updated"
+    },
+    "moreFilters": {
+      "button": "More filters",
+      "any": "Any",
+      "audience": "Audience in",
+      "audienceHint": "From their newest audience insights.",
+      "audienceCountry": "Audience country",
+      "audienceShare": "Share of audience",
+      "atLeast": "{pct}%+",
+      "engagement": "Engagement",
+      "gender": "Gender",
+      "language": "Speaks",
+      "fee": "Usual fee per post",
+      "feeHint": "Creators whose usual fee overlaps this range.",
+      "feeFrom": "From",
+      "feeTo": "To",
+      "feeCurrency": "Currency",
+      "apply": "Apply fee"
     }
   },
   "form": {
@@ -212,7 +234,13 @@
       "notSet": "Not set",
       "owner": "Owner",
       "ownerHint": "Who on the team looks after them",
-      "noOwner": "No owner"
+      "noOwner": "No owner",
+      "gender": "Gender",
+      "usualFee": "Usual fee per post",
+      "usualFeeHint": "From – to, and the currency. The directory's fee filter uses it.",
+      "usualFeeFrom": "From",
+      "usualFeeTo": "To",
+      "usualFeeCurrency": "Currency"
     },
     "validation": {
       "displayNameRequired": "Display name is required.",
@@ -571,6 +599,58 @@
       "uploading": "Uploading…",
       "removeDocument": "Remove the file",
       "notes": "Notes"
+    }
+  },
+  "audienceInsights": {
+    "title": "Audience",
+    "description": "Who follows each account, typed from the creator's insights screenshot. The directory's filters use the newest one per account.",
+    "add": "Add insights",
+    "addTitle": "Add audience insights",
+    "editTitle": "Correct audience insights",
+    "dialogDescription": "Copy the numbers from {name}'s insights screenshot. Leave out anything the screenshot doesn't show.",
+    "empty": "No audience insights yet. Ask the creator for a screenshot of their insights and type the numbers in.",
+    "noAccounts": "Add a social account first — insights belong to an account.",
+    "asOf": "As of {date}",
+    "engagement": "Engagement {rate}%",
+    "topCountries": "Top countries",
+    "gender": "Women and men",
+    "women": "Women",
+    "men": "Men",
+    "ages": "Age groups",
+    "earlier": "{count, plural, one {# earlier record} other {# earlier records}}",
+    "openScreenshot": "Open screenshot",
+    "edit": "Correct",
+    "remove": "Remove",
+    "removeTitle": "Remove these insights?",
+    "removeDescription": "The insights from {date} for @{username} will be removed.",
+    "addedToast": "Audience insights saved.",
+    "updatedToast": "Audience insights updated.",
+    "removedToast": "Audience insights removed.",
+    "fields": {
+      "account": "Account",
+      "capturedAt": "Date of the insights",
+      "countries": "Top countries",
+      "country": "Country",
+      "share": "Share (%)",
+      "addCountry": "Add a country",
+      "removeCountry": "Remove country",
+      "women": "Women (%)",
+      "men": "Men (%)",
+      "ages": "Age groups (%)",
+      "engagementRate": "Engagement rate (%)",
+      "screenshot": "Insights screenshot",
+      "upload": "Upload screenshot",
+      "uploading": "Uploading…",
+      "removeScreenshot": "Remove screenshot",
+      "notes": "Notes"
+    },
+    "optional": "Optional",
+    "errors": {
+      "future": "The insights date can't be in the future.",
+      "countriesOver": "The country shares add up to more than 100%.",
+      "countriesRepeated": "Each country can only be listed once.",
+      "genderOver": "Women and men add up to more than 100%.",
+      "agesOver": "The age groups add up to more than 100%."
     }
   }
 }

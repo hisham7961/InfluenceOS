@@ -31,6 +31,8 @@ import {
   DIGEST_FREQUENCIES,
   REPORT_PERIODS,
   TREND_BUCKETS,
+  CREATOR_GENDERS,
+  AUDIENCE_SOURCES,
 } from '@influenceos/shared';
 import { offsetQuerySchema, pageNumberSchema } from '../pagination';
 
@@ -295,6 +297,12 @@ export const influencerCreateSchema = z.object({
   internalNotes: optionalString,
   isActive: z.boolean().default(true),
   tags: stringArray,
+  /** The creator's own gender (P3.7). */
+  gender: z.enum(CREATOR_GENDERS).optional().nullable(),
+  /** Their usual fee per post, as a range (P3.7). */
+  rateMin: money,
+  rateMax: money,
+  rateCurrency: z.string().trim().toUpperCase().length(3).optional().nullable(),
 });
 export const influencerUpdateSchema = influencerCreateSchema.partial();
 export type InfluencerCreateInput = z.infer<typeof influencerCreateSchema>;
@@ -336,6 +344,20 @@ export const influencerFilterSchema = paginationSchema.extend({
   missingPhone: z.coerce.boolean().optional(),
   /** No SocialAccount rows at all. */
   missingSocial: z.coerce.boolean().optional(),
+  // Smarter creator selection (P3.7) — all server-side.
+  /** Audience in this country (the account's newest insights) of at least `audienceMinPct` (default 1). */
+  audienceCountry: countryCode.optional(),
+  audienceMinPct: z.coerce.number().min(0).max(100).optional(),
+  /** Engagement rate (percent) as last recorded on one of their accounts (on `platform` when set). */
+  minEngagementRate: z.coerce.number().min(0).max(100).optional(),
+  maxEngagementRate: z.coerce.number().min(0).max(100).optional(),
+  /** A language code (ar, en, fr…); matches the usual spellings in the profile. */
+  language: z.string().trim().min(2).max(40).optional(),
+  gender: z.enum(CREATOR_GENDERS).optional(),
+  /** Their usual fee per post overlaps this range, in `rateCurrency` (default KWD). */
+  minRate: z.coerce.number().min(0).optional(),
+  maxRate: z.coerce.number().min(0).optional(),
+  rateCurrency: z.string().trim().toUpperCase().length(3).optional(),
 });
 export type InfluencerFilter = z.infer<typeof influencerFilterSchema>;
 
@@ -1544,6 +1566,95 @@ export const complianceSettingsUpdateSchema = z.object({
 export type CreatorLicenceCreateInput = z.infer<typeof creatorLicenceCreateSchema>;
 export type CreatorLicenceUpdateInput = z.infer<typeof creatorLicenceUpdateSchema>;
 export type ComplianceSettingsUpdateInput = z.infer<typeof complianceSettingsUpdateSchema>;
+
+// --- Audience insights (P3.7) ------------------------------------------------------
+const pct = z.coerce.number().min(0).max(100);
+const optionalPct = pct.optional().nullable();
+/** Shares that should add up to 100 may be a little over from rounding. */
+const PCT_SLACK = 100.5;
+const sum = (xs: (number | null | undefined)[]) => xs.reduce<number>((n, x) => n + (x ?? 0), 0);
+const audienceFields = {
+  /** The date the insights were taken. */
+  capturedAt: z.coerce.date(),
+  source: z.enum(AUDIENCE_SOURCES).default('MANUAL'),
+  countries: z.array(z.object({ countryCode, pct })).max(10).default([]),
+  femalePct: optionalPct,
+  malePct: optionalPct,
+  age13to17Pct: optionalPct,
+  age18to24Pct: optionalPct,
+  age25to34Pct: optionalPct,
+  age35to44Pct: optionalPct,
+  age45PlusPct: optionalPct,
+  engagementRate: optionalPct,
+  /** The insights screenshot: one of this creator's files. */
+  attachmentId: cuid.optional().nullable(),
+  notes: z.string().trim().max(1000).optional().nullable(),
+};
+type AudienceShape = {
+  capturedAt?: Date;
+  countries?: { countryCode: string; pct: number }[];
+  femalePct?: number | null;
+  malePct?: number | null;
+  age13to17Pct?: number | null;
+  age18to24Pct?: number | null;
+  age25to34Pct?: number | null;
+  age35to44Pct?: number | null;
+  age45PlusPct?: number | null;
+};
+function checkAudience(v: AudienceShape, ctx: z.RefinementCtx) {
+  if (v.capturedAt && v.capturedAt.getTime() > Date.now() + 864e5) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['capturedAt'],
+      message: "The insights date can't be in the future.",
+    });
+  }
+  if (v.countries) {
+    const codes = v.countries.map((c) => c.countryCode);
+    if (new Set(codes).size !== codes.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['countries'],
+        message: 'Each country can only be listed once.',
+      });
+    }
+    if (sum(v.countries.map((c) => c.pct)) > PCT_SLACK) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['countries'],
+        message: 'The country shares add up to more than 100%.',
+      });
+    }
+  }
+  if (sum([v.femalePct, v.malePct]) > PCT_SLACK) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['femalePct'],
+      message: 'Women and men add up to more than 100%.',
+    });
+  }
+  if (
+    sum([v.age13to17Pct, v.age18to24Pct, v.age25to34Pct, v.age35to44Pct, v.age45PlusPct]) >
+    PCT_SLACK
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['age18to24Pct'],
+      message: 'The age groups add up to more than 100%.',
+    });
+  }
+}
+export const audienceInsightCreateSchema = z.object(audienceFields).superRefine(checkAudience);
+export const audienceInsightUpdateSchema = z
+  .object({
+    ...audienceFields,
+    capturedAt: z.coerce.date().optional(),
+    source: z.enum(AUDIENCE_SOURCES).optional(),
+    countries: z.array(z.object({ countryCode, pct })).max(10).optional(),
+  })
+  .superRefine(checkAudience);
+export type AudienceInsightCreateInput = z.infer<typeof audienceInsightCreateSchema>;
+export type AudienceInsightUpdateInput = z.infer<typeof audienceInsightUpdateSchema>;
 
 // --- Approvals (P3.6) --------------------------------------------------------------
 export const approvalsQuerySchema = z.object({

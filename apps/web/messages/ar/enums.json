@@ -143,6 +143,15 @@
     "REVIEW": "يحتاج مراجعة",
     "LIMITED_DATA": "بيانات محدودة"
   },
+  "creatorGender": {
+    "FEMALE": "أنثى",
+    "MALE": "ذكر"
+  },
+  "audienceSource": {
+    "MANUAL": "مُدخلة من إحصاءاته",
+    "CREATOR": "من المؤثر",
+    "PLATFORM": "من المنصة"
+  },
   "dataSource": {
     "MANUAL": "يدوي",
     "OFFICIAL_API": "واجهة API الرسمية",

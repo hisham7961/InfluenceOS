@@ -125,3 +125,24 @@ calendar), and new found posts per owned campaign; plus open shipments
 The Approvals list shows every draft waiting in the person's scope, oldest
 first, so drafts nobody owns don't get lost. The sidebar shows both counts,
 refreshed every minute.
+
+## Audience insights and creator filters (P3.7)
+
+Platforms don't share another account's audience, so the team types it from
+the creator's insights screenshot (and keeps the screenshot with the
+creator's files): top countries (up to 10), women/men, five age groups and
+the engagement rate, dated by when the insights were taken. Each group of
+shares must add up to 100% or less (half a point of slack for rounding).
+
+The newest breakdown per account (by that date) is the "latest"; the
+directory's "Audience in" filter reads only that one — so an older
+screenshot entered later doesn't override a newer one, and removing the
+newest brings the previous one back. The latest breakdown's engagement rate
+also becomes the account's engagement rate (as does a sync that reports
+one); the engagement filter reads that.
+
+The language filter matches the common spellings of a language in the
+profile's free-text languages ("Arabic", "arabic", "العربية"…). The fee
+filter reads the creator's usual fee per post (a from–to range in one
+currency) and matches when the ranges overlap; creators without a usual fee
+don't match a fee filter.

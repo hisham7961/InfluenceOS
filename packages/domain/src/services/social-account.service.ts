@@ -43,6 +43,13 @@ export function makeSocialAccountService(ctx: DomainContext) {
       source: DataSource;
     },
   ) {
+    // The account keeps its latest known engagement rate for the directory filter (P3.7).
+    if (data.engagementRate != null) {
+      await prisma.socialAccount.update({
+        where: { id: socialAccountId },
+        data: { engagementRate: data.engagementRate },
+      });
+    }
     if (data.followers == null && data.following == null && data.postCount == null) return;
     await prisma.socialMetricSnapshot.create({
       data: {

@@ -39,6 +39,8 @@ export type EnumFamily =
   | 'priority'
   | 'contactMethod'
   | 'audienceHealth'
+  | 'creatorGender'
+  | 'audienceSource'
   | 'dataSource'
   | 'inspirationCategory'
   | 'roleProfile'
