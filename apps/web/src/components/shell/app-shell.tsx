@@ -49,13 +49,13 @@ export function AppShell({
           {maintenance !== null && (
             <div
               role="status"
-              className="border-b border-warning/30 bg-warning/10 px-4 py-2 text-center text-sm font-medium text-warning lg:px-8"
+              className="border-b border-warning/30 bg-warning/10 px-4 py-2 text-center text-sm font-medium text-warning lg:px-8 print:hidden"
             >
               {maintenance || t('maintenanceMessage')}
               {user.role !== 'ADMIN' && ` ${t('maintenanceReadOnly')}`}
             </div>
           )}
-          <main className="flex-1 px-4 py-6 lg:px-8">{children}</main>
+          <main className="flex-1 px-4 py-6 lg:px-8 print:p-0">{children}</main>
         </div>
       </div>
 

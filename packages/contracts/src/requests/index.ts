@@ -409,6 +409,14 @@ export const campaignCreateSchema = z.object({
   internalNotes: optionalString,
   /** Every deliverable needs its draft approved before posting (UGC always does). */
   draftReview: z.boolean().optional(),
+  /** What the brand was promised; the client report sets the results against these. */
+  targetViews: z.coerce.number().int().nonnegative().max(2_000_000_000).optional().nullable(),
+  targetEngagements: z.coerce.number().int().nonnegative().max(2_000_000_000).optional().nullable(),
+  /** Percent, e.g. 4.5. */
+  targetEngagementRate: z.coerce.number().nonnegative().max(100).optional().nullable(),
+  targetCostPerView: z.coerce.number().nonnegative().max(1_000_000).optional().nullable(),
+  /** The agency's summary at the top of the client report. */
+  reportSummary: z.string().trim().max(10_000).optional().nullable(),
 });
 export const campaignUpdateSchema = campaignCreateSchema.partial().omit({ brandId: true });
 export type CampaignCreateInput = z.infer<typeof campaignCreateSchema>;
@@ -730,6 +738,18 @@ export const scriptVersionStatusSchema = z.object({
   note: optionalString,
 });
 export type ScriptVersionStatusInput = z.infer<typeof scriptVersionStatusSchema>;
+
+// --- Client campaign report --------------------------------------------------
+export const campaignReportQuerySchema = z.object({
+  /** The report's language, independent of the viewer's own. */
+  locale: z.enum(['en', 'ar']).optional(),
+  /** Leave spend and cost-per-view out (e.g. for the brand's wider team). Costs need FINANCE_VIEW anyway. */
+  costs: z
+    .enum(['true', 'false', '1', '0'])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === 'true' || v === '1')),
+});
+export type CampaignReportQuery = z.infer<typeof campaignReportQuerySchema>;
 export type ScriptCreateInput = z.infer<typeof scriptCreateSchema>;
 
 // --- Published content -----------------------------------------------------

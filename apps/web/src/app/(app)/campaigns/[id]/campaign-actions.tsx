@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronDown, Pencil } from 'lucide-react';
+import { ChevronDown, FileBarChart, Pencil } from 'lucide-react';
 import type { CampaignDetailDTO, CampaignObjective, CampaignStatus } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import { CAMPAIGN_OBJECTIVES, CAMPAIGN_STATUSES } from '@influenceos/shared';
@@ -69,7 +69,13 @@ export function CampaignActions({ campaign }: { campaign: CampaignDetailDTO }) {
   });
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      {/* A full page load: the report is a standalone document (see report-toolbar.tsx). */}
+      <Button variant="outline" size="sm" asChild>
+        <a href={`/campaigns/${campaign.id}/report`}>
+          <FileBarChart className="h-3.5 w-3.5" /> {t('clientReport.buttonLabel')}
+        </a>
+      </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button type="button" variant="outline" size="sm" disabled={changeStatus.isPending}>
@@ -128,6 +134,12 @@ function EditCampaignDialog({
   const [description, setDescription] = React.useState(campaign.description ?? '');
   const [brief, setBrief] = React.useState(campaign.brief ?? '');
   const [draftReview, setDraftReview] = React.useState(campaign.draftReview);
+  const numText = (v: number | null) => (v != null ? String(v) : '');
+  const [targetViews, setTargetViews] = React.useState(numText(campaign.targetViews));
+  const [targetEngagements, setTargetEngagements] = React.useState(numText(campaign.targetEngagements));
+  const [targetRate, setTargetRate] = React.useState(numText(campaign.targetEngagementRate));
+  const [targetCpv, setTargetCpv] = React.useState(numText(campaign.targetCostPerView));
+  const [reportSummary, setReportSummary] = React.useState(campaign.reportSummary ?? '');
 
   // Reset the form to the campaign each time the dialog is opened.
   React.useEffect(() => {
@@ -143,7 +155,14 @@ function EditCampaignDialog({
       setDescription(campaign.description ?? '');
       setBrief(campaign.brief ?? '');
       setDraftReview(campaign.draftReview);
+      setTargetViews(numText(campaign.targetViews));
+      setTargetEngagements(numText(campaign.targetEngagements));
+      setTargetRate(numText(campaign.targetEngagementRate));
+      setTargetCpv(numText(campaign.targetCostPerView));
+      setReportSummary(campaign.reportSummary ?? '');
     }
+    // numText is a pure helper recreated each render; the campaign is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, campaign]);
 
   const save = useMutation({
@@ -154,6 +173,15 @@ function EditCampaignDialog({
       if (budget !== '' && !Number.isFinite(Number(budget))) {
         throw new Error(t('actions.invalidBudgetError'));
       }
+      // Targets accept "1.2m", "250k" and thousands separators.
+      const parseTarget = (v: string, integer: boolean): number | null => {
+        const s = v.trim().toLowerCase().replace(/,/g, '');
+        if (!s) return null;
+        const m = /^(\d+(?:\.\d+)?)([km])?$/.exec(s);
+        if (!m) throw new Error(t('actions.invalidTargetError'));
+        const n = Number(m[1]) * (m[2] === 'm' ? 1_000_000 : m[2] === 'k' ? 1_000 : 1);
+        return integer ? Math.round(n) : n;
+      };
       return api.campaigns.update(campaign.id, {
         name: trimmedName,
         status,
@@ -166,6 +194,11 @@ function EditCampaignDialog({
         description: description.trim() || null,
         brief: brief.trim() || null,
         draftReview,
+        targetViews: parseTarget(targetViews, true),
+        targetEngagements: parseTarget(targetEngagements, true),
+        targetEngagementRate: parseTarget(targetRate, false),
+        targetCostPerView: parseTarget(targetCpv, false),
+        reportSummary: reportSummary.trim() || null,
       });
     },
     onSuccess: () => {
@@ -257,6 +290,26 @@ function EditCampaignDialog({
             </span>
             <Switch checked={draftReview} onCheckedChange={setDraftReview} aria-label={t('actions.draftReviewLabel')} />
           </label>
+
+          <div className="col-span-2 space-y-1 pt-2">
+            <p className="text-sm font-semibold">{t('actions.targetsTitle')}</p>
+            <p className="text-xs text-muted-foreground">{t('actions.targetsHint')}</p>
+          </div>
+          <Field label={t('actions.targetViewsLabel')} hint={t('fields.optionalHint')}>
+            <Input inputMode="decimal" value={targetViews} onChange={(e) => setTargetViews(e.target.value)} placeholder="500k" dir="ltr" />
+          </Field>
+          <Field label={t('actions.targetEngagementsLabel')} hint={t('fields.optionalHint')}>
+            <Input inputMode="decimal" value={targetEngagements} onChange={(e) => setTargetEngagements(e.target.value)} placeholder="25k" dir="ltr" />
+          </Field>
+          <Field label={t('actions.targetRateLabel')} hint={t('fields.optionalHint')}>
+            <Input inputMode="decimal" value={targetRate} onChange={(e) => setTargetRate(e.target.value)} placeholder="4.5" dir="ltr" />
+          </Field>
+          <Field label={t('actions.targetCpvLabel', { currency: campaign.currency })} hint={t('fields.optionalHint')}>
+            <Input inputMode="decimal" value={targetCpv} onChange={(e) => setTargetCpv(e.target.value)} placeholder="0.010" dir="ltr" />
+          </Field>
+          <Field label={t('actions.reportSummaryLabel')} hint={t('actions.reportSummaryHint')} className="col-span-2">
+            <Textarea value={reportSummary} onChange={(e) => setReportSummary(e.target.value)} rows={3} dir="auto" />
+          </Field>
         </div>
 
         <DialogFooter>

@@ -21,6 +21,7 @@ import type {
   CapabilityPreviewLineDTO,
   CampaignDetailDTO,
   CampaignEfficiencyDTO,
+  CampaignReportDTO,
   CampaignInfluencerDTO,
   CampaignOperationsBoardDTO,
   CampaignSummaryDTO,
@@ -92,6 +93,14 @@ type In<S extends z.ZodTypeAny> = z.input<S>;
  * bodies are validated against the shared contract schemas; responses are the
  * shared DTOs.
  */
+/** Query string for the client-report routes (both optional). */
+function reportQuery(params?: { locale?: 'en' | 'ar'; costs?: boolean }): Record<string, string> {
+  const q: Record<string, string> = {};
+  if (params?.locale) q.locale = params.locale;
+  if (params?.costs !== undefined) q.costs = params.costs ? 'true' : 'false';
+  return q;
+}
+
 export function createClient(config: ClientConfig) {
   const http = new HttpCore(config);
   const V = '/api/v1';
@@ -334,6 +343,17 @@ export function createClient(config: ClientConfig) {
         http.post<{ linked: number; skipped: number }>(`${V}/campaigns/${id}/content/link-roster`),
       // Server-computed spend efficiency (CPV/CPM/CPE) + metric freshness (W6-1).
       efficiency: (idOrSlug: string) => http.get<CampaignEfficiencyDTO>(`${V}/campaigns/${idOrSlug}/efficiency`),
+      /** Client report: results against targets, per creator and per post. */
+      report: (idOrSlug: string, params?: { locale?: 'en' | 'ar'; costs?: boolean }) =>
+        http.get<CampaignReportDTO>(`${V}/campaigns/${idOrSlug}/report`, { query: reportQuery(params) }),
+      /** The client report as an .xlsx file (raw Response, for programmatic / mobile use). */
+      reportXlsx: (idOrSlug: string, params?: { locale?: 'en' | 'ar'; costs?: boolean }) =>
+        http.get<Response>(`${V}/campaigns/${idOrSlug}/report/xlsx`, { query: reportQuery(params), raw: true }),
+      /** Same-origin href for a browser download of the .xlsx (auth via the cookie transport). */
+      reportXlsxUrl: (idOrSlug: string, params?: { locale?: 'en' | 'ar'; costs?: boolean }) => {
+        const q = new URLSearchParams(reportQuery(params) as Record<string, string>);
+        return `${config.baseUrl.replace(/\/$/, '')}${V}/campaigns/${idOrSlug}/report/xlsx?${q.toString()}`;
+      },
       addExpense: (id: string, body: Omit<In<typeof requests.expenseCreateSchema>, 'campaignId'>) =>
         http.post<ExpenseDTO>(`${V}/campaigns/${id}/expenses`, { ...body, campaignId: id }),
     },

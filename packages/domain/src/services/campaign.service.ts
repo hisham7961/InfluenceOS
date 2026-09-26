@@ -217,6 +217,11 @@ export function makeCampaignService(ctx: DomainContext) {
       owner: c.owner ? { id: c.owner.id, name: c.owner.name } : null,
       publishedContentCount,
       draftReview: c.draftReview,
+      targetViews: c.targetViews,
+      targetEngagements: c.targetEngagements,
+      targetEngagementRate: c.targetEngagementRate,
+      targetCostPerView: toMoneyNumber(c.targetCostPerView),
+      reportSummary: c.reportSummary,
       createdAt: c.createdAt.toISOString(),
     };
   }
@@ -255,6 +260,11 @@ export function makeCampaignService(ctx: DomainContext) {
         ownerId: input.ownerId ?? ctx.actor?.id ?? null,
         internalNotes: input.internalNotes ?? null,
         draftReview: input.draftReview ?? false,
+        targetViews: input.targetViews ?? null,
+        targetEngagements: input.targetEngagements ?? null,
+        targetEngagementRate: input.targetEngagementRate ?? null,
+        targetCostPerView: input.targetCostPerView ?? null,
+        reportSummary: input.reportSummary ?? null,
       },
     });
     await logActivity(ctx, {
@@ -308,6 +318,11 @@ export function makeCampaignService(ctx: DomainContext) {
         ownerId: input.ownerId === undefined ? undefined : input.ownerId,
         internalNotes: input.internalNotes === undefined ? undefined : input.internalNotes,
         draftReview: input.draftReview ?? undefined,
+        targetViews: input.targetViews === undefined ? undefined : input.targetViews,
+        targetEngagements: input.targetEngagements === undefined ? undefined : input.targetEngagements,
+        targetEngagementRate: input.targetEngagementRate === undefined ? undefined : input.targetEngagementRate,
+        targetCostPerView: input.targetCostPerView === undefined ? undefined : input.targetCostPerView,
+        reportSummary: input.reportSummary === undefined ? undefined : input.reportSummary,
       },
     });
 

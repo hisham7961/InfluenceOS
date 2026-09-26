@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { requests, z } from '@influenceos/contracts';
 import { requireAuth, servicesFor } from '../http';
+import { campaignReportXlsx } from '../lib/campaign-report-xlsx';
 
 const idParam = z.object({ id: z.string() });
 
@@ -105,6 +106,51 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (req) => servicesFor(req).analytics.campaignEfficiency(req.params.idOrSlug),
+  );
+
+  r.get(
+    '/campaigns/:idOrSlug/report',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'Client report: results against targets, per creator and per post, in English or Arabic',
+        params: z.object({ idOrSlug: z.string() }),
+        querystring: requests.campaignReportQuerySchema,
+      },
+    },
+    async (req) => servicesFor(req).campaignReports.forCampaign(req.params.idOrSlug, req.query),
+  );
+
+  r.get(
+    '/campaigns/:idOrSlug/report/xlsx',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'The client report as an Excel workbook (Summary, Creators, Posts)',
+        params: z.object({ idOrSlug: z.string() }),
+        querystring: requests.campaignReportQuerySchema,
+      },
+    },
+    async (req, reply) => {
+      const report = await servicesFor(req).campaignReports.forCampaign(req.params.idOrSlug, req.query);
+      const file = campaignReportXlsx(report);
+      const { brandName, name } = report.campaign;
+      // ASCII only, like the other exports ("Lumière" → "Lumiere"); browsers
+      // were seen ignoring an RFC 5987 filename* here.
+      const base = `${brandName}-${name}`
+        .normalize('NFKD')
+        .replace(/\p{M}+/gu, '')
+        .replace(/[^A-Za-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 60) || 'campaign';
+      reply
+        .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        .header('Content-Disposition', `attachment; filename="${base}-report-${report.locale}.xlsx"`)
+        .header('Cache-Control', 'private, no-store');
+      return reply.send(file);
+    },
   );
 
   r.patch(

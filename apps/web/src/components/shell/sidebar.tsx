@@ -62,7 +62,7 @@ export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 export function Sidebar() {
   const t = useTranslations('common');
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-e border-border bg-surface lg:flex">
+    <aside className="hidden w-64 shrink-0 flex-col border-e border-border bg-surface lg:flex print:!hidden">
       <div className="flex h-16 items-center gap-2.5 px-6">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-sm font-black text-white shadow-soft">
           io

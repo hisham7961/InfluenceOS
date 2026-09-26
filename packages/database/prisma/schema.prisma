@@ -746,26 +746,34 @@ model BrandInfluencer {
 // ===========================================================================
 
 model Campaign {
-  id            String             @id @default(cuid())
-  brandId       String
-  name          String
-  slug          String
-  coverUrl      String?
-  description   String?
-  brief         String?
-  objective     CampaignObjective?
-  status        CampaignStatus     @default(DRAFT)
-  startDate     DateTime?
-  endDate       DateTime?
-  currency      String             @default("KWD")
-  plannedBudget Decimal?           @db.Decimal(18, 3)
-  targetMarket  String?
-  ownerId       String?
-  internalNotes String?
+  id                   String             @id @default(cuid())
+  brandId              String
+  name                 String
+  slug                 String
+  coverUrl             String?
+  description          String?
+  brief                String?
+  objective            CampaignObjective?
+  status               CampaignStatus     @default(DRAFT)
+  startDate            DateTime?
+  endDate              DateTime?
+  currency             String             @default("KWD")
+  plannedBudget        Decimal?           @db.Decimal(18, 3)
+  targetMarket         String?
+  ownerId              String?
+  internalNotes        String?
   /// Every deliverable goes through a draft review before posting (UGC always does).
-  draftReview   Boolean            @default(false)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  draftReview          Boolean            @default(false)
+  /// What the brand was promised, shown against the results in the client report.
+  targetViews          Int?
+  targetEngagements    Int?
+  /// Percent (e.g. 4.5).
+  targetEngagementRate Float?
+  targetCostPerView    Decimal?           @db.Decimal(18, 6)
+  /// The agency's summary at the top of the client report.
+  reportSummary        String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
   brand               Brand                @relation(fields: [brandId], references: [id], onDelete: Cascade)
   owner               User?                @relation("CampaignOwner", fields: [ownerId], references: [id])

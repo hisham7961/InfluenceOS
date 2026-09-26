@@ -342,7 +342,9 @@ requires `role === 'ADMIN'`.
 | GET | `/api/v1/campaigns` | List/filter campaigns. Offset-paginated. |
 | POST | `/api/v1/campaigns` | Create a campaign. |
 | GET | `/api/v1/campaigns/:idOrSlug` | Get a campaign by id or slug. |
-| PATCH | `/api/v1/campaigns/:id` | Update a campaign. `draftReview: true` puts every deliverable (not only UGC) through a draft review before posting. |
+| PATCH | `/api/v1/campaigns/:id` | Update a campaign. `draftReview: true` puts every deliverable (not only UGC) through a draft review before posting. Targets for the client report: `targetViews`, `targetEngagements`, `targetEngagementRate` (percent), `targetCostPerView` (campaign currency), plus a free-text `reportSummary` (all nullable; also accepted on create). |
+| GET | `/api/v1/campaigns/:idOrSlug/report` | The client report: results against the targets, per creator and per post (best first). `?locale=en\|ar` picks the language of the labels the clients print (default: the caller's own); `?costs=false` leaves spend and cost per view out. Costs are always left out for a caller without the `FINANCE_VIEW` capability (`includeCosts` says which applied). Another brand's user gets 404. |
+| GET | `/api/v1/campaigns/:idOrSlug/report/xlsx` | The same report as an Excel workbook (Summary, Creators, Posts sheets; right-to-left in Arabic). Same `locale` / `costs` query and the same access rules. |
 | GET | `/api/v1/campaigns/:id/influencers` | Influencers on a campaign. Each row carries `results`: posts live / total / planned, latest views and engagements, engagement rate, and the creator's own spend (fee + expenses recorded against them, gift purchases excluded) with cost per view and per engagement. |
 | GET | `/api/v1/campaigns/:idOrSlug/efficiency` | Campaign spend efficiency (CPV/CPM/CPE), metric freshness and sources, `perContent` (each post's estimated CPV from its own creator's spend) and `perCreator` (the roster's `results` side by side). |
 | POST | `/api/v1/campaigns/:id/influencers` | Add an influencer to a campaign. |

@@ -352,7 +352,98 @@ export interface CampaignDetailDTO extends CampaignSummaryDTO {
   publishedContentCount: number;
   /** Every deliverable needs its draft approved before it is posted (UGC always does). */
   draftReview: boolean;
+  targetViews: number | null;
+  targetEngagements: number | null;
+  /** Percent. */
+  targetEngagementRate: number | null;
+  targetCostPerView: number | null;
+  reportSummary: string | null;
   createdAt: string;
+}
+
+/** One creator's line in the client report. */
+export interface CampaignReportCreatorDTO {
+  influencerId: string;
+  name: string;
+  /** @handle on their main platform, if known. */
+  handle: string | null;
+  platforms: Platform[];
+  postsLive: number;
+  postsPlanned: number;
+  views: number | null;
+  engagements: number | null;
+  /** Percent. */
+  engagementRate: number | null;
+  /** Null when the report leaves costs out. */
+  spend: number | null;
+  costPerView: number | null;
+}
+
+/** One post in the client report. */
+export interface CampaignReportPostDTO {
+  id: string;
+  creatorName: string | null;
+  platform: Platform;
+  /** Null for a Story (its media is kept in the app, not at a public link). */
+  url: string | null;
+  thumbnailUrl: string | null;
+  caption: string | null;
+  publishedAt: string | null;
+  /** Taken down or deleted since. */
+  removed: boolean;
+  views: number | null;
+  engagements: number | null;
+  /** Percent. */
+  engagementRate: number | null;
+  costPerView: number | null;
+}
+
+/** A result against its target: `percent` of the target reached, when both exist. */
+export interface ReportTargetDTO {
+  actual: number | null;
+  target: number | null;
+  percent: number | null;
+}
+
+/**
+ * A campaign's results for the brand: what was promised against what was
+ * delivered, per creator and per post. Every figure comes from the same
+ * rules as the app (live posts, money rules, latest metrics).
+ */
+export interface CampaignReportDTO {
+  locale: 'en' | 'ar';
+  includeCosts: boolean;
+  generatedAt: string;
+  campaign: {
+    id: string;
+    name: string;
+    brandName: string;
+    brandLogoUrl: string | null;
+    objective: CampaignObjective | null;
+    startDate: string | null;
+    endDate: string | null;
+    currency: string;
+  };
+  summary: string | null;
+  totals: {
+    creators: number;
+    postsPlanned: number;
+    postsLive: number;
+    postsWithMetrics: number;
+    views: ReportTargetDTO;
+    engagements: ReportTargetDTO;
+    /** Percent. */
+    engagementRate: ReportTargetDTO;
+    /** Null when costs are left out. */
+    spend: number | null;
+    plannedBudget: number | null;
+    /** Lower than target is better: `percent` is target ÷ actual. */
+    costPerView: ReportTargetDTO;
+    costPerEngagement: number | null;
+  };
+  metricsLastSyncedAt: string | null;
+  creators: CampaignReportCreatorDTO[];
+  posts: CampaignReportPostDTO[];
 }
 
 export interface DeliverableDTO {

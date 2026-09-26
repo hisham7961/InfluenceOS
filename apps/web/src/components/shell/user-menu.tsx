@@ -1,5 +1,4 @@
 'use client';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { LogOut, Settings, UserCircle } from 'lucide-react';
@@ -18,14 +17,14 @@ import { useApp } from './app-context';
 
 export function UserMenu() {
   const { user } = useApp();
-  const router = useRouter();
   const t = useTranslations('common');
   const tNav = useTranslations('nav');
 
   async function logout() {
     await fetch('/api/session/logout', { method: 'POST' });
-    router.push('/login');
-    router.refresh();
+    // A full page load: nothing from the signed-in session (cached pages,
+    // query data) survives, and it can't stall like a soft navigation.
+    window.location.assign('/login');
   }
 
   return (
