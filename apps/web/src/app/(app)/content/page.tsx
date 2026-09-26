@@ -9,11 +9,9 @@ export const dynamic = 'force-dynamic';
 export default async function ContentPage() {
   const api = getServerApi();
   const t = await getTranslations('content');
-  const [feed, brands, campaigns, influencers, user] = await Promise.all([
+  const [feed, brands, user] = await Promise.all([
     api.content.feed({ limit: WALL_PAGE_SIZE, page: 1 }),
     api.brands.list(),
-    api.campaigns.list({ pageSize: 100 }),
-    api.influencers.list({ pageSize: 100 }),
     api.auth.me(),
   ]);
 
@@ -23,8 +21,6 @@ export default async function ContentPage() {
       <ContentWall
         initial={feed}
         brands={brands}
-        campaigns={campaigns.data}
-        influencers={influencers.data}
         initialLayout={user.contentLayout}
       />
     </div>

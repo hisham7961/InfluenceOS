@@ -11,6 +11,7 @@ import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { Avatar } from '@/components/ui/avatar';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { cn } from '@/lib/cn';
+import { SafeImg } from '@/components/ui/safe-img';
 
 export const ALERT_STATUSES = new Set(['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BROKEN_LINK']);
 
@@ -35,6 +36,15 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
   const storyImageSrc =
     content.isStory && content.storyMedia?.kind === 'image' ? toBrowserUrl(content.storyMedia.url) : null;
   const showPlayOverlay = content.embeddable || (content.isStory && content.storyMedia?.kind === 'video');
+  const placeholderMedia = (
+    <div className="flex h-full w-full items-center justify-center">
+      {content.isStory ? (
+        <Film className="h-12 w-12 text-white/30" />
+      ) : (
+        <PlatformIcon platform={content.platform} className="h-12 w-12 text-white/30" />
+      )}
+    </div>
+  );
 
   return (
     <button
@@ -46,8 +56,7 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
     >
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-gradient-to-br from-neutral-800 to-neutral-900">
         {storyImageSrc || content.thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <SafeImg
             src={storyImageSrc ?? content.thumbnailUrl!}
             alt=""
             loading="lazy"
@@ -56,15 +65,10 @@ export function ContentCard({ content, onOpen }: { content: PublishedContentDTO;
               'h-full w-full object-cover transition-transform duration-300 group-hover:scale-105',
               reviewStatus === 'SEEN' && 'opacity-90',
             )}
+            fallback={placeholderMedia}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            {content.isStory ? (
-              <Film className="h-12 w-12 text-white/30" />
-            ) : (
-              <PlatformIcon platform={content.platform} className="h-12 w-12 text-white/30" />
-            )}
-          </div>
+          placeholderMedia
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
         <div className="absolute start-3 top-3 flex items-center gap-1.5">

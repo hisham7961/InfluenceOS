@@ -160,3 +160,67 @@ export function normalizeContentUrl(url: string): NormalizedContentUrl | null {
   const canonicalUrl = parsed.toString().replace(/\/+$/, '');
   return { platform, canonicalUrl, externalId };
 }
+
+/**
+ * The post id when it reliably names one post on its platform, so the same
+ * post reached through a different link (x.com vs twitter.com, an Instagram
+ * link with the username in it) is still recognised. Null when the id can't
+ * be trusted — Snapchat links and unresolved share links.
+ */
+export function stablePostId(platform: Platform, externalId: string | null): string | null {
+  if (!externalId) return null;
+  switch (platform) {
+    case 'TIKTOK':
+      return /^\d{8,}$/.test(externalId) ? externalId : null;
+    case 'X':
+      return /^\d{5,}$/.test(externalId) ? externalId : null;
+    case 'INSTAGRAM':
+      return /^[A-Za-z0-9_-]{5,}$/.test(externalId) ? externalId : null;
+    case 'YOUTUBE':
+      return /^[A-Za-z0-9_-]{11}$/.test(externalId) ? externalId : null;
+    default:
+      return null;
+  }
+}
+
+const RESERVED_INSTAGRAM = new Set(['p', 'reel', 'reels', 'tv', 'stories', 'share', 'explore']);
+const RESERVED_X = new Set(['i', 'intent', 'home', 'search', 'hashtag']);
+
+/**
+ * The creator's handle when a post link carries one: tiktok.com/@name/video/…,
+ * snapchat.com/@name/…, x.com/name/status/…, instagram.com/name/reel/… and
+ * instagram.com/stories/name/…. Null when the link doesn't name the account
+ * (most Instagram and YouTube links).
+ */
+export function contentUrlHandle(url: string): string | null {
+  const parsed = parseUrl(url);
+  const platform = detectPlatform(url);
+  if (!parsed || !platform) return null;
+  const segments = parsed.pathname.split('/').filter(Boolean);
+  let handle: string | null = null;
+  switch (platform) {
+    case 'TIKTOK':
+    case 'SNAPCHAT':
+    case 'YOUTUBE': {
+      const at = segments.find((s) => s.startsWith('@'));
+      handle = at ? at.slice(1) : null;
+      if (!handle && platform === 'SNAPCHAT' && segments[0] === 'add') handle = segments[1] ?? null;
+      break;
+    }
+    case 'X':
+      if (segments[1] === 'status' && segments[0] && !RESERVED_X.has(segments[0].toLowerCase())) handle = segments[0];
+      break;
+    case 'INSTAGRAM':
+      if (segments[0] === 'stories' && segments[1]) handle = segments[1];
+      else if (segments[0] && !RESERVED_INSTAGRAM.has(segments[0].toLowerCase()) && ['p', 'reel', 'reels', 'tv'].includes(segments[1] ?? ''))
+        handle = segments[0];
+      break;
+  }
+  if (!handle) return null;
+  try {
+    handle = decodeURIComponent(handle).replace(/^@/, '');
+  } catch {
+    return null;
+  }
+  return HANDLE_RE.test(handle) ? handle : null;
+}

@@ -688,6 +688,34 @@ export interface ContentViewerStateDTO {
   savedForLaterAt: string | null;
 }
 
+/** What a pasted post link turns out to be (POST /content/lookup). */
+export interface ContentUrlLookupDTO {
+  /** The link after following a share-sheet redirect and tidying; null when it isn't from a supported platform. */
+  canonicalUrl: string | null;
+  platform: Platform | null;
+  /** The account named in the link (TikTok, Snapchat, X and some Instagram links carry it). */
+  handle: string | null;
+  /** A share link that couldn't be followed — it can still be added, but may not play or be caught as a repeat. */
+  unresolvedShortLink: boolean;
+  /** Already tracked. `id` is null when it belongs to a brand the caller can't see. */
+  existing: { id: string | null } | null;
+  /** The creator whose account on this platform has that handle. */
+  influencer: { id: string; displayName: string; avatarUrl: string | null } | null;
+  /** That creator's deliverables still waiting for a post — this platform first, then soonest due. */
+  openDeliverables: ContentUrlLookupDeliverableDTO[];
+}
+
+export interface ContentUrlLookupDeliverableDTO {
+  deliverableId: string;
+  campaignId: string;
+  campaignName: string;
+  brandName: string;
+  type: DeliverableType;
+  platform: Platform;
+  status: DeliverableStatus;
+  dueDate: string | null;
+}
+
 export interface PublishedContentDTO {
   id: string;
   platform: Platform;

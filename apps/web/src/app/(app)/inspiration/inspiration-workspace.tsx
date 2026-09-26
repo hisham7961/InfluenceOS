@@ -10,6 +10,7 @@ import type { BrandSummaryDTO, InspirationItemDTO } from '@influenceos/contracts
 import { INSPIRATION_CATEGORIES, type InspirationCategory } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
+import { EntityCombobox } from '@/components/common/entity-combobox';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,8 +47,6 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
   const [campaignId, setCampaignId] = React.useState<string>('');
   const [tags, setTags] = React.useState('');
 
-  const campaigns = useQuery({ queryKey: ['campaigns', 'options'], queryFn: () => api.campaigns.list({ pageSize: 100 }) });
-  const campaignOptions = (campaigns.data?.data ?? []).filter((c) => !brandId || c.brandId === brandId);
 
   function reset() {
     setUrl('');
@@ -136,19 +135,15 @@ function AddInspirationDialog({ brands, open, onOpenChange }: { brands: BrandSum
             </Field>
           </div>
           <Field label={t('addDialog.campaignLabel')} hint={t('addDialog.campaignHint')}>
-            <Select value={campaignId || CATEGORY_ALL} onValueChange={(v) => setCampaignId(v === CATEGORY_ALL ? '' : v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={CATEGORY_ALL}>{t('none')}</SelectItem>
-                {campaignOptions.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <EntityCombobox
+              kind="campaign"
+              value={campaignId}
+              onChange={(id) => setCampaignId(id)}
+              brandId={brandId || undefined}
+              placeholder={t('none')}
+              noneLabel={t('none')}
+              aria-label={t('addDialog.campaignLabel')}
+            />
           </Field>
           <Field label={t('addDialog.tagsLabel')}>
             <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t('addDialog.tagsPlaceholder')} />

@@ -92,6 +92,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Pagination } from '@/components/ui/pagination';
 import { ContentGrid } from '@/components/content/content-grid';
 import { AddContentFlow } from '@/components/content/add-content-flow';
+import { ReviewNewContentButton } from '@/components/content/review-new-content-button';
 import { ActivityFeed } from '@/components/common/activity-feed';
 import { CommentThread } from '@/components/collaboration/comment-thread';
 import { SourcingTab } from './sourcing-tab';
@@ -328,11 +329,22 @@ function LiveContentTab({
 
   const linked = linkedQuery.data;
   const unlinked = unlinkedQuery.data;
+  const linkAll = useMutation({
+    mutationFn: () => api.campaigns.linkRosterContent(campaign.id),
+    onSuccess: (res) => {
+      if (res.linked === 0) toast.message(t('workspace.liveContent.linkAllNone'));
+      else toast.success(t('workspace.liveContent.linkAllDone', { count: res.linked }));
+      queryClient.invalidateQueries();
+      router.refresh();
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : tCommon('somethingWentWrong')),
+  });
   const goToPage = (p: number) => t('workspace.liveContent.goToPage', { page: p });
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <ReviewNewContentButton campaignId={campaign.id} />
         <Button type="button" size="sm" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" /> {t('workspace.liveContent.addContent')}
         </Button>
@@ -363,9 +375,18 @@ function LiveContentTab({
 
       {influencers.length > 0 ? (
         <div className="space-y-3 border-t border-border pt-6">
-          <h3 className="text-sm font-semibold text-foreground">
-            {t('workspace.liveContent.unlinkedHeading', { count: unlinked?.pagination.total ?? 0 })}
-          </h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-foreground">
+              {t('workspace.liveContent.unlinkedHeading', { count: unlinked?.pagination.total ?? 0 })}
+            </h3>
+            {(unlinked?.pagination.total ?? 0) > 0 ? (
+              <Button type="button" size="sm" variant="outline" onClick={() => linkAll.mutate()} disabled={linkAll.isPending}>
+                <Link2 className="h-3.5 w-3.5" />
+                {linkAll.isPending ? tCommon('saving') : t('workspace.liveContent.linkAll')}
+              </Button>
+            ) : null}
+          </div>
+          <p className="text-xs text-muted-foreground">{t('workspace.liveContent.linkAllHint')}</p>
           {unlinkedQuery.isLoading ? (
             <Skeleton className="h-40 w-full" />
           ) : (unlinked?.data.length ?? 0) === 0 ? (

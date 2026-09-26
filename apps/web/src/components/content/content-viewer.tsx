@@ -3,7 +3,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   Activity as ActivityIcon,
@@ -12,7 +12,11 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Copy,
   ExternalLink,
+  Link2,
+  MoreHorizontal,
+  Pencil,
   Pin,
   RefreshCw,
   SkipForward,
@@ -24,19 +28,28 @@ import { contentReviewStatus } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { enumLabel } from '@/lib/enum-labels';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { PlatformBadge } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { SocialContentPlayer } from './social-content-player';
 import { EnterMetricsDialog, invalidateMetricQueries } from './enter-metrics-dialog';
+import { DeleteContentDialog, EditCaptionDialog } from './content-actions';
+import { ContentAssociationPanel } from './association-panel';
 import { CommentThread } from '@/components/collaboration/comment-thread';
 import { ActivityFeed } from '@/components/common/activity-feed';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
 import { formatCompact, useLocalizedFormat } from '@/lib/format';
+import { cn } from '@/lib/cn';
 
 const EMPTY_STATE: ContentViewerStateDTO = { firstSeenAt: null, lastOpenedAt: null, reviewedAt: null, savedForLaterAt: null };
 
@@ -95,6 +108,8 @@ export function ContentViewer({
   // until it resolves.
   const [busy, setBusy] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [captionOpen, setCaptionOpen] = React.useState(false);
+  const [linkOpen, setLinkOpen] = React.useState(false);
   const raw = items[index];
   const content: PublishedContentDTO | undefined = raw
     ? { ...raw, viewerState: localState[raw.id] ?? raw.viewerState }
@@ -142,20 +157,6 @@ export function ContentViewer({
     },
     [queryClient],
   );
-
-  const remove = useMutation({
-    mutationFn: () => {
-      if (!content) throw new Error('No content selected');
-      return api.content.remove(content.id);
-    },
-    onSuccess: () => {
-      toast.success(t('editContent.deleteSuccess'));
-      setDeleteOpen(false);
-      onOpenChange(false);
-      queryClient.invalidateQueries();
-    },
-    onError: (e) => toast.error(errorMessage(e, tCommon('somethingWentWrong'))),
-  });
 
   const effectiveState = React.useCallback(
     (c: PublishedContentDTO) => localState[c.id] ?? c.viewerState ?? null,
@@ -229,18 +230,34 @@ export function ContentViewer({
     }
   }
 
+  async function copyLink() {
+    if (!content) return;
+    const link = `${window.location.origin}/content/${content.id}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success(t('viewer.linkCopied'));
+    } catch {
+      toast.message(link);
+    }
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl gap-0 overflow-hidden p-0">
-          <div className="grid lg:grid-cols-[1.5fr_1fr]">
-            <div className="bg-black p-3 lg:p-4">
-              <SocialContentPlayer key={content.id} content={content} autoPlay />
+        {/* Capped to the screen: the body scrolls and the action bar stays in view, so a tall vertical
+            video can never push Next / Mark reviewed off the bottom (it used to on laptops and phones). */}
+        <DialogContent className="flex max-h-[92dvh] max-w-5xl flex-col gap-0 overflow-hidden p-0">
+          <DialogTitle className="sr-only">
+            {content.caption || content.influencer?.displayName || t('player.embeddedContentTitle')}
+          </DialogTitle>
+          <div className="min-h-0 flex-1 overflow-y-auto lg:grid lg:grid-cols-[1.5fr_1fr] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden">
+            <div className="flex items-center justify-center bg-black p-3 lg:p-4">
+              <SocialContentPlayer key={content.id} content={content} autoPlay maxHeight="min(70dvh, 720px)" />
             </div>
-            <ContentDetails content={content} />
+            <ContentDetails content={content} className="lg:min-h-0 lg:overflow-y-auto" />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-2.5">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border bg-card px-4 py-2.5">
             <Button
               type="button"
               variant={isReviewed ? 'secondary' : 'outline'}
@@ -261,53 +278,112 @@ export function ContentViewer({
               title={t('reviewMode.reviewLaterShortcut')}
             >
               {isSavedForLater ? <BookmarkCheck className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
-              {isSavedForLater ? t('reviewMode.savedForLater') : t('reviewMode.reviewLater')}
+              <span className="hidden sm:inline">
+                {isSavedForLater ? t('reviewMode.savedForLater') : t('reviewMode.reviewLater')}
+              </span>
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => setDeleteOpen(true)} disabled={remove.isPending}>
-              <Trash2 className="h-3.5 w-3.5 text-danger" /> {tCommon('delete')}
-            </Button>
-
-            {reviewMode ? (
-              <span className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
-                {t('reviewMode.progress', { done: progress.done, total: progress.total })}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={findNextUnreviewed(index) === -1}
-                  onClick={() => {
-                    const next = findNextUnreviewed(index);
-                    if (next !== -1) onIndexChange(next);
-                  }}
-                >
-                  {t('reviewMode.nextUnreviewed')} <SkipForward className="h-3.5 w-3.5" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="sm" aria-label={t('viewer.more')}>
+                  <MoreHorizontal className="h-4 w-4" />
                 </Button>
-              </span>
-            ) : (
-              <span className="ms-auto text-xs text-muted-foreground">
-                {t('viewer.indexOfTotal', { index: index + 1, total: items.length })}
-              </span>
-            )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem asChild>
+                  <Link href={`/content/${content.id}`}>
+                    <ExternalLink className="h-4 w-4" /> {t('viewer.openDetails')}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => void copyLink()}>
+                  <Copy className="h-4 w-4" /> {t('viewer.copyLink')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setLinkOpen(true)}>
+                  <Link2 className="h-4 w-4" /> {t('viewer.editLinks')}
+                </DropdownMenuItem>
+                {!content.isStory ? (
+                  <DropdownMenuItem onSelect={() => setCaptionOpen(true)}>
+                    <Pencil className="h-4 w-4" /> {t('editContent.edit')}
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setDeleteOpen(true)} className="text-danger focus:text-danger">
+                  <Trash2 className="h-4 w-4" /> {tCommon('delete')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-            <Button variant="ghost" size="sm" disabled={index <= 0} onClick={() => onIndexChange(index - 1)}>
-              <ChevronLeft className="rtl:-scale-x-100 h-4 w-4" /> {tCommon('previous')}
-            </Button>
-            <Button variant="ghost" size="sm" disabled={index >= items.length - 1} onClick={() => onIndexChange(index + 1)}>
-              {tCommon('next')} <ChevronRight className="rtl:-scale-x-100 h-4 w-4" />
-            </Button>
+            <div className="ms-auto flex items-center gap-1">
+              {reviewMode ? (
+                <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="hidden sm:inline">{t('reviewMode.progress', { done: progress.done, total: progress.total })}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={findNextUnreviewed(index) === -1}
+                    onClick={() => {
+                      const next = findNextUnreviewed(index);
+                      if (next !== -1) onIndexChange(next);
+                    }}
+                  >
+                    <span className="hidden sm:inline">{t('reviewMode.nextUnreviewed')}</span>{' '}
+                    <SkipForward className="h-3.5 w-3.5" />
+                  </Button>
+                </span>
+              ) : (
+                <span className="hidden text-xs text-muted-foreground sm:inline">
+                  {t('viewer.indexOfTotal', { index: index + 1, total: items.length })}
+                </span>
+              )}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={index <= 0}
+                onClick={() => onIndexChange(index - 1)}
+                aria-label={tCommon('previous')}
+              >
+                <ChevronLeft className="rtl:-scale-x-100 h-4 w-4" />{' '}
+                <span className="hidden sm:inline">{tCommon('previous')}</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={index >= items.length - 1}
+                onClick={() => onIndexChange(index + 1)}
+                aria-label={tCommon('next')}
+              >
+                <span className="hidden sm:inline">{tCommon('next')}</span>{' '}
+                <ChevronRight className="rtl:-scale-x-100 h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog
+      <DeleteContentDialog
+        content={content}
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title={t('editContent.deleteConfirmTitle')}
-        description={t('editContent.deleteConfirmDescription')}
-        confirmLabel={tCommon('delete')}
-        loading={remove.isPending}
-        onConfirm={() => remove.mutate()}
+        onDeleted={() => onOpenChange(false)}
       />
+      <EditCaptionDialog content={content} open={captionOpen} onOpenChange={setCaptionOpen} />
+      <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('associations.title')}</DialogTitle>
+            <DialogDescription>{t('viewer.editLinksDescription')}</DialogDescription>
+          </DialogHeader>
+          <ContentAssociationPanel
+            key={content.id}
+            content={content}
+            startEditing
+            bare
+            onSaved={() => setLinkOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -337,7 +413,7 @@ function ManagerCallout({ contentId }: { contentId: string }) {
   );
 }
 
-export function ContentDetails({ content: incoming }: { content: PublishedContentDTO }) {
+export function ContentDetails({ content: incoming, className }: { content: PublishedContentDTO; className?: string }) {
   const t = useTranslations('content');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
@@ -357,7 +433,7 @@ export function ContentDetails({ content: incoming }: { content: PublishedConten
   const reviewStatus = contentReviewStatus(content.viewerState);
 
   return (
-    <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto p-5">
+    <div className={cn('flex flex-col gap-4 p-5', className)}>
       <ManagerCallout contentId={content.id} />
 
       <div className="flex items-center gap-3">

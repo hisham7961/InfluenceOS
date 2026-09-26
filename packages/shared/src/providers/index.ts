@@ -2,6 +2,7 @@ export * from './types';
 export * from './url';
 export * from './embeds';
 export * from './thumbnails';
+export * from './short-links';
 export * from './capability-matrix';
 export * from './oauth';
 export * from './registry';

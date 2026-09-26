@@ -93,7 +93,13 @@
     "notes": "Notes",
     "notesEmptyTitle": "No notes yet",
     "notesEmptyDescription": "Staff commentary only — pin one as a Manager Callout for the team.",
-    "notesComposerPlaceholder": "Strong opening hook… potential paid-media asset…"
+    "notesComposerPlaceholder": "Strong opening hook… potential paid-media asset…",
+    "more": "More actions",
+    "openDetails": "Open full page",
+    "copyLink": "Copy link",
+    "linkCopied": "Link copied — anyone on the team can open it.",
+    "editLinks": "Change creator or campaign",
+    "editLinksDescription": "Link this post to the creator who made it and the campaign it belongs to."
   },
   "reviewMode": {
     "markReviewed": "Mark Reviewed",
@@ -163,7 +169,15 @@
     "storyFileRequired": "Add a screenshot or recording to continue",
     "storyUploadFailed": "The Story was created, but the file upload failed.",
     "retryUpload": "Retry upload",
-    "addStory": "Add Story"
+    "addStory": "Add Story",
+    "alreadyAdded": "This post is already on the wall.",
+    "openExisting": "Open it",
+    "shortLinkUnresolved": "Couldn't open this share link, so it will be saved as it is. To be sure it plays, paste the full link from the browser's address bar.",
+    "unsupportedLink": "That link isn't from Instagram, TikTok, YouTube, Snapchat or X.",
+    "postedBy": "Posted by <handle></handle> — <name></name>",
+    "handleUnknown": "<handle></handle> isn't linked to a creator yet.",
+    "fulfilsDeliverable": "Does this fulfil one of their deliverables?",
+    "due": "due {date}"
   },
   "metricsEntry": {
     "open": "Enter metrics",

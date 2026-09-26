@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { COUNTRIES, PLATFORMS } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
+import { EntityCombobox } from '@/components/common/entity-combobox';
 import { ApiError } from '@influenceos/api-client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Field, Input, Textarea } from '@/components/ui/input';
@@ -56,9 +57,6 @@ export function QuickAdd({
   );
 }
 
-function useCampaignOptions() {
-  return useQuery({ queryKey: ['campaigns', 'options'], queryFn: () => api.campaigns.list({ pageSize: 100 }) });
-}
 function useBrandOptions() {
   return useQuery({ queryKey: ['brands', 'options'], queryFn: () => api.brands.list() });
 }
@@ -220,7 +218,6 @@ function AddCampaign({ close }: { close: () => void }) {
 
 function AddCost({ close }: { close: () => void }) {
   const qc = useQueryClient();
-  const campaigns = useCampaignOptions();
   const t = useTranslations('common');
   const [campaignId, setCampaignId] = React.useState('');
   const [amount, setAmount] = React.useState('');
@@ -246,12 +243,7 @@ function AddCost({ close }: { close: () => void }) {
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
       <Field label={t('campaign')}>
-        <Select value={campaignId} onValueChange={setCampaignId}>
-          <SelectTrigger><SelectValue placeholder={t('chooseCampaign')} /></SelectTrigger>
-          <SelectContent>
-            {campaigns.data?.data.map((c) => <SelectItem key={c.id} value={c.id}>{c.brand.name} · {c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <EntityCombobox kind="campaign" value={campaignId} onChange={(id) => setCampaignId(id)} placeholder={t('chooseCampaign')} aria-label={t('campaign')} />
       </Field>
       <Field label={t('costLabel')}><Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t('costLabelPlaceholder')} /></Field>
       <Field label={t('amountKwd')}><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} required /></Field>

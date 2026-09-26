@@ -21,7 +21,7 @@ import {
   Building2,
   X,
 } from 'lucide-react';
-import type { BrandSummaryDTO, CampaignSummaryDTO, CursorPage, InfluencerSummaryDTO, PublishedContentDTO } from '@influenceos/contracts';
+import type { BrandSummaryDTO, CursorPage, PublishedContentDTO } from '@influenceos/contracts';
 import {
   CONTENT_ASSOCIATION_STATUS_LABELS,
   CONTENT_STATUSES,
@@ -49,10 +49,12 @@ import { PlatformBadge } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { DataSourceBadge } from '@/components/ui/provenance';
 import { BidiText, LtrText } from '@/components/common/bidi-text';
+import { EntityCombobox } from '@/components/common/entity-combobox';
 import { ContentGrid } from '@/components/content/content-grid';
 import { ContentMasonry } from '@/components/content/content-masonry';
 import { ContentTimeline } from '@/components/content/content-timeline';
 import { ContentFilterChips, type ChipKey } from '@/components/content/filter-chips';
+import { ReviewNewContentButton } from '@/components/content/review-new-content-button';
 import { SocialContentPlayer } from '@/components/content/social-content-player';
 
 /** Sentinel value for Radix Select's "no filter" option (Select forbids an empty-string item value). */
@@ -161,14 +163,10 @@ function chipFromFilters(f: WallFilters): ChipKey {
 export function ContentWall({
   initial,
   brands,
-  campaigns,
-  influencers,
   initialLayout,
 }: {
   initial: CursorPage<PublishedContentDTO>;
   brands: BrandSummaryDTO[];
-  campaigns: CampaignSummaryDTO[];
-  influencers: InfluencerSummaryDTO[];
   initialLayout?: string | null;
 }) {
   const t = useTranslations('content');
@@ -358,27 +356,35 @@ export function ContentWall({
   return (
     <div className="space-y-6">
       <div ref={wallTop} className="-mt-6" aria-hidden />
-      <ContentFilterChips
-        active={chipFromFilters(filters)}
-        counts={{
-          new: summary.data?.new,
-          seen: summary.data?.seen,
-          reviewed: summary.data?.reviewed,
-          reviewLater: summary.data?.reviewLater,
-          unassigned: summary.data?.unassigned,
-          alerts: summary.data?.alerts,
-          noMetrics: summary.data?.missingMetrics,
-          today: summary.data?.today.total,
-        }}
-        onSelect={selectChip}
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <ContentFilterChips
+            active={chipFromFilters(filters)}
+            counts={{
+              new: summary.data?.new,
+              seen: summary.data?.seen,
+              reviewed: summary.data?.reviewed,
+              reviewLater: summary.data?.reviewLater,
+              unassigned: summary.data?.unassigned,
+              alerts: summary.data?.alerts,
+              noMetrics: summary.data?.missingMetrics,
+              today: summary.data?.today.total,
+            }}
+            onSelect={selectChip}
+          />
+        </div>
+        {/* Walk through what's new one post at a time — narrowed to the brand/campaign picked below. */}
+        <ReviewNewContentButton
+          brandId={filters.brandId || undefined}
+          campaignId={filters.campaignId || undefined}
+          count={filters.brandId || filters.campaignId ? undefined : summary.data?.new}
+        />
+      </div>
 
       {layout === 'timeline' && summary.data ? <DailySummaryStrip summary={summary.data} /> : null}
 
       <FilterBar
         brands={brands}
-        campaigns={campaigns}
-        influencers={influencers}
         searchInput={searchInput}
         onSearchChange={setSearchInput}
         filters={filters}
@@ -543,8 +549,6 @@ function BrandOverview({
 
 function FilterBar({
   brands,
-  campaigns,
-  influencers,
   searchInput,
   onSearchChange,
   filters,
@@ -556,8 +560,6 @@ function FilterBar({
   resultCount,
 }: {
   brands: BrandSummaryDTO[];
-  campaigns: CampaignSummaryDTO[];
-  influencers: InfluencerSummaryDTO[];
   searchInput: string;
   onSearchChange: (value: string) => void;
   filters: WallFilters;
@@ -572,19 +574,44 @@ function FilterBar({
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-card lg:flex-row lg:items-center">
-      <div className="relative flex-1 lg:max-w-xs">
-        <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={searchInput}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder={t('feed.filterBar.searchPlaceholder')}
-          aria-label={t('feed.filterBar.searchAriaLabel')}
-          className="ps-9"
-        />
+    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-card">
+      {/* Search and layout share the top row and the filters get a row of their own — squeezed
+          between the two, the filters used to stack one per line even on a wide screen. */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="relative flex-1 md:max-w-sm">
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchInput}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder={t('feed.filterBar.searchPlaceholder')}
+            aria-label={t('feed.filterBar.searchAriaLabel')}
+            className="ps-9"
+          />
+        </div>
+        <div className="md:ms-auto">
+          <Tabs value={layout} onValueChange={(value) => onLayoutChange(value as Layout)}>
+            <TabsList className="flex-wrap">
+              <TabsTrigger value="timeline" aria-label={t('feed.layouts.timelineAria')}>
+                <CalendarDays className="h-4 w-4" /> {t('feed.layouts.timeline')}
+              </TabsTrigger>
+              <TabsTrigger value="brand" aria-label={t('feed.layouts.byBrandAria')}>
+                <Building2 className="h-4 w-4" /> {t('feed.layouts.byBrand')}
+              </TabsTrigger>
+              <TabsTrigger value="grid" aria-label={t('feed.layouts.gridAria')}>
+                <LayoutGrid className="h-4 w-4" /> {t('feed.layouts.grid')}
+              </TabsTrigger>
+              <TabsTrigger value="masonry" aria-label={t('feed.layouts.masonryAria')}>
+                <LayoutPanelTop className="h-4 w-4" /> {t('feed.layouts.masonry')}
+              </TabsTrigger>
+              <TabsTrigger value="feed" aria-label={t('feed.layouts.feedAria')}>
+                <Rows3 className="h-4 w-4" /> {t('feed.layouts.feed')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
-      <div className="flex flex-1 flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Select value={filters.brandId || ALL} onValueChange={(value) => onFilterChange({ brandId: value === ALL ? '' : value })}>
           <SelectTrigger className="h-10 w-full sm:w-40">
             <SelectValue placeholder={t('feed.filterBar.brand')} />
@@ -627,39 +654,26 @@ function FilterBar({
           </SelectContent>
         </Select>
 
-        <Select
-          value={filters.campaignId || ALL}
-          onValueChange={(value) => onFilterChange({ campaignId: value === ALL ? '' : value })}
-        >
-          <SelectTrigger className="h-10 w-full sm:w-40">
-            <SelectValue placeholder={t('feed.filterBar.campaign')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t('feed.filterBar.allCampaigns')}</SelectItem>
-            {campaigns.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.brand.name} · {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <EntityCombobox
+          kind="campaign"
+          value={filters.campaignId}
+          onChange={(id) => onFilterChange({ campaignId: id })}
+          brandId={filters.brandId || undefined}
+          placeholder={t('feed.filterBar.allCampaigns')}
+          noneLabel={t('feed.filterBar.allCampaigns')}
+          aria-label={t('feed.filterBar.campaign')}
+          className="w-full sm:w-44"
+        />
 
-        <Select
-          value={filters.influencerId || ALL}
-          onValueChange={(value) => onFilterChange({ influencerId: value === ALL ? '' : value })}
-        >
-          <SelectTrigger className="h-10 w-full sm:w-40">
-            <SelectValue placeholder={t('feed.filterBar.influencer')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t('feed.filterBar.allInfluencers')}</SelectItem>
-            {influencers.map((inf) => (
-              <SelectItem key={inf.id} value={inf.id}>
-                <BidiText>{inf.displayName}</BidiText>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <EntityCombobox
+          kind="influencer"
+          value={filters.influencerId}
+          onChange={(id) => onFilterChange({ influencerId: id })}
+          placeholder={t('feed.filterBar.allInfluencers')}
+          noneLabel={t('feed.filterBar.allInfluencers')}
+          aria-label={t('feed.filterBar.influencer')}
+          className="w-full sm:w-44"
+        />
 
         <Select
           value={filters.assignment || ALL}
@@ -686,30 +700,11 @@ function FilterBar({
           </Button>
         ) : null}
 
-        <span className="text-xs text-muted-foreground lg:ms-auto">
+        <span className="text-xs text-muted-foreground sm:ms-auto">
           {t('feed.filterBar.resultsLoaded', { count: resultCount })}
         </span>
       </div>
 
-      <Tabs value={layout} onValueChange={(value) => onLayoutChange(value as Layout)}>
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="timeline" aria-label={t('feed.layouts.timelineAria')}>
-            <CalendarDays className="h-4 w-4" /> {t('feed.layouts.timeline')}
-          </TabsTrigger>
-          <TabsTrigger value="brand" aria-label={t('feed.layouts.byBrandAria')}>
-            <Building2 className="h-4 w-4" /> {t('feed.layouts.byBrand')}
-          </TabsTrigger>
-          <TabsTrigger value="grid" aria-label={t('feed.layouts.gridAria')}>
-            <LayoutGrid className="h-4 w-4" /> {t('feed.layouts.grid')}
-          </TabsTrigger>
-          <TabsTrigger value="masonry" aria-label={t('feed.layouts.masonryAria')}>
-            <LayoutPanelTop className="h-4 w-4" /> {t('feed.layouts.masonry')}
-          </TabsTrigger>
-          <TabsTrigger value="feed" aria-label={t('feed.layouts.feedAria')}>
-            <Rows3 className="h-4 w-4" /> {t('feed.layouts.feed')}
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
     </div>
   );
 }

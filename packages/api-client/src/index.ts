@@ -23,6 +23,7 @@ import type {
   ClientConfigDTO,
   ContentMetricsDTO,
   ContentSummaryDTO,
+  ContentUrlLookupDTO,
   ContentViewerStateDTO,
   ConversationUnreadDTO,
   CostSummaryDTO,
@@ -306,6 +307,9 @@ export function createClient(config: ClientConfig) {
       // linked to this campaign vs. its roster's content not yet linked.
       content: (id: string, params?: QueryParams) =>
         http.get<Paginated<PublishedContentDTO>>(`${V}/campaigns/${id}/content`, { query: params }),
+      /** Link every roster creator's post that isn't in any campaign yet to this campaign. */
+      linkRosterContent: (id: string) =>
+        http.post<{ linked: number; skipped: number }>(`${V}/campaigns/${id}/content/link-roster`),
       // Server-computed spend efficiency (CPV/CPM/CPE) + metric freshness (W6-1).
       efficiency: (idOrSlug: string) => http.get<CampaignEfficiencyDTO>(`${V}/campaigns/${idOrSlug}/efficiency`),
       addExpense: (id: string, body: Omit<In<typeof requests.expenseCreateSchema>, 'campaignId'>) =>
@@ -402,6 +406,9 @@ export function createClient(config: ClientConfig) {
       get: (id: string) => http.get<PublishedContentDTO>(`${V}/content/${id}`),
       create: (body: In<typeof requests.publishedContentCreateSchema>) =>
         http.post<PublishedContentDTO>(`${V}/content`, body),
+      /** What a pasted post link is before it's added — creator, open deliverables, already tracked. */
+      lookup: (body: In<typeof requests.contentUrlLookupSchema>) =>
+        http.post<ContentUrlLookupDTO>(`${V}/content/lookup`, body),
       // A Story screenshot/recording — creates the content row up front; the
       // caller then uploads the media as a follow-up attachment targeting
       // the returned id (files.initiate/files.complete with

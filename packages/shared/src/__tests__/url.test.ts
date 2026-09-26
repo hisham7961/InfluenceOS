@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectPlatform, normalizeProfileInput, normalizeContentUrl, parseContentId } from '../providers/url';
+import { contentUrlHandle, detectPlatform, normalizeProfileInput, normalizeContentUrl, parseContentId, stablePostId } from '../providers/url';
 
 describe('detectPlatform', () => {
   it('detects platforms from URLs', () => {
@@ -50,5 +50,36 @@ describe('normalizeContentUrl', () => {
     expect(r?.platform).toBe('YOUTUBE');
     expect(r?.externalId).toBe('aqz-KE-bpKQ');
     expect(r?.canonicalUrl).not.toContain('utm_source');
+  });
+});
+
+describe('contentUrlHandle', () => {
+  it('reads the account from links that carry it', () => {
+    expect(contentUrlHandle('https://www.tiktok.com/@sara.kw/video/7301234567890123456')).toBe('sara.kw');
+    expect(contentUrlHandle('https://www.snapchat.com/@noor_q8/spotlight/W7_abc')).toBe('noor_q8');
+    expect(contentUrlHandle('https://x.com/someone/status/1790000000000000000')).toBe('someone');
+    expect(contentUrlHandle('https://www.instagram.com/fatma.style/reel/C1abcDEF/')).toBe('fatma.style');
+    expect(contentUrlHandle('https://www.instagram.com/stories/fatma.style/3301234567890/')).toBe('fatma.style');
+  });
+
+  it('returns null when the link does not name the account', () => {
+    expect(contentUrlHandle('https://www.instagram.com/reel/C1abcDEF/')).toBeNull();
+    expect(contentUrlHandle('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBeNull();
+    expect(contentUrlHandle('https://www.snapchat.com/spotlight/W7_abc')).toBeNull();
+    expect(contentUrlHandle('https://x.com/i/status/1790000000000000000')).toBeNull();
+    expect(contentUrlHandle('https://example.com/@sara')).toBeNull();
+    expect(contentUrlHandle('https://www.tiktok.com/@%E0%A4%A/video/1')).toBeNull();
+  });
+});
+
+describe('stablePostId', () => {
+  it('keeps ids that name one post and drops ones that do not', () => {
+    expect(stablePostId('TIKTOK', '7301234567890123456')).toBe('7301234567890123456');
+    expect(stablePostId('TIKTOK', 'v')).toBeNull();
+    expect(stablePostId('X', '1790000000000000000')).toBe('1790000000000000000');
+    expect(stablePostId('INSTAGRAM', 'C1abcDEF')).toBe('C1abcDEF');
+    expect(stablePostId('YOUTUBE', 'dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
+    expect(stablePostId('SNAPCHAT', 'W7_abcdefgh')).toBeNull();
+    expect(stablePostId('INSTAGRAM', null)).toBeNull();
   });
 });

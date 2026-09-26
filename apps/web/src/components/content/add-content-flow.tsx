@@ -3,9 +3,16 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { toast } from 'sonner';
-import { Camera, Link2, Upload } from 'lucide-react';
-import type { CampaignInfluencerDTO, DeliverableDTO, PublishedContentDTO } from '@influenceos/contracts';
+import { AlertTriangle, Camera, Check, Link2, Upload, UserCheck } from 'lucide-react';
+import type {
+  CampaignInfluencerDTO,
+  ContentUrlLookupDeliverableDTO,
+  ContentUrlLookupDTO,
+  DeliverableDTO,
+  PublishedContentDTO,
+} from '@influenceos/contracts';
 import { PLATFORMS, PLATFORM_META, type Platform } from '@influenceos/shared';
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
@@ -15,11 +22,28 @@ import { Field, Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BidiText } from '@/components/common/bidi-text';
+import { EntityCombobox } from '@/components/common/entity-combobox';
+import { PlatformIcon } from '@/components/ui/platform-badge';
+import { useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
 const NO_INFLUENCER = '__none__';
-const NO_CAMPAIGN = '__none__';
 const NO_DELIVERABLE = '__none__';
+
+/** Worth asking the server about: something with a dot and no spaces. */
+function looksLikeLink(value: string): boolean {
+  const v = value.trim();
+  return v.length > 8 && /\.[a-z]{2,}/i.test(v) && !/\s/.test(v);
+}
+
+function useDebounced<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = React.useState(value);
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(timer);
+  }, [value, ms]);
+  return debounced;
+}
 
 export interface AddContentFlowProps {
   /** Called after a successful create, with the created content. */
@@ -73,9 +97,13 @@ export function AddContentFlow({
   const [mode, setMode] = React.useState<'link' | 'story'>('link');
   const [url, setUrl] = React.useState('');
   const [influencerId, setInfluencerId] = React.useState(lockInfluencerId ?? '');
+  const [influencerLabel, setInfluencerLabel] = React.useState<string | null>(null);
   const [campaignId, setCampaignId] = React.useState(lockCampaignId ?? '');
+  const [campaignLabel, setCampaignLabel] = React.useState<string | null>(null);
   const [deliverableId, setDeliverableId] = React.useState(lockDeliverableId ?? '');
   const [loading, setLoading] = React.useState(false);
+  // Once someone picks by hand, a pasted link never overrides their choice.
+  const touched = React.useRef({ influencer: false, link: false });
 
   // Story mode — a screenshot/recording, not a link (see AddContentFlowProps
   // doc comment). storyContentId remembers the row created by createStory()
@@ -92,19 +120,70 @@ export function AddContentFlow({
   const campaignLocked = Boolean(lockCampaignId);
   const influencerLocked = Boolean(lockInfluencerId);
 
-  const needsGlobalInfluencers = !deliverableLocked && !influencerLocked && !rosterScope;
-  const needsGlobalCampaigns = !deliverableLocked && !campaignLocked;
+  // What the pasted link is: who posted it, their open deliverables, and
+  // whether it's already on the wall — so the form can fill itself in.
+  const debouncedUrl = useDebounced(url.trim(), 450);
+  const lookup = useQuery({
+    queryKey: ['content-lookup', debouncedUrl, lockCampaignId ?? ''],
+    queryFn: () => api.content.lookup({ url: debouncedUrl, campaignId: lockCampaignId }),
+    enabled: mode === 'link' && looksLikeLink(debouncedUrl),
+    staleTime: 60_000,
+    retry: false,
+  });
+  const found: ContentUrlLookupDTO | undefined =
+    mode === 'link' && lookup.data && debouncedUrl === url.trim() ? lookup.data : undefined;
+  const rosterIds = React.useMemo(() => new Set((rosterScope ?? []).map((c) => c.influencer.id)), [rosterScope]);
+  const suggestions = React.useMemo(
+    () =>
+      deliverableLocked
+        ? []
+        : (found?.openDeliverables ?? []).filter(
+            (d) =>
+              (!lockCampaignId || d.campaignId === lockCampaignId) &&
+              (!lockInfluencerId || found?.influencer?.id === lockInfluencerId),
+          ),
+    [found, deliverableLocked, lockCampaignId, lockInfluencerId],
+  );
 
-  const influencerOptions = useQuery({
-    queryKey: ['influencers', 'options'],
-    queryFn: () => api.influencers.list({ pageSize: 100 }),
-    enabled: needsGlobalInfluencers,
-  });
-  const campaignOptions = useQuery({
-    queryKey: ['campaigns', 'options'],
-    queryFn: () => api.campaigns.list({ pageSize: 100 }),
-    enabled: needsGlobalCampaigns,
-  });
+  function pickSuggestion(d: ContentUrlLookupDeliverableDTO | null) {
+    if (!d) {
+      setDeliverableId('');
+      return;
+    }
+    setDeliverableId(d.deliverableId);
+    if (!campaignLocked) {
+      setCampaignId(d.campaignId);
+      setCampaignLabel(`${d.campaignName} · ${d.brandName}`);
+    }
+    if (!influencerLocked && found?.influencer) {
+      setInfluencerId(found.influencer.id);
+      setInfluencerLabel(found.influencer.displayName);
+    }
+  }
+
+  // Apply a new link's match once — the creator, and their deliverable on
+  // this platform that's due soonest — unless the person already chose.
+  const appliedFor = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!found || appliedFor.current === debouncedUrl || deliverableLocked) return;
+    appliedFor.current = debouncedUrl;
+    const creator = found.influencer;
+    const creatorAllowed = creator && (!rosterScope || rosterIds.has(creator.id));
+    if (creator && creatorAllowed && !influencerLocked && !touched.current.influencer && !influencerId) {
+      setInfluencerId(creator.id);
+      setInfluencerLabel(creator.displayName);
+    }
+    const samePlatform = suggestions.find((d) => d.platform === found.platform);
+    if (
+      samePlatform &&
+      !touched.current.link &&
+      !deliverableId &&
+      (!campaignId || campaignId === samePlatform.campaignId)
+    ) {
+      pickSuggestion(samePlatform);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [found, debouncedUrl]);
 
   // Deliverables for the selected influencer within the roster scope — only
   // ever shown scoped to one campaign, matching "filtered by campaign/influencer".
@@ -265,6 +344,18 @@ export function AddContentFlow({
         </>
       )}
 
+      {found ? (
+        <LinkFindings
+          found={found}
+          suggestions={suggestions}
+          selectedDeliverableId={deliverableId}
+          onPick={(d) => {
+            touched.current.link = true;
+            pickSuggestion(d);
+          }}
+        />
+      ) : null}
+
       {deliverableLocked ? (
         <div className="rounded-lg border border-border bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
           {t('addFlow.linkedToDeliverable', {
@@ -280,29 +371,45 @@ export function AddContentFlow({
                 {lockInfluencerName}
               </BidiText>
             </div>
-          ) : (
+          ) : rosterScope ? (
             <Field label={t('addFlow.influencerFieldLabel')} hint={t('addFlow.influencerFieldHint')}>
               <Select
                 value={influencerId || NO_INFLUENCER}
-                onValueChange={(v) => setInfluencerId(v === NO_INFLUENCER ? '' : v)}
+                onValueChange={(v) => {
+                  touched.current.influencer = true;
+                  setInfluencerId(v === NO_INFLUENCER ? '' : v);
+                  setDeliverableId('');
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={t('addFlow.unknownInfluencer')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NO_INFLUENCER}>{t('addFlow.unknownInfluencer')}</SelectItem>
-                  {(rosterScope ?? []).map((ci) => (
+                  {rosterScope.map((ci) => (
                     <SelectItem key={ci.influencer.id} value={ci.influencer.id}>
                       <BidiText>{ci.influencer.displayName}</BidiText>
                     </SelectItem>
                   ))}
-                  {(influencerOptions.data?.data ?? []).map((inf) => (
-                    <SelectItem key={inf.id} value={inf.id}>
-                      <BidiText>{inf.displayName}</BidiText>
-                    </SelectItem>
-                  ))}
                 </SelectContent>
               </Select>
+            </Field>
+          ) : (
+            <Field label={t('addFlow.influencerFieldLabel')} hint={t('addFlow.influencerFieldHint')}>
+              <EntityCombobox
+                kind="influencer"
+                value={influencerId}
+                valueLabel={influencerLabel}
+                onChange={(id, option) => {
+                  touched.current.influencer = true;
+                  setInfluencerId(id);
+                  setInfluencerLabel(option?.label ?? null);
+                  if (deliverableId && id !== found?.influencer?.id) setDeliverableId('');
+                }}
+                placeholder={t('addFlow.unknownInfluencer')}
+                noneLabel={t('addFlow.unknownInfluencer')}
+                aria-label={t('addFlow.influencerFieldLabel')}
+              />
             </Field>
           )}
 
@@ -312,19 +419,22 @@ export function AddContentFlow({
             </div>
           ) : (
             <Field label={t('addFlow.campaignFieldLabel')}>
-              <Select value={campaignId || NO_CAMPAIGN} onValueChange={(v) => setCampaignId(v === NO_CAMPAIGN ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t('addFlow.linkToCampaign')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_CAMPAIGN}>{t('associations.noCampaignIndependent')}</SelectItem>
-                  {(campaignOptions.data?.data ?? []).map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.brand.name} · {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <EntityCombobox
+                kind="campaign"
+                value={campaignId}
+                valueLabel={campaignLabel}
+                onChange={(id, option) => {
+                  touched.current.link = true;
+                  setCampaignId(id);
+                  setCampaignLabel(option ? [option.label, option.detail].filter(Boolean).join(' · ') : null);
+                  if (deliverableId && !suggestions.some((d) => d.deliverableId === deliverableId && d.campaignId === id)) {
+                    setDeliverableId('');
+                  }
+                }}
+                placeholder={t('addFlow.linkToCampaign')}
+                noneLabel={t('associations.noCampaignIndependent')}
+                aria-label={t('addFlow.campaignFieldLabel')}
+              />
             </Field>
           )}
 
@@ -332,7 +442,10 @@ export function AddContentFlow({
             <Field label={t('addFlow.deliverableFieldLabel')} hint={t('addFlow.deliverableFieldHint')}>
               <Select
                 value={deliverableId || NO_DELIVERABLE}
-                onValueChange={(v) => setDeliverableId(v === NO_DELIVERABLE ? '' : v)}
+                onValueChange={(v) => {
+                  touched.current.link = true;
+                  setDeliverableId(v === NO_DELIVERABLE ? '' : v);
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={t('addFlow.noDeliverable')} />
@@ -368,5 +481,116 @@ export function AddContentFlow({
         </Button>
       </div>
     </form>
+  );
+}
+
+/**
+ * What the pasted link turned out to be: already on the wall, a share link
+ * that couldn't be opened, who posted it, and which of their deliverables it
+ * can fulfil (click to choose; click again to leave it unlinked).
+ */
+function LinkFindings({
+  found,
+  suggestions,
+  selectedDeliverableId,
+  onPick,
+}: {
+  found: ContentUrlLookupDTO;
+  suggestions: ContentUrlLookupDeliverableDTO[];
+  selectedDeliverableId: string;
+  onPick: (d: ContentUrlLookupDeliverableDTO | null) => void;
+}) {
+  const t = useTranslations('content');
+  const tEnums = useTranslations('enums');
+  const { shortDate } = useLocalizedFormat();
+  return (
+    <div className="-mt-2 space-y-2">
+      {found.existing ? (
+        <div className="border-warning/40 bg-warning/10 text-foreground flex items-start gap-2 rounded-lg border px-3 py-2 text-sm">
+          <AlertTriangle className="text-warning mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            {t('addFlow.alreadyAdded')}{' '}
+            {found.existing.id ? (
+              <Link
+                href={`/content/${found.existing.id}`}
+                className="text-brand font-medium hover:underline"
+              >
+                {t('addFlow.openExisting')}
+              </Link>
+            ) : null}
+          </span>
+        </div>
+      ) : null}
+      {found.unresolvedShortLink ? (
+        <p className="border-border bg-surface-muted text-muted-foreground rounded-lg border px-3 py-2 text-xs">
+          {t('addFlow.shortLinkUnresolved')}
+        </p>
+      ) : null}
+      {!found.canonicalUrl && !found.unresolvedShortLink ? (
+        <p className="text-danger text-xs">{t('addFlow.unsupportedLink')}</p>
+      ) : null}
+      {found.influencer ? (
+        <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+          <UserCheck className="text-success h-3.5 w-3.5" />
+          {t.rich('addFlow.postedBy', {
+            handle: () => <bdi dir="ltr">@{found.handle}</bdi>,
+            name: () => (
+              <BidiText className="text-foreground font-medium">
+                {found.influencer!.displayName}
+              </BidiText>
+            ),
+          })}
+        </p>
+      ) : found.handle ? (
+        <p className="text-muted-foreground text-xs">
+          {t.rich('addFlow.handleUnknown', { handle: () => <bdi dir="ltr">@{found.handle}</bdi> })}
+        </p>
+      ) : null}
+      {suggestions.length > 0 ? (
+        <div className="space-y-1.5">
+          <p className="text-muted-foreground text-xs font-medium">
+            {t('addFlow.fulfilsDeliverable')}
+          </p>
+          {suggestions.map((d) => {
+            const selected = d.deliverableId === selectedDeliverableId;
+            return (
+              <button
+                key={d.deliverableId}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => onPick(selected ? null : d)}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-start text-sm transition-colors',
+                  selected
+                    ? 'border-brand bg-brand-soft/50'
+                    : 'border-border hover:bg-surface-muted',
+                )}
+              >
+                <PlatformIcon platform={d.platform} className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">
+                    {d.campaignName}{' '}
+                    <span className="text-muted-foreground font-normal">· {d.brandName}</span>
+                  </span>
+                  <span className="text-muted-foreground block text-xs">
+                    {enumLabel(tEnums, 'deliverableType', d.type)}
+                    {d.dueDate ? ` · ${t('addFlow.due', { date: shortDate(d.dueDate) })}` : ''}
+                    {d.status === 'MISSED'
+                      ? ` · ${enumLabel(tEnums, 'deliverableStatus', d.status)}`
+                      : ''}
+                  </span>
+                </span>
+                <Check
+                  className={cn(
+                    'text-brand h-4 w-4 shrink-0',
+                    selected ? 'opacity-100' : 'opacity-0',
+                  )}
+                />
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }

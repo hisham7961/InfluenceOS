@@ -15,5 +15,12 @@
     "source": "المصدر: {source}",
     "updated": "آخر تحديث {time}",
     "updatedBy": "آخر تحديث {time} بواسطة {name}"
+  },
+  "combobox": {
+    "searchPlaceholder": "اكتب اسماً…",
+    "searching": "جارٍ البحث…",
+    "noMatches": "لا نتائج تطابق «{query}».",
+    "typeMore": "تابع الكتابة لتضييق القائمة.",
+    "clear": "مسح"
   }
 }

@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { Eye, Film, Heart, MessageCircle, MessageSquare, Play } from 'lucide-react';
 import type { PublishedContentDTO } from '@influenceos/contracts';
 import { cn } from '@/lib/cn';
+import { SafeImg } from '@/components/ui/safe-img';
 import { formatCompact, useLocalizedFormat } from '@/lib/format';
 import { enumLabel } from '@/lib/enum-labels';
 import { toBrowserUrl } from '@/lib/upload';
@@ -56,6 +57,15 @@ function MasonryCard({ content, onOpen }: { content: PublishedContentDTO; onOpen
   const storyImageSrc =
     content.isStory && content.storyMedia?.kind === 'image' ? toBrowserUrl(content.storyMedia.url) : null;
   const showPlayOverlay = content.embeddable || (content.isStory && content.storyMedia?.kind === 'video');
+  const placeholderMedia = (
+    <div className={cn('flex w-full items-center justify-center', fallback)}>
+      {content.isStory ? (
+        <Film className="h-12 w-12 text-white/30" />
+      ) : (
+        <PlatformIcon platform={content.platform} className="h-12 w-12 text-white/30" />
+      )}
+    </div>
+  );
 
   return (
     <button
@@ -64,21 +74,15 @@ function MasonryCard({ content, onOpen }: { content: PublishedContentDTO; onOpen
     >
       <div className="relative w-full overflow-hidden bg-gradient-to-br from-neutral-800 to-neutral-900">
         {storyImageSrc || content.thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <SafeImg
             src={storyImageSrc ?? content.thumbnailUrl!}
             alt=""
             loading="lazy"
             className="w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            fallback={placeholderMedia}
           />
         ) : (
-          <div className={cn('flex w-full items-center justify-center', fallback)}>
-            {content.isStory ? (
-              <Film className="h-12 w-12 text-white/30" />
-            ) : (
-              <PlatformIcon platform={content.platform} className="h-12 w-12 text-white/30" />
-            )}
-          </div>
+          placeholderMedia
         )}
         <div className="absolute start-3 top-3 flex items-center gap-1.5">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 backdrop-blur">

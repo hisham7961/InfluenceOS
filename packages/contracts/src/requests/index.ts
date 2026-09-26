@@ -743,6 +743,13 @@ export const publishedContentStoryCreateSchema = z.object({
   caption: optionalString,
   publishedAt: isoDate,
 });
+/** A pasted post link, checked before it's added: who posted it, which of
+ *  their deliverables it could fulfil, and whether it's already tracked. */
+export const contentUrlLookupSchema = z.object({
+  url: z.string().trim().min(1).max(2000),
+  /** Only suggest deliverables on this campaign (a campaign's own Add Content). */
+  campaignId: cuid.optional(),
+});
 export const publishedContentUpdateSchema = z.object({
   caption: optionalString,
   campaignId: cuid.optional().nullable(),

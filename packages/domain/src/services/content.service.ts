@@ -1,11 +1,25 @@
 import { randomUUID } from 'node:crypto';
-import { buildEmbed, businessToday, contentReviewStatus, getAdapter, metrics as sharedMetrics, normalizeContentUrl, resolveContentThumbnail, type Platform } from '@influenceos/shared';
+import {
+  buildEmbed,
+  businessToday,
+  contentReviewStatus,
+  contentUrlHandle,
+  getAdapter,
+  isShortContentLink,
+  metrics as sharedMetrics,
+  normalizeContentUrl,
+  resolveContentThumbnail,
+  resolveShortContentUrl,
+  stablePostId,
+  type Platform,
+} from '@influenceos/shared';
 import {
   buildOffsetPagination,
   requests,
   type BrandContentSummaryDTO,
   type ContentMetricsDTO,
   type ContentSummaryDTO,
+  type ContentUrlLookupDTO,
   type ContentViewerStateDTO,
   type CursorPage,
   type MonitoringEventDTO,
@@ -37,6 +51,7 @@ type ContentFilter = z.infer<typeof requests.contentFilterSchema>;
 type ManualMetrics = z.infer<typeof requests.contentMetricSchema>;
 type ContentViewStateInput = z.infer<typeof requests.contentViewStateSchema>;
 type ContentSummaryQuery = z.infer<typeof requests.contentSummaryQuerySchema>;
+type ContentUrlLookup = z.infer<typeof requests.contentUrlLookupSchema>;
 
 const REMOVED_STATUSES: ContentStatus[] = ['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BROKEN_LINK'];
 
@@ -161,17 +176,40 @@ export function makeContentService(ctx: DomainContext) {
     return await mapRow(pc);
   }
 
+  /**
+   * A pasted link, tidied: a share-sheet short link (vm.tiktok.com/…,
+   * tiktok.com/t/…, instagram.com/share/…) is followed to the post it points
+   * to, so it plays as an embed and is caught as a repeat like any other
+   * link to the same post.
+   */
+  async function resolvePastedUrl(raw: string) {
+    const short = isShortContentLink(raw);
+    const resolved = short ? await resolveShortContentUrl(raw, { timeoutMs: 4000 }).catch(() => null) : null;
+    return { normalized: normalizeContentUrl(resolved ?? raw), unresolvedShortLink: short && !resolved };
+  }
+
+  /** The tracked row for this post, whichever link to it was used (x.com vs twitter.com, a username in an Instagram link). */
+  async function findTracked(platform: Platform, canonicalUrl: string, externalId: string | null) {
+    const select = { id: true, brandId: true, influencerId: true } as const;
+    const byUrl = await prisma.publishedContent.findUnique({
+      where: { platform_originalUrl: { platform, originalUrl: canonicalUrl } },
+      select,
+    });
+    if (byUrl) return byUrl;
+    const postId = stablePostId(platform, externalId);
+    if (!postId) return null;
+    return prisma.publishedContent.findFirst({ where: { platform, externalId: postId }, select });
+  }
+
   async function create(input: ContentCreate): Promise<PublishedContentDTO> {
     await requireCapability(ctx, 'CONTENT_MANAGE');
-    const normalized = normalizeContentUrl(input.url);
+    const { normalized } = await resolvePastedUrl(input.url);
     if (!normalized) {
       throw AppError.badRequest('That URL is not from a supported platform (Instagram, TikTok, YouTube, Snapchat, X).');
     }
     const { platform, canonicalUrl, externalId } = normalized;
 
-    const existing = await prisma.publishedContent.findUnique({
-      where: { platform_originalUrl: { platform, originalUrl: canonicalUrl } },
-    });
+    const existing = await findTracked(platform, canonicalUrl, externalId);
     if (existing) throw AppError.conflict('This content URL is already being tracked.');
 
     // Resolve + validate associations centrally — never duplicate this logic in
@@ -276,6 +314,113 @@ export function makeContentService(ctx: DomainContext) {
     });
 
     return await mapRow(pc);
+  }
+
+  /**
+   * What a pasted link is, before it's added: follows a share link, says
+   * whether the post is already tracked, and — when the link names the
+   * account — which creator posted it and which of their deliverables are
+   * still waiting for a post, so Add Content can fill itself in. Writes
+   * nothing. Creators and campaigns outside the caller's scope never show.
+   */
+  async function lookupUrl(input: ContentUrlLookup): Promise<ContentUrlLookupDTO> {
+    await requireCapability(ctx, 'CONTENT_MANAGE');
+    const { normalized, unresolvedShortLink } = await resolvePastedUrl(input.url);
+    const result: ContentUrlLookupDTO = {
+      canonicalUrl: null,
+      platform: null,
+      handle: null,
+      unresolvedShortLink,
+      existing: null,
+      influencer: null,
+      openDeliverables: [],
+    };
+    if (!normalized) return result;
+    const { platform, canonicalUrl, externalId } = normalized;
+    result.canonicalUrl = canonicalUrl;
+    result.platform = platform;
+    result.handle = contentUrlHandle(canonicalUrl);
+
+    const tracked = await findTracked(platform, canonicalUrl, externalId);
+    if (tracked) {
+      const visible = await assertContentInScope(tracked).then(
+        () => true,
+        () => false,
+      );
+      result.existing = { id: visible ? tracked.id : null };
+    }
+
+    if (!result.handle) return result;
+    const influencerSelect = {
+      id: true,
+      displayName: true,
+      countryCode: true,
+      avatarOverrideUrl: true,
+      resolvedAvatarUrl: true,
+    } as const;
+    const account = await prisma.socialAccount.findFirst({
+      where: { platform, username: { equals: result.handle, mode: 'insensitive' } },
+      select: { avatarUrl: true, influencer: { select: influencerSelect } },
+    });
+    let creator = account?.influencer ?? null;
+    if (!creator) {
+      // No account on file for this platform — fall back to the creator's
+      // main username, but only when exactly one creator has it.
+      const byUsername = await prisma.influencer.findMany({
+        where: { primaryUsername: { equals: result.handle, mode: 'insensitive' } },
+        select: influencerSelect,
+        take: 2,
+      });
+      creator = byUsername.length === 1 ? byUsername[0]! : null;
+    }
+    if (!creator) return result;
+    if (isCountryOutOfScope(await scopedCountryCodes(ctx), creator.countryCode)) return result;
+    result.influencer = {
+      id: creator.id,
+      displayName: creator.displayName,
+      avatarUrl: creator.avatarOverrideUrl ?? creator.resolvedAvatarUrl ?? account?.avatarUrl ?? null,
+    };
+
+    const brandScope = await scopedBrandIds(ctx);
+    const deliverables = await prisma.deliverable.findMany({
+      where: {
+        status: { notIn: ['PUBLISHED', 'VERIFIED', 'CANCELLED'] },
+        type: { not: 'UGC' },
+        campaignInfluencer: {
+          influencerId: creator.id,
+          campaign: {
+            status: { notIn: ['COMPLETED', 'CANCELLED'] },
+            ...(input.campaignId ? { id: input.campaignId } : {}),
+            ...(brandScope ? { brandId: { in: brandScope } } : {}),
+          },
+        },
+      },
+      select: {
+        id: true,
+        type: true,
+        platform: true,
+        status: true,
+        dueDate: true,
+        campaignInfluencer: { select: { campaign: { select: { id: true, name: true, brand: { select: { name: true } } } } } },
+      },
+      orderBy: [{ dueDate: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
+      take: 20,
+    });
+    result.openDeliverables = deliverables
+      .map((d) => ({
+        deliverableId: d.id,
+        campaignId: d.campaignInfluencer.campaign.id,
+        campaignName: d.campaignInfluencer.campaign.name,
+        brandName: d.campaignInfluencer.campaign.brand.name,
+        type: d.type,
+        platform: d.platform,
+        status: d.status,
+        dueDate: iso(d.dueDate),
+      }))
+      // This platform first; the query already put the soonest due first.
+      .sort((a, b) => Number(b.platform === platform) - Number(a.platform === platform))
+      .slice(0, 10);
+    return result;
   }
 
   /**
@@ -538,6 +683,40 @@ export function makeContentService(ctx: DomainContext) {
 
     const data = await Promise.all(rows.map((r) => mapRow(r)));
     return { data, pagination: buildOffsetPagination(filter.page, filter.pageSize, total) };
+  }
+
+  /**
+   * "Link all" on a campaign's Live Content tab: every post by this
+   * campaign's roster that isn't in any campaign yet — and isn't already
+   * tied to a different brand — is linked to this campaign, each through the
+   * same update() as a one-by-one link (same checks, same activity entry).
+   * Posts that belong to another campaign are left alone: moving them would
+   * silently take them out of that campaign.
+   */
+  async function linkRosterContent(campaignId: string): Promise<{ linked: number; skipped: number }> {
+    await requireCapability(ctx, 'CONTENT_MANAGE');
+    await makeCampaignService(ctx).assertInScope(campaignId);
+    const campaign = await prisma.campaign.findUnique({ where: { id: campaignId }, select: { brandId: true } });
+    if (!campaign) throw AppError.notFound('Campaign');
+    const roster = await prisma.campaignInfluencer.findMany({ where: { campaignId }, select: { influencerId: true } });
+    const conditions: Prisma.PublishedContentWhereInput[] = [
+      { influencerId: { in: roster.map((r) => r.influencerId) } },
+      { campaignId: null },
+      { OR: [{ brandId: null }, { brandId: campaign.brandId }] },
+    ];
+    const countryScope = await scopedCountryCodes(ctx);
+    if (countryScope) conditions.push({ influencer: { countryCode: { in: countryScope } } });
+    const rows = await prisma.publishedContent.findMany({ where: { AND: conditions }, select: { id: true }, take: 500 });
+    let linked = 0;
+    for (const row of rows) {
+      try {
+        await update(row.id, { campaignId });
+        linked += 1;
+      } catch {
+        // Anything the one-by-one link would refuse is skipped, not fatal.
+      }
+    }
+    return { linked, skipped: rows.length - linked };
   }
 
   async function detail(id: string): Promise<PublishedContentDTO> {
@@ -1089,9 +1268,11 @@ export function makeContentService(ctx: DomainContext) {
 
   return {
     create,
+    lookupUrl,
     createStory,
     feed,
     campaignContent,
+    linkRosterContent,
     detail,
     update,
     remove,

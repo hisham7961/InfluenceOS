@@ -15,5 +15,12 @@
     "source": "Source: {source}",
     "updated": "Updated {time}",
     "updatedBy": "Updated {time} by {name}"
+  },
+  "combobox": {
+    "searchPlaceholder": "Type a name…",
+    "searching": "Searching…",
+    "noMatches": "Nothing matches “{query}”.",
+    "typeMore": "Keep typing to narrow the list.",
+    "clear": "Clear"
   }
 }

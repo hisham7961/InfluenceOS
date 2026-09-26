@@ -150,7 +150,9 @@ test('operator drives the full content-association + logistics workflow through 
 
   // Resolve it — same record, no duplicate — via the association panel.
   await page.getByRole('button', { name: 'Edit associations' }).click();
-  await page.getByRole('combobox').first().click();
+  // The creator picker searches as you type (it used to list only the first 100).
+  await page.getByRole('combobox', { name: 'Influencer', exact: true }).click();
+  await page.getByPlaceholder('Type a name…').fill(INFLUENCER);
   await page.getByRole('option', { name: INFLUENCER }).click();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Influencer linked')).toBeVisible({ timeout: 10_000 });
@@ -158,10 +160,8 @@ test('operator drives the full content-association + logistics workflow through 
   // --- Unassigned Content inbox (WF-10) — the wall's Assignment filter -------
   await page.goto('/content');
   await expect(page.getByRole('heading', { name: 'Live Content' })).toBeVisible();
-  // The filter row's Selects are, in order: Brand, Platform, Status,
-  // Campaign, Influencer, Assignment — Assignment is the last one.
-  const filterRow = page.locator('div.flex-1.flex-wrap.items-center.gap-3');
-  await filterRow.getByRole('combobox').last().click();
+  // The Assignment filter is the one that reads "All content".
+  await page.getByRole('combobox').filter({ hasText: 'All content' }).click();
   await page.getByRole('option', { name: 'Unassigned' }).click();
   await expect(page.getByText(new RegExp(CAMPAIGN))).toHaveCount(0);
 

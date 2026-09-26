@@ -37,6 +37,22 @@ export async function contentRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // Checks a pasted link before it's added (who posted it, their open
+  // deliverables, already tracked?). Writes nothing. Placed before
+  // /content/:id so "lookup" is never captured as an :id param.
+  r.post(
+    '/content/lookup',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Content'],
+        summary: 'Check a pasted post link: canonical URL, creator by handle, open deliverables, already tracked',
+        body: requests.contentUrlLookupSchema,
+      },
+    },
+    async (req) => servicesFor(req).content.lookupUrl(req.body),
+  );
+
   // A Story screenshot/recording — no live URL to link (Stories expire), so
   // this creates the PublishedContent row up front; the caller then uploads
   // the actual media as an Attachment targeting the returned id (two-phase

@@ -75,6 +75,19 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).content.addManualMetricsBulk(req.params.id, req.body),
   );
 
+  r.post(
+    '/campaigns/:id/content/link-roster',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: "Link every roster creator's post that isn't in any campaign to this campaign",
+        params: idParam,
+      },
+    },
+    async (req) => servicesFor(req).content.linkRosterContent(req.params.id),
+  );
+
   r.get(
     '/campaigns/:id/operations-board',
     { preHandler: [requireAuth], schema: { tags: ['Campaigns'], summary: 'Campaign Operations Board — per-influencer stage pipeline (Operations Intelligence)', params: idParam } },

@@ -8,9 +8,9 @@ import { getServerApi } from '@/lib/api-server';
 import { PlatformBadge } from '@/components/ui/platform-badge';
 import { SocialContentPlayer } from '@/components/content/social-content-player';
 import { ContentDetails } from '@/components/content/content-viewer';
-import { ContentAssociationPanel } from './association-panel';
+import { ContentAssociationPanel } from '@/components/content/association-panel';
 import { ContentReviewBar } from './review-bar';
-import { ContentActions } from './content-actions';
+import { ContentActions } from '@/components/content/content-actions';
 
 export const dynamic = 'force-dynamic';
 

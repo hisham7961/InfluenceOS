@@ -93,7 +93,13 @@
     "notes": "الملاحظات",
     "notesEmptyTitle": "لا توجد ملاحظات بعد",
     "notesEmptyDescription": "تعليقات داخلية للفريق فقط — يمكن تثبيت إحداها كملاحظة إدارية مهمة.",
-    "notesComposerPlaceholder": "افتتاحية قوية… قد يصلح كأصل لإعلان مدفوع…"
+    "notesComposerPlaceholder": "افتتاحية قوية… قد يصلح كأصل لإعلان مدفوع…",
+    "more": "إجراءات أخرى",
+    "openDetails": "فتح الصفحة الكاملة",
+    "copyLink": "نسخ الرابط",
+    "linkCopied": "تم نسخ الرابط — يمكن لأي عضو في الفريق فتحه.",
+    "editLinks": "تغيير المشهور أو الحملة",
+    "editLinksDescription": "اربط هذا المنشور بالمشهور الذي نشره والحملة التي يتبع لها."
   },
   "reviewMode": {
     "markReviewed": "تحديد كمراجَع",
@@ -163,7 +169,15 @@
     "storyFileRequired": "أضف لقطة شاشة أو تسجيلًا للمتابعة",
     "storyUploadFailed": "تمت إضافة الستوري، لكن رفع الملف فشل.",
     "retryUpload": "إعادة محاولة الرفع",
-    "addStory": "إضافة ستوري"
+    "addStory": "إضافة ستوري",
+    "alreadyAdded": "هذا المنشور موجود على الحائط بالفعل.",
+    "openExisting": "افتحه",
+    "shortLinkUnresolved": "تعذّر فتح رابط المشاركة هذا، لذا سيُحفظ كما هو. لضمان تشغيله، الصق الرابط الكامل من شريط عنوان المتصفح.",
+    "unsupportedLink": "هذا الرابط ليس من إنستغرام أو تيك توك أو يوتيوب أو سناب شات أو X.",
+    "postedBy": "نشره <handle></handle> — <name></name>",
+    "handleUnknown": "الحساب <handle></handle> غير مرتبط بأي مشهور بعد.",
+    "fulfilsDeliverable": "هل يُنجز هذا أحد تسليماته؟",
+    "due": "موعده {date}"
   },
   "metricsEntry": {
     "open": "إدخال الأرقام",

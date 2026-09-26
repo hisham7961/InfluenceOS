@@ -8,6 +8,7 @@ import { PlatformIcon } from '@/components/ui/platform-badge';
 import { ContentStatusBadge } from '@/components/ui/status-badges';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
+import { SafeImg } from '@/components/ui/safe-img';
 import { toBrowserUrl } from '@/lib/upload';
 
 /**
@@ -43,10 +44,13 @@ export function SocialContentPlayer({
   content,
   autoPlay = false,
   className,
+  maxHeight,
 }: {
   content: SocialPlayableContent;
   autoPlay?: boolean;
   className?: string;
+  /** A CSS length the player never grows taller than; its width shrinks to keep the shape (a vertical video in the viewer). */
+  maxHeight?: string;
 }) {
   const t = useTranslations('content');
   const [playing, setPlaying] = React.useState(autoPlay);
@@ -67,8 +71,12 @@ export function SocialContentPlayer({
 
   return (
     <div
-      className={cn('relative w-full overflow-hidden rounded-xl bg-black', className)}
-      style={{ aspectRatio: aspect }}
+      className={cn('relative mx-auto w-full overflow-hidden rounded-xl bg-black', className)}
+      style={
+        maxHeight
+          ? { aspectRatio: aspect, maxHeight, width: `min(100%, calc(${maxHeight} * ${aspect.toFixed(4)}))` }
+          : { aspectRatio: aspect }
+      }
     >
       {content.storyMedia ? (
         <StoryMedia media={content.storyMedia} caption={content.caption} />
@@ -176,8 +184,7 @@ function Fallback({
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-neutral-900 to-neutral-800 text-white">
       {content.thumbnailUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <SafeImg
           src={content.thumbnailUrl}
           alt={content.caption ?? ''}
           className="absolute inset-0 h-full w-full object-cover opacity-70"

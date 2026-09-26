@@ -1165,6 +1165,7 @@ model PublishedContent {
   @@index([publishedAt])
   @@index([detectedAt])
   @@index([sortAt, id])
+  @@index([platform, externalId])
   @@index([nextCheckAt])
 }
 

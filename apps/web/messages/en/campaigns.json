@@ -155,7 +155,11 @@
       "linkedHeading": "Linked to this campaign ({count})",
       "unlinkedHeading": "From this campaign's creators — not yet linked ({count})",
       "unlinkedEmptyDescription": "All of this campaign's creators' content is already linked here.",
-      "goToPage": "Go to page {page}"
+      "goToPage": "Go to page {page}",
+      "linkAll": "Link them to this campaign",
+      "linkAllHint": "Linking only picks up posts that aren't in any campaign yet; posts already in another campaign stay there.",
+      "linkAllNone": "Nothing to link — these posts already belong to other campaigns.",
+      "linkAllDone": "{count, plural, one {Linked # post to this campaign.} other {Linked # posts to this campaign.}}"
     },
     "overview": {
       "noDescription": "No description on file yet.",

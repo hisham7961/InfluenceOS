@@ -397,6 +397,8 @@ PII (phone/address/delivery instructions) is redacted server-side for the
 |---|---|---|
 | GET | `/api/v1/content/feed` | Live Content feed — cursor-paginated, media-independent DTOs. |
 | POST | `/api/v1/content` | Add published content by URL (auto-detects platform, links a deliverable) → `201`. |
+| POST | `/api/v1/content/lookup` | Check a pasted post link before adding it: follows TikTok/Instagram share links, says whether the post is already tracked (any link to the same post), names the creator from the handle in the link, and lists their deliverables still waiting for a post. Writes nothing. |
+| POST | `/api/v1/campaigns/:id/content/link-roster` | Link every post by the campaign's roster that isn't in any campaign yet (and isn't tied to another brand) → `{ linked, skipped }`. Posts in other campaigns are left alone. |
 | GET | `/api/v1/content/:id` | Content detail + embed descriptor. |
 | PATCH | `/api/v1/content/:id` | Update content (caption, associations, manual status). |
 | GET | `/api/v1/content/:id/metrics` | Metric snapshot history. |

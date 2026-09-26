@@ -14,13 +14,17 @@ import { ContentViewer } from './content-viewer';
  * Control's global CTA and a Brand's "Review N New <Brand> Videos" CTA both
  * render this SAME component with a different `brandId`, and it opens the
  * SAME ContentViewer in Review Mode. No second viewer, no second review flow.
+ * Live Content and a campaign's Live Content tab use it too, narrowed by
+ * `brandId` / `campaignId`.
  */
 export function ReviewNewContentButton({
   brandId,
+  campaignId,
   count,
   label,
 }: {
   brandId?: string;
+  campaignId?: string;
   /** New (never-opened) count for this scope, if already known — avoids a redundant fetch just to size the button label. */
   count?: number;
   label?: string;
@@ -30,8 +34,8 @@ export function ReviewNewContentButton({
   const [open, setOpen] = React.useState(false);
   const [index, setIndex] = React.useState(0);
   const newContent = useQuery({
-    queryKey: ['review-new-content', brandId] as const,
-    queryFn: () => api.content.feed({ reviewState: 'NEW', brandId, limit: 50 }),
+    queryKey: ['review-new-content', brandId, campaignId] as const,
+    queryFn: () => api.content.feed({ reviewState: 'NEW', brandId, campaignId, limit: 50 }),
     enabled: false,
   });
 

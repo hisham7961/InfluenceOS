@@ -279,6 +279,8 @@ export const FEATURES: FeatureEntry[] = [
     apiEndpoints: [
       'GET /api/v1/content/feed',
       'POST /api/v1/content',
+      'POST /api/v1/content/lookup',
+      'POST /api/v1/campaigns/:id/content/link-roster',
       'GET /api/v1/content/:id',
       'PATCH /api/v1/content/:id',
       'GET /api/v1/content/:id/metrics',
