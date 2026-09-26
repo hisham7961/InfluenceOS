@@ -50,8 +50,17 @@ export async function buildApp(): Promise<FastifyInstance> {
     // Structured request/response logging is emitted by our own onResponse hook
     // (so we can attach actorId); disable Fastify's default req/res lines.
     disableRequestLogging: true,
-    genReqId: (req) => (req.headers['x-request-id'] as string | undefined) ?? `req_${randomUUID()}`,
-    trustProxy: true,
+    // Reuse the proxy's id so one request can be followed across logs; it is
+    // client-influenced, so only a short plain token is accepted.
+    genReqId: (req) => {
+      const id = req.headers['x-request-id'];
+      return typeof id === 'string' && /^[\w.:-]{1,80}$/.test(id) ? id : `req_${randomUUID()}`;
+    },
+    // The client address comes from X-Forwarded-For, but only when the hop
+    // that sent it is on a private network (Caddy, the web BFF, the Docker
+    // bridge). A request reaching a published API port straight from the
+    // internet can't spoof its address to dodge the rate limits.
+    trustProxy: ['loopback', 'linklocal', 'uniquelocal'],
   });
 
   app.setValidatorCompiler(validatorCompiler);
@@ -72,6 +81,13 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(rateLimit, {
     max: env.RATE_LIMIT_MAX,
     timeWindow: env.RATE_LIMIT_WINDOW,
+    // Counted per signed-in user, per address otherwise. Keyed by address
+    // alone, a whole office behind one NAT (and every request relayed by the
+    // web BFF) shared a single budget and hit "Too many requests" together.
+    // Runs after onRequest (so the actor is known) but before each route's
+    // own auth check, so rejected anonymous floods are counted too.
+    hook: 'preValidation',
+    keyGenerator: (req) => (req.actor ? `user:${req.actor.id}` : `ip:${req.ip}`),
     // Liveness/readiness/metrics probes must never be rate-limited.
     allowList: (req) => req.url === '/health' || req.url === '/ready' || req.url === '/metrics',
     ...(redisStore ? { redis: redisStore, skipOnError: true } : {}),

@@ -7,6 +7,7 @@ import {
   clearAuthCookies,
   writeAuthCookies,
 } from '@/lib/session';
+import { forwardedHeaders, refreshWasRejected } from '@/lib/forwarded';
 
 /**
  * Thin transport proxy — NO business logic. Forwards client-side requests to
@@ -18,17 +19,22 @@ export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
-async function tryRefresh(store: Awaited<ReturnType<typeof cookies>>): Promise<string | null> {
+async function tryRefresh(
+  store: Awaited<ReturnType<typeof cookies>>,
+  relay: Record<string, string>,
+): Promise<string | null> {
   const refreshToken = store.get(REFRESH_COOKIE)?.value;
   if (!refreshToken) return null;
   try {
     const res = await fetch(`${apiBaseUrl()}/api/v1/auth/refresh`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { ...relay, 'content-type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
     });
     if (!res.ok) {
-      clearAuthCookies(store);
+      // Only a rejected token ends the session. A restarting API (deploy),
+      // a 5xx or a 429 must not sign the whole team out.
+      if (refreshWasRejected(res.status)) clearAuthCookies(store);
       return null;
     }
     const data = (await res.json()) as { tokens?: { accessToken: string; refreshToken: string } };
@@ -50,8 +56,9 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
   const rawBody =
     method === 'GET' || method === 'HEAD' ? undefined : Buffer.from(await req.arrayBuffer());
 
+  const relay = forwardedHeaders(req.headers);
   const fwd = (token: string | undefined) => {
-    const headers: Record<string, string> = { accept: 'application/json' };
+    const headers: Record<string, string> = { ...relay, accept: 'application/json' };
     const ct = req.headers.get('content-type');
     if (ct) headers['content-type'] = ct;
     if (token) headers.authorization = `Bearer ${token}`;
@@ -60,7 +67,7 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
 
   let res = await fwd(store.get(ACCESS_COOKIE)?.value);
   if (res.status === 401) {
-    const refreshed = await tryRefresh(store);
+    const refreshed = await tryRefresh(store, relay);
     if (refreshed) res = await fwd(refreshed);
   }
 
@@ -73,6 +80,12 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
   if (ct && !nullBody) out.headers.set('content-type', ct);
   const cd = res.headers.get('content-disposition');
   if (cd) out.headers.set('content-disposition', cd);
+  // Rate-limit and request-id headers let the browser back off and let a
+  // support request be matched to the server log.
+  for (const h of ['retry-after', 'x-request-id', 'x-ratelimit-limit', 'x-ratelimit-remaining', 'x-ratelimit-reset']) {
+    const v = res.headers.get(h);
+    if (v) out.headers.set(h, v);
+  }
   return out;
 }
 

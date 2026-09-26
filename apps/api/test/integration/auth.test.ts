@@ -190,13 +190,21 @@ describe('auth — account lockout (brute-force protection)', () => {
     // resets the counter to a known-clean baseline).
     const { email, password, userId } = await loginFresh(app);
 
-    const attempt = (pw: string) =>
-      app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password: pw } });
+    // Each guess from a different address, like a distributed attack: from a
+    // single address the per-account login limiter (429) kicks in first, so
+    // one outsider can no longer lock a colleague out.
+    const attempt = (pw: string, i = 0) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        headers: { 'x-forwarded-for': `203.0.113.${i + 1}` },
+        payload: { email, password: pw },
+      });
 
     // LOGIN_MAX_ATTEMPTS (default 10) consecutive failures trip the lockout.
     let lastBody = '';
     for (let i = 0; i < 10; i++) {
-      const res = await attempt('definitely-wrong');
+      const res = await attempt('definitely-wrong', i);
       expect(res.statusCode).toBe(401);
       lastBody = res.body;
     }
@@ -204,9 +212,19 @@ describe('auth — account lockout (brute-force protection)', () => {
 
     // Now the correct password is refused while the lock window is open, with a
     // distinct message — proving the block is account-level, not credential-level.
-    const locked = await attempt(password);
+    const locked = await attempt(password, 50);
     expect(locked.statusCode).toBe(401);
     expect(locked.body).toContain('Too many failed attempts');
+
+    // The lockout leaves a trace in the audit log, with the address that tripped it.
+    const { PrismaClient } = await import('@influenceos/database');
+    const prisma = new PrismaClient();
+    const entry = await prisma.activityLog.findFirst({
+      where: { message: { contains: email }, meta: { path: ['event'], equals: 'login_locked' } },
+    });
+    expect((entry?.meta as { ip?: string } | null)?.ip).toBe('203.0.113.10');
+    await prisma.activityLog.deleteMany({ where: { message: { contains: email } } });
+    await prisma.$disconnect();
 
     await deleteUser(userId);
   });

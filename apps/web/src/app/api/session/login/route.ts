@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse, type NextRequest } from 'next/server';
 import { ApiError, createClient } from '@influenceos/api-client';
 import { LOCALE_COOKIE, THEME_COOKIE, apiBaseUrl, writeAuthCookies } from '@/lib/session';
+import { forwardedHeaders } from '@/lib/forwarded';
 
 // UI-preference cookies are readable/writable by the client toggles, so unlike
 // the token cookies they are not httpOnly. A year keeps the preference sticky.
@@ -17,7 +18,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: { code: 'BAD_REQUEST', message: 'Invalid body' } }, { status: 400 });
   }
 
-  const api = createClient({ baseUrl: apiBaseUrl(), credentials: 'omit' });
+  // Relay the visitor's address so the login limiter, lockout audit and the
+  // session list see the real client, not the web container.
+  const api = createClient({ baseUrl: apiBaseUrl(), credentials: 'omit', headers: forwardedHeaders(req.headers) });
   try {
     const result = await api.auth.login({
       email: payload.email ?? '',

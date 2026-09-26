@@ -20,19 +20,35 @@ const cookieOpts = {
   secure: process.env.NODE_ENV === 'production',
 };
 
-async function refresh(refreshToken: string): Promise<{ access: string; refresh: string } | null> {
+type RefreshOutcome =
+  | { kind: 'ok'; access: string; refresh: string }
+  /** The refresh token is invalid, expired or revoked: sign out. */
+  | { kind: 'rejected' }
+  /** The API couldn't answer (restarting, 5xx, rate limited): keep the session. */
+  | { kind: 'unavailable' };
+
+async function refresh(refreshToken: string, req: NextRequest): Promise<RefreshOutcome> {
   try {
+    const relay: Record<string, string> = { 'content-type': 'application/json' };
+    for (const h of ['x-forwarded-for', 'x-real-ip', 'x-request-id', 'user-agent']) {
+      const v = req.headers.get(h);
+      if (v) relay[h] = v;
+    }
     const res = await fetch(`${apiBase()}/api/v1/auth/refresh`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: relay,
       body: JSON.stringify({ refreshToken }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return res.status === 400 || res.status === 401 || res.status === 403
+        ? { kind: 'rejected' }
+        : { kind: 'unavailable' };
+    }
     const data = (await res.json()) as { tokens?: { accessToken: string; refreshToken: string } };
-    if (!data.tokens) return null;
-    return { access: data.tokens.accessToken, refresh: data.tokens.refreshToken };
+    if (!data.tokens) return { kind: 'unavailable' };
+    return { kind: 'ok', access: data.tokens.accessToken, refresh: data.tokens.refreshToken };
   } catch {
-    return null;
+    return { kind: 'unavailable' };
   }
 }
 
@@ -58,8 +74,11 @@ export async function middleware(req: NextRequest) {
   }
 
   if (!access && refreshToken) {
-    const tokens = await refresh(refreshToken);
-    if (!tokens) {
+    const tokens = await refresh(refreshToken, req);
+    // The API is briefly unreachable (e.g. mid-deploy): keep both cookies and
+    // let the page render its "try again" state instead of signing out.
+    if (tokens.kind === 'unavailable') return NextResponse.next();
+    if (tokens.kind === 'rejected') {
       const url = req.nextUrl.clone();
       url.pathname = '/login';
       url.search = `?next=${encodeURIComponent(pathname)}`;

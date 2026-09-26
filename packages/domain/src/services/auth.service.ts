@@ -148,15 +148,28 @@ export function makeAuthService(ctx: DomainContext) {
 
     const ok = await argonVerify(user.passwordHash, input.password).catch(() => false);
     if (!ok) {
-      const attempts = user.failedLoginAttempts + 1;
-      const lock = attempts >= LOGIN_MAX_ATTEMPTS;
-      await prisma.user.update({
+      // Atomic increment: parallel wrong guesses each count (a read-then-write
+      // let simultaneous attempts overwrite one another and under-count).
+      const { failedLoginAttempts } = await prisma.user.update({
         where: { id: user.id },
-        data: {
-          failedLoginAttempts: lock ? 0 : attempts,
-          lockedUntil: lock ? new Date(Date.now() + LOGIN_LOCK_MINUTES * 60_000) : user.lockedUntil,
-        },
+        data: { failedLoginAttempts: { increment: 1 } },
+        select: { failedLoginAttempts: true },
       });
+      if (failedLoginAttempts >= LOGIN_MAX_ATTEMPTS) {
+        // Conditional, so only one of several concurrent failures applies the
+        // lock (and writes the audit entry).
+        const locked = await prisma.user.updateMany({
+          where: { id: user.id, failedLoginAttempts: { gte: LOGIN_MAX_ATTEMPTS } },
+          data: { failedLoginAttempts: 0, lockedUntil: new Date(Date.now() + LOGIN_LOCK_MINUTES * 60_000) },
+        });
+        if (locked.count > 0) {
+          await logActivity(ctx, {
+            type: 'GENERIC',
+            message: `Sign-in for ${user.email} was locked for ${LOGIN_LOCK_MINUTES} minutes after ${LOGIN_MAX_ATTEMPTS} wrong passwords.`,
+            meta: { event: 'login_locked', userId: user.id, ip: meta.ip ?? null },
+          }).catch(() => undefined);
+        }
+      }
       throw invalid();
     }
 
@@ -291,10 +304,17 @@ export function makeAuthService(ctx: DomainContext) {
           graceTokenSealed: null,
         },
       });
-      return { kind: 'reuse' as const };
+      return { kind: 'reuse' as const, userId: session.userId, sessionId: session.id };
     });
 
     if (outcome.kind === 'reuse') {
+      // An old refresh token came back after it was rotated: either a stolen
+      // token or a client bug. Worth a trace in the audit log either way.
+      await logActivity(ctx, {
+        type: 'GENERIC',
+        message: 'A session was ended because an old sign-in token was reused.',
+        meta: { event: 'refresh_token_reuse', userId: outcome.userId, sessionId: outcome.sessionId },
+      }).catch(() => undefined);
       throw new AppError('UNAUTHORIZED', 'This session was ended for security reasons. Please sign in again.');
     }
     return { user: toUserDTO(outcome.user), tokens: outcome.tokens };

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { ApiError } from '@influenceos/api-client';
 import { getServerApi } from '@/lib/api-server';
 import { AppShell } from '@/components/shell/app-shell';
 
@@ -17,7 +18,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </AppShell>
     );
-  } catch {
+  } catch (err) {
+    // Only a real "not signed in" ends the session. Any other failure (the
+    // API restarting during a deploy, a 5xx, a timeout) used to sign the whole
+    // team out; it now falls through to the error page with a Retry button.
+    if (!(err instanceof ApiError) || err.status !== 401) throw err;
     // Route through a Route Handler (never straight to /login): a Server
     // Component can't clear cookies, so a stale access-token cookie would
     // survive the redirect and middleware would immediately bounce /login

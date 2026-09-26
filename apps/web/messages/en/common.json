@@ -124,5 +124,14 @@
   "addBrandDescription": "Create a new brand workspace.",
   "addCampaignAction": "Add campaign",
   "commandCenter": "Command center",
-  "commandCenterHint": "Press <kbd>⌘K</kbd> to search anywhere."
+  "commandCenterHint": "Press <kbd>⌘K</kbd> to search anywhere.",
+  "boundary": {
+    "errorTitle": "This page couldn't load",
+    "errorBody": "The server didn't answer in time, often because an update is being installed. You're still signed in — try again in a few seconds.",
+    "retry": "Try again",
+    "home": "Go to dashboard",
+    "reference": "Reference: {id}",
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "This page doesn't exist, or the item was deleted or moved."
+  }
 }
