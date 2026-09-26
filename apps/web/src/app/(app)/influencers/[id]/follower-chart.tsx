@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { format, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PlatformIcon } from '@/components/ui/platform-badge';
 import { LtrText } from '@/components/common/bidi-text';
-import { formatCompact } from '@/lib/format';
+import { formatCompact, useLocalizedFormat } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
 interface FollowerSeriesPoint {
@@ -43,6 +43,7 @@ export function FollowerChart({
   accounts: SocialAccountDTO[];
 }) {
   const t = useTranslations('influencers');
+  const { dayMonth, shortDate } = useLocalizedFormat();
   const RANGES = [
     { key: '30d' as const, label: t('detail.followerChart.range30d'), days: 30 },
     { key: '90d' as const, label: t('detail.followerChart.range90d'), days: 90 },
@@ -148,7 +149,7 @@ export function FollowerChart({
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
             <XAxis
               dataKey="capturedAt"
-              tickFormatter={(d: string) => format(parseISO(d), 'MMM d')}
+              tickFormatter={(d: string) => dayMonth(parseISO(d))}
               tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
               axisLine={false}
               tickLine={false}
@@ -163,7 +164,7 @@ export function FollowerChart({
             />
             <Tooltip
               formatter={(value: number) => [formatCompact(value), t('detail.followerChart.tooltipFollowers')]}
-              labelFormatter={(d: string) => format(parseISO(d), 'MMM d, yyyy')}
+              labelFormatter={(d: string) => shortDate(parseISO(d))}
               contentStyle={{
                 borderRadius: 12,
                 border: '1px solid hsl(var(--border))',

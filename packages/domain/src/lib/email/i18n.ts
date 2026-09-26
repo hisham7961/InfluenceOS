@@ -92,6 +92,7 @@ export function serverText(text: string, locale: EmailLocale): string {
     },
     (ref) => {
       const [group, key] = ref.split('.');
+      if (group === 'country') return new Intl.DisplayNames([locale], { type: 'region' }).of(key!) ?? key!;
       const label = load<EnumCatalog>(locale, 'enums')?.[group!]?.[key!];
       if (!label) throw new Error('missing');
       return label;

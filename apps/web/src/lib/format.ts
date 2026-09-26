@@ -25,7 +25,22 @@ function toDate(input: string | Date | null | undefined): Date | null {
  * to English. This is the single canonical mapping — nothing else in the
  * codebase should redefine it. */
 export function dateFnsLocale(locale: Locale): DateFnsLocale {
-  return locale === 'ar' ? arSA : enUS;
+  return locale === 'ar' ? arFull : enUS;
+}
+
+/** Arabic with full month names everywhere: date-fns abbreviates them
+ *  ("ديسـ"), which reads as a typo in Arabic. */
+const arFull: DateFnsLocale = {
+  ...arSA,
+  localize: {
+    ...arSA.localize!,
+    month: (month, options) => arSA.localize!.month(month, { ...options, width: 'wide' }),
+  },
+};
+
+/** Day first in Arabic ("5 ديسمبر 2026"), month first in English ("Dec 5, 2026"). */
+function pattern(locale: Locale, en: string, ar: string): string {
+  return locale === 'ar' ? ar : en;
 }
 
 export function relativeTime(input: string | Date | null | undefined, locale: Locale): string {
@@ -35,17 +50,19 @@ export function relativeTime(input: string | Date | null | undefined, locale: Lo
 
 export function shortDate(input: string | Date | null | undefined, locale: Locale): string {
   const d = toDate(input);
-  return d ? format(d, 'MMM d, yyyy', { locale: dateFnsLocale(locale) }) : '—';
+  return d ? format(d, pattern(locale, 'MMM d, yyyy', 'd MMMM yyyy'), { locale: dateFnsLocale(locale) }) : '—';
 }
 
 export function dateTime(input: string | Date | null | undefined, locale: Locale): string {
   const d = toDate(input);
-  return d ? format(d, 'MMM d, yyyy · HH:mm', { locale: dateFnsLocale(locale) }) : '—';
+  return d
+    ? format(d, pattern(locale, 'MMM d, yyyy · HH:mm', 'd MMMM yyyy · HH:mm'), { locale: dateFnsLocale(locale) })
+    : '—';
 }
 
 export function dayMonth(input: string | Date | null | undefined, locale: Locale): string {
   const d = toDate(input);
-  return d ? format(d, 'MMM d', { locale: dateFnsLocale(locale) }) : '—';
+  return d ? format(d, pattern(locale, 'MMM d', 'd MMMM'), { locale: dateFnsLocale(locale) }) : '—';
 }
 
 /** Human-readable byte size (1.2 MB). */

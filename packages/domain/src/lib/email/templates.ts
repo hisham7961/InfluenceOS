@@ -83,7 +83,8 @@ export function emailDate(iso: string | Date, locale: EmailLocale, withWeekday =
   return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-KW-u-nu-latn' : 'en-GB', {
     timeZone: 'Asia/Kuwait',
     day: 'numeric',
-    month: 'short',
+    // Arabic month names in full ("٣ أكتوبر", not an abbreviation).
+    month: locale === 'ar' ? 'long' : 'short',
     ...(withWeekday ? { weekday: 'long' } : {}),
   }).format(typeof iso === 'string' ? new Date(iso) : iso);
 }

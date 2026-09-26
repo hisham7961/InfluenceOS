@@ -263,5 +263,22 @@
     "CARD": "Card",
     "PAYMENT_LINK": "Payment link",
     "OTHER": "Other"
+  },
+  "platform": {
+    "INSTAGRAM": "Instagram",
+    "TIKTOK": "TikTok",
+    "YOUTUBE": "YouTube",
+    "SNAPCHAT": "Snapchat",
+    "X": "X"
+  },
+  "bulkAction": {
+    "ASSIGN_OWNER": "assign owner",
+    "ADD_TAG": "add tag",
+    "SET_RELATIONSHIP_STATUS": "set relationship status"
+  },
+  "role": {
+    "ADMIN": "Admin",
+    "STAFF": "Staff",
+    "VIEWER": "Viewer"
   }
 }

@@ -27,9 +27,12 @@ export interface ServerTextMatcher {
   match(text: string): { key: string; params: Record<string, string> } | null;
   /**
    * The enum reference ("deliverableType.REEL") of an English value the
-   * server wrote into a message, or null.
+   * server wrote into a message, or null. `param` (the placeholder's name,
+   * e.g. "roleProfile2") first looks the value up as a key of the enum group
+   * of that name, so "INFLUENCER_MANAGER" in {roleProfile} or "YOUTUBE" in
+   * {platform} resolve even where words alone would be ambiguous.
    */
-  enumRef(value: string): string | null;
+  enumRef(value: string, param?: string): string | null;
 }
 
 export function createServerTextMatcher(englishCatalog: Catalog, englishEnums: EnumCatalog): ServerTextMatcher {
@@ -47,7 +50,8 @@ export function createServerTextMatcher(englishCatalog: Catalog, englishEnums: E
           const m = /^\{([^}]+)\}$/.exec(part);
           if (m) {
             names.push(m[1]!);
-            return '(.+?)';
+            // {value} is the plural "s" the server adds, empty for one.
+            return m[1] === 'value' ? '(.*?)' : '(.+?)';
           }
           fixed += part.length;
           return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -74,20 +78,27 @@ export function createServerTextMatcher(englishCatalog: Catalog, englishEnums: E
       }
       return null;
     },
-    enumRef(value) {
+    enumRef(value, param) {
+      const v = value.trim();
+      if (param) {
+        const group = param.replace(/\d+$/, '');
+        if (/countryCode$/i.test(group) && /^[A-Z]{2}$/.test(v)) return `country.${v}`;
+        const key = v.toUpperCase().replace(/[\s-]+/g, '_');
+        if (englishEnums[group]?.[key] !== undefined) return `${group}.${key}`;
+      }
       if (!enumIndex) {
         enumIndex = new Map();
         for (const [group, entries] of Object.entries(englishEnums)) {
           for (const [key, label] of Object.entries(entries)) {
             const ref = `${group}.${key}`;
-            for (const form of [label, key.replace(/_/g, ' ')]) {
+            for (const form of [label, key.replace(/_/g, ' '), key]) {
               const k = form.trim().toLowerCase();
               if (k && !enumIndex.has(k)) enumIndex.set(k, ref);
             }
           }
         }
       }
-      return enumIndex.get(value.trim().toLowerCase()) ?? null;
+      return enumIndex.get(v.toLowerCase()) ?? null;
     },
   };
 }
@@ -110,8 +121,9 @@ export function translateServerMessage(
   const params = { ...match.params };
   if (tEnum) {
     for (const [name, value] of Object.entries(params)) {
-      if (PROPER.test(name)) continue;
-      const ref = matcher.enumRef(value);
+      // A placeholder holding a name someone typed is only translated when
+      // its value is a key of the enum group it's named after ({platform}).
+      const ref = PROPER.test(name) ? exactRef(matcher, value, name) : matcher.enumRef(value, name);
       if (!ref) continue;
       try {
         params[name] = tEnum(ref);
@@ -129,6 +141,11 @@ export function translateServerMessage(
   } catch {
     return text;
   }
+}
+
+function exactRef(matcher: ServerTextMatcher, value: string, name: string): string | null {
+  const ref = matcher.enumRef(value, name);
+  return ref && ref.split('.')[0] === name.replace(/\d+$/, '') ? ref : null;
 }
 
 /** Fill a catalog template's {placeholders} (no ICU plural/select). */

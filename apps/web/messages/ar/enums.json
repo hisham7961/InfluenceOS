@@ -263,5 +263,22 @@
     "CARD": "بطاقة",
     "PAYMENT_LINK": "رابط دفع",
     "OTHER": "أخرى"
+  },
+  "platform": {
+    "INSTAGRAM": "Instagram",
+    "TIKTOK": "TikTok",
+    "YOUTUBE": "YouTube",
+    "SNAPCHAT": "Snapchat",
+    "X": "X"
+  },
+  "bulkAction": {
+    "ASSIGN_OWNER": "تعيين مسؤول",
+    "ADD_TAG": "إضافة وسم",
+    "SET_RELATIONSHIP_STATUS": "تغيير حالة العلاقة"
+  },
+  "role": {
+    "ADMIN": "مسؤول",
+    "STAFF": "موظف",
+    "VIEWER": "مشاهِد"
   }
 }
