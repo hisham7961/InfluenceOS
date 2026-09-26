@@ -366,10 +366,14 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
 
   await page.getByPlaceholder('Search by name or @username…').fill(KHALED);
   await page.getByPlaceholder('Search by name or @username…').press('Enter');
+  // Wait for this search to land before checking — otherwise the count below
+  // passes on the previous page and the next search races this one.
+  await expect(page).toHaveURL(/[?&]q=LogX\+Khaled/, { timeout: 30_000 });
   await expect(page.getByText(KHALED)).toHaveCount(0);
 
   await page.getByPlaceholder('Search by name or @username…').fill(SARA);
   await page.getByPlaceholder('Search by name or @username…').press('Enter');
+  await expect(page).toHaveURL(/[?&]q=LogX\+Sara/, { timeout: 30_000 });
   await page.getByText(SARA).first().click();
   await expect(page.getByRole('heading', { name: SARA })).toBeVisible();
   await expect(page.getByText(/Logistics needs address clarification/i)).toBeVisible({ timeout: 30_000 });
@@ -401,10 +405,12 @@ test('Advanced Roles & Logistics Operations — 11 scenario browser journey', as
   await page.goto('/logistics');
   await page.getByText(SARA).first().click();
   const resolveSheet = page.getByRole('dialog');
-  await resolveSheet.getByRole('button', { name: 'Edit' }).click();
+  // The address "Edit" comes first; the comment thread below can add its own
+  // "Edit" buttons once it has loaded, so never rely on there being just one.
+  await resolveSheet.getByRole('button', { name: 'Edit', exact: true }).first().click();
   await resolveSheet.getByRole('textbox').nth(1).fill('+96550000000'); // Phone (2nd field in the edit form)
   await resolveSheet.getByRole('button', { name: 'Save' }).click();
-  await expect(resolveSheet.getByRole('button', { name: 'Edit' })).toBeVisible({ timeout: 25_000 });
+  await expect(resolveSheet.getByRole('button', { name: 'Edit', exact: true }).first()).toBeVisible({ timeout: 25_000 });
 
   await resolveSheet.getByRole('button', { name: 'Resolve' }).click();
   await expect(resolveSheet.getByText(/Resolved by/)).toBeVisible({ timeout: 25_000 });

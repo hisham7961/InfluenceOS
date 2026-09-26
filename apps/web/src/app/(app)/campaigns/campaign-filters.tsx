@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { enumLabel } from '@/lib/enum-labels';
 import { BidiText } from '@/components/common/bidi-text';
+import { useUrlSyncedInput } from '@/lib/use-url-synced-input';
 
 /** Sentinel value for Radix Select's "no filter" option (Select forbids an empty-string item value). */
 const ALL = 'all';
@@ -28,12 +29,8 @@ export function CampaignFilters({ brands, brandId, status, q }: CampaignFiltersP
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
-  const [search, setSearch] = React.useState(q ?? '');
-
-  // Keep the local input in sync when filters change via a Select or Reset (which don't touch this state directly).
-  React.useEffect(() => {
-    setSearch(q ?? '');
-  }, [q]);
+  // Follow the URL (Select, Reset, Back) without overwriting what's being typed.
+  const [search, setSearch] = useUrlSyncedInput(q);
 
   function navigate(next: { q?: string; brandId?: string; status?: string }) {
     const merged = {
@@ -102,7 +99,10 @@ export function CampaignFilters({ brands, brandId, status, q }: CampaignFiltersP
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => router.push('/campaigns')}
+            onClick={() => {
+              setSearch('');
+              router.push('/campaigns');
+            }}
             className="text-muted-foreground sm:ml-auto"
           >
             <X className="h-3.5 w-3.5" /> {t('list.resetFilters')}

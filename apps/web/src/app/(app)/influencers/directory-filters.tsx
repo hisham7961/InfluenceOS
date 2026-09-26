@@ -8,6 +8,7 @@ import { COUNTRIES, PLATFORMS, PLATFORM_META, RELATIONSHIP_STATUSES } from '@inf
 import { enumLabel } from '@/lib/enum-labels';
 import { SearchInput } from '@/components/ui/search-input';
 import { Button } from '@/components/ui/button';
+import { useUrlSyncedInput } from '@/lib/use-url-synced-input';
 import {
   Select,
   SelectContent,
@@ -41,16 +42,9 @@ export function DirectoryFilters({
   const t = useTranslations('influencers');
   const tc = useTranslations('common');
   const te = useTranslations('enums');
-  const [search, setSearch] = React.useState(q ?? '');
-  const [cityInput, setCityInput] = React.useState(city ?? '');
-
-  // Keep the local input in sync when filters change via a Select or Reset (which don't touch this state directly).
-  React.useEffect(() => {
-    setSearch(q ?? '');
-  }, [q]);
-  React.useEffect(() => {
-    setCityInput(city ?? '');
-  }, [city]);
+  // Follow the URL (Select, Reset, Back) without overwriting what's being typed.
+  const [search, setSearch] = useUrlSyncedInput(q);
+  const [cityInput, setCityInput] = useUrlSyncedInput(city);
 
   function navigate(next: {
     q?: string;
@@ -188,7 +182,11 @@ export function DirectoryFilters({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => router.push('/influencers')}
+                onClick={() => {
+                  setSearch('');
+                  setCityInput('');
+                  router.push('/influencers');
+                }}
                 className="text-muted-foreground"
               >
                 <X className="h-3.5 w-3.5" /> {t('directory.filters.reset')}
