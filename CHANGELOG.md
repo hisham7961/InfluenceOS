@@ -12,6 +12,30 @@ versions are fabricated. Dates are UTC.
 Pre-deployment platform-completion and freeze-candidate work on top of the
 validated baseline. No staging or production environment has been deployed.
 
+### Owner decisions — the open items finished
+
+- **Arabic everywhere it was missing** — Arabic dates use full month names;
+  activity lines no longer leave English values (platforms, roles, channels,
+  country codes, bulk actions) inside Arabic sentences, old rows included.
+- **Arabic-aware search** — أ/إ/آ/ا, ى/ي, ة/ه, diacritics and tatweel all
+  match each other in the search page, quick palette, directory, pickers,
+  campaign list, content feed and Trends (`ar_fold()` + `foldArabic()`).
+  Fixed: a brand-scoped user's Trends search also listed other brands' items.
+- **Saved post covers** — the worker keeps our own copy of each cover (safe
+  fetch from the platforms' image hosts only), served by a signed, day-stable
+  `/api/v1/covers/:id` link; `COVER_BATCH_SIZE`.
+- **Creators upload the draft file** on their task link (photo/video, up to
+  `MAX_UPLOAD_MB`, private, one upload = one draft).
+- **AI reads audience screenshots** in the Audience dialog (countries,
+  women/men, ages, engagement) — suggestions only, same switch and limit.
+- **Least-privilege logins from `.env`** — `APP_DB_USER/APP_DB_PASSWORD` and
+  `MINIO_APP_USER/MINIO_APP_PASSWORD` make rows-only / bucket-only logins on
+  the next deploy (checked in CI); `scripts/server-changes.sh` shows
+  hand-made server changes before each deploy. `MAX_UPLOAD_MB` now passes
+  through the production compose file.
+- `docs/OWNER_DECISIONS_AR.md`: every item decided; what still needs the
+  owner is listed at the top.
+
 ### Freeze candidate — release readiness gate (this pass)
 
 - **Influencer photo sync** — a "Sync photo" action on the Influencer 360

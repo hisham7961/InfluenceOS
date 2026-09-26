@@ -156,6 +156,7 @@ contracts, media represented independently of the web UI — spec addendum §37)
 - `POST /api/v1/content/lookup`
 - `POST /api/v1/campaigns/:id/content/link-roster`
 - `GET /api/v1/content/:id`
+- `GET /api/v1/covers/:id`
 - `PATCH /api/v1/content/:id`
 - `GET /api/v1/content/:id/metrics`
 
@@ -319,6 +320,8 @@ contracts, media represented independently of the web UI — spec addendum §37)
 - `POST /api/v1/campaign-influencers/:id/creator-links`
 - `POST /api/v1/creator-links/:id/revoke`
 - `GET /api/v1/public/creator/:token`
+- `POST /api/v1/public/creator/:token/deliverables/:deliverableId/uploads`
+- `PUT /api/v1/public/creator/:token/uploads`
 - `POST /api/v1/public/creator/:token/deliverables/:deliverableId/drafts`
 - `POST /api/v1/public/creator/:token/deliverables/:deliverableId/posted`
 
@@ -365,6 +368,7 @@ contracts, media represented independently of the web UI — spec addendum §37)
 
 - `GET /api/v1/ai/status`
 - `POST /api/v1/content/:id/metrics/read-screenshot`
+- `POST /api/v1/influencers/:id/audience/read-screenshot`
 
 ### AI writing help
 

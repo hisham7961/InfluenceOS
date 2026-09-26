@@ -339,12 +339,13 @@ describe('P3.5 — AI writing help', () => {
   it('follows the writing-help switch and the scope rules before calling the AI', async () => {
     await admin.ai.updateSettings({ writingHelp: false });
     try {
-      for (const p of [
-        admin.ai.draftScript(campaignId, { language: 'en' }),
-        admin.ai.reviewDraft(submissionId, { language: 'en' }),
-        admin.ai.summarizeReport(campaignId, { language: 'en' }),
+      // One call at a time: a request started early would reject before it's awaited.
+      for (const call of [
+        () => admin.ai.draftScript(campaignId, { language: 'en' }),
+        () => admin.ai.reviewDraft(submissionId, { language: 'en' }),
+        () => admin.ai.summarizeReport(campaignId, { language: 'en' }),
       ]) {
-        expect(await status(p)).toBe(409);
+        expect(await status(call())).toBe(409);
       }
       expect(calls).toHaveLength(0);
     } finally {

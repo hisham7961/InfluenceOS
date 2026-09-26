@@ -49,7 +49,8 @@ async function main(): Promise<void> {
   const ownerUrl = process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL;
   const prisma = new PrismaClient({ datasourceUrl: ownerUrl });
   try {
-    const [{ owner }] = await prisma.$queryRaw<{ owner: string }[]>`SELECT current_user AS owner`;
+    const [row] = await prisma.$queryRaw<{ owner: string }[]>`SELECT current_user AS owner`;
+    const owner = row?.owner ?? '';
     if (owner === user) {
       throw new Error(
         'Migrations must run as the database owner, not as APP_DB_USER (check DIRECT_DATABASE_URL).',
