@@ -197,7 +197,7 @@ function NavCard({
             </div>
             <p className="mt-1 text-sm text-muted-foreground">{description}</p>
           </div>
-          <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" />
+          <ArrowRight className="rtl:-scale-x-100 mt-1 h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform duration-200 group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 group-hover:text-brand" />
         </CardContent>
         {children ? <div className="px-5 pb-5">{children}</div> : null}
       </Card>

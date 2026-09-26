@@ -13,6 +13,8 @@ export * from './utils/worker-health';
 export * from './utils/build-identity';
 export * from './utils/business-day';
 export * from './utils/deliverable-rules';
+export * from './utils/whatsapp';
+export * from './utils/whatsapp-templates';
 export * from './utils/usage-right';
 export * from './utils/csv';
 export * from './utils/content-status';

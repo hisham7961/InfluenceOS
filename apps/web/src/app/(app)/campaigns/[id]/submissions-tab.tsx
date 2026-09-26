@@ -22,6 +22,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
 import { useLocalizedFormat } from '@/lib/format';
+import { WhatsAppDialog } from '@/components/influencers/whatsapp-dialog';
 
 function errorMessage(e: unknown, fallback: string): string {
   return e instanceof ApiError ? e.message : fallback;
@@ -33,7 +34,17 @@ const OPEN_STATUSES = new Set(['IN_REVIEW', 'CHANGES_REQUESTED']);
  *  submitted across the campaign's deliverables with its version, review status
  *  and reviewer — so "what's waiting on me?" is answerable. Open submissions can
  *  be reviewed (approve/request changes/reject) directly from this queue. */
-export function SubmissionsTab({ campaignId, influencers }: { campaignId: string; influencers: CampaignInfluencerDTO[] }) {
+export function SubmissionsTab({
+  campaignId,
+  campaignName,
+  brandName,
+  influencers,
+}: {
+  campaignId: string;
+  campaignName?: string;
+  brandName?: string;
+  influencers: CampaignInfluencerDTO[];
+}) {
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
@@ -46,7 +57,15 @@ export function SubmissionsTab({ campaignId, influencers }: { campaignId: string
 
   // deliverableId → { creator, platform, type } from the roster we already have.
   const byDeliverable = new Map(
-    influencers.flatMap((ci) => ci.deliverables.map((d) => [d.id, { creator: ci.influencer.displayName, platform: d.platform, type: d.type }] as const)),
+    influencers.flatMap((ci) =>
+      ci.deliverables.map(
+        (d) =>
+          [
+            d.id,
+            { creator: ci.influencer.displayName, influencerId: ci.influencer.id, ciId: ci.id, platform: d.platform, type: d.type },
+          ] as const,
+      ),
+    ),
   );
 
   if (isLoading) {
@@ -145,6 +164,18 @@ export function SubmissionsTab({ campaignId, influencers }: { campaignId: string
       <SubmissionReviewDialog
         submission={reviewing}
         creatorName={reviewing ? byDeliverable.get(reviewing.deliverableId)?.creator : undefined}
+        whatsapp={(() => {
+          const d = reviewing ? byDeliverable.get(reviewing.deliverableId) : undefined;
+          return d
+            ? {
+                influencerId: d.influencerId,
+                campaignInfluencerId: d.ciId,
+                campaignName,
+                brandName,
+                deliverables: [{ type: d.type, platform: d.platform }],
+              }
+            : undefined;
+        })()}
         open={reviewing != null}
         onOpenChange={(v) => {
           if (!v) setReviewing(null);
@@ -162,11 +193,20 @@ export function SubmissionsTab({ campaignId, influencers }: { campaignId: string
 function SubmissionReviewDialog({
   submission,
   creatorName,
+  whatsapp,
   open,
   onOpenChange,
 }: {
   submission: DeliverableSubmissionDTO | null;
   creatorName?: string;
+  /** Who to message about changes, and what about. */
+  whatsapp?: {
+    influencerId: string;
+    campaignInfluencerId: string;
+    campaignName?: string;
+    brandName?: string;
+    deliverables: { type: string; platform: string }[];
+  };
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -280,6 +320,21 @@ function SubmissionReviewDialog({
             placeholder={t('submissions.decisionNotePlaceholder')}
             rows={2}
           />
+          {whatsapp && creatorName ? (
+            <WhatsAppDialog
+              variant="outline"
+              influencerId={whatsapp.influencerId}
+              creatorName={creatorName}
+              purpose="CHANGES"
+              campaignInfluencerId={whatsapp.campaignInfluencerId}
+              context={{
+                campaignName: whatsapp.campaignName,
+                brandName: whatsapp.brandName,
+                deliverables: whatsapp.deliverables,
+                feedback: note.trim() || null,
+              }}
+            />
+          ) : null}
         </div>
 
         <DialogFooter className="flex-wrap gap-2 sm:justify-between">

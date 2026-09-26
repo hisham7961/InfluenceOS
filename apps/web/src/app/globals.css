@@ -44,7 +44,7 @@
     --brand-foreground: 0 0% 100%;
     --brand-soft: 245 58% 96%;
 
-    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-sans: var(--font-latin), var(--font-arabic), system-ui, sans-serif;
   }
 
   .dark {

@@ -63,11 +63,11 @@ export function Pagination(props: PaginationLinkProps | PaginationButtonProps) {
     <div className="flex items-center gap-1.5">
       {page <= 1 ? (
         <Button variant="outline" size="icon-sm" disabled aria-label={previousLabel}>
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="rtl:-scale-x-100 h-4 w-4" />
         </Button>
       ) : (
         <PageButton target={page - 1} ariaLabel={previousLabel}>
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="rtl:-scale-x-100 h-4 w-4" />
         </PageButton>
       )}
 
@@ -89,11 +89,11 @@ export function Pagination(props: PaginationLinkProps | PaginationButtonProps) {
 
       {page >= totalPages ? (
         <Button variant="outline" size="icon-sm" disabled aria-label={nextLabel}>
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="rtl:-scale-x-100 h-4 w-4" />
         </Button>
       ) : (
         <PageButton target={page + 1} ariaLabel={nextLabel}>
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="rtl:-scale-x-100 h-4 w-4" />
         </PageButton>
       )}
     </div>

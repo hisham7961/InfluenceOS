@@ -28,7 +28,7 @@ const ACTION_TYPES = [
   'DELIVERABLE_ADDED', 'DELIVERABLE_STATUS_CHANGED',
   'SCRIPT_ADDED', 'SCRIPT_UPDATED',
   'CONTENT_PUBLISHED', 'CONTENT_STATUS_CHANGED',
-  'COST_ADDED', 'COST_UPDATED', 'NOTE_ADDED', 'FOLLOWER_MILESTONE', 'GENERIC',
+  'COST_ADDED', 'COST_UPDATED', 'NOTE_ADDED', 'FOLLOWER_MILESTONE', 'INFLUENCER_CONTACTED', 'GENERIC',
 ] as const;
 
 const ENTITY_TYPES = ['brand', 'campaign', 'influencer', 'deliverable', 'content'] as const;
@@ -202,7 +202,7 @@ function AuditDetailDrawer({ entry, onClose }: { entry: AuditEntryDTO | null; on
   const { dateTime } = useLocalizedFormat();
   return (
     <Sheet open={Boolean(entry)} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-md">
+      <SheetContent side="end" className="w-full sm:max-w-md">
         {entry ? (
           <div className="space-y-5">
             <SheetHeader className="space-y-1 text-start">
@@ -256,7 +256,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-2 last:border-0">
       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="truncate text-right text-sm font-medium">{value}</span>
+      <span className="truncate text-end text-sm font-medium">{value}</span>
     </div>
   );
 }

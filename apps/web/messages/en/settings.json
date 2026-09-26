@@ -370,6 +370,7 @@
       "COST_UPDATED": "Cost updated",
       "NOTE_ADDED": "Note added",
       "FOLLOWER_MILESTONE": "Follower milestone",
+      "INFLUENCER_CONTACTED": "Creator contacted",
       "GENERIC": "Other"
     },
     "entityType": {

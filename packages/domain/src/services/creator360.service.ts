@@ -87,7 +87,7 @@ export function makeCreator360Service(ctx: DomainContext) {
     const brandScope = await scopedBrandIds(ctx);
     const ciBrandScopeWhere = brandScope ? { campaign: { brandId: { in: brandScope } } } : {};
 
-    const [influencer, cis, lastNoteAt] = await Promise.all([
+    const [influencer, cis, lastNoteAt, lastMessagedAt] = await Promise.all([
       prisma.influencer.findUnique({ where: { id: influencerId }, select: { owner: { select: { name: true } } } }),
       prisma.campaignInfluencer.findMany({
         where: { influencerId, ...ciBrandScopeWhere },
@@ -122,6 +122,15 @@ export function makeCreator360Service(ctx: DomainContext) {
         where: { influencerId, ...(brandScope ? { OR: [{ brandId: null }, { brandId: { in: brandScope } }] } : {}) },
         _max: { createdAt: true },
       }),
+      // Messages sent from the app's WhatsApp templates (contact log).
+      prisma.activityLog.aggregate({
+        where: {
+          influencerId,
+          type: 'INFLUENCER_CONTACTED',
+          ...(brandScope ? { OR: [{ brandId: null }, { brandId: { in: brandScope } }] } : {}),
+        },
+        _max: { createdAt: true },
+      }),
     ]);
     if (!influencer) throw AppError.notFound('Influencer');
 
@@ -129,6 +138,8 @@ export function makeCreator360Service(ctx: DomainContext) {
     let currentCampaigns = 0;
     let lastCollaborationAt: Date | null = null;
     let lastContactAt: Date | null = lastNoteAt._max.createdAt ?? null;
+    const messagedAt = lastMessagedAt._max.createdAt;
+    if (messagedAt && (!lastContactAt || messagedAt > lastContactAt)) lastContactAt = messagedAt;
     let activeDeliverables = 0;
     let activeShipments = 0;
     const openLogisticsIssues: CreatorSnapshotDTO['openLogisticsIssues'] = [];
@@ -381,7 +392,7 @@ export function makeCreator360Service(ctx: DomainContext) {
             ? 'payment'
             : a.type === 'CAMPAIGN_CREATED' || a.type === 'CAMPAIGN_STATUS_CHANGED' || a.type === 'CAMPAIGN_UPDATED' || a.type === 'INFLUENCER_ADDED_TO_CAMPAIGN' || a.type === 'DELIVERABLE_ADDED' || a.type === 'DELIVERABLE_STATUS_CHANGED'
               ? 'campaign'
-              : a.type === 'NOTE_ADDED'
+              : a.type === 'NOTE_ADDED' || a.type === 'INFLUENCER_CONTACTED'
                 ? 'collaboration'
                 : 'activity';
       items.push({ id: `activity:${a.id}`, bucket, message: dto.message, link: dto.link, at: a.createdAt.toISOString() });

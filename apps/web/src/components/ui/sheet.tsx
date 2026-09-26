@@ -26,7 +26,12 @@ const SheetOverlay = React.forwardRef<
 ));
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName;
 
-const sheetSideClasses: Record<'left' | 'right' | 'bottom', string> = {
+// `start`/`end` follow the reading direction (in Arabic, `end` is the left
+// edge); `left`/`right` stay physical for the rare case that needs it.
+const sheetSideClasses: Record<'start' | 'end' | 'left' | 'right' | 'bottom', string> = {
+  start:
+    'inset-y-0 start-0 h-full w-full border-e data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left rtl:data-[state=closed]:slide-out-to-right rtl:data-[state=open]:slide-in-from-right sm:max-w-xl',
+  end: 'inset-y-0 end-0 h-full w-full border-s data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right rtl:data-[state=closed]:slide-out-to-left rtl:data-[state=open]:slide-in-from-left sm:max-w-xl',
   right:
     'inset-y-0 right-0 h-full w-full border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-xl',
   left: 'inset-y-0 left-0 h-full w-full border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-xl',
@@ -35,11 +40,11 @@ const sheetSideClasses: Record<'left' | 'right' | 'bottom', string> = {
 };
 
 export interface SheetContentProps extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content> {
-  side?: 'left' | 'right' | 'bottom';
+  side?: 'start' | 'end' | 'left' | 'right' | 'bottom';
 }
 
 export const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = 'right', className, children, ...props }, ref) => {
+  ({ side = 'end', className, children, ...props }, ref) => {
     const t = useTranslations('ui');
     return (
       <SheetPortal>

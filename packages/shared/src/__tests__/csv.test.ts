@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseCsv, parseCsvRecords } from '../utils/csv';
+import { csvCell, parseCsv, parseCsvRecords, toCsv } from '../utils/csv';
 
 /**
  * W3-4 — the CSV parser behind roster import. It must survive quoted fields
@@ -42,5 +42,39 @@ describe('csv parser', () => {
   it('returns an empty array for empty input', () => {
     expect(parseCsvRecords('')).toEqual([]);
     expect(parseCsv('')).toEqual([]);
+  });
+});
+
+describe('toCsv / csvCell — Excel-safe output', () => {
+  it('starts with a UTF-8 BOM and uses CRLF, so Arabic opens correctly in Excel', () => {
+    const csv = toCsv(['الاسم', 'Views'], [['سارة', 1200]]);
+    expect(csv.charCodeAt(0)).toBe(0xfeff);
+    expect(csv.slice(1)).toBe('الاسم,Views\r\nسارة,1200');
+  });
+
+  it('neutralises text a spreadsheet would run as a formula', () => {
+    expect(csvCell('=HYPERLINK("http://x","click")')).toBe(`"'=HYPERLINK(""http://x"",""click"")"`);
+    expect(csvCell('+cmd|calc')).toBe("'+cmd|calc");
+    expect(csvCell('@SUM(A1)')).toBe("'@SUM(A1)");
+    expect(csvCell('-2+3+cmd')).toBe("'-2+3+cmd");
+  });
+
+  it('leaves numbers and phone numbers alone', () => {
+    expect(csvCell(-12.5)).toBe('-12.5');
+    expect(csvCell('+965 5000 0000')).toBe('+965 5000 0000');
+    expect(csvCell('-1,200')).toBe('"-1,200"');
+  });
+
+  it('quotes commas, quotes and both kinds of line break', () => {
+    expect(csvCell('a,b')).toBe('"a,b"');
+    expect(csvCell('say "hi"')).toBe('"say ""hi"""');
+    expect(csvCell('line\r\nbreak')).toBe('"line\r\nbreak"');
+    expect(csvCell(null)).toBe('');
+    expect(csvCell(true)).toBe('true');
+  });
+
+  it('round-trips through the parser', () => {
+    const csv = toCsv(['a', 'b'], [['x,y', 'multi\nline']]);
+    expect(parseCsv(csv)).toEqual([['a', 'b'], ['x,y', 'multi\nline']]);
   });
 });

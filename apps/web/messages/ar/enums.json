@@ -61,7 +61,7 @@
     "APPROVED": "معتمد",
     "PUBLISHED": "منشور",
     "VERIFIED": "تم التحقق",
-    "MISSED": "متأخر",
+    "MISSED": "لم يُنفَّذ",
     "CANCELLED": "ملغى"
   },
   "submissionStatus": {

@@ -90,6 +90,10 @@ export type Priority = (typeof PRIORITIES)[number];
 export const CONTACT_METHODS = ['WHATSAPP', 'EMAIL', 'PHONE', 'INSTAGRAM_DM', 'OTHER'] as const;
 export type ContactMethod = (typeof CONTACT_METHODS)[number];
 
+/** Why a creator was messaged (WhatsApp templates and the contact log). */
+export const CONTACT_PURPOSES = ['BRIEF', 'OFFER', 'SHIPMENT', 'ADDRESS', 'CHANGES', 'GENERAL'] as const;
+export type ContactPurpose = (typeof CONTACT_PURPOSES)[number];
+
 export const AUDIENCE_HEALTH_LABELS = ['HEALTHY', 'REVIEW', 'LIMITED_DATA'] as const;
 export type AudienceHealthLabel = (typeof AUDIENCE_HEALTH_LABELS)[number];
 

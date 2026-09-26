@@ -202,8 +202,8 @@ function DirectoryTable({
             <th className="px-4 py-3 font-medium">{t('directory.results.table.country')}</th>
             <th className="px-4 py-3 font-medium">{t('directory.results.table.status')}</th>
             <th className="px-4 py-3 font-medium">{t('directory.results.table.audience')}</th>
-            <th className="px-4 py-3 text-right font-medium">{t('directory.results.table.followers')}</th>
-            <th className="px-4 py-3 text-right font-medium">{t('directory.results.table.campaigns')}</th>
+            <th className="px-4 py-3 text-end font-medium">{t('directory.results.table.followers')}</th>
+            <th className="px-4 py-3 text-end font-medium">{t('directory.results.table.campaigns')}</th>
             <th className="px-4 py-3" />
           </tr>
         </thead>
@@ -241,11 +241,11 @@ function DirectoryTable({
               <td className="px-4 py-3">
                 <AudienceHealthBadge status={inf.audienceHealth} />
               </td>
-              <td className="px-4 py-3 text-right tabular-nums">
+              <td className="px-4 py-3 text-end tabular-nums">
                 {inf.totalFollowers != null ? <LtrText>{formatCompact(inf.totalFollowers)}</LtrText> : '—'}
               </td>
-              <td className="px-4 py-3 text-right tabular-nums">{inf.activeCampaigns}</td>
-              <td className="px-4 py-3 text-right">
+              <td className="px-4 py-3 text-end tabular-nums">{inf.activeCampaigns}</td>
+              <td className="px-4 py-3 text-end">
                 <Button
                   type="button"
                   variant="ghost"
@@ -274,7 +274,7 @@ function PreviewDrawer({ influencerId, onClose }: { influencerId: string | null;
 
   return (
     <Sheet open={Boolean(influencerId)} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-md">
+      <SheetContent side="end" className="w-full sm:max-w-md">
         {isLoading || !data ? (
           <div className="space-y-4">
             <Skeleton className="h-16 w-16 rounded-2xl" />

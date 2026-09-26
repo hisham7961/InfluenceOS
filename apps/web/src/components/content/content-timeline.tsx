@@ -145,7 +145,7 @@ export function ContentTimeline({ items }: { items: PublishedContentDTO[] }) {
                     className="mb-3 flex w-full items-center gap-2 text-start"
                   >
                     {isCollapsed ? (
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <ChevronRight className="rtl:-scale-x-100 h-4 w-4 shrink-0 text-muted-foreground" />
                     ) : (
                       <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}

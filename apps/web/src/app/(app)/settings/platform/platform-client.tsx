@@ -429,8 +429,8 @@ function ModulesTab({ modules }: { modules: ApiModuleDTO[] }) {
               <th className="px-5 py-3 text-center">{t('platform.modulesTab.webIntegrated')}</th>
               <th className="px-5 py-3 text-center">{t('platform.modulesTab.mobileReady')}</th>
               <th className="px-5 py-3">{t('platform.modulesTab.version')}</th>
-              <th className="px-5 py-3 text-right">{t('platform.modulesTab.endpoints')}</th>
-              <th className="px-5 py-3 text-right">{t('platform.modulesTab.docs')}</th>
+              <th className="px-5 py-3 text-end">{t('platform.modulesTab.endpoints')}</th>
+              <th className="px-5 py-3 text-end">{t('platform.modulesTab.docs')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -453,8 +453,8 @@ function ModulesTab({ modules }: { modules: ApiModuleDTO[] }) {
                   </div>
                 </td>
                 <td className="px-5 py-3.5 text-muted-foreground">{m.version}</td>
-                <td className="px-5 py-3.5 text-right tabular-nums text-muted-foreground">{m.endpointCount}</td>
-                <td className="px-5 py-3.5 text-right">
+                <td className="px-5 py-3.5 text-end tabular-nums text-muted-foreground">{m.endpointCount}</td>
+                <td className="px-5 py-3.5 text-end">
                   <Link
                     href={API_DOCS_URL}
                     target="_blank"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Download } from 'lucide-react';
 import { api } from '@/lib/api-browser';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,8 @@ type ExportFilters = Record<string, string | undefined>;
  */
 export function ExportInfluencersButton({ filters }: { filters: ExportFilters }) {
   const t = useTranslations('influencers');
-  const href = api.influencers.exportUrl(filters);
+  const locale = useLocale();
+  const href = api.influencers.exportUrl({ ...filters, locale });
   return (
     <Button asChild variant="outline">
       <a href={href} download>

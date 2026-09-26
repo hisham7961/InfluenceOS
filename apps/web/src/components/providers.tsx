@@ -1,10 +1,14 @@
 'use client';
 import * as React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useLocale } from 'next-intl';
 import { Toaster } from 'sonner';
+import { isRtl } from '@/i18n/direction';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  // Toasts sit at the reading end of the top bar (top-left in Arabic).
+  const rtl = isRtl(useLocale());
   const [queryClient] = React.useState(
     () =>
       new QueryClient({
@@ -25,7 +29,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
       <Toaster
-        position="top-right"
+        position={rtl ? 'top-left' : 'top-right'}
+        dir={rtl ? 'rtl' : 'ltr'}
         toastOptions={{
           classNames: {
             toast: 'rounded-xl border border-border bg-card text-foreground shadow-pop',

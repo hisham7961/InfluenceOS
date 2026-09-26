@@ -330,7 +330,7 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
                 <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                   <CalendarRange className="h-3.5 w-3.5" /> {t('fields.timeline')}
                 </span>
-                <span className="text-right font-medium">
+                <span className="text-end font-medium">
                   {form.startDate || form.endDate
                     ? `${form.startDate || '—'} → ${form.endDate || '—'}`
                     : t('fields.notSet')}

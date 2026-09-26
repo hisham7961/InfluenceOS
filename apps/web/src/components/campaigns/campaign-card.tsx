@@ -32,8 +32,8 @@ export function CampaignCover({
       className={`relative flex w-full items-end overflow-hidden p-4 ${className}`}
       style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor ?? primaryColor})` }}
     >
-      <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/15" />
-      <div className="absolute right-8 top-6 h-12 w-12 rounded-full bg-white/10" />
+      <div className="absolute -end-6 -top-8 h-24 w-24 rounded-full bg-white/15" />
+      <div className="absolute end-8 top-6 h-12 w-12 rounded-full bg-white/10" />
       <span className="relative line-clamp-2 text-sm font-semibold text-white drop-shadow">{name}</span>
     </div>
   );

@@ -189,6 +189,9 @@ export function createClient(config: ClientConfig) {
       remove: (id: string) => http.del<{ hardDeleted: boolean }>(`${V}/influencers/${id}`),
       resolve: (body: In<typeof requests.resolveProfileSchema>) =>
         http.post<ResolveProfileResultDTO>(`${V}/influencers/resolve`, body),
+      /** Log a message sent outside the app (e.g. a WhatsApp template). */
+      logContact: (id: string, body: In<typeof requests.influencerContactLogSchema>) =>
+        http.post<void>(`${V}/influencers/${id}/contact-log`, body),
       syncAvatar: (id: string) =>
         http.post<{ influencer: InfluencerDetailDTO; synced: boolean; reason: 'NO_LINKED_ACCOUNT' | 'NOT_FOUND' | 'SYNCED' }>(
           `${V}/influencers/${id}/sync-avatar`,

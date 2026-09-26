@@ -67,6 +67,7 @@ import {
   PAYMENT_STATUSES,
   PLATFORM_META,
   PLATFORMS,
+  isDeliverableOutstanding,
   isDeliverableOverdue,
 } from '@influenceos/shared';
 import { api } from '@/lib/api-browser';
@@ -111,6 +112,7 @@ import {
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { AttachmentsPanel } from '@/components/common/attachments-panel';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { WhatsAppDialog } from '@/components/influencers/whatsapp-dialog';
 import { ShipmentDetailSheet } from '@/app/(app)/logistics/shipment-detail-sheet';
 import { AddInfluencerDialog } from './add-influencer-dialog';
 import { BulkAddInfluencersDialog } from './bulk-add-influencers-dialog';
@@ -231,7 +233,7 @@ export function Workspace({ campaign, influencers, costs, scripts, contentFeed }
       </TabsContent>
 
       <TabsContent value="submissions">
-        <SubmissionsTab campaignId={campaign.id} influencers={influencers} />
+        <SubmissionsTab campaignId={campaign.id} campaignName={campaign.name} brandName={campaign.brand.name} influencers={influencers} />
       </TabsContent>
 
       <TabsContent value="scripts">
@@ -418,7 +420,7 @@ function DetailRow({ label, value }: { label: string; value?: React.ReactNode })
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-3 last:border-0 last:pb-0">
       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="text-right text-sm font-medium text-foreground">{value || '—'}</span>
+      <span className="text-end text-sm font-medium text-foreground">{value || '—'}</span>
     </div>
   );
 }
@@ -664,6 +666,25 @@ function InfluencerRow({
 
         <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
           <div className="flex items-center gap-1">
+            <WhatsAppDialog
+              iconOnly
+              influencerId={ci.influencer.id}
+              creatorName={ci.influencer.displayName}
+              purpose={ci.participationStatus === 'INVITED' ? 'OFFER' : 'BRIEF'}
+              campaignInfluencerId={ci.id}
+              context={{
+                campaignName: campaign.name,
+                brandName: campaign.brand.name,
+                deliverables: ci.deliverables
+                  .filter((d) => d.status !== 'CANCELLED')
+                  .map((d) => ({ type: d.type, platform: d.platform, dueDate: d.dueDate })),
+                fee:
+                  ci.agreedCost != null && (ci.dealType === 'PAID' || ci.dealType === 'PAID_PLUS_GIFTED')
+                    ? { amount: ci.agreedCost, currency: ci.currency ?? campaign.currency }
+                    : null,
+                gifted: ci.dealType === 'GIFTED_PRODUCT' || ci.dealType === 'PAID_PLUS_GIFTED',
+              }}
+            />
             <Button
               type="button"
               variant="ghost"
@@ -741,7 +762,7 @@ function InfluencerRow({
         ) : (
           <div className="space-y-2">
             {ci.deliverables.map((d) => (
-              <DeliverableRow key={d.id} deliverable={d} campaign={campaign} influencer={ci.influencer} />
+              <DeliverableRow key={d.id} deliverable={d} campaign={campaign} influencer={ci.influencer} campaignInfluencerId={ci.id} />
             ))}
           </div>
         )}
@@ -1012,6 +1033,7 @@ function DeliverableRow({
   deliverable,
   campaign,
   influencer,
+  campaignInfluencerId,
   influencerName,
   influencerAvatar,
 }: {
@@ -1020,6 +1042,7 @@ function DeliverableRow({
    *  (that sheet reads a LogisticsRequestDTO, which carries campaign/brand/creator context). */
   campaign: CampaignDetailDTO;
   influencer?: InfluencerSummaryDTO;
+  campaignInfluencerId?: string;
   influencerName?: string;
   influencerAvatar?: string | null;
 }) {
@@ -1106,6 +1129,22 @@ function DeliverableRow({
       <Button type="button" variant="ghost" size="sm" onClick={() => setCommentsOpen(true)}>
         <MessageSquare className="h-3.5 w-3.5" /> {t('workspace.deliverables.comments')}
       </Button>
+      {influencer && isDeliverableOutstanding(deliverable) ? (
+        <WhatsAppDialog
+          influencerId={influencer.id}
+          creatorName={influencer.displayName}
+          purpose={deliverable.status === 'CHANGES_REQUESTED' ? 'CHANGES' : 'BRIEF'}
+          campaignInfluencerId={campaignInfluencerId}
+          context={{
+            campaignName: campaign.name,
+            brandName: campaign.brand.name,
+            deliverables: [{ type: deliverable.type, platform: deliverable.platform, dueDate: deliverable.dueDate }],
+            requirements: deliverable.requirements,
+            hashtags: deliverable.requiredHashtags,
+            mentions: deliverable.requiredMentions,
+          }}
+        />
+      ) : null}
       <DeliverableShipmentsAction deliverable={deliverable} campaign={campaign} influencer={influencer} />
 
       <div className="ms-auto flex items-center gap-2">
@@ -1381,6 +1420,7 @@ function DeliverablesTab({ campaign, influencers }: { campaign: CampaignDetailDT
           deliverable={d}
           campaign={campaign}
           influencer={ci.influencer}
+          campaignInfluencerId={ci.id}
           influencerName={ci.influencer.displayName}
           influencerAvatar={ci.influencer.avatarUrl}
         />
@@ -1612,7 +1652,7 @@ function ScriptsTab({ campaignId, scripts }: { campaignId: string; scripts: Scri
                   {isOpen ? (
                     <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                   ) : (
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <ChevronRight className="rtl:-scale-x-100 h-4 w-4 shrink-0 text-muted-foreground" />
                   )}
                 </button>
                 <Button type="button" variant="ghost" size="sm" onClick={() => setAddVersionFor(script)}>

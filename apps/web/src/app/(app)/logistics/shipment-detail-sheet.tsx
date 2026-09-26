@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Field, Input, Textarea } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { WhatsAppDialog } from '@/components/influencers/whatsapp-dialog';
 import { Separator } from '@/components/ui/separator';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CommentThread } from '@/components/collaboration/comment-thread';
@@ -85,7 +86,7 @@ export function ShipmentDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onOpenChange(false)}>
-      <SheetContent side="right" className="sm:max-w-2xl gap-5">
+      <SheetContent side="end" className="sm:max-w-2xl gap-5">
         {!shipment ? null : (
           <>
             <SheetHeader>
@@ -136,6 +137,32 @@ export function ShipmentDetailSheet({
                   <Link href={`/influencers/${shipment.influencer.id}`}>{t('detail.openCreator')}</Link>
                 </Button>
               )}
+              {shipment.influencer && (shipment.trackingNumber || shipment.courier) ? (
+                <WhatsAppDialog
+                  variant="outline"
+                  influencerId={shipment.influencer.id}
+                  creatorName={shipment.influencer.displayName}
+                  purpose="SHIPMENT"
+                  campaignInfluencerId={shipment.campaignInfluencerId}
+                  context={{
+                    campaignName: shipment.campaign?.name,
+                    brandName: shipment.brand?.name,
+                    courier: shipment.courier,
+                    trackingNumber: shipment.trackingNumber,
+                    trackingUrl: shipment.trackingUrl,
+                  }}
+                />
+              ) : null}
+              {shipment.influencer ? (
+                <WhatsAppDialog
+                  variant="outline"
+                  influencerId={shipment.influencer.id}
+                  creatorName={shipment.influencer.displayName}
+                  purpose="ADDRESS"
+                  campaignInfluencerId={shipment.campaignInfluencerId}
+                  context={{ campaignName: shipment.campaign?.name, brandName: shipment.brand?.name }}
+                />
+              ) : null}
               {/* The specific Deliverable this shipment fulfils, not just its
                   campaign — a shipment may be tied to one (deliverableId), or be
                   a general/replacement gift with none. */}

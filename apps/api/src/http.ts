@@ -7,6 +7,8 @@ import {
   type Services,
 } from '@influenceos/domain';
 import { API_ACCESS_COOKIE, type ReportDTO } from '@influenceos/contracts';
+import { toCsv } from '@influenceos/shared';
+import { csvHeader, type CsvLocale } from './lib/csv-labels';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -59,29 +61,34 @@ export async function requireAdmin(request: FastifyRequest): Promise<void> {
 }
 
 /** RFC-4180 cell escaping: quote when the value contains a comma, quote or newline. */
-function csvCell(v: unknown): string {
-  if (v == null) return '';
-  const s = typeof v === 'boolean' ? (v ? 'true' : 'false') : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
 /** Convert a report DTO into CSV text (mobile/web share the same source). */
-export function reportToCsv(report: ReportDTO): string {
-  const header = report.columns.map((c) => csvCell(c.label)).join(',');
-  const lines = report.rows.map((row) =>
-    report.columns.map((c) => csvCell(row[c.key] ?? null)).join(','),
+export function reportToCsv(report: ReportDTO, locale: CsvLocale = 'en'): string {
+  return toCsv(
+    report.columns.map((c) => csvHeader(c.label, locale)),
+    report.rows.map((row) => report.columns.map((c) => row[c.key] ?? null)),
   );
-  return [header, ...lines].join('\n');
 }
 
-/** Generic CSV writer: ordered {key,label} columns → header row + escaped data rows. */
+/** Generic CSV writer: ordered {key,label} columns → header row + data rows. */
 export function rowsToCsv<T>(
   columns: { key: keyof T & string; label: string }[],
   rows: T[],
+  locale: CsvLocale = 'en',
 ): string {
-  const header = columns.map((c) => csvCell(c.label)).join(',');
-  const lines = rows.map((row) => columns.map((c) => csvCell(row[c.key])).join(','));
-  return [header, ...lines].join('\n');
+  return toCsv(
+    columns.map((c) => csvHeader(c.label, locale)),
+    rows.map((row) => columns.map((c) => row[c.key])),
+  );
+}
+
+/** CSV header language: an explicit ?locale=, else the user's own language setting. */
+export async function csvLocale(req: FastifyRequest, explicit?: string): Promise<CsvLocale> {
+  if (explicit === 'ar' || explicit === 'en') return explicit;
+  try {
+    return (await servicesFor(req).auth.me()).locale === 'ar' ? 'ar' : 'en';
+  } catch {
+    return 'en';
+  }
 }
 
 export function sendCsv(reply: FastifyReply, filename: string, csv: string): void {

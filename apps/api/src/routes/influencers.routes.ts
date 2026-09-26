@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { cursorQuerySchema, requests, z, type InfluencerExportRowDTO } from '@influenceos/contracts';
-import { requireAuth, rowsToCsv, sendCsv, servicesFor } from '../http';
+import { csvLocale, requireAuth, rowsToCsv, sendCsv, servicesFor } from '../http';
 
 const idParam = z.object({ id: z.string() });
 
@@ -89,7 +89,7 @@ export async function influencerRoutes(app: FastifyInstance): Promise<void> {
     async (req, reply) => {
       const rows = await servicesFor(req).influencers.exportRows(req.query);
       if (req.query.format === 'json') return rows;
-      sendCsv(reply, 'influenceos-influencers.csv', rowsToCsv(INFLUENCER_EXPORT_COLUMNS, rows));
+      sendCsv(reply, 'influenceos-influencers.csv', rowsToCsv(INFLUENCER_EXPORT_COLUMNS, rows, await csvLocale(req, req.query.locale)));
       return reply;
     },
   );
@@ -165,6 +165,23 @@ export async function influencerRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (req) => servicesFor(req).influencers.remove(req.params.id),
+  );
+
+  r.post(
+    '/influencers/:id/contact-log',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Influencers'],
+        summary: 'Log a message sent to the creator outside the app (e.g. from a WhatsApp template)',
+        params: idParam,
+        body: requests.influencerContactLogSchema,
+      },
+    },
+    async (req, reply) => {
+      await servicesFor(req).influencers.logContact(req.params.id, req.body);
+      reply.status(204).send();
+    },
   );
 
   r.post(

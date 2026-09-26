@@ -41,7 +41,7 @@ export default async function ContentDetailPage({ params }: { params: Promise<{ 
         href="/content"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft className="h-3.5 w-3.5" /> {t('viewer.backToFeed')}
+        <ArrowLeft className="rtl:-scale-x-100 h-3.5 w-3.5" /> {t('viewer.backToFeed')}
       </Link>
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

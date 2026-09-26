@@ -196,10 +196,10 @@ function CalendarToolbar({
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-0.5 rounded-xl border border-border bg-card p-1 shadow-soft">
           <Button variant="ghost" size="icon-sm" onClick={onPrev} aria-label={tCommon('previous')}>
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="rtl:-scale-x-100 h-4 w-4" />
           </Button>
           <Button variant="ghost" size="icon-sm" onClick={onNext} aria-label={tCommon('next')}>
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="rtl:-scale-x-100 h-4 w-4" />
           </Button>
         </div>
         <h2 className="min-w-[10ch] text-lg font-semibold tracking-tight">{label}</h2>
@@ -270,8 +270,8 @@ function MonthGrid({
             <div
               key={key}
               className={cn(
-                'flex min-h-[132px] flex-col gap-1 border-b border-r border-border p-2 transition-colors',
-                isLastCol && 'border-r-0',
+                'flex min-h-[132px] flex-col gap-1 border-b border-e border-border p-2 transition-colors',
+                isLastCol && 'border-e-0',
                 isLastRow && 'border-b-0',
                 !inMonth && 'bg-surface-muted/30',
               )}
@@ -323,7 +323,7 @@ function WeekView({
             <div
               key={key}
               className={cn(
-                'flex min-h-[420px] flex-col border-b border-border sm:border-b-0 sm:border-r sm:last:border-r-0',
+                'flex min-h-[420px] flex-col border-b border-border sm:border-b-0 sm:border-e sm:last:border-e-0',
                 isTodayCol && 'bg-brand-soft/20',
               )}
             >
@@ -546,7 +546,7 @@ function EventDrawer({ event, onClose }: { event: CalendarEventDTO | null; onClo
   const Icon = meta?.icon;
   return (
     <Sheet open={Boolean(event)} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-md">
+      <SheetContent side="end" className="w-full sm:max-w-md">
         {event && meta ? (
           <div className="space-y-5">
             <SheetHeader className="space-y-3 text-start">
@@ -587,11 +587,11 @@ function DetailRow({ label, value, bidi }: { label: string; value: string; bidi?
     <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-2.5 last:border-0">
       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
       {bidi ? (
-        <BidiText as="span" className="text-right text-sm font-medium">
+        <BidiText as="span" className="text-end text-sm font-medium">
           {value}
         </BidiText>
       ) : (
-        <span className="text-right text-sm font-medium">{value}</span>
+        <span className="text-end text-sm font-medium">{value}</span>
       )}
     </div>
   );
@@ -612,8 +612,8 @@ function MonthGridSkeleton() {
           <div
             key={i}
             className={cn(
-              'flex min-h-[132px] flex-col gap-2 border-b border-r border-border p-2',
-              (i + 1) % 7 === 0 && 'border-r-0',
+              'flex min-h-[132px] flex-col gap-2 border-b border-e border-border p-2',
+              (i + 1) % 7 === 0 && 'border-e-0',
               i >= 35 && 'border-b-0',
             )}
           >

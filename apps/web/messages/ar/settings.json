@@ -370,6 +370,7 @@
       "COST_UPDATED": "تحديث تكلفة",
       "NOTE_ADDED": "إضافة ملاحظة",
       "FOLLOWER_MILESTONE": "إنجاز في عدد المتابعين",
+      "INFLUENCER_CONTACTED": "تم التواصل مع المؤثر",
       "GENERIC": "أخرى"
     },
     "entityType": {

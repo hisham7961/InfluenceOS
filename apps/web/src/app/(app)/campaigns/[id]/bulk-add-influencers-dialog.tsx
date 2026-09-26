@@ -299,7 +299,7 @@ export function BulkAddInfluencersDialog({
           ) : (
             <>
               <Button type="button" variant="outline" onClick={() => setStep('select')}>
-                <ArrowLeft className="h-4 w-4" /> {tCommon('back')}
+                <ArrowLeft className="rtl:-scale-x-100 h-4 w-4" /> {tCommon('back')}
               </Button>
               <Button
                 disabled={!preview || preview.willUpdate === 0 || executeMutation.isPending}

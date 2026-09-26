@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
-import { ArrowLeft, ExternalLink, Mail, MapPin, MessageCircle, Phone, Tag } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Mail, MapPin, Phone, Tag } from 'lucide-react';
 import type { InfluencerDetailDTO } from '@influenceos/contracts';
 import { ApiError } from '@influenceos/api-client';
 import { profileUrl } from '@influenceos/shared';
@@ -20,14 +20,9 @@ import { InfluencerEditDialog } from './influencer-edit-dialog';
 import { InfluencerDeleteButton } from './influencer-delete-button';
 import { SyncAvatarButton } from './sync-avatar-button';
 import { CreatorSnapshot } from './creator-snapshot';
+import { WhatsAppDialog } from '@/components/influencers/whatsapp-dialog';
 
 export const dynamic = 'force-dynamic';
-
-/** Normalizes a phone/WhatsApp string into a wa.me link. */
-function waHref(raw: string): string {
-  const digits = raw.replace(/[^\d]/g, '');
-  return `https://wa.me/${digits}`;
-}
 
 export default async function InfluencerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -61,7 +56,7 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
         href="/influencers"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft className="h-3.5 w-3.5" /> {t('detail.backToInfluencers')}
+        <ArrowLeft className="rtl:-scale-x-100 h-3.5 w-3.5" /> {t('detail.backToInfluencers')}
       </Link>
 
       {/* Hero header */}
@@ -125,12 +120,8 @@ export default async function InfluencerProfilePage({ params }: { params: Promis
                 </a>
               </Button>
             ) : null}
-            {contact.whatsapp ? (
-              <Button asChild variant="secondary" size="sm">
-                <a href={waHref(contact.whatsapp)} target="_blank" rel="noreferrer">
-                  <MessageCircle /> {t('detail.whatsappButton')}
-                </a>
-              </Button>
+            {contact.whatsapp || contact.mobile || contact.managerContact ? (
+              <WhatsAppDialog influencerId={influencer.id} creatorName={influencer.displayName} purpose="GENERAL" variant="secondary" />
             ) : null}
             {contact.email ? (
               <Button asChild variant="secondary" size="sm">

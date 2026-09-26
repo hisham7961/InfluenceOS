@@ -141,7 +141,7 @@ export function UserEditSheet({
 
   return (
     <Sheet open={open} onOpenChange={(next) => !next && close()}>
-      <SheetContent side="right" className="sm:max-w-2xl gap-5">
+      <SheetContent side="end" className="sm:max-w-2xl gap-5">
         {detailQuery.isLoading || !detail ? (
           <div className="flex h-full items-center justify-center">
             <Spinner className="h-6 w-6 text-muted-foreground" />

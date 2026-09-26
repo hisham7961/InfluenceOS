@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Download, FileBarChart, Printer, X } from 'lucide-react';
 import type { BrandSummaryDTO, ReportColumnDTO, ReportDTO } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
@@ -51,6 +51,7 @@ const REPORT_TAB_ORDER: ReportType[] = ['campaign', 'influencer', 'brand', 'cont
 
 export function ReportsView({ initial, brands, type, brandId, from, to }: ReportsViewProps) {
   const t = useTranslations('reports');
+  const locale = useLocale();
   const tCommon = useTranslations('common');
   const { shortDate, dateTime } = useLocalizedFormat();
   const router = useRouter();
@@ -73,7 +74,8 @@ export function ReportsView({ initial, brands, type, brandId, from, to }: Report
   }
 
   const hasFilters = Boolean(brandId || from || to);
-  const csvHref = api.reports.csvUrl({ type, brandId, from, to });
+  // Column headers in the user's language (Arabic headers open correctly in Excel).
+  const csvHref = api.reports.csvUrl({ type, brandId, from, to, locale });
   const brandLabel = brandId ? (brands.find((b) => b.id === brandId)?.name ?? t('selectedBrandFallback')) : tCommon('allBrands');
   const rangeLabel = from || to ? `${from ? shortDate(from) : t('rangeStart')} – ${to ? shortDate(to) : t('rangeNow')}` : t('rangeAllTime');
   const reportLabel = t(`tabs.${type}`);

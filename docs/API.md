@@ -303,6 +303,7 @@ requires `role === 'ADMIN'`.
 | GET | `/api/v1/influencers/:id` | Influencer 360 profile. |
 | PATCH | `/api/v1/influencers/:id` | Update an influencer. |
 | POST | `/api/v1/influencers/resolve` | Resolve a pasted profile URL/handle (official provider data or manual fallback). |
+| POST | `/api/v1/influencers/:id/contact-log` | Log a message sent outside the app (`channel`, `purpose`, optional `campaignInfluencerId`) → `204`. Shows on the creator's timeline and "last contact"; the first one on a roster row fills its contacted date. |
 | GET | `/api/v1/influencers/:id/social-accounts` | Social accounts for an influencer. |
 | GET | `/api/v1/influencers/:id/followers` | Follower growth time series. |
 | GET | `/api/v1/influencers/:id/audience-health` | Audience health signals. |

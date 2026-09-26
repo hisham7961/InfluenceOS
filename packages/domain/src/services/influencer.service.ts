@@ -14,7 +14,7 @@ import type { z } from '@influenceos/contracts';
 import { Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { AppError } from '../errors';
-import { requireCapability } from '../lib/authz';
+import { requireAnyCapability, requireCapability } from '../lib/authz';
 import { buildCursorPage } from '../lib/cursor';
 import { resolveAvatarUrl } from '../lib/avatar';
 import { iso, logActivity } from '../lib/helpers';
@@ -31,6 +31,7 @@ type InfluencerFilter = z.infer<typeof requests.influencerFilterSchema>;
 type InfluencerCountrySummaryQuery = z.infer<typeof requests.influencerCountrySummarySchema>;
 type InfluencerCursorQuery = z.infer<typeof requests.influencerCursorSchema>;
 type InfluencerExportQuery = z.infer<typeof requests.influencerExportSchema>;
+type InfluencerContactLog = z.infer<typeof requests.influencerContactLogSchema>;
 
 const summaryInclude = {
   socialAccounts: {
@@ -183,19 +184,22 @@ export function makeInfluencerService(ctx: DomainContext) {
     const activeCampaignNames = new Map<string, string[]>();
     const contentCounts = new Map<string, number>();
     if (ids.length) {
+      // Campaign names and counts from brands outside the actor's scope stay hidden.
+      const brandScope = await scopedBrandIds(ctx);
+      const activeCampaign = { status: 'ACTIVE' as const, ...(brandScope ? { brandId: { in: brandScope } } : {}) };
       const [grouped, activeRoster, contentGrouped] = await Promise.all([
         prisma.campaignInfluencer.groupBy({
           by: ['influencerId'],
-          where: { influencerId: { in: ids }, campaign: { status: 'ACTIVE' } },
+          where: { influencerId: { in: ids }, campaign: activeCampaign },
           _count: { _all: true },
         }),
         prisma.campaignInfluencer.findMany({
-          where: { influencerId: { in: ids }, campaign: { status: 'ACTIVE' } },
+          where: { influencerId: { in: ids }, campaign: activeCampaign },
           select: { influencerId: true, campaign: { select: { name: true } } },
         }),
         prisma.publishedContent.groupBy({
           by: ['influencerId'],
-          where: { influencerId: { in: ids } },
+          where: { influencerId: { in: ids }, ...(brandScope ? { brandId: { in: brandScope } } : {}) },
           _count: { _all: true },
         }),
       ]);
@@ -400,12 +404,15 @@ export function makeInfluencerService(ctx: DomainContext) {
     const countryScope = await scopedCountryCodes(ctx);
     if (isCountryOutOfScope(countryScope, inf.countryCode)) throw AppError.notFound('Influencer');
     if (await isInfluencerBrandOutOfScope(id)) throw AppError.notFound('Influencer');
+    // The creator is visible, but their history with brands outside the
+    // actor's scope is not: campaigns, fees and content are narrowed to it.
+    const brandScope = await scopedBrandIds(ctx);
 
     const [socialAccounts, audience, cis, contentCount] = await Promise.all([
       socialAccountsFor(id),
       audienceFor(id),
       prisma.campaignInfluencer.findMany({
-        where: { influencerId: id },
+        where: { influencerId: id, ...(brandScope ? { campaign: { brandId: { in: brandScope } } } : {}) },
         select: {
           agreedCost: true,
           paymentStatus: true,
@@ -425,7 +432,7 @@ export function makeInfluencerService(ctx: DomainContext) {
           deliverables: { select: { status: true, type: true } },
         },
       }),
-      prisma.publishedContent.count({ where: { influencerId: id } }),
+      prisma.publishedContent.count({ where: { influencerId: id, ...(brandScope ? { brandId: { in: brandScope } } : {}) } }),
     ]);
 
     // Relationship history (spec §56)
@@ -753,7 +760,49 @@ export function makeInfluencerService(ctx: DomainContext) {
     );
   }
 
-  return { list, listCursor, countrySummary, exportRows, detail, create, update, remove, syncAvatar, socialAccountsFor, audienceFor, followerSeries };
+  /**
+   * Record that someone on the team messaged this creator outside the app
+   * (the WhatsApp templates open WhatsApp and call this). Anyone who works
+   * with creators may log it; the creator (and the roster row, when given)
+   * must be in the actor's scope. The first contact on a roster row also
+   * fills in its "contacted" date.
+   */
+  async function logContact(id: string, input: InfluencerContactLog): Promise<void> {
+    await requireAnyCapability(ctx, ['INFLUENCERS_MANAGE', 'CAMPAIGNS_MANAGE', 'UGC_REVIEW', 'LOGISTICS_MANAGE', 'LOGISTICS_ISSUE_MANAGE']);
+    const inf = await prisma.influencer.findUnique({ where: { id }, select: { displayName: true, countryCode: true } });
+    if (!inf) throw AppError.notFound('Influencer');
+    const countryScope = await scopedCountryCodes(ctx);
+    if (isCountryOutOfScope(countryScope, inf.countryCode)) throw AppError.notFound('Influencer');
+    if (await isInfluencerBrandOutOfScope(id)) throw AppError.notFound('Influencer');
+
+    let campaign: { id: string; name: string; brandId: string } | null = null;
+    if (input.campaignInfluencerId) {
+      const ci = await prisma.campaignInfluencer.findUnique({
+        where: { id: input.campaignInfluencerId },
+        select: { id: true, influencerId: true, dateContacted: true, campaign: { select: { id: true, name: true, brandId: true } } },
+      });
+      const brandScope = await scopedBrandIds(ctx);
+      if (!ci || ci.influencerId !== id || (brandScope && !brandScope.includes(ci.campaign.brandId))) {
+        throw AppError.notFound('Campaign participation');
+      }
+      campaign = ci.campaign;
+      if (!ci.dateContacted) {
+        await prisma.campaignInfluencer.update({ where: { id: ci.id }, data: { dateContacted: new Date() } });
+      }
+    }
+
+    const via = input.channel === 'WHATSAPP' ? 'on WhatsApp' : `(${input.channel.toLowerCase().replace(/_/g, ' ')})`;
+    await logActivity(ctx, {
+      type: 'INFLUENCER_CONTACTED',
+      message: `${ctx.actor?.name ?? 'Someone'} messaged ${inf.displayName} ${via}${campaign ? ` about ${campaign.name}` : ''}.`,
+      influencerId: id,
+      campaignId: campaign?.id ?? null,
+      brandId: campaign?.brandId ?? null,
+      meta: { channel: input.channel, purpose: input.purpose, campaignInfluencerId: input.campaignInfluencerId ?? null },
+    });
+  }
+
+  return { list, listCursor, countrySummary, exportRows, detail, create, update, remove, logContact, syncAvatar, socialAccountsFor, audienceFor, followerSeries };
 }
 
 export type InfluencerService = ReturnType<typeof makeInfluencerService>;

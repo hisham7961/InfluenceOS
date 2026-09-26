@@ -184,7 +184,7 @@ export default async function SetupGuidePage() {
             </p>
             {isAdmin ? (
               <Link href="/settings/storage" className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline">
-                {t('setup.openStorageSettings')} <ArrowRight className="h-3.5 w-3.5" />
+                {t('setup.openStorageSettings')} <ArrowRight className="rtl:-scale-x-100 h-3.5 w-3.5" />
               </Link>
             ) : null}
           </CardContent>
@@ -232,7 +232,7 @@ export default async function SetupGuidePage() {
                   ) : (
                     <p className="text-xs text-muted-foreground">{t('setup.noKeysRequired')}</p>
                   )}
-                  <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
+                  <ol className="list-decimal space-y-1 ps-5 text-muted-foreground">
                     {steps.map((s, i) => (
                       <li key={i}>{s}</li>
                     ))}
@@ -253,7 +253,7 @@ export default async function SetupGuidePage() {
               {t.rich('setup.footerNote', { strong: (chunks) => <strong>{chunks}</strong> })}
             </p>
             <Link href="/settings/integrations" className="inline-flex shrink-0 items-center gap-1 font-medium text-brand hover:underline">
-              {t('setup.openIntegrations')} <ArrowRight className="h-3.5 w-3.5" />
+              {t('setup.openIntegrations')} <ArrowRight className="rtl:-scale-x-100 h-3.5 w-3.5" />
             </Link>
           </CardContent>
         </Card>
@@ -270,7 +270,7 @@ export default async function SetupGuidePage() {
         <Card>
           <CardContent className="space-y-3 p-5 text-sm">
             <p className="text-muted-foreground">{t('setup.creatorConnections.intro')}</p>
-            <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
+            <ol className="list-decimal space-y-1 ps-5 text-muted-foreground">
               <li>{t('setup.creatorConnections.step1')}</li>
               <li>
                 {t('setup.creatorConnections.step2Prefix')}{' '}

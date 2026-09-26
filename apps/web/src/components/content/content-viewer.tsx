@@ -179,8 +179,12 @@ export function ContentViewer({
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
-      if (e.key === 'ArrowRight' && index < items.length - 1) onIndexChange(index + 1);
-      else if (e.key === 'ArrowLeft' && index > 0) onIndexChange(index - 1);
+      // Arrow keys follow reading direction: in Arabic, ← is "next".
+      const rtl = document.documentElement.dir === 'rtl';
+      const nextKey = rtl ? 'ArrowLeft' : 'ArrowRight';
+      const prevKey = rtl ? 'ArrowRight' : 'ArrowLeft';
+      if (e.key === nextKey && index < items.length - 1) onIndexChange(index + 1);
+      else if (e.key === prevKey && index > 0) onIndexChange(index - 1);
       else if ((e.key === 'r' || e.key === 'R') && content) {
         void setReviewed(content, !effectiveState(content)?.reviewedAt);
       } else if ((e.key === 's' || e.key === 'S') && content) {
@@ -286,10 +290,10 @@ export function ContentViewer({
             )}
 
             <Button variant="ghost" size="sm" disabled={index <= 0} onClick={() => onIndexChange(index - 1)}>
-              <ChevronLeft className="h-4 w-4" /> {tCommon('previous')}
+              <ChevronLeft className="rtl:-scale-x-100 h-4 w-4" /> {tCommon('previous')}
             </Button>
             <Button variant="ghost" size="sm" disabled={index >= items.length - 1} onClick={() => onIndexChange(index + 1)}>
-              {tCommon('next')} <ChevronRight className="h-4 w-4" />
+              {tCommon('next')} <ChevronRight className="rtl:-scale-x-100 h-4 w-4" />
             </Button>
           </div>
         </DialogContent>

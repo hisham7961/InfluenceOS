@@ -132,7 +132,7 @@ export default async function GeneralSettingsPage() {
             <Button asChild variant="outline" className="shrink-0">
               <Link href="/settings/security">
                 {t('general.passwordSessions.cta')}
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="rtl:-scale-x-100 h-4 w-4" />
               </Link>
             </Button>
           </CardContent>

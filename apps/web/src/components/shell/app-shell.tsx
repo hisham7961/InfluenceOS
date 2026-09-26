@@ -60,7 +60,7 @@ export function AppShell({
       </div>
 
       <Sheet open={mobileNav} onOpenChange={setMobileNav}>
-        <SheetContent side="left" className="w-72 p-0 sm:max-w-xs">
+        <SheetContent side="start" className="w-72 p-0 sm:max-w-xs">
           <div className="flex h-16 items-center gap-2.5 px-6">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-sm font-black text-white">io</div>
             <span className="font-bold">InfluenceOS</span>

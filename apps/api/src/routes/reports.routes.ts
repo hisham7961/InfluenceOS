@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { requests } from '@influenceos/contracts';
-import { reportToCsv, requireAuth, sendCsv, servicesFor } from '../http';
+import { csvLocale, reportToCsv, requireAuth, sendCsv, servicesFor } from '../http';
 
 export async function reportRoutes(app: FastifyInstance): Promise<void> {
   const r = app.withTypeProvider<ZodTypeProvider>();
@@ -20,7 +20,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       const services = servicesFor(req);
       const report = await services.reports.generate(req.query);
       if (req.query.format === 'csv') {
-        sendCsv(reply, `influenceos-${req.query.type}-report.csv`, reportToCsv(report));
+        sendCsv(reply, `influenceos-${req.query.type}-report.csv`, reportToCsv(report, await csvLocale(req, req.query.locale)));
         return reply;
       }
       return report;

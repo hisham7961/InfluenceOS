@@ -198,7 +198,7 @@ export function ImportCandidatesDialog({ campaignId }: { campaignId: string }) {
           ) : preview ? (
             <>
               <Button type="button" variant="outline" onClick={() => setPreview(null)}>
-                <ArrowLeft className="h-4 w-4" aria-hidden /> {tCommon('back')}
+                <ArrowLeft className="rtl:-scale-x-100 h-4 w-4" aria-hidden /> {tCommon('back')}
               </Button>
               <Button disabled={preview.willUpdate === 0 || importCsv.isPending} onClick={() => importCsv.mutate()}>
                 <Upload className="h-4 w-4" aria-hidden />{' '}

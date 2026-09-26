@@ -212,7 +212,6 @@
       "noLinkedAccount": "No linked social profile to sync a photo from yet — link one first.",
       "notFound": "Couldn't automatically find a profile photo for this creator. You can paste a photo link directly in Edit → Avatar URL."
     },
-    "whatsappButton": "WhatsApp",
     "emailButton": "Email",
     "callButton": "Call",
     "delete": {
@@ -424,5 +423,34 @@
   },
   "errors": {
     "generic": "Something went wrong. Please try again."
+  },
+  "whatsapp": {
+    "title": "Message {name} on WhatsApp",
+    "description": "Choose who to send to and the language. You can edit the message before WhatsApp opens.",
+    "purpose": {
+      "BRIEF": "Send brief",
+      "OFFER": "Send offer",
+      "SHIPMENT": "Shipment update",
+      "ADDRESS": "Confirm address",
+      "CHANGES": "Ask for changes",
+      "GENERAL": "WhatsApp"
+    },
+    "ariaLabel": "{action} — {name}",
+    "recipient": {
+      "whatsapp": "Creator (WhatsApp)",
+      "mobile": "Creator (mobile)",
+      "manager": "Manager",
+      "managerNamed": "Manager ({name})"
+    },
+    "sendTo": "Send to",
+    "language": "Message language",
+    "message": "Message",
+    "open": "Open WhatsApp",
+    "copy": "Copy",
+    "copied": "Copied",
+    "noNumber": "There's no WhatsApp or mobile number for this creator yet.",
+    "addNumber": "Add a number on their profile",
+    "loggedToast": "Logged on the creator's timeline",
+    "logFailedToast": "WhatsApp opened, but the message couldn't be logged."
   }
 }

@@ -88,7 +88,7 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
             title={t('whatsNewSinceVisit')}
             action={
               <Link href="/content" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-                {t('viewWall')} <ArrowRight className="h-3.5 w-3.5" />
+                {t('viewWall')} <ArrowRight className="rtl:-scale-x-100 h-3.5 w-3.5" />
               </Link>
             }
           />
@@ -153,7 +153,7 @@ export function MissionControl({ data, brandId }: { data: GlobalDashboardDTO; br
 
       {/* Active Campaigns */}
       <section>
-        <SectionHeader title={t('activeCampaigns')} action={<Link href="/campaigns" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">{t('allCampaigns')} <ArrowRight className="h-3.5 w-3.5" /></Link>} />
+        <SectionHeader title={t('activeCampaigns')} action={<Link href="/campaigns" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">{t('allCampaigns')} <ArrowRight className="rtl:-scale-x-100 h-3.5 w-3.5" /></Link>} />
         {data.activeCampaigns.length === 0 ? (
           <EmptyState icon={Megaphone} title={tEmpty('noCampaigns')} description={t('activeCampaignsWillAppear')} />
         ) : (

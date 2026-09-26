@@ -72,3 +72,31 @@ export function parseCsvRecords(text: string): Record<string, string>[] {
   }
   return out;
 }
+
+// --- Writing ---------------------------------------------------------------
+
+// A cell a spreadsheet would run as a formula (=, +, -, @, tab, CR first).
+const FORMULA_START = /^[=+\-@\t\r]/;
+// …unless it is plainly a number or phone number ("+965 5000 0000", "-12.5").
+const PLAIN_NUMBER = /^[+-]?[\d\s().,]+$/;
+
+/**
+ * One CSV cell. Quoted when it holds a comma, quote or line break; text that
+ * Excel would execute as a formula (a creator name like `=HYPERLINK(...)`
+ * from an import) gets a leading apostrophe so it is shown, never run.
+ */
+export function csvCell(v: unknown): string {
+  if (v == null) return '';
+  let s = typeof v === 'boolean' ? (v ? 'true' : 'false') : String(v);
+  if (typeof v === 'string' && FORMULA_START.test(s) && !PLAIN_NUMBER.test(s)) s = `'${s}`;
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/**
+ * CSV text that opens correctly in Excel: a UTF-8 byte-order mark (without
+ * it Excel on Windows reads Arabic with the wrong code page) and CRLF line
+ * endings.
+ */
+export function toCsv(header: string[], rows: unknown[][]): string {
+  return '﻿' + [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n');
+}

@@ -69,14 +69,22 @@ export default async function InfluencersPage({
         actions={
           <div className="flex items-center gap-2">
             <ExportInfluencersButton
+              // Exactly the filters the list uses (country code, city and the
+              // Data Quality deep-links included), so the file matches the screen.
               filters={{
                 q: sp.q,
                 platform: sp.platform,
                 country: sp.country,
+                countryCode: sp.countryCode,
+                city: sp.city,
                 category: sp.category,
                 relationshipStatus: sp.relationshipStatus,
                 minFollowers: sp.minFollowers,
                 maxFollowers: sp.maxFollowers,
+                missingCountry: sp.missingCountry === 'true' ? 'true' : undefined,
+                missingOwner: sp.missingOwner === 'true' ? 'true' : undefined,
+                missingPhone: sp.missingPhone === 'true' ? 'true' : undefined,
+                missingSocial: sp.missingSocial === 'true' ? 'true' : undefined,
               }}
             />
             <Button asChild>

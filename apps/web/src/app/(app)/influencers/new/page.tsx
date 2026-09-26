@@ -17,7 +17,7 @@ export default async function AddInfluencerPage() {
         actions={
           <Button variant="outline" asChild>
             <Link href="/influencers">
-              <ChevronLeft className="h-4 w-4" /> {t('form.backToDirectory')}
+              <ChevronLeft className="rtl:-scale-x-100 h-4 w-4" /> {t('form.backToDirectory')}
             </Link>
           </Button>
         }

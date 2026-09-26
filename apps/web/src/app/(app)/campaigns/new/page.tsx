@@ -21,7 +21,7 @@ export default async function NewCampaignPage() {
         actions={
           <Button variant="outline" asChild>
             <Link href="/campaigns">
-              <ChevronLeft className="h-4 w-4" /> {t('newForm.backToCampaigns')}
+              <ChevronLeft className="rtl:-scale-x-100 h-4 w-4" /> {t('newForm.backToCampaigns')}
             </Link>
           </Button>
         }

@@ -96,6 +96,17 @@ describe('Influencer data export (CSV/JSON)', () => {
     expect(body).toContain('alpha@example.test');
   });
 
+  it('opens correctly in Excel: a BOM, and headers in the user\'s language', async () => {
+    const ar = await app.inject({ method: 'GET', url: '/api/v1/influencers/export?locale=ar', headers: auth });
+    expect(ar.body.charCodeAt(0)).toBe(0xfeff);
+    expect(ar.body.slice(1).split('\r\n')[0]).toContain('الاسم الظاهر');
+    // No explicit locale: the user's own language setting decides.
+    await app.inject({ method: 'PATCH', url: '/api/v1/auth/me/preferences', headers: auth, payload: { locale: 'ar' } });
+    const report = await app.inject({ method: 'GET', url: '/api/v1/reports?type=influencer&format=csv', headers: auth });
+    expect(report.body.slice(1).split('\r\n')[0]).toContain('المؤثر');
+    await app.inject({ method: 'PATCH', url: '/api/v1/auth/me/preferences', headers: auth, payload: { locale: 'en' } });
+  });
+
   it('honors the directory filters (q narrows the export)', async () => {
     const res = await app.inject({
       method: 'GET',

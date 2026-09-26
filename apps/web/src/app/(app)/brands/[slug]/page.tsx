@@ -48,7 +48,7 @@ export default async function BrandWorkspacePage({ params }: { params: Promise<{
         href="/brands"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft className="h-3.5 w-3.5" /> {t('detail.backToBrands')}
+        <ArrowLeft className="rtl:-scale-x-100 h-3.5 w-3.5" /> {t('detail.backToBrands')}
       </Link>
 
       {/* Brand hero */}

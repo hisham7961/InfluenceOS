@@ -121,7 +121,7 @@ function Row({ label, value, children }: { label: string; value?: React.ReactNod
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-2.5 last:border-0 last:pb-0">
       <span className="text-sm font-medium text-muted-foreground">{label}</span>
-      {children ?? <span className="truncate text-right font-mono text-sm">{value}</span>}
+      {children ?? <span className="truncate text-end font-mono text-sm">{value}</span>}
     </div>
   );
 }

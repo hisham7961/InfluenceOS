@@ -479,7 +479,7 @@ export function InspirationWorkspace({ brands }: { brands: BrandSummaryDTO[] }) 
       <AddInspirationDialog brands={brands} open={addOpen} onOpenChange={setAddOpen} />
 
       <Sheet open={detail !== null} onOpenChange={(open) => !open && setSelected(null)}>
-        <SheetContent side="right" className="overflow-y-auto p-6">
+        <SheetContent side="end" className="overflow-y-auto p-6">
           {detail && <InspirationDetail item={detail} onClose={() => setSelected(null)} />}
         </SheetContent>
       </Sheet>

@@ -63,8 +63,8 @@ function BrandCard({ brand, statusLabel }: { brand: BrandSummaryDTO; statusLabel
           background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.accentColor ?? brand.primaryColor})`,
         }}
       >
-        <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/15" />
-        <div className="absolute right-10 top-5 h-10 w-10 rounded-full bg-white/10" />
+        <div className="absolute -end-6 -top-8 h-24 w-24 rounded-full bg-white/15" />
+        <div className="absolute end-10 top-5 h-10 w-10 rounded-full bg-white/10" />
         <div
           className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white text-lg font-bold shadow-soft"
           style={{ color: brand.primaryColor }}

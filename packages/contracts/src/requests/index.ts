@@ -4,6 +4,7 @@ import {
   CAMPAIGN_OBJECTIVES,
   CAMPAIGN_STATUSES,
   CONTACT_METHODS,
+  CONTACT_PURPOSES,
   CONTENT_STATUSES,
   DEAL_TYPES,
   DELIVERABLE_STATUSES,
@@ -331,8 +332,22 @@ export type InfluencerCountrySummaryInput = z.infer<typeof influencerCountrySumm
 // wire format; the CSV is the default because this endpoint's job is a file.
 export const influencerExportSchema = influencerFilterSchema
   .omit({ page: true, pageSize: true })
-  .extend({ format: z.enum(['csv', 'json']).default('csv') });
+  .extend({
+    format: z.enum(['csv', 'json']).default('csv'),
+    /** CSV header language; defaults to the user's own language setting. */
+    locale: z.enum(['en', 'ar']).optional(),
+  });
 export type InfluencerExportQuery = z.infer<typeof influencerExportSchema>;
+
+// A message sent to a creator outside the app (WhatsApp link, call…), logged
+// so the team can see who was contacted, when and why. Linking a roster row
+// also marks it contacted if it wasn't already.
+export const influencerContactLogSchema = z.object({
+  channel: z.enum(CONTACT_METHODS).default('WHATSAPP'),
+  purpose: z.enum(CONTACT_PURPOSES).default('GENERAL'),
+  campaignInfluencerId: z.string().min(1).optional(),
+});
+export type InfluencerContactLogInput = z.infer<typeof influencerContactLogSchema>;
 
 // Cursor-paginated influencer directory (W7-2). Same filters, but keyset paging
 // (stable under inserts) instead of offset. `cursor` is the last row's id.
@@ -1064,6 +1079,8 @@ export const reportFilterSchema = z.object({
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
   format: z.enum(['json', 'csv']).default('json'),
+  /** CSV header language; defaults to the user's own language setting. */
+  locale: z.enum(['en', 'ar']).optional(),
 });
 export type ReportFilter = z.infer<typeof reportFilterSchema>;
 
