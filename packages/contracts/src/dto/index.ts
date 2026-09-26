@@ -2250,3 +2250,22 @@ export interface SalesImportResultDTO {
 export interface TrackingLinkResolveDTO {
   url: string;
 }
+
+// --- Shared report links (P3.3) --------------------------------------------------
+
+export interface ReportShareDTO {
+  id: string;
+  campaignId: string;
+  /** Path on the web app: `/share/r/<token>`. */
+  path: string;
+  locale: 'en' | 'ar';
+  includeCosts: boolean;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  /** Still opens (not turned off, not expired). */
+  active: boolean;
+  viewCount: number;
+  lastViewedAt: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}

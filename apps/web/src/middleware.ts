@@ -53,7 +53,7 @@ async function refresh(refreshToken: string, req: NextRequest): Promise<RefreshO
 }
 
 /** Pages anyone may open without signing in. */
-const PUBLIC_PREFIXES = ['/r/'];
+const PUBLIC_PREFIXES = ['/r/', '/share/'];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

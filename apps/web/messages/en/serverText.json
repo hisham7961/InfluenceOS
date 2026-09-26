@@ -291,5 +291,9 @@
   "e_sale_not_found": "Sale not found.",
   "a_imported_sales_file": "{name} imported {orders} orders from a sales file.",
   "e_sales_file_not_found": "Sales file not found.",
-  "a_removed_sales_file": "{name} removed a sales file ({n} orders)."
+  "a_removed_sales_file": "{name} removed a sales file ({n} orders).",
+  "a_shared_client_report": "{name} shared the client report by link.",
+  "a_turned_off_report_link": "{name} turned off a client report link.",
+  "e_only_cost_viewers_share_costs": "Only people who can see costs can share them.",
+  "e_report_link_not_found": "Report link not found."
 }

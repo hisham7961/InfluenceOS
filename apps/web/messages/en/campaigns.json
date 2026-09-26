@@ -898,6 +898,43 @@
     "linkClicks": "Link clicks",
     "roas": "Return on spend",
     "costPerOrder": "{amount} spent per order",
-    "salesNote": "The brand's own orders credited through each creator's promo code or tracking link — not an estimate."
+    "salesNote": "The brand's own orders credited through each creator's promo code or tracking link — not an estimate.",
+    "share": {
+      "button": "Share link",
+      "title": "Share this report by link",
+      "description": "Anyone with the link can open the report without signing in. It always shows the latest numbers. Send it only to the brand's team.",
+      "language": "Report language",
+      "expires": "Link works for",
+      "days": "{n} days",
+      "never": "No end date",
+      "includeCosts": "Show costs",
+      "includeCostsHint": "Spend, cost per view and return on spend. Off unless you turn it on.",
+      "costsNotAllowed": "Only people who can see costs can share them.",
+      "create": "Create link",
+      "created": "Link created",
+      "createdCopied": "Link created and copied",
+      "newLink": "New link",
+      "existing": "Links to this report",
+      "none": "No links yet.",
+      "withCosts": "With costs",
+      "stateOff": "Turned off",
+      "stateExpired": "Expired",
+      "expiresOn": "Works until {date}",
+      "noEnd": "No end date",
+      "views": "Opened {n, plural, one {once} other {# times}} · last {date}",
+      "notOpened": "Not opened yet",
+      "createdBy": "Made by {name} on {date}",
+      "copy": "Copy link",
+      "copied": "Link copied",
+      "turnOff": "Turn off",
+      "turnOffTitle": "Turn off this link?",
+      "turnOffBody": "Anyone who opens it will see that it no longer works. This can't be undone; you can make a new link.",
+      "turnedOff": "Link turned off"
+    },
+    "shared": {
+      "sharedNote": "This report was shared by link. The numbers are the latest recorded when you opened it.",
+      "goneTitle": "This report link no longer works.",
+      "goneBody": "It may have expired or been turned off. Ask the person who sent it for a new link."
+    }
   }
 }

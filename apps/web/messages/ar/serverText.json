@@ -291,5 +291,9 @@
   "e_sale_not_found": "لم يتم العثور على عملية البيع.",
   "a_imported_sales_file": "{name} استورد {orders} طلبًا من ملف مبيعات.",
   "e_sales_file_not_found": "لم يتم العثور على ملف المبيعات.",
-  "a_removed_sales_file": "{name} حذف ملف مبيعات ({n} طلب)."
+  "a_removed_sales_file": "{name} حذف ملف مبيعات ({n} طلب).",
+  "a_shared_client_report": "{name} شارك تقرير العميل برابط.",
+  "a_turned_off_report_link": "{name} أوقف رابط تقرير العميل.",
+  "e_only_cost_viewers_share_costs": "مشاركة التكاليف متاحة فقط لمن يستطيع رؤيتها.",
+  "e_report_link_not_found": "لم يتم العثور على رابط التقرير."
 }

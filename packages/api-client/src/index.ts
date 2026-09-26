@@ -28,6 +28,7 @@ import type {
   CampaignDetailDTO,
   CampaignEfficiencyDTO,
   CampaignReportDTO,
+  ReportShareDTO,
   PayablesPageDTO,
   PaymentDTO,
   PaymentsPageDTO,
@@ -375,6 +376,16 @@ export function createClient(config: ClientConfig) {
         const q = new URLSearchParams(reportQuery(params) as Record<string, string>);
         return `${config.baseUrl.replace(/\/$/, '')}${V}/campaigns/${idOrSlug}/report/xlsx?${q.toString()}`;
       },
+      /** No-login links to the client report (P3.3). */
+      reportShares: (campaignId: string) => http.get<ReportShareDTO[]>(`${V}/campaigns/${campaignId}/report-shares`),
+      shareReport: (campaignId: string, body: In<typeof requests.reportShareCreateSchema>) =>
+        http.post<ReportShareDTO>(`${V}/campaigns/${campaignId}/report-shares`, body),
+      revokeReportShare: (id: string) => http.post<ReportShareDTO>(`${V}/report-shares/${id}/revoke`, {}),
+      /** Public: a shared report by its link token (counts the visit unless `preview`). */
+      sharedReport: (token: string, params?: { preview?: '1' }) =>
+        http.get<CampaignReportDTO>(`${V}/public/reports/${token}`, { query: params }),
+      /** Public: a shared report as an .xlsx file (raw Response). */
+      sharedReportXlsx: (token: string) => http.get<Response>(`${V}/public/reports/${token}/xlsx`, { raw: true }),
       addExpense: (id: string, body: Omit<In<typeof requests.expenseCreateSchema>, 'campaignId'>) =>
         http.post<ExpenseDTO>(`${V}/campaigns/${id}/expenses`, { ...body, campaignId: id }),
     },

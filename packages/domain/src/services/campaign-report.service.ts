@@ -41,27 +41,31 @@ function against(actual: number | null, target: number | null): ReportTargetDTO 
 export function makeCampaignReportService(ctx: DomainContext) {
   const { prisma } = ctx;
 
+  const reportCampaignSelect = {
+    id: true,
+    name: true,
+    brandId: true,
+    objective: true,
+    startDate: true,
+    endDate: true,
+    currency: true,
+    plannedBudget: true,
+    targetViews: true,
+    targetEngagements: true,
+    targetEngagementRate: true,
+    targetCostPerView: true,
+    reportSummary: true,
+    brand: { select: { name: true, logoUrl: true } },
+  } as const;
+  type ReportCampaign = NonNullable<Awaited<ReturnType<typeof loadCampaign>>>;
+
+  function loadCampaign(where: { id: string } | { OR: { id?: string; slug?: string }[] }) {
+    return prisma.campaign.findFirst({ where, select: reportCampaignSelect });
+  }
+
   async function forCampaign(idOrSlug: string, query: ReportQuery): Promise<CampaignReportDTO> {
     const actor = requireActor(ctx);
-    const campaign = await prisma.campaign.findFirst({
-      where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
-      select: {
-        id: true,
-        name: true,
-        brandId: true,
-        objective: true,
-        startDate: true,
-        endDate: true,
-        currency: true,
-        plannedBudget: true,
-        targetViews: true,
-        targetEngagements: true,
-        targetEngagementRate: true,
-        targetCostPerView: true,
-        reportSummary: true,
-        brand: { select: { name: true, logoUrl: true } },
-      },
-    });
+    const campaign = await loadCampaign({ OR: [{ id: idOrSlug }, { slug: idOrSlug }] });
     if (!campaign) throw AppError.notFound('Campaign');
     const scope = await scopedBrandIds(ctx);
     if (isBrandOutOfScope(scope, campaign.brandId)) throw AppError.notFound('Campaign');
@@ -69,7 +73,17 @@ export function makeCampaignReportService(ctx: DomainContext) {
     const includeCosts = (query.costs ?? true) && (await hasCapability(ctx, 'FINANCE_VIEW'));
     const me = await prisma.user.findUnique({ where: { id: actor.id }, select: { locale: true } });
     const locale = query.locale ?? (me?.locale === 'ar' ? 'ar' : 'en');
+    return build(campaign, locale, includeCosts);
+  }
 
+  /** A campaign's report by id, with the language and costs already decided (shared links, P3.3). */
+  async function forCampaignAs(campaignId: string, locale: 'en' | 'ar', includeCosts: boolean): Promise<CampaignReportDTO> {
+    const campaign = await loadCampaign({ id: campaignId });
+    if (!campaign) throw AppError.notFound('Campaign');
+    return build(campaign, locale, includeCosts);
+  }
+
+  async function build(campaign: ReportCampaign, locale: 'en' | 'ar', includeCosts: boolean): Promise<CampaignReportDTO> {
     const [efficiency, posts, roster] = await Promise.all([
       makeAnalyticsService(ctx).campaignEfficiency(campaign.id),
       prisma.publishedContent.findMany({
@@ -103,7 +117,7 @@ export function makeCampaignReportService(ctx: DomainContext) {
 
     // Sales from codes and links (P3.1). Return on spend reveals spend, so it
     // follows the report's costs switch.
-    const sold = await makeSalesService(ctx).campaignSales(campaign.id);
+    const sold = await makeSalesService(ctx).campaignTotals(campaign.id, campaign.currency, includeCosts);
     const hasSales = sold.orders > 0 || sold.clicks > 0;
     const salesByCreator = new Map(sold.creators.map((c) => [c.influencerId, c]));
 
@@ -203,8 +217,8 @@ export function makeCampaignReportService(ctx: DomainContext) {
             orders: sold.orders,
             revenue: sold.revenue,
             clicks: sold.clicks,
-            roas: includeCosts ? sold.roas : null,
-            costPerOrder: includeCosts ? sold.costPerOrder : null,
+            roas: sold.roas,
+            costPerOrder: sold.costPerOrder,
           }
         : null,
       creators,
@@ -212,7 +226,7 @@ export function makeCampaignReportService(ctx: DomainContext) {
     };
   }
 
-  return { forCampaign };
+  return { forCampaign, forCampaignAs };
 }
 
 export type CampaignReportService = ReturnType<typeof makeCampaignReportService>;

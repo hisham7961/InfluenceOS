@@ -7,11 +7,12 @@ import { api } from '@/lib/api-browser';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/cn';
+import { ShareReportButton } from './share-dialog';
 
 /**
  * The report's controls, in the viewer's own language: which language the
  * report is in, whether it shows costs, print / save as PDF, and the Excel
- * download. Hidden when printing.
+ * download, and sharing by link. Hidden when printing.
  *
  * Switching language or costs reloads the page instead of a client-side
  * transition: the report is a standalone document, and a search-param-only
@@ -89,6 +90,7 @@ export function ReportToolbar({
             <FileSpreadsheet className="h-4 w-4" /> {t('downloadExcel')}
           </a>
         </Button>
+        <ShareReportButton campaignId={campaignId} locale={locale} />
         <Button size="sm" onClick={() => window.print()}>
           <Printer className="h-4 w-4" /> {t('print')}
         </Button>

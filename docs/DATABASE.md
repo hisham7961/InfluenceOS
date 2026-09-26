@@ -101,6 +101,12 @@ shape and the rules behind it.
 | **SalesImport** | One shop order file brought in, kept so it can be undone. | `fileName`, `rowCount`, `imported`, `duplicates`, `unmatched`, `createdById`. Deleting it deletes its sales. |
 | **Sale** | Sales credited to a creator on a campaign: one shop order (imported) or a total entered by hand. | `source` (`IMPORT`/`MANUAL`), `orderRef` (unique per brand — the same order is never counted twice), `orders`, `amount` (Decimal 18,3), `currency`, `occurredAt`, optional `promoCodeId`/`trackingLinkId`/`importId`. |
 
+## Shared links (P3.3)
+
+| Model | Purpose | Key fields / relations |
+|---|---|---|
+| **ReportShareLink** | A no-login link to a campaign's client report. | `tokenHash` (unique SHA-256 of the link's token — how a visit finds it), `tokenSealed` (the token encrypted with `ENCRYPTION_KEY`, so the link can be copied again), `locale`, `includeCosts`, `expiresAt` (null = no end date), `revokedAt`, `viewCount`, `lastViewedAt`, `createdById`. Deleted with its campaign. |
+
 ## Mobile / API-readiness additions
 
 These models exist ahead of a mobile client so the API contract and auth model don't need

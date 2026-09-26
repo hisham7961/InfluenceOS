@@ -1391,4 +1391,15 @@ export type TrackingLinkUpdateInput = z.infer<typeof trackingLinkUpdateSchema>;
 export type SaleCreateInput = z.infer<typeof saleCreateSchema>;
 export type SalesImportInput = z.infer<typeof salesImportSchema>;
 
+// --- Shared report links (P3.3) --------------------------------------------------
+export const reportShareCreateSchema = z.object({
+  /** The report's language for everyone who opens the link. */
+  locale: z.enum(['en', 'ar']).default('en'),
+  /** Show spend and cost per view / order (needs FINANCE_VIEW). Off by default. */
+  includeCosts: z.boolean().default(false),
+  /** Days until the link stops working; null = until it's turned off. */
+  expiresInDays: z.coerce.number().int().min(1).max(365).nullable().default(30),
+});
+export type ReportShareCreateInput = z.infer<typeof reportShareCreateSchema>;
+
 export { z };

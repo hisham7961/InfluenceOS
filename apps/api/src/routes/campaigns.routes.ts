@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { requests, z } from '@influenceos/contracts';
 import { requireAuth, servicesFor } from '../http';
-import { campaignReportXlsx } from '../lib/campaign-report-xlsx';
+import { campaignReportXlsx, reportFileBase } from '../lib/campaign-report-xlsx';
 
 const idParam = z.object({ id: z.string() });
 
@@ -136,18 +136,9 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
     async (req, reply) => {
       const report = await servicesFor(req).campaignReports.forCampaign(req.params.idOrSlug, req.query);
       const file = campaignReportXlsx(report);
-      const { brandName, name } = report.campaign;
-      // ASCII only, like the other exports ("Lumière" → "Lumiere"); browsers
-      // were seen ignoring an RFC 5987 filename* here.
-      const base = `${brandName}-${name}`
-        .normalize('NFKD')
-        .replace(/\p{M}+/gu, '')
-        .replace(/[^A-Za-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 60) || 'campaign';
       reply
         .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        .header('Content-Disposition', `attachment; filename="${base}-report-${report.locale}.xlsx"`)
+        .header('Content-Disposition', `attachment; filename="${reportFileBase(report)}-report-${report.locale}.xlsx"`)
         .header('Cache-Control', 'private, no-store');
       return reply.send(file);
     },

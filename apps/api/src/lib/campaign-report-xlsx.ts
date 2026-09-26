@@ -102,6 +102,23 @@ function targetRow(
   ];
 }
 
+/**
+ * The download name's start, "<Brand>-<Campaign>". ASCII only, like the other
+ * exports ("Lumière" → "Lumiere"); browsers were seen ignoring an RFC 5987
+ * filename* here.
+ */
+export function reportFileBase(report: CampaignReportDTO): string {
+  const { brandName, name } = report.campaign;
+  return (
+    `${brandName}-${name}`
+      .normalize('NFKD')
+      .replace(/\p{M}+/gu, '')
+      .replace(/[^A-Za-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'campaign'
+  );
+}
+
 /** The client report as an Excel workbook: Summary, Creators and Posts sheets. */
 export function campaignReportXlsx(report: CampaignReportDTO): Buffer {
   const L = LABELS[report.locale];

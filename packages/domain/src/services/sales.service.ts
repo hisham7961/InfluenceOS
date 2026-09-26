@@ -898,6 +898,39 @@ export function makeSalesService(ctx: DomainContext) {
     };
   }
 
+  /**
+   * Orders, revenue and clicks for one campaign, per creator — no access
+   * check: the caller has already decided who may see it (the client report
+   * and its shared link). Return on spend only when `includeMoney`.
+   */
+  async function campaignTotals(campaignId: string, currency: string, includeMoney: boolean) {
+    const [groups, clicks] = await Promise.all([
+      prisma.sale.groupBy({ by: ['influencerId', 'currency'], where: { campaignId }, _sum: { amount: true, orders: true } }),
+      prisma.trackingLink.aggregate({ where: { campaignId }, _sum: { clickCount: true } }),
+    ]);
+    const orders = groups.reduce((n, g) => n + (g._sum.orders ?? 0), 0);
+    const revenue = totals(groups.map((g) => ({ currency: g.currency, amount: g._sum.amount })));
+    const creatorIds = [...new Set(groups.map((g) => g.influencerId))];
+    const creators = creatorIds.map((influencerId) => {
+      const mine = groups.filter((g) => g.influencerId === influencerId);
+      return {
+        influencerId,
+        orders: mine.reduce((n, g) => n + (g._sum.orders ?? 0), 0),
+        revenue: totals(mine.map((g) => ({ currency: g.currency, amount: g._sum.amount }))),
+      };
+    });
+    let roas: number | null = null;
+    let costPerOrder: number | null = null;
+    if (includeMoney && orders > 0) {
+      const spend = (await loadCampaignMoney(prisma, [campaignId])).get(campaignId)?.totalSpend.toNumber() ?? 0;
+      if (spend > 0) {
+        roas = round2(amountIn(revenue, currency) / spend);
+        costPerOrder = round2(spend / orders);
+      }
+    }
+    return { orders, revenue, clicks: clicks._sum.clickCount ?? 0, roas, costPerOrder, creators };
+  }
+
   /** A creator's sales and clicks across the brands the reader can see (creator page). */
   async function creatorSales(influencerId: string): Promise<{ orders: number; revenue: CurrencyTotalDTO[]; clicks: number } | null> {
     const scope = await scopedBrandIds(ctx);
@@ -914,6 +947,7 @@ export function makeSalesService(ctx: DomainContext) {
 
   return {
     campaignSales,
+    campaignTotals,
     creatorSales,
     createPromoCode,
     updatePromoCode,

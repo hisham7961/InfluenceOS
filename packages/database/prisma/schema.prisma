@@ -485,6 +485,7 @@ model User {
   createdTrackingLinks    TrackingLink[]           @relation("TrackingLinkCreatedBy")
   salesImports            SalesImport[]            @relation("SalesImportCreatedBy")
   recordedSales           Sale[]                   @relation("SaleCreatedBy")
+  reportShares            ReportShareLink[]        @relation("ReportShareCreatedBy")
 
   @@index([role])
   @@index([roleProfile])
@@ -828,6 +829,7 @@ model Campaign {
   promoCodes          PromoCode[]
   trackingLinks       TrackingLink[]
   sales               Sale[]
+  reportShares        ReportShareLink[]
   notes               Note[]
   inspirationItems    InspirationItem[]
 
@@ -1624,6 +1626,33 @@ model UsageRight {
   @@index([influencerId])
   @@index([expiresAt])
   @@index([status])
+}
+
+// ===========================================================================
+// SHARED LINKS (P3.3) — pages people outside the agency open without signing in
+// ===========================================================================
+
+/// A no-login link to a campaign's client report. Looked up by a hash of the
+/// token; the token itself is kept encrypted so the link can be copied again.
+/// Language and whether costs show are fixed when the link is made.
+model ReportShareLink {
+  id           String    @id @default(cuid())
+  campaignId   String
+  tokenHash    String    @unique
+  tokenSealed  String
+  locale       String    @default("en")
+  includeCosts Boolean   @default(false)
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  viewCount    Int       @default(0)
+  lastViewedAt DateTime?
+  createdById  String?
+  createdAt    DateTime  @default(now())
+
+  campaign  Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  createdBy User?    @relation("ReportShareCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([campaignId, createdAt])
 }
 
 // ===========================================================================

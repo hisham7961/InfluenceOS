@@ -6,7 +6,7 @@ Every major capability, its backend/API/web status, and whether it is **Mobile R
 (business logic server-side, documented API, server-side auth + permissions, stable
 contracts, media represented independently of the web UI — spec addendum §37).
 
-**Coverage:** 37 features · API ready 36 · Web ready 37 · Mobile ready 33 · Admin-desktop-only 4 · **Mobile readiness 100%** (of SHARED features).
+**Coverage:** 38 features · API ready 37 · Web ready 38 · Mobile ready 34 · Admin-desktop-only 4 · **Mobile readiness 100%** (of SHARED features).
 
 | Feature | Module | Class | API | Web | Mobile Ready | Roles | Flag |
 |---|---|---|---|---|:---:|---|---|
@@ -47,6 +47,7 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Advanced Roles & Capabilities | Settings | ADMIN_DESKTOP_ONLY | READY | READY | — | ADMIN | — |
 | Country Scoping | Logistics | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Sales & ROI | Campaigns | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Client report links | Campaigns | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 
 ## API endpoints by feature
 
@@ -291,3 +292,11 @@ contracts, media represented independently of the web UI — spec addendum §37)
 - `POST /api/v1/brands/:id/sales/import`
 - `DELETE /api/v1/sales-imports/:id`
 - `GET /api/v1/public/links/:slug`
+
+### Client report links
+
+- `GET /api/v1/campaigns/:id/report-shares`
+- `POST /api/v1/campaigns/:id/report-shares`
+- `POST /api/v1/report-shares/:id/revoke`
+- `GET /api/v1/public/reports/:token`
+- `GET /api/v1/public/reports/:token/xlsx`

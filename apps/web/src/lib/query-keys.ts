@@ -11,5 +11,6 @@ export const qk = {
     costs: (id: string) => ['campaign', id, 'costs'] as const,
     scripts: (id: string) => ['campaign', id, 'scripts'] as const,
     sales: (id: string) => ['campaign', id, 'sales'] as const,
+    reportShares: (id: string) => ['campaign', id, 'report-shares'] as const,
   },
 };

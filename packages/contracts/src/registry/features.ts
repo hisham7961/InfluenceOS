@@ -718,6 +718,28 @@ export const FEATURES: FeatureEntry[] = [
     ],
     deepLink: '/campaigns',
   },
+  {
+    key: 'client_report_links',
+    name: 'Client report links',
+    description:
+      "Share a campaign's client report with the brand's team by link, no account needed (/share/r/<token>). The link fixes the report's language and whether costs show (off unless someone who can see costs turns it on), can expire (30 days by default) and be turned off, and counts how often people opened it (link previews aren't counted). The page always shows the latest numbers and prints to PDF or downloads as Excel. Making and turning off links needs CAMPAIGNS_MANAGE; brand scope applies.",
+    module: 'Campaigns',
+    classification: 'SHARED',
+    apiStatus: 'READY',
+    webStatus: 'READY',
+    mobileReady: true,
+    permissions: ALL,
+    flag: null,
+    minApiVersion: 'v1',
+    apiEndpoints: [
+      'GET /api/v1/campaigns/:id/report-shares',
+      'POST /api/v1/campaigns/:id/report-shares',
+      'POST /api/v1/report-shares/:id/revoke',
+      'GET /api/v1/public/reports/:token',
+      'GET /api/v1/public/reports/:token/xlsx',
+    ],
+    deepLink: '/campaigns',
+  },
 ];
 
 export const FEATURE_MODULES = Array.from(new Set(FEATURES.map((f) => f.module)));
