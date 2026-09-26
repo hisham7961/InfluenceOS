@@ -307,5 +307,11 @@
   "e_task_already_finished": "هذه المهمة منتهية بالفعل.",
   "a_creator_sent_post": "{name} أرسل رابط منشوره بعد النشر.",
   "n_creator_says_post_live": "المؤثر يقول إن المنشور نُشر",
-  "n_creator_sent_post_body": "{name} أرسل رابط منشوره. تحقق منه وأضفه إلى الحملة."
+  "n_creator_sent_post_body": "{name} أرسل رابط منشوره. تحقق منه وأضفه إلى الحملة.",
+  "n_new_posts_found": "منشورات جديدة قد تخص حملة",
+  "n_new_post_found_body": "منشور جديد من {displayName} قد يخص حملة {name}.",
+  "n_new_posts_found_body": "{n} منشورات جديدة من {displayName} قد تخص حملة {name}.",
+  "e_suggested_post_not_found": "لم يتم العثور على المنشور المقترح.",
+  "e_post_already_decided": "تمت إضافة هذا المنشور أو استبعاده مسبقاً.",
+  "e_deliverable_not_this_creators": "هذه المهمة لا تخص هذا المؤثر في هذه الحملة."
 }

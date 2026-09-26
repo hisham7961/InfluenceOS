@@ -371,6 +371,25 @@ campaign is cancelled (404).
 
 Drafts carry `fromCreator` in `DeliverableSubmissionDTO`; deliverables carry
 `creatorPostUrl` and `creatorPostedAt`.
+
+**Post discovery (P3.4).** While a campaign is active the worker reads the
+roster creators' newest posts where the configured keys allow it (Instagram
+Business Discovery for Professional accounts, YouTube uploads playlist, X user
+timeline) — each account at most every 6 hours, `MONITOR_DISCOVERY_BATCH_SIZE`
+accounts per sweep (default 20; 0 = off) — and suggests posts whose caption has
+the creator's promo code, the deliverables' hashtags/mentions, the brand's name,
+or an ad disclosure (#ad/#إعلان, only with a single running campaign), posted
+from 2 days before the campaign to 3 days after it.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/campaigns/:id/discovered-posts` | `?status=NEW` (default) / `ADDED` / `DISMISSED`: the suggestions with creator, platform, link, caption, posted date, `signals` (`code:…`, `hashtag:#…`, `mention:@…`, `brand`, `disclosure`) and the suggested deliverable. Needs `CONTENT_VIEW`; brand/country scope. |
+| POST | `/api/v1/campaigns/:id/discover-posts` | Read the campaign's creators' accounts now (skips accounts read in the last 5 minutes). Returns `checked`, `found`, `recent`, and `unavailable` accounts with the reason (`NO_CREDENTIAL`, `ACCOUNT_NOT_ELIGIBLE`, `NOT_SUPPORTED_BY_PLATFORM`, `RATE_LIMITED`…). Needs `CONTENT_MANAGE`; 6/min. |
+| POST | `/api/v1/discovered-posts/:id/add` | Track the post as the campaign's content (same rules as `POST /content`); `deliverableId` overrides the suggestion (`null` = none; must be this creator's on this campaign). If it was added by hand meanwhile, the suggestion links to that content. 409 once decided. |
+| POST | `/api/v1/discovered-posts/:id/dismiss` | Not campaign content: never suggested again. |
+
+Checks follow the post's age (see BUSINESS_RULES.md "Checking posts");
+`PublishedContentDTO.nextCheckAt` says when the next one is due.
 | GET | `/api/v1/campaigns/:id/influencers` | Influencers on a campaign. Each row carries `results`: posts live / total / planned, latest views and engagements, engagement rate, and the creator's own spend (fee + expenses recorded against them, gift purchases excluded) with cost per view and per engagement. |
 | GET | `/api/v1/campaigns/:idOrSlug/efficiency` | Campaign spend efficiency (CPV/CPM/CPE), metric freshness and sources, `perContent` (each post's estimated CPV from its own creator's spend) and `perCreator` (the roster's `results` side by side). |
 | POST | `/api/v1/campaigns/:id/influencers` | Add an influencer to a campaign. |

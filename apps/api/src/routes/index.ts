@@ -31,6 +31,7 @@ import { financeRoutes } from './finance.routes';
 import { salesRoutes } from './sales.routes';
 import { reportShareRoutes } from './report-shares.routes';
 import { creatorLinkRoutes } from './creator-links.routes';
+import { discoveryRoutes } from './discovery.routes';
 
 /** Register every v1 route module onto the (already /api/v1-prefixed) instance. */
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
@@ -66,4 +67,5 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   await salesRoutes(app);
   await reportShareRoutes(app);
   await creatorLinkRoutes(app);
+  await discoveryRoutes(app);
 }

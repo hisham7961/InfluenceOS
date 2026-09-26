@@ -6,7 +6,7 @@ Every major capability, its backend/API/web status, and whether it is **Mobile R
 (business logic server-side, documented API, server-side auth + permissions, stable
 contracts, media represented independently of the web UI — spec addendum §37).
 
-**Coverage:** 39 features · API ready 38 · Web ready 39 · Mobile ready 35 · Admin-desktop-only 4 · **Mobile readiness 100%** (of SHARED features).
+**Coverage:** 40 features · API ready 39 · Web ready 40 · Mobile ready 36 · Admin-desktop-only 4 · **Mobile readiness 100%** (of SHARED features).
 
 | Feature | Module | Class | API | Web | Mobile Ready | Roles | Flag |
 |---|---|---|---|---|:---:|---|---|
@@ -49,6 +49,7 @@ contracts, media represented independently of the web UI — spec addendum §37)
 | Sales & ROI | Campaigns | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Client report links | Campaigns | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 | Creator task links | Campaigns | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
+| Post discovery | Content | SHARED | READY | READY | ✅ | ADMIN, STAFF | — |
 
 ## API endpoints by feature
 
@@ -310,3 +311,10 @@ contracts, media represented independently of the web UI — spec addendum §37)
 - `GET /api/v1/public/creator/:token`
 - `POST /api/v1/public/creator/:token/deliverables/:deliverableId/drafts`
 - `POST /api/v1/public/creator/:token/deliverables/:deliverableId/posted`
+
+### Post discovery
+
+- `GET /api/v1/campaigns/:id/discovered-posts`
+- `POST /api/v1/campaigns/:id/discover-posts`
+- `POST /api/v1/discovered-posts/:id/add`
+- `POST /api/v1/discovered-posts/:id/dismiss`

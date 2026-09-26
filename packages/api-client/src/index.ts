@@ -31,6 +31,8 @@ import type {
   ReportShareDTO,
   CreatorLinkDTO,
   CreatorPortalDTO,
+  DiscoveredPostDTO,
+  DiscoveryRunDTO,
   PayablesPageDTO,
   PaymentDTO,
   PaymentsPageDTO,
@@ -598,6 +600,16 @@ export function createClient(config: ClientConfig) {
         http.get<ExecDashboardDTO>(`${V}/reports/exec-dashboard`, { query: params }),
       // Week- or month-by-month results (P2.7).
       trends: (params?: QueryParams) => http.get<TrendsDTO>(`${V}/reports/trends`, { query: params }),
+    },
+
+    // Post discovery (P3.4): posts found on the roster creators' own accounts.
+    discovery: {
+      forCampaign: (campaignId: string, params?: { status?: 'NEW' | 'ADDED' | 'DISMISSED' }) =>
+        http.get<DiscoveredPostDTO[]>(`${V}/campaigns/${campaignId}/discovered-posts`, { query: params }),
+      runForCampaign: (campaignId: string) => http.post<DiscoveryRunDTO>(`${V}/campaigns/${campaignId}/discover-posts`, {}),
+      add: (id: string, body: In<typeof requests.discoveredPostAddSchema> = {}) =>
+        http.post<DiscoveredPostDTO>(`${V}/discovered-posts/${id}/add`, body),
+      dismiss: (id: string) => http.post<DiscoveredPostDTO>(`${V}/discovered-posts/${id}/dismiss`, {}),
     },
 
     // Creator task links (P3.3): a creator's part of a campaign without an account.

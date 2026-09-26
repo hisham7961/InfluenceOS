@@ -2364,3 +2364,40 @@ export interface CreatorPortalDTO {
   tasks: CreatorTaskDTO[];
   expiresAt: string | null;
 }
+
+// --- Post discovery (P3.4) ------------------------------------------------------
+
+/** A post found on a roster creator's own account, suggested for a campaign. */
+export interface DiscoveredPostDTO {
+  id: string;
+  platform: Platform;
+  url: string;
+  caption: string | null;
+  postedAt: string | null;
+  mediaType: string | null;
+  influencer: { id: string; displayName: string; avatarUrl: string | null };
+  campaignId: string;
+  campaignInfluencerId: string;
+  /** The suggested (or chosen) deliverable. */
+  deliverable: { id: string; type: DeliverableType; platform: Platform; dueDate: string | null } | null;
+  /** Why it looks like campaign content: "code:SARA15", "hashtag:#glow", "mention:@brand", "brand", "disclosure". */
+  signals: string[];
+  status: 'NEW' | 'ADDED' | 'DISMISSED';
+  publishedContentId: string | null;
+  decidedByName: string | null;
+  decidedAt: string | null;
+  foundAt: string;
+}
+
+/** What a "look for new posts now" run did. */
+export interface DiscoveryRunDTO {
+  /** Accounts whose posts were read. */
+  checked: number;
+  /** New suggestions made. */
+  found: number;
+  /** Accounts skipped because they were looked at a few minutes ago. */
+  recent: number;
+  /** Accounts that couldn't be read, and why (no key, not a Professional account, rate limit…). */
+  unavailable: { platform: Platform; username: string; reason: string }[];
+}
+

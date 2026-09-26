@@ -1013,5 +1013,27 @@
     "turnOffTitle": "Turn off this task link?",
     "turnOffBody": "{name} won't be able to open it anymore. You can make a new one.",
     "turnedOff": "Task link turned off"
+  },
+  "foundPosts": {
+    "title": "{n, plural, =0 {Posts found on creators' accounts} one {# post found on creators' accounts} other {# posts found on creators' accounts}}",
+    "hint": "While the campaign runs, the creators' Instagram, YouTube and X accounts are read every few hours. Posts using the campaign's code, hashtags, mentions or brand name show here until you add or dismiss them.",
+    "lookNow": "Look for new posts",
+    "runFound": "{n, plural, one {Found # new post} other {Found # new posts}}",
+    "runNothing": "{n, plural, one {Checked 1 account — nothing new} other {Checked # accounts — nothing new}}",
+    "runUnavailable": "No account could be read — the platforms need API keys (Settings → Integrations), or the accounts aren't Professional accounts.",
+    "runRecent": "Checked a few minutes ago — nothing new yet.",
+    "runNoAccounts": "None of this campaign's creators has an Instagram, YouTube or X account on file.",
+    "open": "Open",
+    "deliverable": "Deliverable",
+    "noDeliverable": "No deliverable",
+    "add": "Add to campaign",
+    "dismiss": "Not campaign content",
+    "added": "Added to the campaign",
+    "dismissed": "Won't be suggested again",
+    "signal": {
+      "code": "Code",
+      "brand": "Brand name",
+      "disclosure": "Marked as ad"
+    }
   }
 }

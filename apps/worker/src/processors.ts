@@ -70,3 +70,13 @@ export async function monitoringBacklog(): Promise<{ dueContent: number; staleAc
 export async function generateNotifications(): Promise<{ created: number }> {
   return runReminders(systemContext(), new Date());
 }
+
+/**
+ * Post discovery (P3.4): read the newest posts of up to `limit` creators on
+ * running campaigns (each at most every 6 hours) and suggest the ones whose
+ * caption carries the campaign's code, hashtags, mentions or brand name.
+ */
+export async function discoverPosts(limit: number): Promise<{ checked: number; found: number }> {
+  const services = createServices(systemContext());
+  return services.discovery.runDue(limit);
+}

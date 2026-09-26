@@ -763,6 +763,27 @@ export const FEATURES: FeatureEntry[] = [
     ],
     deepLink: '/campaigns',
   },
+  {
+    key: 'post_discovery',
+    name: 'Post discovery',
+    description:
+      "While a campaign runs, the worker reads the roster creators' newest posts on Instagram (Professional accounts, Business Discovery), YouTube (uploads) and X (user timeline, on a tier that allows it) — each account at most every 6 hours — and suggests the posts whose caption carries the creator's promo code, the deliverables' hashtags or mentions, the brand's name, or (with a single running campaign) an ad disclosure, together with the likely deliverable. Nothing is tracked until someone adds it; dismissed and already-tracked posts are never suggested again. The team is notified when posts are found and can look now from the campaign's content view.",
+    module: 'Content',
+    classification: 'SHARED',
+    apiStatus: 'READY',
+    webStatus: 'READY',
+    mobileReady: true,
+    permissions: ALL,
+    flag: null,
+    minApiVersion: 'v1',
+    apiEndpoints: [
+      'GET /api/v1/campaigns/:id/discovered-posts',
+      'POST /api/v1/campaigns/:id/discover-posts',
+      'POST /api/v1/discovered-posts/:id/add',
+      'POST /api/v1/discovered-posts/:id/dismiss',
+    ],
+    deepLink: '/campaigns',
+  },
 ];
 
 export const FEATURE_MODULES = Array.from(new Set(FEATURES.map((f) => f.module)));

@@ -108,6 +108,12 @@ shape and the rules behind it.
 | **ReportShareLink** | A no-login link to a campaign's client report. | `tokenHash` (unique SHA-256 of the link's token — how a visit finds it), `tokenSealed` (the token encrypted with `ENCRYPTION_KEY`, so the link can be copied again), `locale`, `includeCosts`, `expiresAt` (null = no end date), `revokedAt`, `viewCount`, `lastViewedAt`, `createdById`. Deleted with its campaign. |
 | **CreatorAccessLink** | A creator's no-login task link for one roster row. | `campaignInfluencerId` (deleted with the row), `tokenHash` (unique), `tokenSealed`, `locale` (default `ar`), `expiresAt`, `revokedAt`, `openCount`, `lastOpenedAt`, `createdById`. Also: `DeliverableSubmission.fromCreator` (sent from the link) and `Deliverable.creatorPostUrl` / `creatorPostedAt` (the post link the creator sent, waiting for the team). |
 
+## Post discovery (P3.4)
+
+| Model | Purpose | Key fields / relations |
+|---|---|---|
+| **DiscoveredPost** | A post found on a roster creator's own account, suggested for a campaign. | `platform` + `externalId` (unique — a post is suggested once, ever), `url`, `caption`, `postedAt`, `signals` (why it matched), suggested `campaignId` / `campaignInfluencerId` / `deliverableId`, `status` (`NEW`/`ADDED`/`DISMISSED`), `publishedContentId` once added, `decidedById` / `decidedAt`. Also `SocialAccount.lastDiscoveryAt` / `lastDiscoveryError`. |
+
 ## Mobile / API-readiness additions
 
 These models exist ahead of a mobile client so the API contract and auth model don't need

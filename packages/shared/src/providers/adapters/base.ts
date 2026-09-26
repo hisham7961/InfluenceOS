@@ -17,6 +17,7 @@ import type {
   NormalizedContentUrl,
   NormalizedProfileInput,
   ProfileSyncResult,
+  RecentPost,
   ResolvedProfile,
   SocialPlatformAdapter,
   UnsupportedReason,
@@ -127,6 +128,13 @@ export abstract class BaseAdapter implements SocialPlatformAdapter {
     originalUrl: string;
   }): Promise<AvailabilityResult> {
     return this.headCheck(content.originalUrl);
+  }
+
+  async listRecentPosts(_account: {
+    username: string;
+    platformUserId?: string | null;
+  }): Promise<AdapterResult<RecentPost[]>> {
+    return this.manualFallback('NOT_SUPPORTED_BY_PLATFORM');
   }
 
   // --- Helpers ------------------------------------------------------------

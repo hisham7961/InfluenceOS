@@ -47,6 +47,7 @@ import { makeUsageRightService } from './services/usage-right.service';
 import { makeSalesService } from './services/sales.service';
 import { makeReportShareService } from './services/report-share.service';
 import { makeCreatorLinkService } from './services/creator-link.service';
+import { makeDiscoveryService } from './services/discovery.service';
 
 export function createServices(ctx: DomainContext) {
   return {
@@ -75,6 +76,7 @@ export function createServices(ctx: DomainContext) {
     sales: makeSalesService(ctx),
     reportShares: makeReportShareService(ctx),
     creatorLinks: makeCreatorLinkService(ctx),
+    discovery: makeDiscoveryService(ctx),
     scripts: makeScriptService(ctx),
     content: makeContentService(ctx),
     expenses: makeExpenseService(ctx),
@@ -119,6 +121,8 @@ export { resealStoredSecrets, type ResealResult } from './lib/reseal';
 export { alertAdmins, recordSyncHealth, SYNC_FAILURE_THRESHOLD, type AdminAlert, type PlatformSyncHealth } from './lib/ops-alerts';
 export { deliveredWhere, outstandingWhere, countedWhere, overdueWhere, dueWithinWhere } from './lib/deliverable-rules';
 export { runReminders, OVERDUE_REPEAT_DAYS } from './lib/reminders';
+export { type DiscoveryService, DISCOVERY_INTERVAL_MS } from './services/discovery.service';
+export { checkGapMs, retryGapMs } from './lib/check-cadence';
 export { pruneHistory, RETENTION, type PruneResult } from './lib/retention';
 export { buildDigest, removedSinceWhere, REMOVED_CONTENT_STATUSES } from './lib/digest';
 export { emailConfigFromEnv, appUrlFromEnv, smtpMailer, type EmailConfig, type Mailer } from './lib/email/config';

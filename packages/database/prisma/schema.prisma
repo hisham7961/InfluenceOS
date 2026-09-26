@@ -487,6 +487,7 @@ model User {
   recordedSales           Sale[]                   @relation("SaleCreatedBy")
   reportShares            ReportShareLink[]        @relation("ReportShareCreatedBy")
   creatorLinks            CreatorAccessLink[]      @relation("CreatorAccessCreatedBy")
+  decidedDiscoveries      DiscoveredPost[]         @relation("DiscoveryDecidedBy")
 
   @@index([role])
   @@index([roleProfile])
@@ -679,6 +680,7 @@ model Influencer {
   promoCodes          PromoCode[]
   trackingLinks       TrackingLink[]
   sales               Sale[]
+  discoveredPosts     DiscoveredPost[]
 
   @@index([relationshipStatus])
   @@index([ownerId])
@@ -706,35 +708,41 @@ model Influencer {
 }
 
 model SocialAccount {
-  id                String     @id @default(cuid())
-  influencerId      String
-  platform          Platform
-  username          String
-  profileUrl        String?
-  platformUserId    String?
-  displayName       String?
-  avatarUrl         String?
-  bio               String?
-  followers         Int?
-  following         Int?
-  postCount         Int?
-  isVerified        Boolean?
-  isPrimary         Boolean    @default(false)
-  dataSource        DataSource @default(MANUAL)
-  lastSyncedAt      DateTime?
+  id                 String     @id @default(cuid())
+  influencerId       String
+  platform           Platform
+  username           String
+  profileUrl         String?
+  platformUserId     String?
+  displayName        String?
+  avatarUrl          String?
+  bio                String?
+  followers          Int?
+  following          Int?
+  postCount          Int?
+  isVerified         Boolean?
+  isPrimary          Boolean    @default(false)
+  dataSource         DataSource @default(MANUAL)
+  lastSyncedAt       DateTime?
   /// Last time the worker tried to sync (success or not): failing accounts
   /// back off instead of being re-selected ahead of healthy ones every sweep.
-  lastSyncAttemptAt DateTime?
+  lastSyncAttemptAt  DateTime?
   /// Why the last sync attempt failed; null after a successful sync.
-  lastSyncError     String?
-  rawMetadata       Json?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  lastSyncError      String?
+  /// Last time post discovery looked at this account's newest posts (P3.4).
+  lastDiscoveryAt    DateTime?
+  /// Why the last discovery found nothing to read (not eligible, no key…); null when it worked.
+  lastDiscoveryError String?
+  rawMetadata        Json?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
   influencer      Influencer             @relation(fields: [influencerId], references: [id], onDelete: Cascade)
   metricSnapshots SocialMetricSnapshot[]
+  discoveredPosts DiscoveredPost[]
 
   @@unique([platform, username])
+  @@index([lastDiscoveryAt])
   @@index([influencerId])
   @@index([platform])
 }
@@ -831,6 +839,7 @@ model Campaign {
   trackingLinks       TrackingLink[]
   sales               Sale[]
   reportShares        ReportShareLink[]
+  discoveredPosts     DiscoveredPost[]
   notes               Note[]
   inspirationItems    InspirationItem[]
 
@@ -875,6 +884,7 @@ model CampaignInfluencer {
   shipments        ProductShipment[]
   attachments      Attachment[]
   accessLinks      CreatorAccessLink[]
+  discoveredPosts  DiscoveredPost[]
 
   @@unique([campaignId, influencerId])
   @@index([campaignId])
@@ -1075,6 +1085,7 @@ model Deliverable {
   submissions        DeliverableSubmission[]
   shipments          ProductShipment[]
   notes              Note[]
+  discoveredPosts    DiscoveredPost[]
 
   @@index([campaignInfluencerId])
   @@index([status])
@@ -1251,6 +1262,7 @@ model PublishedContent {
   viewerStates       UserContentState[]
   notes              Note[]
   attachments        Attachment[]
+  discovery          DiscoveredPost?
 
   @@unique([platform, originalUrl])
   @@index([campaignId])
@@ -1684,6 +1696,50 @@ model CreatorAccessLink {
   createdBy          User?              @relation("CreatorAccessCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([campaignInfluencerId, createdAt])
+}
+
+enum DiscoveredPostStatus {
+  NEW
+  ADDED
+  DISMISSED
+}
+
+/// A post found on a roster creator's own account while their campaign runs
+/// (P3.4), suggested for a campaign and deliverable because its caption uses
+/// the campaign's hashtags, mentions, promo code or the brand's name. Nothing
+/// is tracked until someone adds it; dismissed posts are never suggested again.
+model DiscoveredPost {
+  id                   String               @id @default(cuid())
+  platform             Platform
+  externalId           String
+  url                  String
+  caption              String?
+  postedAt             DateTime?
+  mediaType            String?
+  influencerId         String
+  socialAccountId      String?
+  campaignId           String
+  campaignInfluencerId String
+  deliverableId        String?
+  /// Why it looks like campaign content, e.g. "hashtag:#glow", "code:SARA15", "brand", "disclosure".
+  signals              String[]
+  status               DiscoveredPostStatus @default(NEW)
+  publishedContentId   String?              @unique
+  decidedById          String?
+  decidedAt            DateTime?
+  foundAt              DateTime             @default(now())
+
+  influencer         Influencer         @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  socialAccount      SocialAccount?     @relation(fields: [socialAccountId], references: [id], onDelete: SetNull)
+  campaign           Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignInfluencer CampaignInfluencer @relation(fields: [campaignInfluencerId], references: [id], onDelete: Cascade)
+  deliverable        Deliverable?       @relation(fields: [deliverableId], references: [id], onDelete: SetNull)
+  publishedContent   PublishedContent?  @relation(fields: [publishedContentId], references: [id], onDelete: SetNull)
+  decidedBy          User?              @relation("DiscoveryDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@unique([platform, externalId])
+  @@index([campaignId, status])
+  @@index([status, foundAt])
 }
 
 // ===========================================================================

@@ -130,6 +130,17 @@ export interface ContentMetricsResult {
   raw?: unknown;
 }
 
+/** A post found on a creator's own account (P3.4 — post discovery). */
+export interface RecentPost {
+  /** The platform's id for the post, as `parseContentId` would read it from the URL. */
+  externalId: string;
+  url: string;
+  /** ISO time the post went up, when the platform says. */
+  postedAt: string | null;
+  caption: string | null;
+  mediaType: string | null;
+}
+
 export type AvailabilityStatus =
   | 'LIVE'
   | 'REMOVED'
@@ -203,6 +214,13 @@ export interface SocialPlatformAdapter {
      */
     ownerUsername?: string | null;
   }): Promise<AdapterResult<ContentMetricsResult>>;
+
+  /**
+   * The account's newest posts, where the platform lets us list them with the
+   * configured credential (Instagram Business Discovery, YouTube uploads, X
+   * user timeline). Everything else answers with a manual fallback.
+   */
+  listRecentPosts(account: { username: string; platformUserId?: string | null }): Promise<AdapterResult<RecentPost[]>>;
 
   /** Check whether content is still available. */
   checkContentAvailability(content: {

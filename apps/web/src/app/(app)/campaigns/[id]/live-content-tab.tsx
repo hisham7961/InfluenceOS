@@ -15,6 +15,7 @@ import { AddContentFlow } from '@/components/content/add-content-flow';
 import { ReviewNewContentButton } from '@/components/content/review-new-content-button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { errorMessage } from '@/lib/errors';
+import { FoundPostsPanel } from './found-posts-panel';
 
 // ---------------------------------------------------------------------------
 // Live Content — same PublishedContent records as the global Live Content
@@ -71,6 +72,8 @@ export function LiveContentTab({
           <Plus className="h-4 w-4" /> {t('workspace.liveContent.addContent')}
         </Button>
       </div>
+
+      <FoundPostsPanel campaign={campaign} influencers={influencers} />
 
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-foreground">

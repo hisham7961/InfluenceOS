@@ -495,3 +495,102 @@ describe('testConnection (P2.4 — Admin → Integrations "Test")', () => {
     expect(r.live).toBe(false);
   });
 });
+
+describe('listRecentPosts (P3.4 post discovery)', () => {
+  it("lists an Instagram Professional account's newest posts via Business Discovery", async () => {
+    const ig = new InstagramAdapter(
+      ctxWith({ INSTAGRAM_ACCESS_TOKEN: 'tok', INSTAGRAM_BUSINESS_ACCOUNT_ID: 'me' }, (url) => {
+        expect(url).toContain('business_discovery.username(sara.kw)');
+        expect(url).toContain('caption');
+        return res(200, {
+          business_discovery: {
+            media: {
+              data: [
+                { id: '1', permalink: 'https://www.instagram.com/reel/Cabc123/', media_type: 'VIDEO', timestamp: '2026-09-20T10:00:00+0000', caption: 'Glow #ad @brand' },
+                { id: '2', permalink: 'https://www.instagram.com/p/Cdef456/', media_type: 'IMAGE', timestamp: '2026-09-18T08:00:00+0000' },
+                { id: '3', media_type: 'IMAGE' },
+              ],
+            },
+          },
+        });
+      }),
+    );
+    const r = await ig.listRecentPosts({ username: 'sara.kw' });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.data).toEqual([
+        { externalId: 'Cabc123', url: 'https://www.instagram.com/reel/Cabc123/', postedAt: '2026-09-20T10:00:00.000Z', caption: 'Glow #ad @brand', mediaType: 'VIDEO' },
+        { externalId: 'Cdef456', url: 'https://www.instagram.com/p/Cdef456/', postedAt: '2026-09-18T08:00:00.000Z', caption: null, mediaType: 'IMAGE' },
+      ]);
+    }
+  });
+
+  it('Instagram: personal accounts are not eligible; no credentials means no network', async () => {
+    const personal = new InstagramAdapter(ctxWith({ INSTAGRAM_ACCESS_TOKEN: 'tok', INSTAGRAM_BUSINESS_ACCOUNT_ID: 'me' }, () => res(400, {})));
+    const r = await personal.listRecentPosts({ username: 'someone' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toBe('ACCOUNT_NOT_ELIGIBLE');
+    const off = await new InstagramAdapter(ctxWith({}, NEVER)).listRecentPosts({ username: 'x' });
+    expect(off.ok).toBe(false);
+  });
+
+  it("lists a YouTube channel's uploads from its uploads playlist (UC… → UU…)", async () => {
+    const yt = new YouTubeAdapter(
+      ctxWith({ YOUTUBE_API_KEY: 'k' }, (url) => {
+        expect(url).toContain('/playlistItems');
+        expect(url).toContain('playlistId=UUabc');
+        return res(200, {
+          items: [
+            { snippet: { title: 'Review', description: 'Code SARA15' }, contentDetails: { videoId: 'vid1', videoPublishedAt: '2026-09-21T12:00:00Z' } },
+            { snippet: { title: 'No id' }, contentDetails: {} },
+          ],
+        });
+      }),
+    );
+    const r = await yt.listRecentPosts({ username: 'sara', platformUserId: 'UCabc' });
+    expect(r.ok && r.data).toEqual([
+      { externalId: 'vid1', url: 'https://www.youtube.com/watch?v=vid1', postedAt: '2026-09-21T12:00:00.000Z', caption: 'Review\nCode SARA15', mediaType: 'VIDEO' },
+    ]);
+  });
+
+  it('YouTube: finds the uploads playlist by handle; quota errors are retryable', async () => {
+    const calls: string[] = [];
+    const yt = new YouTubeAdapter(
+      ctxWith({ YOUTUBE_API_KEY: 'k' }, (url) => {
+        calls.push(url);
+        if (url.includes('/channels')) return res(200, { items: [{ contentDetails: { relatedPlaylists: { uploads: 'UUxyz' } } }] });
+        return res(200, { items: [] });
+      }),
+    );
+    const r = await yt.listRecentPosts({ username: 'sara' });
+    expect(r.ok && r.data).toEqual([]);
+    expect(calls[1]).toContain('playlistId=UUxyz');
+    const quota = new YouTubeAdapter(ctxWith({ YOUTUBE_API_KEY: 'k' }, () => res(403, {})));
+    const q = await quota.listRecentPosts({ username: 'sara', platformUserId: 'UCabc' });
+    expect(!q.ok && q.retryable).toBe(true);
+  });
+
+  it("lists an X account's own posts; a tier without timelines stays manual", async () => {
+    const x = new XAdapter(
+      ctxWith({ X_API_BEARER_TOKEN: 'b' }, (url) => {
+        expect(url).toContain('/users/42/tweets');
+        return res(200, { data: [{ id: '777', text: 'Loving it #ad', created_at: '2026-09-22T09:00:00.000Z' }] });
+      }),
+    );
+    const r = await x.listRecentPosts({ username: '@sara', platformUserId: '42' });
+    expect(r.ok && r.data).toEqual([
+      { externalId: '777', url: 'https://x.com/sara/status/777', postedAt: '2026-09-22T09:00:00.000Z', caption: 'Loving it #ad', mediaType: 'POST' },
+    ]);
+    const basic = new XAdapter(ctxWith({ X_API_BEARER_TOKEN: 'b' }, () => res(403, {})));
+    const b = await basic.listRecentPosts({ username: 'sara', platformUserId: '42' });
+    expect(!b.ok && b.reason).toBe('REQUIRES_APP_AUTHORIZATION');
+  });
+
+  it('TikTok and Snapchat cannot list posts (manual)', async () => {
+    for (const a of [new TikTokAdapter(ctxWith({}, NEVER)), new SnapchatAdapter(ctxWith({}, NEVER))]) {
+      const r = await a.listRecentPosts({ username: 'sara' });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.fallback).toBe('MANUAL');
+    }
+  });
+});

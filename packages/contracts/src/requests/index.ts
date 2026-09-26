@@ -1421,4 +1421,14 @@ export type CreatorLinkCreateInput = z.infer<typeof creatorLinkCreateSchema>;
 export type CreatorDraftInput = z.infer<typeof creatorDraftSchema>;
 export type CreatorPostedInput = z.infer<typeof creatorPostedSchema>;
 
+// --- Post discovery (P3.4) ------------------------------------------------------
+export const discoveredPostListSchema = z.object({
+  status: z.enum(['NEW', 'ADDED', 'DISMISSED']).default('NEW'),
+});
+/** Add a found post to the campaign; `deliverableId` overrides the suggestion (null = no deliverable). */
+export const discoveredPostAddSchema = z.object({
+  deliverableId: cuid.nullable().optional(),
+});
+export type DiscoveredPostAddInput = z.infer<typeof discoveredPostAddSchema>;
+
 export { z };

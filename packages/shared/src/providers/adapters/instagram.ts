@@ -6,6 +6,7 @@ import type {
   ContentMetricsResult,
   NormalizedProfileInput,
   ProfileSyncResult,
+  RecentPost,
   ResolvedProfile,
 } from '../types';
 
@@ -22,6 +23,8 @@ const GRAPH = 'https://graph.facebook.com/v25.0';
  * out of reach, which is a platform ceiling, not a bug.
  */
 const MEDIA_WINDOW = 50;
+/** How many of an account's newest posts post discovery looks at. */
+const DISCOVERY_WINDOW = 25;
 
 /**
  * Instagram adapter — the Instagram Graph API only exposes data for eligible
@@ -211,6 +214,47 @@ export class InstagramAdapter extends BaseAdapter {
           raw: match,
         },
       };
+    } catch {
+      return this.manualFallback('PROVIDER_ERROR');
+    }
+  }
+
+  /**
+   * The account's newest posts via the same Business Discovery `media` edge
+   * (P3.4). Professional accounts only; personal accounts answer
+   * ACCOUNT_NOT_ELIGIBLE and stay manual.
+   */
+  override async listRecentPosts(account: { username: string }): Promise<AdapterResult<RecentPost[]>> {
+    if (!this.apiConfigured) return this.manualFallback('REQUIRES_APP_AUTHORIZATION');
+    if (!account.username) return this.manualFallback('INVALID_INPUT');
+    try {
+      const fields =
+        'business_discovery.username(' +
+        encodeURIComponent(account.username) +
+        `){media.limit(${DISCOVERY_WINDOW})` +
+        '{id,permalink,media_type,timestamp,caption}}';
+      const res = await this.fetchFn(`${GRAPH}/${this.igUserId}?fields=${fields}&access_token=${this.accessToken}`);
+      if (res.status === 400) return this.manualFallback('ACCOUNT_NOT_ELIGIBLE');
+      if (res.status === 429) return this.manualFallback('RATE_LIMITED');
+      if (!res.ok) return this.manualFallback('PROVIDER_ERROR');
+      const data = (await res.json()) as { business_discovery?: { media?: { data?: unknown[] } } };
+      const items = data.business_discovery?.media?.data;
+      if (!Array.isArray(items)) return this.manualFallback('ACCOUNT_NOT_ELIGIBLE');
+      const posts: RecentPost[] = [];
+      for (const raw of items) {
+        const m = raw as { permalink?: unknown; media_type?: unknown; timestamp?: unknown; caption?: unknown };
+        if (typeof m?.permalink !== 'string') continue;
+        const externalId = this.parseContentId(m.permalink);
+        if (!externalId) continue;
+        posts.push({
+          externalId,
+          url: m.permalink,
+          postedAt: typeof m.timestamp === 'string' ? new Date(m.timestamp).toISOString() : null,
+          caption: typeof m.caption === 'string' ? m.caption : null,
+          mediaType: typeof m.media_type === 'string' ? m.media_type : null,
+        });
+      }
+      return { ok: true, source: 'OFFICIAL_API', data: posts };
     } catch {
       return this.manualFallback('PROVIDER_ERROR');
     }

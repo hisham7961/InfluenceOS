@@ -72,4 +72,5 @@ export type {
   AvailabilityStatus,
   ContentMetricsResult,
   OAuthTokenResult,
+  RecentPost,
 } from './providers';

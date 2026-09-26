@@ -22,6 +22,7 @@ import {
   claimDueContentIds,
   claimStaleAccountIds,
   cleanupAbandonedUploads,
+  discoverPosts,
   generateNotifications,
   monitoringBacklog,
   syncAccount,
@@ -32,6 +33,8 @@ const BATCH = Number(process.env.MONITOR_BATCH_SIZE) || 100;
 const MAX_BATCH = Math.max(BATCH, Number(process.env.MONITOR_MAX_BATCH_SIZE) || 400);
 /** Follower syncs per sweep — kept low: Instagram allows ~200 calls/hour per app. */
 const ACCOUNT_BATCH = Number(process.env.MONITOR_ACCOUNT_BATCH_SIZE) || 25;
+/** Creator accounts read for new posts per sweep (P3.4); 0 turns discovery off. */
+const DISCOVERY_BATCH = Number(process.env.MONITOR_DISCOVERY_BATCH_SIZE ?? 20);
 const MONITOR_CRON = process.env.MONITOR_CRON || '*/30 * * * *';
 const HEALTH_PORT = Number(process.env.WORKER_PORT) || 4100;
 /**
@@ -95,6 +98,8 @@ const stats = {
   emailFailures: 0,
   /** Old history thinned out (P2.8): routine check events and older snapshots. */
   historyPruned: { checkEvents: 0, contentSnapshots: 0, followerSnapshots: 0 },
+  /** Post discovery (P3.4): creator accounts read and posts suggested since start. */
+  discovery: { accountsChecked: 0, postsFound: 0 },
 };
 
 // Whether Redis is currently reachable — drives the /health verdict (WK-03).
@@ -127,6 +132,14 @@ async function runMaintenance(enqueue: (kind: Kind, id: string) => Promise<void>
   for (const id of staleAccounts) await enqueue('account', id);
 
   stats.backlog = await monitoringBacklog().catch(() => stats.backlog);
+
+  // Post discovery (P3.4): a small batch per sweep, each account at most every 6 hours.
+  const discovered = await discoverPosts(DISCOVERY_BATCH).catch((e) => {
+    console.error('[maintenance] post discovery failed', e);
+    return { checked: 0, found: 0 };
+  });
+  stats.discovery.accountsChecked += discovered.checked;
+  stats.discovery.postsFound += discovered.found;
 
   const notif = await generateNotifications();
   stats.notifications += notif.created;
@@ -179,7 +192,7 @@ async function runMaintenance(enqueue: (kind: Kind, id: string) => Promise<void>
 
   stats.lastMaintenanceAt = new Date().toISOString();
   console.log(
-    `[maintenance] queued ${dueContent.length} content checks, ${staleAccounts.length} account syncs (still waiting: ${stats.backlog.dueContent} content, ${stats.backlog.staleAccounts} accounts), created ${notif.created} notifications, quarantined ${cleaned} orphan uploads`,
+    `[maintenance] queued ${dueContent.length} content checks, ${staleAccounts.length} account syncs (still waiting: ${stats.backlog.dueContent} content, ${stats.backlog.staleAccounts} accounts), created ${notif.created} notifications, read ${discovered.checked} creator accounts (${discovered.found} posts found), quarantined ${cleaned} orphan uploads`,
   );
 }
 let lastCleanupAt = 0;

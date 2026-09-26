@@ -6,6 +6,7 @@ import type {
   ContentMetricsResult,
   NormalizedProfileInput,
   ProfileSyncResult,
+  RecentPost,
   ResolvedProfile,
 } from '../types';
 
@@ -156,6 +157,53 @@ export class YouTubeAdapter extends BaseAdapter {
       };
     } catch (err: any) {
       if (err?.code === 403) return this.manualFallback('RATE_LIMITED');
+      return this.manualFallback('PROVIDER_ERROR');
+    }
+  }
+
+  /**
+   * The channel's newest uploads (P3.4): the channel's uploads playlist
+   * (`UU…` for channel `UC…`), 25 at a time. 1–2 quota units per call.
+   */
+  override async listRecentPosts(account: {
+    username: string;
+    platformUserId?: string | null;
+  }): Promise<AdapterResult<RecentPost[]>> {
+    if (!this.apiConfigured) return this.manualFallback('NO_CREDENTIAL');
+    try {
+      const key = this.apiKey!;
+      let playlistId: string | null = null;
+      if (account.platformUserId?.startsWith('UC')) {
+        playlistId = `UU${account.platformUserId.slice(2)}`;
+      } else if (account.username) {
+        const ch = await this.getJson(
+          `${API}/channels?part=contentDetails&forHandle=@${encodeURIComponent(account.username)}&key=${key}`,
+        );
+        playlistId = ch.items?.[0]?.contentDetails?.relatedPlaylists?.uploads ?? null;
+      }
+      if (!playlistId) return this.manualFallback('NOT_FOUND');
+      const data = await this.getJson(
+        `${API}/playlistItems?part=snippet,contentDetails&maxResults=25&playlistId=${encodeURIComponent(playlistId)}&key=${key}`,
+      );
+      const posts: RecentPost[] = [];
+      for (const item of (data.items ?? []) as any[]) {
+        const id = item?.contentDetails?.videoId;
+        if (typeof id !== 'string') continue;
+        const title = typeof item.snippet?.title === 'string' ? item.snippet.title : '';
+        const description = typeof item.snippet?.description === 'string' ? item.snippet.description : '';
+        const published = item.contentDetails?.videoPublishedAt ?? item.snippet?.publishedAt;
+        posts.push({
+          externalId: id,
+          url: `https://www.youtube.com/watch?v=${id}`,
+          postedAt: typeof published === 'string' ? new Date(published).toISOString() : null,
+          caption: [title, description].filter(Boolean).join('\n') || null,
+          mediaType: 'VIDEO',
+        });
+      }
+      return { ok: true, source: 'OFFICIAL_API', data: posts };
+    } catch (err: any) {
+      if (err?.code === 403) return this.manualFallback('RATE_LIMITED');
+      if (err?.code === 404) return this.manualFallback('NOT_FOUND');
       return this.manualFallback('PROVIDER_ERROR');
     }
   }

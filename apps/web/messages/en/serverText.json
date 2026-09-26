@@ -307,5 +307,11 @@
   "e_task_already_finished": "This task is already finished.",
   "a_creator_sent_post": "{name} sent the link to their live post.",
   "n_creator_says_post_live": "The creator says the post is live",
-  "n_creator_sent_post_body": "{name} sent the link to their live post. Check it and add it to the campaign."
+  "n_creator_sent_post_body": "{name} sent the link to their live post. Check it and add it to the campaign.",
+  "n_new_posts_found": "New posts found for a campaign",
+  "n_new_post_found_body": "A new post from {displayName} may belong to {name}.",
+  "n_new_posts_found_body": "{n} new posts from {displayName} may belong to {name}.",
+  "e_suggested_post_not_found": "Suggested post not found.",
+  "e_post_already_decided": "This post was already added or dismissed.",
+  "e_deliverable_not_this_creators": "That deliverable isn't this creator's on this campaign."
 }

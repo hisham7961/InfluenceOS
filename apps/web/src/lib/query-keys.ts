@@ -12,6 +12,7 @@ export const qk = {
     scripts: (id: string) => ['campaign', id, 'scripts'] as const,
     sales: (id: string) => ['campaign', id, 'sales'] as const,
     reportShares: (id: string) => ['campaign', id, 'report-shares'] as const,
+    foundPosts: (id: string) => ['campaign', id, 'found-posts'] as const,
     /** A roster row's creator task links (keyed under the campaign so a campaign refresh covers them). */
     creatorLinks: (id: string, campaignInfluencerId: string) => ['campaign', id, 'creator-links', campaignInfluencerId] as const,
   },

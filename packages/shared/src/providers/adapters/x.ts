@@ -6,6 +6,7 @@ import type {
   ContentMetricsResult,
   NormalizedProfileInput,
   ProfileSyncResult,
+  RecentPost,
   ResolvedProfile,
 } from '../types';
 
@@ -133,6 +134,44 @@ export class XAdapter extends BaseAdapter {
       };
     } catch (err: any) {
       if (err?.code === 429) return this.manualFallback('RATE_LIMITED');
+      return this.manualFallback('PROVIDER_ERROR');
+    }
+  }
+
+  /**
+   * The account's newest posts from the user timeline (P3.4). Needs an X API
+   * tier that includes timelines; on a tier without it X answers 403 and the
+   * account stays manual.
+   */
+  override async listRecentPosts(account: {
+    username: string;
+    platformUserId?: string | null;
+  }): Promise<AdapterResult<RecentPost[]>> {
+    if (!this.apiConfigured) return this.manualFallback('NO_CREDENTIAL');
+    try {
+      let userId = account.platformUserId ?? null;
+      if (!userId) {
+        const u = await this.getJson(`${API}/users/by/username/${encodeURIComponent(account.username)}`);
+        userId = u.data?.id ?? null;
+      }
+      if (!userId) return this.manualFallback('NOT_FOUND');
+      const data = await this.getJson(
+        `${API}/users/${encodeURIComponent(userId)}/tweets?max_results=20&exclude=replies,retweets&tweet.fields=created_at`,
+      );
+      const handle = account.username.replace(/^@/, '');
+      const posts: RecentPost[] = ((data.data ?? []) as any[])
+        .filter((t) => typeof t?.id === 'string')
+        .map((t) => ({
+          externalId: t.id,
+          url: `https://x.com/${handle}/status/${t.id}`,
+          postedAt: typeof t.created_at === 'string' ? new Date(t.created_at).toISOString() : null,
+          caption: typeof t.text === 'string' ? t.text : null,
+          mediaType: 'POST',
+        }));
+      return { ok: true, source: 'OFFICIAL_API', data: posts };
+    } catch (err: any) {
+      if (err?.code === 429) return this.manualFallback('RATE_LIMITED');
+      if (err?.code === 401 || err?.code === 403) return this.manualFallback('REQUIRES_APP_AUTHORIZATION');
       return this.manualFallback('PROVIDER_ERROR');
     }
   }
