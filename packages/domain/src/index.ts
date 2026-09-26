@@ -101,7 +101,7 @@ export {
   isProviderCredentialKey,
   type ProviderCredentialKey,
 } from './lib/credential-store';
-export { maxUploadBytes } from './services/attachment.service';
+export { maxUploadBytes, type UploadCleanupResult } from './services/attachment.service';
 export { getStorage, resetStorage, sanitizeFileName, buildStorageKey } from './lib/storage';
 export { signDownloadTicket, verifyDownloadTicket } from './lib/tokens';
 export {

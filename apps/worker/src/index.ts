@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { prisma } from '@influenceos/database';
-import { refreshProviderCredentialOverrides } from '@influenceos/domain';
+import { refreshProviderCredentialOverrides, type UploadCleanupResult } from '@influenceos/domain';
 import { Queue, Worker, type Job } from 'bullmq';
 import { computeWorkerHealth, shouldDeadLetter } from '@influenceos/shared';
 import { createConnection, isRedisAvailable } from './redis';
@@ -44,7 +44,10 @@ const stats = {
   contentChecks: 0,
   accountSyncs: 0,
   notifications: 0,
+  /** Orphaned files moved to quarantine since start. */
   abandonedUploadsCleaned: 0,
+  /** Outcome of the most recent orphan-file pass (skipped = refused for safety). */
+  lastCleanup: null as (UploadCleanupResult & { at: string }) | null,
   jobsFailed: 0,
   deadLettered: 0,
   lastMaintenanceAt: null as string | null,
@@ -91,17 +94,28 @@ async function runMaintenance(enqueue: (kind: Kind, id: string) => Promise<void>
   // in-flight uploads are never touched.
   let cleaned = 0;
   if (Date.now() - lastCleanupAt >= 60 * 60 * 1000) {
-    cleaned = await cleanupAbandonedUploads().catch((e) => {
+    const res = await cleanupAbandonedUploads().catch((e) => {
       console.error('[maintenance] abandoned-upload cleanup failed', e);
-      return 0;
+      return null;
     });
     lastCleanupAt = Date.now();
-    stats.abandonedUploadsCleaned += cleaned;
+    if (res) {
+      cleaned = res.quarantined;
+      stats.abandonedUploadsCleaned += res.quarantined;
+      stats.lastCleanup = { ...res, at: new Date().toISOString() };
+      if (res.skipped && res.skipped !== 'disabled') {
+        console.warn(
+          `[maintenance] file cleanup REFUSED (${res.skipped}): ${res.orphans} stored files have no record. ` +
+            'If the database was just restored or swapped this is expected — check before re-enabling.',
+        );
+      }
+      if (res.restored) console.log(`[maintenance] restored ${res.restored} quarantined files whose records came back`);
+    }
   }
 
   stats.lastMaintenanceAt = new Date().toISOString();
   console.log(
-    `[maintenance] queued ${dueContent.length} content checks, ${staleAccounts.length} account syncs (still waiting: ${stats.backlog.dueContent} content, ${stats.backlog.staleAccounts} accounts), created ${notif.created} notifications, cleaned ${cleaned} orphan uploads`,
+    `[maintenance] queued ${dueContent.length} content checks, ${staleAccounts.length} account syncs (still waiting: ${stats.backlog.dueContent} content, ${stats.backlog.staleAccounts} accounts), created ${notif.created} notifications, quarantined ${cleaned} orphan uploads`,
   );
 }
 let lastCleanupAt = 0;

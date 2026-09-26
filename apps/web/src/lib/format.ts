@@ -48,6 +48,19 @@ export function dayMonth(input: string | Date | null | undefined, locale: Locale
   return d ? format(d, 'MMM d', { locale: dateFnsLocale(locale) }) : '—';
 }
 
+/** Human-readable byte size (1.2 MB). */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let v = bytes / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
 /** Client-component convenience hook: resolves the active locale once (via
  * next-intl's `useLocale()`) and returns the date formatters pre-bound to
  * it, so call sites don't need to thread `locale` through by hand. Server

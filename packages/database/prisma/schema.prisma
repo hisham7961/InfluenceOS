@@ -1638,6 +1638,24 @@ model ActivityLog {
 
 /// Central provider integration state for the Admin Integrations screen and
 /// observability. Capability details are stored as JSON (provider-specific).
+/// One run of scripts/backup.sh — a database dump, a file mirror, or the weekly
+/// restore test — recorded by the script itself (via psql in the postgres
+/// container) so Settings → Platform can show when the last good backup ran.
+model BackupRun {
+  id         String   @id @default(cuid())
+  /// database | files | restore-test
+  kind       String
+  ok         Boolean
+  startedAt  DateTime
+  finishedAt DateTime @default(now())
+  sizeBytes  BigInt?
+  /// Whether the copy also reached the off-server destination.
+  offsite    Boolean  @default(false)
+  message    String?
+
+  @@index([kind, finishedAt])
+}
+
 model IntegrationSetting {
   id                String            @id @default(cuid())
   platform          Platform          @unique

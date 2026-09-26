@@ -11,6 +11,25 @@ import { signUploadTicket, verifyDownloadTicket, verifyUploadTicket } from '../l
 import { makeCampaignService } from './campaign.service';
 
 type Target = z.infer<typeof requests.attachmentTargetSchema>;
+
+/** Where live attachment files are stored, and where orphaned ones are parked. */
+const LIVE_PREFIX = 'attachments/';
+const QUARANTINE_PREFIX = 'quarantine/';
+/** Platform feature flag that switches the orphaned-file pass off. */
+const CLEANUP_FLAG = 'file_cleanup';
+
+export interface UploadCleanupResult {
+  /** Orphaned files moved to quarantine this run. */
+  quarantined: number;
+  /** Quarantined files moved back because a record references them again. */
+  restored: number;
+  /** Quarantined files deleted after the retention window. */
+  purged: number;
+  /** Orphaned files found (older than the grace window). */
+  orphans: number;
+  /** Why the orphan pass was refused, when it was. */
+  skipped: null | 'disabled' | 'no-attachment-records' | 'too-many-orphans';
+}
 type InitiateInput = z.infer<typeof requests.attachmentInitiateSchema>;
 
 /** Allowed MIME types → attachment kind. Anything else is rejected. */
@@ -392,35 +411,109 @@ export function makeAttachmentService(ctx: DomainContext) {
     await prisma.attachment.delete({ where: { id } });
   }
 
+  /** The admin kill switch, created on first use so it shows up in the Flags tab. */
+  async function cleanupFlagEnabled(): Promise<boolean> {
+    const where = { key: CLEANUP_FLAG, scope: 'PLATFORM' as const, brandId: null };
+    const flag = await prisma.featureFlag.findFirst({ where });
+    if (flag) return flag.enabled;
+    await prisma.featureFlag
+      .create({
+        data: {
+          ...where,
+          enabled: true,
+          description:
+            'Move stored files that no record points at into quarantine (deleted after 30 days). Turn off while restoring a backup.',
+        },
+      })
+      .catch(() => undefined);
+    return true;
+  }
+
   /**
-   * Cleanup for ABANDONED uploads: objects that were PUT to storage (directly to
-   * S3 via a presigned URL, or through the local proxy) but whose two-phase
-   * upload was never completed, so no Attachment row references them. Such
-   * orphans accumulate silently. This lists objects under the attachments
-   * prefix and deletes those that (a) have no Attachment row and (b) are older
-   * than `olderThanMs` (a grace window so an in-flight upload is never removed).
-   * Idempotent and safe to run repeatedly (worker maintenance). Returns the
-   * number of orphan objects deleted.
+   * Move stored files that no Attachment row references (uploads that were
+   * never completed, or files whose record was deleted) into `quarantine/`,
+   * and purge quarantined files once they are CLEANUP_QUARANTINE_DAYS old.
+   *
+   * Built to fail safe, because the input is "every file the database does
+   * not know about" — pointed at an empty, restored or wrong database, that is
+   * every file:
+   *  - The `file_cleanup` flag (Settings → Platform → Flags) or
+   *    CLEANUP_ENABLED=false turns it off entirely (use during a restore).
+   *  - It refuses to run when the Attachment table is empty but files exist,
+   *    or when the orphans are both numerous and a large share of all files.
+   *  - Nothing is deleted on the spot; a quarantined file whose record comes
+   *    back (e.g. after a database restore) is moved back automatically.
    */
-  async function cleanupAbandonedUploads(olderThanMs = 24 * 60 * 60 * 1000): Promise<number> {
-    const objects = await storage.list('attachments/');
-    if (objects.length === 0) return 0;
+  async function cleanupAbandonedUploads(olderThanMs = 24 * 60 * 60 * 1000): Promise<UploadCleanupResult> {
+    const result: UploadCleanupResult = { quarantined: 0, restored: 0, purged: 0, orphans: 0, skipped: null };
+    if (process.env.CLEANUP_ENABLED === 'false' || !(await cleanupFlagEnabled())) {
+      return { ...result, skipped: 'disabled' };
+    }
+
+    const objects = await storage.list(LIVE_PREFIX);
+    const quarantined = await storage.list(QUARANTINE_PREFIX);
+    if (objects.length === 0 && quarantined.length === 0) return result;
+
     // The set of keys that are legitimately referenced by an Attachment row.
     const known = new Set(
       (await prisma.attachment.findMany({ select: { storageKey: true } })).map((r) => r.storageKey),
     );
-    const cutoff = Date.now() - olderThanMs;
-    let deleted = 0;
-    for (const obj of objects) {
-      if (known.has(obj.key)) continue;
-      // Only remove objects old enough to be certainly abandoned. If we can't
-      // tell the age, leave it (conservative — never delete a possibly-live one).
-      const age = obj.lastModified ? obj.lastModified.getTime() : Date.now();
-      if (age > cutoff) continue;
-      await storage.remove(obj.key).catch(() => undefined);
-      deleted += 1;
+
+    // A record that points at a quarantined file (restored database, or a
+    // record re-created after its file was quarantined) gets its file back.
+    const live = new Set(objects.map((o) => o.key));
+    for (const q of quarantined) {
+      const original = q.key.slice(QUARANTINE_PREFIX.length);
+      if (!known.has(original) || live.has(original)) continue;
+      try {
+        await storage.copy(q.key, original);
+        await storage.remove(q.key);
+        result.restored += 1;
+      } catch {
+        /* retried next run */
+      }
     }
-    return deleted;
+
+    // Only files old enough to be certainly abandoned. If the age is unknown,
+    // leave it (never touch a possibly-live upload).
+    const cutoff = Date.now() - olderThanMs;
+    const orphans = objects.filter(
+      (o) => !known.has(o.key) && o.lastModified != null && o.lastModified.getTime() <= cutoff,
+    );
+    result.orphans = orphans.length;
+
+    if (orphans.length > 0 && known.size === 0) {
+      result.skipped = 'no-attachment-records';
+    } else if (
+      orphans.length > (Number(process.env.CLEANUP_MAX_ORPHANS) || 200) &&
+      orphans.length > objects.length * 0.25
+    ) {
+      result.skipped = 'too-many-orphans';
+    } else {
+      for (const obj of orphans) {
+        try {
+          await storage.copy(obj.key, QUARANTINE_PREFIX + obj.key);
+          await storage.remove(obj.key);
+          result.quarantined += 1;
+        } catch {
+          /* left in place; retried next run */
+        }
+      }
+    }
+
+    // Quarantine expiry runs even when the orphan pass was skipped — it never
+    // depends on the database, only on how long a file has sat in quarantine.
+    const keepDays = Number(process.env.CLEANUP_QUARANTINE_DAYS) || 30;
+    const expiry = Date.now() - keepDays * 24 * 60 * 60 * 1000;
+    for (const q of quarantined) {
+      const original = q.key.slice(QUARANTINE_PREFIX.length);
+      if (known.has(original) || !q.lastModified || q.lastModified.getTime() > expiry) continue;
+      await storage.remove(q.key).then(
+        () => (result.purged += 1),
+        () => undefined,
+      );
+    }
+    return result;
   }
 
   return {

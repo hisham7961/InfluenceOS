@@ -130,6 +130,21 @@ describe.skipIf(!ENDPOINT)('files — real MinIO/S3 round-trip (s3 driver)', () 
     }
   });
 
+  it('copies an object server-side (used to quarantine orphaned files)', async () => {
+    const { getStorage } = await import('@influenceos/domain');
+    const storage = getStorage(process.env);
+    const key = `attachments/copy-test/${Date.now()}-a file (1).txt`;
+    await storage.save(key, Buffer.from('copy me'), 'text/plain');
+    try {
+      await storage.copy(key, `quarantine/${key}`);
+      expect(await storage.head(`quarantine/${key}`)).toEqual({ size: 7 });
+      expect(await storage.head(key)).toEqual({ size: 7 });
+    } finally {
+      await storage.remove(key);
+      await storage.remove(`quarantine/${key}`);
+    }
+  });
+
   it('rejects a presigned PUT whose body differs from the declared size (W2-2 edge cap)', async () => {
     const declared = 8;
     const initiate = await app.inject({

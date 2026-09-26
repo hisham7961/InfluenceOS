@@ -7,8 +7,10 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
   Activity,
+  AlertTriangle,
   BookOpen,
   CheckCircle2,
+  DatabaseBackup,
   ExternalLink,
   Flag,
   Globe,
@@ -23,6 +25,8 @@ import {
 import type {
   ApiEndpointDTO,
   ApiModuleDTO,
+  BackupKindStatusDTO,
+  BackupStatusDTO,
   FeatureClass,
   FeatureDTO,
   FeatureStatus,
@@ -33,6 +37,7 @@ import type {
 import { ApiError } from '@influenceos/api-client';
 import { api } from '@/lib/api-browser';
 import { cn } from '@/lib/cn';
+import { formatBytes, useLocalizedFormat } from '@/lib/format';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -232,6 +237,59 @@ function CoverageTile({
   );
 }
 
+function BackupRow({ label, run }: { label: string; run: BackupKindStatusDTO }) {
+  const t = useTranslations('settings');
+  const { relativeTime, dateTime } = useLocalizedFormat();
+  const failedSince = run.lastFailureAt && (!run.lastSuccessAt || run.lastFailureAt > run.lastSuccessAt);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs text-muted-foreground" title={run.lastSuccessAt ? dateTime(run.lastSuccessAt) : undefined}>
+          {run.lastSuccessAt
+            ? t('platform.backups.lastGood', { when: relativeTime(run.lastSuccessAt) })
+            : t('platform.backups.never')}
+          {run.sizeBytes != null ? ` · ${formatBytes(run.sizeBytes)}` : ''}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-1.5">
+        {failedSince ? <Badge tone="danger">{t('platform.backups.failedLast')}</Badge> : null}
+        {run.lastSuccessAt ? (
+          <Badge tone={run.offsite ? 'success' : 'warning'}>
+            {run.offsite ? t('platform.backups.offsite') : t('platform.backups.localOnly')}
+          </Badge>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function BackupsCard({ backups }: { backups: BackupStatusDTO }) {
+  const t = useTranslations('settings');
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <DatabaseBackup className="h-4 w-4 text-brand" /> {t('platform.backups.title')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {backups.stale ? (
+          <div className="mb-2 flex items-start gap-2 rounded-lg bg-warning/10 p-3 text-sm text-warning">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>{t('platform.backups.staleWarning')}</p>
+          </div>
+        ) : null}
+        <div className="divide-y divide-border">
+          <BackupRow label={t('platform.backups.database')} run={backups.database} />
+          <BackupRow label={t('platform.backups.files')} run={backups.files} />
+          <BackupRow label={t('platform.backups.restoreTest')} run={backups.restoreTest} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function OverviewTab({ status }: { status: PlatformStatusDTO }) {
   const t = useTranslations('settings');
   const { coverage } = status;
@@ -299,6 +357,8 @@ function OverviewTab({ status }: { status: PlatformStatusDTO }) {
           </div>
         )}
       </div>
+
+      <BackupsCard backups={status.backups} />
 
       <div>
         <h3 className="mb-3 text-sm font-semibold text-foreground">{t('platform.overview.featureCoverage')}</h3>

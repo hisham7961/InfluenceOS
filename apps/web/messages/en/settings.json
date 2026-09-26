@@ -301,6 +301,18 @@
       "empty": "No feature flags configured",
       "toastEnabled": "{key} enabled.",
       "toastDisabled": "{key} disabled."
+    },
+    "backups": {
+      "title": "Backups",
+      "database": "Database",
+      "files": "Uploaded files",
+      "restoreTest": "Restore test",
+      "lastGood": "Last good copy {when}",
+      "never": "Never recorded",
+      "failedLast": "Last run failed",
+      "offsite": "Off-server",
+      "localOnly": "This server only",
+      "staleWarning": "No database backup in the last 36 hours. Check the nightly backup job on the server (scripts/backup.sh)."
     }
   },
   "audit": {

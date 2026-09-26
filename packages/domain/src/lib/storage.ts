@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import {
+  CopyObjectCommand,
   CreateBucketCommand,
   DeleteObjectCommand,
   GetObjectCommand,
@@ -45,6 +46,8 @@ export interface StorageDriver {
   /** Read bytes (local download proxy). */
   read(key: string): Promise<Buffer | null>;
   remove(key: string): Promise<void>;
+  /** Server-side copy (used to quarantine orphaned files instead of deleting them). */
+  copy(fromKey: string, toKey: string): Promise<void>;
   /** List objects under a key prefix (for orphan/abandoned-upload cleanup). */
   list(prefix: string): Promise<StoredObject[]>;
   /** Make sure the private bucket (s3) or upload dir (local) exists. */
@@ -139,6 +142,17 @@ class S3Driver implements StorageDriver {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
 
+  async copy(fromKey: string, toKey: string): Promise<void> {
+    await this.client.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: toKey,
+        // CopySource is "<bucket>/<key>" with the key URL-encoded per segment.
+        CopySource: `${this.bucket}/${fromKey.split('/').map(encodeURIComponent).join('/')}`,
+      }),
+    );
+  }
+
   async list(prefix: string): Promise<StoredObject[]> {
     const out: StoredObject[] = [];
     let token: string | undefined;
@@ -223,6 +237,12 @@ class LocalDriver implements StorageDriver {
 
   async remove(key: string): Promise<void> {
     await rm(this.pathFor(key), { force: true });
+  }
+
+  async copy(fromKey: string, toKey: string): Promise<void> {
+    const to = this.pathFor(toKey);
+    await mkdir(dirname(to), { recursive: true });
+    await copyFile(this.pathFor(fromKey), to);
   }
 
   async list(prefix: string): Promise<StoredObject[]> {

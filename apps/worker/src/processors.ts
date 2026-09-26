@@ -7,6 +7,7 @@ import {
   createNotification,
   createServices,
   systemContext,
+  type UploadCleanupResult,
 } from '@influenceos/domain';
 import { USAGE_RIGHT_EXPIRY_WARNING_DAYS, daysUntilExpiry } from '@influenceos/shared';
 
@@ -24,9 +25,9 @@ export async function syncAccount(id: string): Promise<void> {
   await services.socialAccounts.sync(id);
 }
 
-/** Delete storage objects from uploads that were never completed (orphans).
- *  Idempotent; a 24h grace window means an in-flight upload is never removed. */
-export async function cleanupAbandonedUploads(): Promise<number> {
+/** Quarantine stored files no record references (see the service for the
+ *  safety guards). A 24h grace window means an in-flight upload is never touched. */
+export async function cleanupAbandonedUploads(): Promise<UploadCleanupResult> {
   const services = createServices(systemContext());
   return services.attachments.cleanupAbandonedUploads();
 }

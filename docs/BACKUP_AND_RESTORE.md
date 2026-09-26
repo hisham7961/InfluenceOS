@@ -5,11 +5,61 @@ Audience: ADMIN/STAFF operators and on-call SREs.
 
 Scripts (all `bash`, `set -euo pipefail`, in `scripts/`):
 
-- `scripts/backup-db.sh` — take a backup.
+- `scripts/backup.sh` — **the one to schedule on a Docker Compose server**:
+  database + uploaded files + off-server copy + weekly restore test (§0).
+- `scripts/backup-db.sh` — database only, for a host that can reach Postgres
+  directly (not the compose stack, whose Postgres publishes no port).
 - `scripts/restore-db.sh` — restore a backup (destructive).
 - `scripts/restore-test.sh` — non-destructive restore drill.
 
 Related: `docs/DATABASE_OPERATIONS.md`, `docs/DISASTER_RECOVERY.md`.
+Arabic quick guide for the owner: `docs/BACKUPS_AR.md`.
+
+---
+
+## 0. Docker Compose servers — `scripts/backup.sh`
+
+Runs from the project directory (where the compose files and `.env` live) and
+talks to the stack through `docker compose`, so nothing needs to be installed
+on the host and no database port needs to be opened.
+
+| Part | How | Where |
+|---|---|---|
+| Database | `pg_dump -Fc` inside the `postgres` container, checked with `pg_restore --list` | `$BACKUP_DIR/{daily,weekly,monthly}` (14/8/6 kept) |
+| Uploaded files | `mc mirror` from a throwaway container of the `minio` service (adds and updates only) | `$BACKUP_DIR/files` |
+| Off-server | `rclone copy` to `BACKUP_S3_BUCKET`, encrypted with `BACKUP_ENCRYPTION_PASSWORD` when set; host `rclone` if installed, else the `rclone/rclone` image | `<bucket>/<prefix>/db/…`, `…/files/…` |
+| Restore test | newest dump → scratch database → row counts → dropped | weekly (Friday by default) and with `--restore-test` |
+
+Every part writes a `BackupRun` row, which **Settings → Platform → Backups**
+shows (last good copy, size, off-server or not) and flags when the last good
+database backup is over 36 hours old. `BACKUP_HEALTHCHECK_URL` adds an
+outside alarm that also fires when the job never runs.
+
+```bash
+# nightly at 02:30 (server time)
+30 2 * * *  cd /opt/influenceos && scripts/backup.sh >> /var/log/influenceos-backup.log 2>&1
+
+# before every update: an extra database copy
+scripts/backup.sh --db-only
+```
+
+Restoring files: copy `$BACKUP_DIR/files/` (or the off-server `files/`
+folder, via `rclone copy` with the same encryption password) back into the
+bucket with `mc mirror`. Switch the `file_cleanup` flag off (Settings →
+Platform → Flags) while restoring so the worker never treats half-restored
+data as orphans; `CLEANUP_ENABLED=false` in the worker's environment does the
+same.
+
+### Orphaned-file cleanup safety
+
+The worker moves files that no Attachment row references into
+`quarantine/` (after a 24h grace period) and deletes them from there after
+`CLEANUP_QUARANTINE_DAYS` (30). It refuses to run when the Attachment table
+is empty while files exist, or when orphans are both more than
+`CLEANUP_MAX_ORPHANS` (200) and over a quarter of all files — the signature
+of a wrong or freshly restored database. A quarantined file whose record
+comes back (for example after a database restore) is moved back
+automatically. `/health` on the worker reports the last pass (`lastCleanup`).
 
 ---
 

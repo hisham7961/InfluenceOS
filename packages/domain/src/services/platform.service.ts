@@ -18,6 +18,8 @@ import {
   type AuditEntityType,
   type CursorPage,
   type HealthComponentDTO,
+  type BackupKindStatusDTO,
+  type BackupStatusDTO,
   type PlatformStatusDTO,
   type StorageStatusDTO,
 } from '@influenceos/contracts';
@@ -28,6 +30,10 @@ import { getStorage } from '../lib/storage';
 import { maxUploadBytes } from './attachment.service';
 import { iso, logActivity } from '../lib/helpers';
 import { makeProviderService } from './provider.service';
+
+/** A database backup older than this is flagged on Settings → Platform. */
+const BACKUP_STALE_AFTER_MS = 36 * 60 * 60 * 1000;
+const EMPTY_BACKUP: BackupKindStatusDTO = { lastSuccessAt: null, lastFailureAt: null, sizeBytes: null, offsite: false };
 
 /**
  * Liveness probes for the platform status page. Dependency-free — a raw TCP
@@ -176,6 +182,7 @@ export function makePlatformService(ctx: DomainContext) {
     ];
 
     const coverage = computeCoverage();
+    const backups = await backupStatus().catch(() => null);
 
     return {
       apiVersion: API_VERSION,
@@ -187,6 +194,12 @@ export function makePlatformService(ctx: DomainContext) {
       buildTime: process.env.BUILD_TIME ?? null,
       uptimeSec: Math.round(process.uptime()),
       health,
+      backups: backups ?? {
+        database: EMPTY_BACKUP,
+        files: EMPTY_BACKUP,
+        restoreTest: EMPTY_BACKUP,
+        stale: true,
+      },
       mobileReadinessPercent: coverage.mobileReadinessPercent,
       coverage: {
         totalFeatures: coverage.total,
@@ -196,6 +209,29 @@ export function makePlatformService(ctx: DomainContext) {
         adminOnly: coverage.adminOnly,
       },
     };
+  }
+
+  /** Latest backup outcome per kind, as recorded by scripts/backup.sh. */
+  async function backupStatus(): Promise<BackupStatusDTO> {
+    const kinds = { database: 'database', files: 'files', restoreTest: 'restore-test' } as const;
+    const entries = await Promise.all(
+      Object.entries(kinds).map(async ([key, kind]) => {
+        const [ok, failed] = await Promise.all([
+          prisma.backupRun.findFirst({ where: { kind, ok: true }, orderBy: { finishedAt: 'desc' } }),
+          prisma.backupRun.findFirst({ where: { kind, ok: false }, orderBy: { finishedAt: 'desc' } }),
+        ]);
+        const status: BackupKindStatusDTO = {
+          lastSuccessAt: ok?.finishedAt.toISOString() ?? null,
+          lastFailureAt: failed?.finishedAt.toISOString() ?? null,
+          sizeBytes: ok?.sizeBytes != null ? Number(ok.sizeBytes) : null,
+          offsite: ok?.offsite ?? false,
+        };
+        return [key, status] as const;
+      }),
+    );
+    const byKind = Object.fromEntries(entries) as Record<keyof typeof kinds, BackupKindStatusDTO>;
+    const lastDb = byKind.database.lastSuccessAt ? Date.parse(byKind.database.lastSuccessAt) : 0;
+    return { ...byKind, stale: Date.now() - lastDb > BACKUP_STALE_AFTER_MS };
   }
 
   /** Object-storage configuration & usage (admin-only Settings → Storage). */

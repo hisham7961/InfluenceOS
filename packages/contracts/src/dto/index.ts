@@ -1420,6 +1420,8 @@ export interface PlatformStatusDTO {
   buildTime: string | null;
   uptimeSec: number;
   health: HealthComponentDTO[];
+  /** Last recorded runs of scripts/backup.sh (null when never run). */
+  backups: BackupStatusDTO;
   mobileReadinessPercent: number;
   coverage: {
     totalFeatures: number;
@@ -1428,6 +1430,24 @@ export interface PlatformStatusDTO {
     mobileReady: number;
     adminOnly: number;
   };
+}
+
+/** One backup kind's latest outcome, as recorded by scripts/backup.sh. */
+export interface BackupKindStatusDTO {
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  /** Size of the last successful copy, in bytes. */
+  sizeBytes: number | null;
+  /** Whether the last successful copy also reached the off-server destination. */
+  offsite: boolean;
+}
+
+export interface BackupStatusDTO {
+  database: BackupKindStatusDTO;
+  files: BackupKindStatusDTO;
+  restoreTest: BackupKindStatusDTO;
+  /** True when there is no successful database backup in the last 36 hours. */
+  stale: boolean;
 }
 
 /** Object-storage configuration & usage (admin Settings → Storage). */
