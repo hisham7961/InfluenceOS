@@ -211,18 +211,18 @@ function StatusCell({ shipment, canManage }: { shipment: ProductShipmentDTO; can
     <div className="flex items-center justify-end gap-2">
       <Badge tone={SHIPMENT_STATUS_TONE[shipment.status]}>{enumLabel(tEnums, 'shipmentStatus', shipment.status)}</Badge>
       {canManage ? (
-      <Select value={shipment.status} onValueChange={(v) => update.mutate(v as (typeof SHIPMENT_STATUSES)[number])} disabled={update.isPending}>
-        <SelectTrigger className="h-8 w-40 text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {SHIPMENT_STATUSES.map((s) => (
-            <SelectItem key={s} value={s}>
-              {enumLabel(tEnums, 'shipmentStatus', s)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <Select value={shipment.status} onValueChange={(v) => update.mutate(v as (typeof SHIPMENT_STATUSES)[number])} disabled={update.isPending}>
+          <SelectTrigger className="h-8 w-40 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SHIPMENT_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {enumLabel(tEnums, 'shipmentStatus', s)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       ) : null}
     </div>
   );
