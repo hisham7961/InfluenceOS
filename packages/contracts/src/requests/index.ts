@@ -466,6 +466,8 @@ export const campaignCreateSchema = z.object({
   internalNotes: optionalString,
   /** Every deliverable needs its draft approved before posting (UGC always does). */
   draftReview: z.boolean().optional(),
+  /** Every confirmed creator receives the brand's products — each gets a shipment request. */
+  shipsProducts: z.boolean().optional(),
   /** What the brand was promised; the client report sets the results against these. */
   targetViews: z.coerce.number().int().nonnegative().max(2_000_000_000).optional().nullable(),
   targetEngagements: z.coerce.number().int().nonnegative().max(2_000_000_000).optional().nullable(),
@@ -753,12 +755,20 @@ export const shipmentSummarySchema = shipmentFilterSchema.omit({
   cursor: true,
   limit: true,
 });
+/** Committed creators who get products but have nothing asked of Logistics yet. */
+export const shipmentAwaitingFilterSchema = z.object({
+  campaignId: cuid.optional(),
+  brandId: cuid.optional(),
+  page: pageNumberSchema.shape.page,
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
 export type ShipmentCreateInput = z.infer<typeof shipmentCreateSchema>;
 export type ShipmentUpdateInput = z.infer<typeof shipmentUpdateSchema>;
 export type ShipmentStatusInput = z.infer<typeof shipmentStatusSchema>;
 export type ShipmentAssignInput = z.infer<typeof shipmentAssignSchema>;
 export type ShipmentFilterInput = z.infer<typeof shipmentFilterSchema>;
 export type ShipmentSummaryInput = z.infer<typeof shipmentSummarySchema>;
+export type ShipmentAwaitingFilterInput = z.infer<typeof shipmentAwaitingFilterSchema>;
 
 // --- Logistics issues (Advanced Roles & Logistics Operations pass) ---------
 /** Report a blocker on a shipment (e.g. an unclear/incomplete address) —

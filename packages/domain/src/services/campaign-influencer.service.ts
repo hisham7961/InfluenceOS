@@ -17,6 +17,7 @@ import { toInfluencerSummary } from '../lib/mappers';
 import { loadCreatorResults } from '../lib/creator-results';
 import { mainAccount } from '../lib/benchmarks';
 import { isCountryOutOfScope, scopedCountryCodes } from '../lib/scope';
+import { makeShipmentRequestService } from './shipment-request.service';
 import { makeCampaignService } from './campaign.service';
 import { toDeliverableDTO } from './deliverable.service';
 
@@ -294,6 +295,9 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
       campaignId: campaign.id,
       influencerId: influencer.id,
     });
+    // Confirmed straight away and gets products: the shipment request goes
+    // to Logistics now (lib/shipment-needs.ts).
+    await makeShipmentRequestService(ctx).sync([ci.id]);
     return get(ci.id);
   }
 
@@ -301,7 +305,13 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
     await requireAnyCapability(ctx, ['CAMPAIGNS_MANAGE', 'INFLUENCERS_MANAGE']);
     const existing = await prisma.campaignInfluencer.findUnique({
       where: { id },
-      select: { campaignId: true, influencerId: true },
+      select: {
+        campaignId: true,
+        influencerId: true,
+        participationStatus: true,
+        dealType: true,
+        influencer: { select: { displayName: true } },
+      },
     });
     if (!existing) throw AppError.notFound('Campaign influencer');
     const campaign = await makeCampaignService(ctx).assertInScope(existing.campaignId);
@@ -332,6 +342,34 @@ export function makeCampaignInfluencerService(ctx: DomainContext) {
     // A participation-status change may make this a (newly) committed or no
     // longer committed collaboration — recompute the relationship stats.
     await syncRelationship(campaign.brandId, existing.influencerId);
+
+    // Status and deal changes go on the campaign's and creator's timelines.
+    const actorName = ctx.actor?.name ?? 'Someone';
+    const name = existing.influencer.displayName;
+    const words = (v: string) => v.replace(/_/g, ' ').toLowerCase();
+    if (input.participationStatus && input.participationStatus !== existing.participationStatus) {
+      await logActivity(ctx, {
+        type: 'GENERIC',
+        message: `${actorName} marked ${name} as ${words(input.participationStatus)} on ${campaign.name}.`,
+        brandId: campaign.brandId,
+        campaignId: existing.campaignId,
+        influencerId: existing.influencerId,
+        meta: { event: 'participation', from: existing.participationStatus, to: input.participationStatus },
+      });
+    }
+    if (input.dealType && input.dealType !== existing.dealType) {
+      await logActivity(ctx, {
+        type: 'GENERIC',
+        message: `${actorName} changed ${name}'s deal on ${campaign.name} to ${words(input.dealType)}.`,
+        brandId: campaign.brandId,
+        campaignId: existing.campaignId,
+        influencerId: existing.influencerId,
+        meta: { event: 'deal', from: existing.dealType, to: input.dealType },
+      });
+    }
+    // Confirmed, dropped, or the deal now includes (or no longer includes) a
+    // gift: the shipment request in Logistics follows (lib/shipment-needs.ts).
+    await makeShipmentRequestService(ctx).sync([id]);
     return get(id);
   }
 

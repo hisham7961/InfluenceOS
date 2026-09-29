@@ -848,6 +848,9 @@ model Campaign {
   internalNotes        String?
   /// Every deliverable goes through a draft review before posting (UGC always does).
   draftReview          Boolean            @default(false)
+  /// Every confirmed creator receives the brand's products, whatever their
+  /// deal type — each gets a shipment request in Logistics automatically.
+  shipsProducts        Boolean            @default(false)
   /// What the brand was promised, shown against the results in the client report.
   targetViews          Int?
   targetEngagements    Int?
@@ -1007,6 +1010,11 @@ model ProductShipment {
   shippedAt              DateTime?
   deliveredAt            DateTime?
   notes                  String?
+  /// Created by the app when a creator who gets products was confirmed (or
+  /// asked for from their roster row), not typed in by the logistics team.
+  /// Such a request that nobody has worked on yet is removed again if the
+  /// creator drops out or no longer gets products.
+  autoCreated            Boolean        @default(false)
   createdById            String?
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt

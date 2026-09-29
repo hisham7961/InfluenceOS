@@ -27,6 +27,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, TableScroll } from '@/components/ui/table';
 import { errorMessage } from '@/lib/errors';
+import { useApp } from '@/components/shell/app-context';
+import { AwaitingShipments } from '@/components/logistics/awaiting-shipments';
 
 
 /** Logistics fulfilment requests across a campaign roster (evolved W3-5 web
@@ -43,6 +45,9 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
   });
   const [createOpen, setCreateOpen] = React.useState(false);
   const [commentsShipmentId, setCommentsShipmentId] = React.useState<string | null>(null);
+  // Creating a shipment and moving its status are Logistics' job (the API
+  // checks the same); everyone else asks Logistics from the red list.
+  const canManage = useApp().can('LOGISTICS_MANAGE');
 
   const byCi = new Map(influencers.map((ci) => [ci.id, ci]));
 
@@ -70,11 +75,14 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4" /> {t('shipments.createShipmentButton')}
-        </Button>
-      </div>
+      <AwaitingShipments campaignId={campaignId} />
+      {canManage ? (
+        <div className="flex items-center justify-end">
+          <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4" /> {t('shipments.createShipmentButton')}
+          </Button>
+        </div>
+      ) : null}
 
       {shipments.length === 0 ? (
         <EmptyState
@@ -142,7 +150,7 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
                         )}
                       </TableCell>
                       <TableCell align="end" className="pe-5">
-                        <StatusCell shipment={s} />
+                        <StatusCell shipment={s} canManage={canManage} />
                       </TableCell>
                       <TableCell align="end" className="pe-5">
                         <Button
@@ -185,7 +193,7 @@ export function ShipmentsTab({ campaignId, influencers }: { campaignId: string; 
   );
 }
 
-function StatusCell({ shipment }: { shipment: ProductShipmentDTO }) {
+function StatusCell({ shipment, canManage }: { shipment: ProductShipmentDTO; canManage: boolean }) {
   const t = useTranslations('campaigns');
   const tCommon = useTranslations('common');
   const tEnums = useTranslations('enums');
@@ -202,6 +210,7 @@ function StatusCell({ shipment }: { shipment: ProductShipmentDTO }) {
   return (
     <div className="flex items-center justify-end gap-2">
       <Badge tone={SHIPMENT_STATUS_TONE[shipment.status]}>{enumLabel(tEnums, 'shipmentStatus', shipment.status)}</Badge>
+      {canManage ? (
       <Select value={shipment.status} onValueChange={(v) => update.mutate(v as (typeof SHIPMENT_STATUSES)[number])} disabled={update.isPending}>
         <SelectTrigger className="h-8 w-40 text-xs">
           <SelectValue />
@@ -214,6 +223,7 @@ function StatusCell({ shipment }: { shipment: ProductShipmentDTO }) {
           ))}
         </SelectContent>
       </Select>
+      ) : null}
     </div>
   );
 }

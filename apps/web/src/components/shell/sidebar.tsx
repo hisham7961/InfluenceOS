@@ -51,7 +51,12 @@ export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                   ? (work.data?.myWork ?? 0)
                   : item.href === '/approvals'
                     ? (work.data?.approvals ?? 0)
-                    : 0;
+                    : item.href === '/logistics'
+                      ? (work.data?.logistics ?? 0)
+                      : 0;
+            // Logistics counts creators still waiting for a shipment — red,
+            // because nothing moves for them until someone asks Logistics.
+            const alarm = item.href === '/logistics';
             return (
               <Link
                 key={item.href}
@@ -74,7 +79,13 @@ export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                 />
                 <span className="flex-1">{t(item.labelKey)}</span>
                 {unread > 0 ? (
-                  <span className="bg-brand flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold text-white">
+                  <span
+                    className={cn(
+                      'flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold text-white',
+                      alarm ? 'bg-danger' : 'bg-brand',
+                    )}
+                    title={alarm ? t('logisticsWaiting', { count: unread }) : undefined}
+                  >
                     {unread > 99 ? '99+' : unread}
                   </span>
                 ) : null}

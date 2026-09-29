@@ -374,6 +374,8 @@ export interface CampaignDetailDTO extends CampaignSummaryDTO {
   publishedContentCount: number;
   /** Every deliverable needs its draft approved before it is posted (UGC always does). */
   draftReview: boolean;
+  /** Every confirmed creator receives the brand's products (a shipment request each). */
+  shipsProducts: boolean;
   targetViews: number | null;
   targetEngagements: number | null;
   /** Percent. */
@@ -1468,6 +1470,31 @@ export interface PulseDTO {
  * `dashboard.attention()` output, filtered by brandId/campaignId/influencerId,
  * never a second calculation.
  */
+/**
+ * A committed creator who gets products but has no shipment at all yet —
+ * nothing has been asked of Logistics (the red "waiting for a shipment" list).
+ */
+export interface ShipmentAwaitingDTO {
+  campaignInfluencerId: string;
+  campaignId: string;
+  campaignName: string;
+  brandId: string;
+  brandName: string;
+  influencer: {
+    id: string;
+    displayName: string;
+    avatarUrl: string | null;
+    countryCode: string | null;
+  };
+  dealType: DealType;
+  participationStatus: ParticipationStatus;
+  /** Why they get products: a gift in the deal, the campaign ships to everyone, or a deliverable needs it. */
+  reason: 'DEAL' | 'CAMPAIGN' | 'DELIVERABLE';
+  /** Their profile has an address line and a mobile number to copy into the request. */
+  addressOnFile: boolean;
+  since: string;
+}
+
 export interface AttentionItemDTO {
   id: string;
   kind:
@@ -1488,7 +1515,9 @@ export interface AttentionItemDTO {
     | 'INTEGRITY_ISSUE'
     | 'LOGISTICS_ADDRESS_ISSUE'
     | 'CREATOR_LICENCE'
-    | 'DISCLOSURE_MISSING';
+    | 'DISCLOSURE_MISSING'
+    | 'SHIPMENT_NEEDED'
+    | 'SHIPMENT_NOT_SENT';
   title: string;
   description: string;
   severity: 'warning' | 'danger';
@@ -2107,6 +2136,26 @@ export interface CampaignOperationsStageDTO {
  * ProductShipment/PublishedContent/payment records at read time. No new
  * per-stage status column is ever stored.
  */
+/**
+ * Where a creator's products stand, one word per roster row (red for the ones
+ * someone must act on):
+ * - NOT_NEEDED — they don't get products;
+ * - NEEDED — they get products but nothing has been asked of Logistics (red);
+ * - REQUESTED — a shipment is waiting to be sent;
+ * - ADDRESS_MISSING — a shipment is waiting but has no address or phone (red);
+ * - PROBLEM — an open address issue, or it failed / came back (red);
+ * - ON_THE_WAY — shipped or in transit;
+ * - DELIVERED.
+ */
+export type CreatorLogisticsState =
+  | 'NOT_NEEDED'
+  | 'NEEDED'
+  | 'REQUESTED'
+  | 'ADDRESS_MISSING'
+  | 'PROBLEM'
+  | 'ON_THE_WAY'
+  | 'DELIVERED';
+
 export interface CampaignOperationsRowDTO {
   campaignInfluencerId: string;
   influencerId: string;
@@ -2114,6 +2163,8 @@ export interface CampaignOperationsRowDTO {
   influencerAvatarUrl: string | null;
   participationStatus: ParticipationStatus;
   stages: CampaignOperationsStageDTO[];
+  /** Where their products stand (drives the roster row's logistics badge). */
+  logistics: CreatorLogisticsState;
   /** A coarse bucket for the board's filter chips (PART 36), derived from `stages`. */
   filterBuckets: (
     | 'needsAttention'
@@ -2676,20 +2727,24 @@ export interface WorkItemDTO {
     | 'DELIVERABLE_DUE_SOON'
     | 'SHIPMENT'
     | 'LOGISTICS_ISSUE'
-    | 'FOUND_POSTS';
+    | 'FOUND_POSTS'
+    | 'SHIPMENT_NEEDED'
+    | 'SHIPMENT_UNASSIGNED';
   campaign: { id: string; name: string } | null;
   creator: { id: string; name: string; avatarUrl: string | null } | null;
   /** Due date, or since when it has been waiting. */
   at: string | null;
   link: string;
-  /** Kind-specific values: deliverable `type`/`platform`, shipment/issue `status`/`issueType`, found posts `count`. */
+  /** Kind-specific values: deliverable `type`/`platform`, shipment/issue `status`/`issueType`, found posts and unassigned requests `count`, a waiting creator's `dealType`. */
   params: Record<string, string | number>;
 }
 
 /**
  * The viewer's own work (P3.6): drafts to review, deliverables overdue or due
- * in the next 3 days and found posts on campaigns they own or for creators
- * they own, plus shipments and address issues assigned to them.
+ * in the next 3 days, found posts and creators still waiting for a shipment
+ * on campaigns they own or for creators they own, plus shipments and address
+ * issues assigned to them — and, for Logistics, the requests nobody has
+ * picked up yet.
  */
 export interface MyWorkDTO {
   items: WorkItemDTO[];
@@ -2701,6 +2756,8 @@ export interface MyWorkDTO {
 export interface WorkCountsDTO {
   myWork: number;
   approvals: number;
+  /** Creators in the viewer's scope who get products but have nothing asked of Logistics (red on the Logistics link). */
+  logistics: number;
 }
 
 // --- Audience insights (P3.7) ------------------------------------------------------

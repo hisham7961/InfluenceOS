@@ -5,6 +5,7 @@
   "campaigns": "Campaigns",
   "liveContent": "Live Content",
   "logistics": "Logistics",
+  "logisticsWaiting": "{count, plural, one {# creator waiting for a shipment} other {# creators waiting for a shipment}}",
   "team": "Team",
   "inspiration": "Trends & Inspiration",
   "dataQuality": "Data Quality",

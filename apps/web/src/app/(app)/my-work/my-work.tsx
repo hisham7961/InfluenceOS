@@ -10,6 +10,8 @@ import {
   Inbox,
   MapPin,
   Package,
+  PackageOpen,
+  PackageX,
   Search,
   type LucideIcon,
 } from 'lucide-react';
@@ -27,12 +29,17 @@ import { cn } from '@/lib/cn';
 
 const ORDER: WorkItemDTO['kind'][] = [
   'DELIVERABLE_OVERDUE',
+  'SHIPMENT_NEEDED',
   'DRAFT_TO_REVIEW',
   'DELIVERABLE_DUE_SOON',
   'LOGISTICS_ISSUE',
+  'SHIPMENT_UNASSIGNED',
   'SHIPMENT',
   'FOUND_POSTS',
 ];
+
+/** Kinds shown in red: someone has to act before anything else can move. */
+const URGENT = new Set<WorkItemDTO['kind']>(['DELIVERABLE_OVERDUE', 'SHIPMENT_NEEDED']);
 
 const ICON: Record<WorkItemDTO['kind'], LucideIcon> = {
   DELIVERABLE_OVERDUE: AlarmClock,
@@ -41,6 +48,8 @@ const ICON: Record<WorkItemDTO['kind'], LucideIcon> = {
   LOGISTICS_ISSUE: MapPin,
   SHIPMENT: Package,
   FOUND_POSTS: Search,
+  SHIPMENT_NEEDED: PackageX,
+  SHIPMENT_UNASSIGNED: PackageOpen,
 };
 
 /** My work (P3.6): what's waiting on the viewer, grouped, most urgent first. */
@@ -83,7 +92,7 @@ export function MyWork() {
                 <Icon
                   className={cn(
                     'h-4 w-4',
-                    g.kind === 'DELIVERABLE_OVERDUE' ? 'text-danger' : 'text-muted-foreground',
+                    URGENT.has(g.kind) ? 'text-danger' : 'text-muted-foreground',
                   )}
                 />
                 {t(`sections.${g.kind}`)}
@@ -114,7 +123,13 @@ function WorkRow({ item }: { item: WorkItemDTO }) {
         ? enumLabel(tEnums, 'logisticsIssueType', String(p.issueType ?? ''))
         : item.kind === 'FOUND_POSTS'
           ? t('foundCount', { count: Number(p.count ?? 0) })
-          : enumLabel(tEnums, 'deliverableType', String(p.type ?? ''));
+          : item.kind === 'SHIPMENT_NEEDED'
+            ? t('needsShipment', { deal: enumLabel(tEnums, 'dealType', String(p.dealType ?? '')) })
+            : item.kind === 'SHIPMENT_UNASSIGNED'
+              ? t('unassignedCount', { count: Number(p.count ?? 0) })
+              : enumLabel(tEnums, 'deliverableType', String(p.type ?? ''));
+  const urgent = URGENT.has(item.kind);
+  const KindIcon = ICON[item.kind];
   const when = !item.at
     ? null
     : item.kind === 'DELIVERABLE_OVERDUE' || item.kind === 'DELIVERABLE_DUE_SOON'
@@ -130,7 +145,7 @@ function WorkRow({ item }: { item: WorkItemDTO }) {
         <Avatar name={item.creator.name} src={item.creator.avatarUrl} size="sm" />
       ) : (
         <span className="bg-surface-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
-          <Search className="text-muted-foreground h-4 w-4" />
+          <KindIcon className="text-muted-foreground h-4 w-4" />
         </span>
       )}
       <div className="min-w-0 flex-1">
@@ -144,15 +159,12 @@ function WorkRow({ item }: { item: WorkItemDTO }) {
               {item.campaign.name}
             </BidiText>
           ) : null}
+          {item.kind === 'SHIPMENT_UNASSIGNED' ? t('unassignedTitle') : null}
         </p>
         <p className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
           {p.platform ? <PlatformBadge platform={String(p.platform) as never} size="sm" /> : null}
-          <span>{what}</span>
-          {when ? (
-            <span className={item.kind === 'DELIVERABLE_OVERDUE' ? 'text-danger' : undefined}>
-              · {when}
-            </span>
-          ) : null}
+          <span className={urgent ? 'text-danger font-medium' : undefined}>{what}</span>
+          {when ? <span className={urgent ? 'text-danger' : undefined}>· {when}</span> : null}
         </p>
       </div>
     </Link>

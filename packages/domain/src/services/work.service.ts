@@ -8,9 +8,11 @@ import type { Prisma } from '@influenceos/database';
 import { appRoutes } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { requireActor } from '../lib/authz';
+import { hasCapability } from '../lib/capabilities';
 import { dueWithinWhere, overdueWhere } from '../lib/deliverable-rules';
 import { iso } from '../lib/helpers';
 import { scopedBrandIds, scopedCountryCodes } from '../lib/scope';
+import { awaitingShipmentWhere } from '../lib/shipment-needs';
 import { submissionInclude, toSubmissionDTO } from './submission.service';
 
 /** "Due soon" on My work: today and the next 3 days (Kuwait calendar). */
@@ -116,83 +118,109 @@ export function makeWorkService(ctx: DomainContext) {
     const scope = await rosterScope();
     const own = { AND: [scope, mine(actor.id)] };
     const now = new Date();
-    const [ownsCampaign, ownsCreator, drafts, overdue, dueSoon, shipments, issues, found] =
-      await Promise.all([
-        prisma.campaign.count({ where: { ownerId: actor.id } }),
-        prisma.influencer.count({ where: { ownerId: actor.id } }),
-        prisma.deliverableSubmission.findMany({
-          where: { status: 'IN_REVIEW', deliverable: { campaignInfluencer: own } },
-          select: {
-            id: true,
-            createdAt: true,
-            deliverable: {
-              select: { type: true, platform: true, campaignInfluencer: { select: rosterSelect } },
-            },
+    const logistics = await hasCapability(ctx, 'LOGISTICS_MANAGE');
+    const [
+      ownsCampaign,
+      ownsCreator,
+      drafts,
+      overdue,
+      dueSoon,
+      shipments,
+      issues,
+      found,
+      waiting,
+      unassigned,
+    ] = await Promise.all([
+      prisma.campaign.count({ where: { ownerId: actor.id } }),
+      prisma.influencer.count({ where: { ownerId: actor.id } }),
+      prisma.deliverableSubmission.findMany({
+        where: { status: 'IN_REVIEW', deliverable: { campaignInfluencer: own } },
+        select: {
+          id: true,
+          createdAt: true,
+          deliverable: {
+            select: { type: true, platform: true, campaignInfluencer: { select: rosterSelect } },
           },
-          orderBy: { createdAt: 'asc' },
-          take: LIST_LIMIT,
-        }),
-        prisma.deliverable.findMany({
-          where: { AND: [overdueWhere(now), { campaignInfluencer: own }] },
-          select: {
-            id: true,
-            type: true,
-            platform: true,
-            dueDate: true,
-            campaignInfluencer: { select: rosterSelect },
-          },
-          orderBy: { dueDate: 'asc' },
-          take: LIST_LIMIT,
-        }),
-        prisma.deliverable.findMany({
-          where: { AND: [dueWithinWhere(DUE_SOON_DAYS, now), { campaignInfluencer: own }] },
-          select: {
-            id: true,
-            type: true,
-            platform: true,
-            dueDate: true,
-            campaignInfluencer: { select: rosterSelect },
-          },
-          orderBy: { dueDate: 'asc' },
-          take: LIST_LIMIT,
-        }),
-        prisma.productShipment.findMany({
-          where: {
-            assignedToUserId: actor.id,
-            status: { in: [...OPEN_SHIPMENT_STATUSES] },
-            campaignInfluencer: scope,
-          },
-          select: {
-            id: true,
-            status: true,
-            createdAt: true,
-            campaignInfluencer: { select: rosterSelect },
-          },
-          orderBy: { createdAt: 'asc' },
-          take: LIST_LIMIT,
-        }),
-        prisma.logisticsIssue.findMany({
-          where: {
-            assignedToUserId: actor.id,
-            status: 'OPEN',
-            shipment: { campaignInfluencer: scope },
-          },
-          select: {
-            id: true,
-            type: true,
-            createdAt: true,
-            shipment: { select: { campaignInfluencer: { select: rosterSelect } } },
-          },
-          orderBy: { createdAt: 'asc' },
-          take: LIST_LIMIT,
-        }),
-        prisma.discoveredPost.groupBy({
-          by: ['campaignId'],
-          where: { status: 'NEW', campaignInfluencer: own },
-          _count: { _all: true },
-          _min: { foundAt: true },
-        }),
-      ]);
+        },
+        orderBy: { createdAt: 'asc' },
+        take: LIST_LIMIT,
+      }),
+      prisma.deliverable.findMany({
+        where: { AND: [overdueWhere(now), { campaignInfluencer: own }] },
+        select: {
+          id: true,
+          type: true,
+          platform: true,
+          dueDate: true,
+          campaignInfluencer: { select: rosterSelect },
+        },
+        orderBy: { dueDate: 'asc' },
+        take: LIST_LIMIT,
+      }),
+      prisma.deliverable.findMany({
+        where: { AND: [dueWithinWhere(DUE_SOON_DAYS, now), { campaignInfluencer: own }] },
+        select: {
+          id: true,
+          type: true,
+          platform: true,
+          dueDate: true,
+          campaignInfluencer: { select: rosterSelect },
+        },
+        orderBy: { dueDate: 'asc' },
+        take: LIST_LIMIT,
+      }),
+      prisma.productShipment.findMany({
+        where: {
+          assignedToUserId: actor.id,
+          status: { in: [...OPEN_SHIPMENT_STATUSES] },
+          campaignInfluencer: scope,
+        },
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          campaignInfluencer: { select: rosterSelect },
+        },
+        orderBy: { createdAt: 'asc' },
+        take: LIST_LIMIT,
+      }),
+      prisma.logisticsIssue.findMany({
+        where: {
+          assignedToUserId: actor.id,
+          status: 'OPEN',
+          shipment: { campaignInfluencer: scope },
+        },
+        select: {
+          id: true,
+          type: true,
+          createdAt: true,
+          shipment: { select: { campaignInfluencer: { select: rosterSelect } } },
+        },
+        orderBy: { createdAt: 'asc' },
+        take: LIST_LIMIT,
+      }),
+      prisma.discoveredPost.groupBy({
+        by: ['campaignId'],
+        where: { status: 'NEW', campaignInfluencer: own },
+        _count: { _all: true },
+        _min: { foundAt: true },
+      }),
+      // Creators of theirs who get products with nothing asked of Logistics.
+      prisma.campaignInfluencer.findMany({
+        where: { AND: [awaitingShipmentWhere, own] },
+        select: { ...rosterSelect, dealType: true, updatedAt: true },
+        orderBy: { updatedAt: 'asc' },
+        take: LIST_LIMIT,
+      }),
+      // Logistics: requests nobody has picked up yet (one line, with a count).
+      logistics
+        ? prisma.productShipment.aggregate({
+            where: { status: 'PENDING', assignedToUserId: null, campaignInfluencer: scope },
+            _count: { _all: true },
+            _min: { createdAt: true },
+          })
+        : Promise.resolve(null),
+    ]);
 
     type Roster = {
       id: string;
@@ -265,6 +293,27 @@ export function makeWorkService(ctx: DomainContext) {
         params: { issueType: i.type },
       });
     }
+    for (const ci of waiting) {
+      items.push({
+        id: `needs-shipment-${ci.id}`,
+        kind: 'SHIPMENT_NEEDED',
+        ...who(ci),
+        at: ci.updatedAt.toISOString(),
+        link: appRoutes.campaign(ci.campaign.id, 'shipments'),
+        params: { dealType: ci.dealType },
+      });
+    }
+    if (unassigned && unassigned._count._all > 0) {
+      items.push({
+        id: 'shipments-unassigned',
+        kind: 'SHIPMENT_UNASSIGNED',
+        campaign: null,
+        creator: null,
+        at: iso(unassigned._min.createdAt),
+        link: '/logistics?assigneeId=unassigned&status=PENDING',
+        params: { count: unassigned._count._all },
+      });
+    }
     if (found.length) {
       const names = new Map(
         (
@@ -295,39 +344,57 @@ export function makeWorkService(ctx: DomainContext) {
     const scope = await rosterScope();
     const own = { AND: [scope, mine(actor.id)] };
     const now = new Date();
-    const [drafts, overdue, dueSoon, shipments, issues, foundCampaigns, approvalsCount] =
-      await Promise.all([
-        prisma.deliverableSubmission.count({
-          where: { status: 'IN_REVIEW', deliverable: { campaignInfluencer: own } },
-        }),
-        prisma.deliverable.count({
-          where: { AND: [overdueWhere(now), { campaignInfluencer: own }] },
-        }),
-        prisma.deliverable.count({
-          where: { AND: [dueWithinWhere(DUE_SOON_DAYS, now), { campaignInfluencer: own }] },
-        }),
-        prisma.productShipment.count({
-          where: {
-            assignedToUserId: actor.id,
-            status: { in: [...OPEN_SHIPMENT_STATUSES] },
-            campaignInfluencer: scope,
-          },
-        }),
-        prisma.logisticsIssue.count({
-          where: {
-            assignedToUserId: actor.id,
-            status: 'OPEN',
-            shipment: { campaignInfluencer: scope },
-          },
-        }),
-        prisma.discoveredPost.groupBy({
-          by: ['campaignId'],
-          where: { status: 'NEW', campaignInfluencer: own },
-        }),
-        prisma.deliverableSubmission.count({
-          where: { status: 'IN_REVIEW', deliverable: { campaignInfluencer: scope } },
-        }),
-      ]);
+    const logistics = await hasCapability(ctx, 'LOGISTICS_MANAGE');
+    const [
+      drafts,
+      overdue,
+      dueSoon,
+      shipments,
+      issues,
+      foundCampaigns,
+      approvalsCount,
+      waitingMine,
+      unassigned,
+      waitingInScope,
+    ] = await Promise.all([
+      prisma.deliverableSubmission.count({
+        where: { status: 'IN_REVIEW', deliverable: { campaignInfluencer: own } },
+      }),
+      prisma.deliverable.count({
+        where: { AND: [overdueWhere(now), { campaignInfluencer: own }] },
+      }),
+      prisma.deliverable.count({
+        where: { AND: [dueWithinWhere(DUE_SOON_DAYS, now), { campaignInfluencer: own }] },
+      }),
+      prisma.productShipment.count({
+        where: {
+          assignedToUserId: actor.id,
+          status: { in: [...OPEN_SHIPMENT_STATUSES] },
+          campaignInfluencer: scope,
+        },
+      }),
+      prisma.logisticsIssue.count({
+        where: {
+          assignedToUserId: actor.id,
+          status: 'OPEN',
+          shipment: { campaignInfluencer: scope },
+        },
+      }),
+      prisma.discoveredPost.groupBy({
+        by: ['campaignId'],
+        where: { status: 'NEW', campaignInfluencer: own },
+      }),
+      prisma.deliverableSubmission.count({
+        where: { status: 'IN_REVIEW', deliverable: { campaignInfluencer: scope } },
+      }),
+      prisma.campaignInfluencer.count({ where: { AND: [awaitingShipmentWhere, own] } }),
+      logistics
+        ? prisma.productShipment.count({
+            where: { status: 'PENDING', assignedToUserId: null, campaignInfluencer: scope },
+          })
+        : Promise.resolve(0),
+      prisma.campaignInfluencer.count({ where: { AND: [awaitingShipmentWhere, scope] } }),
+    ]);
     const cap = (n: number) => Math.min(n, LIST_LIMIT);
     return {
       myWork:
@@ -336,8 +403,11 @@ export function makeWorkService(ctx: DomainContext) {
         cap(dueSoon) +
         cap(shipments) +
         cap(issues) +
-        foundCampaigns.length,
+        foundCampaigns.length +
+        cap(waitingMine) +
+        (unassigned > 0 ? 1 : 0),
       approvals: approvalsCount,
+      logistics: waitingInScope,
     };
   }
 

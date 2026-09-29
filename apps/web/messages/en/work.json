@@ -1,20 +1,25 @@
 {
   "myWork": {
     "title": "My work",
-    "description": "What's waiting on you: drafts, deadlines and found posts on the campaigns and creators you own, plus the shipments and address issues assigned to you.",
+    "description": "What's waiting on you: drafts, deadlines, found posts and creators waiting for a shipment on the campaigns and creators you own, plus the shipments and address issues assigned to you.",
     "empty": "Nothing is waiting on you right now.",
     "ownsNothing": "You don't own any campaigns or creators yet, so only logistics assigned to you shows here. Ask to be set as the owner, or see everything in Approvals and Needs Attention.",
     "sections": {
       "DRAFT_TO_REVIEW": "Drafts to review",
       "DELIVERABLE_OVERDUE": "Overdue",
+      "SHIPMENT_NEEDED": "Waiting for a shipment",
       "DELIVERABLE_DUE_SOON": "Due in the next 3 days",
       "SHIPMENT": "Shipments to handle",
+      "SHIPMENT_UNASSIGNED": "Shipment requests nobody has picked up",
       "LOGISTICS_ISSUE": "Address issues",
       "FOUND_POSTS": "Posts found on creators' accounts"
     },
     "waitingSince": "waiting {time}",
     "due": "due {date}",
     "foundCount": "{count, plural, one {# post to check} other {# posts to check}}",
+    "needsShipment": "{deal} — nothing asked of Logistics yet",
+    "unassignedTitle": "New shipment requests",
+    "unassignedCount": "{count, plural, one {# request has no one handling it} other {# requests have no one handling them}}",
     "open": "Open"
   },
   "approvals": {

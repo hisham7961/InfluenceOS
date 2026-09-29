@@ -36,6 +36,20 @@
     },
     "oneOpenIssue": "1 open"
   },
+  "awaiting": {
+    "title": "{count, plural, one {# creator is waiting for a shipment} other {# creators are waiting for a shipment}}",
+    "description": "They're confirmed and get products, but nothing has been asked of Logistics yet. Ask Logistics and the request appears in the list below with the creator's address copied in.",
+    "ask": "Ask Logistics",
+    "askAll": "Ask for all {count}",
+    "requestedToast": "{count, plural, one {Shipment request added to Logistics.} other {# shipment requests added to Logistics.}}",
+    "noAddress": "No address or phone on their profile",
+    "more": "{count, plural, one {…and # more} other {…and # more}}",
+    "reason": {
+      "DEAL": "Deal: {deal}",
+      "CAMPAIGN": "The campaign sends products to every creator",
+      "DELIVERABLE": "A deliverable needs the product"
+    }
+  },
   "countryStrip": {
     "filterAriaLabel": "Filter by destination country"
   },

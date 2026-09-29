@@ -12,6 +12,31 @@ versions are fabricated. Dates are UTC.
 Pre-deployment platform-completion and freeze-candidate work on top of the
 validated baseline. No staging or production environment has been deployed.
 
+### Shipments follow the roster
+
+- **Confirming a creator who gets products now puts a shipment request in
+  Logistics** — pending, with their address and phone copied from their
+  profile. A creator gets products when the deal includes a gift, the
+  campaign is marked "Creators receive products" (new switch, on by default
+  for new campaigns), or one of their deliverables needs the product. The one
+  logistics person covering that brand and country is assigned and notified.
+  A request nobody has started on is taken back when the creator drops out or
+  no longer gets products.
+- **Red markers for what has to be done** — each roster row shows where the
+  creator's products stand (red for waiting / no address / problem), with
+  "Ask Logistics" or "Send products anyway"; a red "waiting for a shipment"
+  list on the Logistics page and the Shipments tab; Needs Attention items for
+  creators waiting and for requests unsent after 3 days; My work items for
+  owners and for Logistics' unassigned requests; a red count on the sidebar's
+  Logistics link. The board's Product stage follows the same rule.
+- **Linkage fixes** — a campaign's shipment list now checks brand and country
+  scope; "Create shipment" and the status picker only show for Logistics;
+  roster status and deal changes are written to the activity log.
+- API: `POST /campaign-influencers/:id/shipment-request`,
+  `GET /shipments/awaiting`; `Campaign.shipsProducts`,
+  `ProductShipment.autoCreated` (migration `20261009090000_shipment_requests`,
+  additive only).
+
 ### Owner decisions — the open items finished
 
 - **Arabic everywhere it was missing** — Arabic dates use full month names;

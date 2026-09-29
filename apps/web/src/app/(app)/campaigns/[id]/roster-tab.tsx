@@ -70,6 +70,7 @@ import { errorMessage } from '@/lib/errors';
 import { toDateInputValue } from './workspace-shared';
 import { DeliverableDialog, DeliverableRow } from './deliverables-tab';
 import { FeeBenchmark } from '@/components/benchmarks/fee-benchmark';
+import { CreatorLogisticsBadge } from '@/components/logistics/creator-logistics-badge';
 
 // ---------------------------------------------------------------------------
 // Influencers
@@ -437,6 +438,14 @@ function InfluencerRow({
               <Badge tone="neutral">
                 {enumLabel(tEnums, 'participationStatus', ci.participationStatus)}
               </Badge>
+              {ops ? (
+                <CreatorLogisticsBadge
+                  campaignId={campaign.id}
+                  campaignInfluencerId={ci.id}
+                  participationStatus={ci.participationStatus}
+                  state={ops.logistics}
+                />
+              ) : null}
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {ci.contentCount > 0 ? (

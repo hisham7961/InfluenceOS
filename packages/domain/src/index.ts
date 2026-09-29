@@ -40,6 +40,7 @@ import { makeSavedViewService } from './services/saved-view.service';
 import { makeScriptService } from './services/script.service';
 import { makeSearchService } from './services/search.service';
 import { makeShipmentService } from './services/shipment.service';
+import { makeShipmentRequestService } from './services/shipment-request.service';
 import { makeSocialAccountService } from './services/social-account.service';
 import { makeSourcingService } from './services/sourcing.service';
 import { makeSubmissionService } from './services/submission.service';
@@ -75,6 +76,7 @@ export function createServices(ctx: DomainContext) {
     bulk: makeBulkService(ctx),
     bulkInfluencers: makeBulkInfluencerService(ctx),
     shipments: makeShipmentService(ctx),
+    shipmentRequests: makeShipmentRequestService(ctx),
     logisticsIssues: makeLogisticsIssueService(ctx),
     deliverables: makeDeliverableService(ctx),
     submissions: makeSubmissionService(ctx),

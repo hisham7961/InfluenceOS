@@ -3,10 +3,12 @@ import {
   type CampaignOperationsRowDTO,
   type CampaignOperationsStageDTO,
   type CampaignOperationsStageState,
+  type CreatorLogisticsState,
 } from '@influenceos/contracts';
 import { daysUntilDue, isDeliverableDelivered, isDeliverableOutstanding, isDeliverableOverdue } from '@influenceos/shared';
 import type { DomainContext } from '../context';
 import { requireActor } from '../lib/authz';
+import { LIVE_CAMPAIGN_STATUSES, logisticsState, productReason } from '../lib/shipment-needs';
 import { makeCampaignService } from './campaign.service';
 
 type FilterBucket = CampaignOperationsRowDTO['filterBuckets'][number];
@@ -55,9 +57,9 @@ function deriveStages(
     expectedPublishAt: Date | null;
   },
   deliverables: DeliverableRow[],
-  shipmentStatuses: string[],
   hasOpenLogisticsIssue: boolean,
   now: Date,
+  logistics: CreatorLogisticsState = 'NOT_NEEDED',
 ): CampaignOperationsStageDTO[] {
   const tabLink = (tab: string) => `/campaigns/${ci.campaignId}?tab=${tab}`;
 
@@ -71,26 +73,33 @@ function deriveStages(
           ? mk('agreement', 'Agreement', 'pending', ci.dateContacted ? 'Invited, awaiting confirmation' : 'Not yet contacted', tabLink('influencers'))
           : mk('agreement', 'Agreement', 'done', 'Confirmed', tabLink('influencers'));
 
-  // 2. Product — only applicable when at least one deliverable is flagged as
-  // requiring a physical product, or a shipment already exists for this row.
-  const needsProduct = deliverables.some((d) => d.requiresProduct) || shipmentStatuses.length > 0;
-  // An open Address Clarification issue is the real blocker regardless of
-  // the shipment's own status (which may still read PENDING) — reuses the
-  // SAME LogisticsIssue record the Logistics workspace shows, never a
-  // second campaign-logistics state (Advanced Roles & Logistics pass).
-  const product = !needsProduct
-    ? mk('product', 'Product', 'na', 'No product required', null)
-    : hasOpenLogisticsIssue
-      ? mk('product', 'Product', 'overdue', 'Address Clarification needed', tabLink('shipments'))
-      : shipmentStatuses.includes('DELIVERED')
-      ? mk('product', 'Product', 'done', 'Delivered', tabLink('shipments'))
-      : shipmentStatuses.some((s) => s === 'SHIPPED' || s === 'IN_TRANSIT')
-        ? mk('product', 'Product', 'waiting', 'In transit', tabLink('shipments'))
-        : shipmentStatuses.some((s) => s === 'FAILED' || s === 'RETURNED')
-          ? mk('product', 'Product', 'overdue', 'Shipment failed or was returned', tabLink('shipments'))
-          : shipmentStatuses.includes('PENDING')
-            ? mk('product', 'Product', 'pending', 'Shipment pending', tabLink('shipments'))
-            : mk('product', 'Product', 'pending', 'Not yet shipped', tabLink('shipments'));
+  // 2. Product — the same rule as Logistics and the roster badge
+  // (lib/shipment-needs.ts): a gift in the deal, a campaign that ships to
+  // every creator, or a deliverable that needs the product. A committed
+  // creator who gets products but has no shipment is red: nobody has asked
+  // Logistics yet. An open Address Clarification issue is the real blocker
+  // regardless of the shipment's own status (the SAME LogisticsIssue record
+  // the Logistics workspace shows, never a second state).
+  const shipLink = tabLink('shipments');
+  const committed = ci.participationStatus === 'CONFIRMED' || ci.participationStatus === 'IN_PROGRESS';
+  const product =
+    logistics === 'NOT_NEEDED'
+      ? mk('product', 'Product', 'na', 'No product required', null)
+      : logistics === 'NEEDED'
+        ? committed
+          ? mk('product', 'Product', 'overdue', 'No shipment yet — ask Logistics', shipLink)
+          : mk('product', 'Product', ci.participationStatus === 'INVITED' ? 'pending' : 'na', 'Ships once they confirm', shipLink)
+        : hasOpenLogisticsIssue
+          ? mk('product', 'Product', 'overdue', 'Address Clarification needed', shipLink)
+          : logistics === 'DELIVERED'
+            ? mk('product', 'Product', 'done', 'Delivered', shipLink)
+            : logistics === 'ON_THE_WAY'
+              ? mk('product', 'Product', 'waiting', 'In transit', shipLink)
+              : logistics === 'PROBLEM'
+                ? mk('product', 'Product', 'overdue', 'Shipment failed or was returned', shipLink)
+                : logistics === 'ADDRESS_MISSING'
+                  ? mk('product', 'Product', 'overdue', 'Shipment has no address or phone', shipLink)
+                  : mk('product', 'Product', 'pending', 'Shipment pending', shipLink);
 
   // Live (non-cancelled) deliverables only — a cancelled deliverable was
   // already excluded from the query.
@@ -262,6 +271,8 @@ export function makeCampaignOperationsService(ctx: DomainContext) {
         paymentStatus: true,
         dateContacted: true,
         expectedPublishAt: true,
+        dealType: true,
+        campaign: { select: { shipsProducts: true, status: true } },
         influencer: {
           select: {
             displayName: true,
@@ -281,7 +292,14 @@ export function makeCampaignOperationsService(ctx: DomainContext) {
           },
           orderBy: { createdAt: 'asc' },
         },
-        shipments: { select: { status: true, issues: { where: { status: 'OPEN' }, select: { id: true } } } },
+        shipments: {
+          select: {
+            status: true,
+            addressLine1: true,
+            phone: true,
+            issues: { where: { status: 'OPEN' }, select: { id: true } },
+          },
+        },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -296,7 +314,18 @@ export function makeCampaignOperationsService(ctx: DomainContext) {
         hasSubmission: d.submissions.length > 0,
       }));
       const hasOpenLogisticsIssue = ci.shipments.some((s) => s.issues.length > 0);
-      const stages = deriveStages(ci, deliverables, ci.shipments.map((s) => s.status), hasOpenLogisticsIssue, now);
+      // A finished or cancelled campaign has nobody left waiting for products.
+      const live = (LIVE_CAMPAIGN_STATUSES as readonly string[]).includes(ci.campaign.status);
+      const logistics = logisticsState(
+        live ? productReason(ci) : null,
+        ci.shipments.map((s) => ({
+          status: s.status,
+          addressLine1: s.addressLine1,
+          phone: s.phone,
+          hasOpenIssue: s.issues.length > 0,
+        })),
+      );
+      const stages = deriveStages(ci, deliverables, hasOpenLogisticsIssue, now, logistics);
       const avatarUrl = ci.influencer.avatarOverrideUrl ?? ci.influencer.resolvedAvatarUrl ?? ci.influencer.socialAccounts[0]?.avatarUrl ?? null;
       return {
         campaignInfluencerId: ci.id,
@@ -305,6 +334,7 @@ export function makeCampaignOperationsService(ctx: DomainContext) {
         influencerAvatarUrl: avatarUrl,
         participationStatus: ci.participationStatus as CampaignOperationsRowDTO['participationStatus'],
         stages,
+        logistics,
         filterBuckets: deriveFilterBuckets(stages, ci.participationStatus),
       };
     });

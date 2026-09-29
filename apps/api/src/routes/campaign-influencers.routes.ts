@@ -82,4 +82,23 @@ export async function campaignInfluencerRoutes(app: FastifyInstance): Promise<vo
       return servicesFor(req).shipments.create(req.params.id, req.body);
     },
   );
+
+  // "Ask Logistics to send products" — a pending request with the creator's
+  // address copied in. Returns the open request if one already exists.
+  r.post(
+    '/campaign-influencers/:id/shipment-request',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Campaigns'],
+        summary: 'Ask Logistics to send products to this creator',
+        params: idParam,
+      },
+    },
+    async (req, reply) => {
+      const result = await servicesFor(req).shipmentRequests.request(req.params.id);
+      reply.status(result.created ? 201 : 200);
+      return result;
+    },
+  );
 }

@@ -20,6 +20,7 @@ import { toBrandSummary } from '../lib/mappers';
 import { computeCampaignProgress, computeCampaignProgressBatch } from '../lib/progress';
 import { isBrandOutOfScope, scopedBrandIds } from '../lib/scope';
 import { arabicMatchIds, orIds } from '../lib/arabic-search';
+import { makeShipmentRequestService } from './shipment-request.service';
 
 type CampaignCreate = z.infer<typeof requests.campaignCreateSchema>;
 type CampaignUpdate = z.infer<typeof requests.campaignUpdateSchema>;
@@ -232,6 +233,7 @@ export function makeCampaignService(ctx: DomainContext) {
       owner: c.owner ? { id: c.owner.id, name: c.owner.name } : null,
       publishedContentCount,
       draftReview: c.draftReview,
+      shipsProducts: c.shipsProducts,
       targetViews: c.targetViews,
       targetEngagements: c.targetEngagements,
       targetEngagementRate: c.targetEngagementRate,
@@ -276,6 +278,7 @@ export function makeCampaignService(ctx: DomainContext) {
         ownerId: input.ownerId ?? ctx.actor?.id ?? null,
         internalNotes: input.internalNotes ?? null,
         draftReview: input.draftReview ?? false,
+        shipsProducts: input.shipsProducts ?? false,
         targetViews: input.targetViews ?? null,
         targetEngagements: input.targetEngagements ?? null,
         targetEngagementRate: input.targetEngagementRate ?? null,
@@ -335,6 +338,7 @@ export function makeCampaignService(ctx: DomainContext) {
         ownerId: input.ownerId === undefined ? undefined : input.ownerId,
         internalNotes: input.internalNotes === undefined ? undefined : input.internalNotes,
         draftReview: input.draftReview ?? undefined,
+        shipsProducts: input.shipsProducts ?? undefined,
         targetViews: input.targetViews === undefined ? undefined : input.targetViews,
         targetEngagements:
           input.targetEngagements === undefined ? undefined : input.targetEngagements,
@@ -362,6 +366,12 @@ export function makeCampaignService(ctx: DomainContext) {
         campaignId: existing.id,
       });
     }
+    // "Creators receive products" switched on or off, or the campaign went
+    // live again: every creator's shipment request follows (shipment-needs).
+    const shipsChanged =
+      input.shipsProducts !== undefined && input.shipsProducts !== existing.shipsProducts;
+    const statusChanged = input.status !== undefined && input.status !== existing.status;
+    if (shipsChanged || statusChanged) await makeShipmentRequestService(ctx).syncCampaign(id);
     return detail(id);
   }
 

@@ -108,6 +108,7 @@ import type {
   SavedViewDTO,
   ScriptDTO,
   SearchResultDTO,
+  ShipmentAwaitingDTO,
   SocialAccountDTO,
   StorageStatusDTO,
   TeamMemberRefDTO,
@@ -502,6 +503,9 @@ export function createClient(config: ClientConfig) {
         http.get<ProductShipmentDTO[]>(`${V}/campaign-influencers/${id}/shipments`),
       createShipment: (id: string, body: In<typeof requests.shipmentCreateSchema>) =>
         http.post<ProductShipmentDTO>(`${V}/campaign-influencers/${id}/shipments`, body),
+      // Ask Logistics to send products (returns the open request if one exists).
+      requestShipment: (id: string) =>
+        http.post<{ shipmentId: string; created: boolean }>(`${V}/campaign-influencers/${id}/shipment-request`, {}),
     },
 
     deliverables: {
@@ -539,6 +543,9 @@ export function createClient(config: ClientConfig) {
       // Country-first summary strip — respects scope + every filter except the country facet itself.
       summary: (params?: QueryParams) =>
         http.get<LogisticsCountrySummaryDTO[]>(`${V}/shipments/summary`, { query: params }),
+      // Creators who get products but have nothing asked of Logistics yet (red list).
+      awaiting: (params?: QueryParams) =>
+        http.get<CursorPage<ShipmentAwaitingDTO>>(`${V}/shipments/awaiting`, { query: params }),
       get: (id: string) => http.get<ProductShipmentDTO>(`${V}/shipments/${id}`),
       update: (id: string, body: In<typeof requests.shipmentUpdateSchema>) =>
         http.patch<ProductShipmentDTO>(`${V}/shipments/${id}`, body),

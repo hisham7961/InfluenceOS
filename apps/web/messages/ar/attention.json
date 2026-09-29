@@ -58,7 +58,9 @@
     "UNASSIGNED_CONTENT": "معالجة المحتوى",
     "CAMPAIGN_MISSING_OWNER": "تعيين مالك",
     "CREATOR_LICENCE": "مراجعة الرخص",
-    "DISCLOSURE_MISSING": "مراجعة المنشورات"
+    "DISCLOSURE_MISSING": "مراجعة المنشورات",
+    "SHIPMENT_NEEDED": "اطلب من الخدمات اللوجستية",
+    "SHIPMENT_NOT_SENT": "فتح في الخدمات اللوجستية"
   },
   "creatorLicence": {
     "title": "رخص المؤثرين — <name>{campaignName}</name>",
@@ -68,5 +70,13 @@
   "disclosureMissing": {
     "title": "منشورات بدون توضيح أنها إعلان — <name>{campaignName}</name>",
     "description": "{count, plural, one {منشور واحد لا يوضّح} two {منشوران لا يوضّحان} few {# منشورات لا توضّح} many {# منشوراً لا يوضّح} other {# منشور لا يوضّح}} في الوصف أنه إعلان."
+  },
+  "shipmentNeeded": {
+    "title": "بانتظار شحنة — <name>{campaignName}</name>",
+    "description": "{count, plural, one {مؤثر مؤكد واحد يستلم} two {مؤثران مؤكدان يستلمان} few {# مؤثرين مؤكدين يستلمون} many {# مؤثراً مؤكداً يستلمون} other {# مؤثر مؤكد يستلمون}} منتجات، ولم يُطلب أي شيء من الخدمات اللوجستية بعد."
+  },
+  "shipmentNotSent": {
+    "title": "شحنات لم تُرسل بعد — <name>{campaignName}</name>",
+    "description": "{count, plural, one {طلب شحن واحد ينتظر} two {طلبا شحن ينتظران} few {# طلبات شحن تنتظر} many {# طلب شحن ينتظر} other {# طلب شحن ينتظر}} الإرسال منذ أكثر من {days} أيام."
   }
 }

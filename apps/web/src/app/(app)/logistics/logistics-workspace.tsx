@@ -49,6 +49,7 @@ import { ShipmentDetailSheet } from './shipment-detail-sheet';
 import { useApp } from '@/components/shell/app-context';
 import { cn } from '@/lib/cn';
 import { useIsPhone } from '@/lib/use-is-phone';
+import { AwaitingShipments } from '@/components/logistics/awaiting-shipments';
 
 const ALL = 'all';
 
@@ -59,9 +60,11 @@ interface Filters {
   influencerCountryCode: string;
   assigneeId: string;
   requesterId: string;
-  // Not a UI filter chip — deep-linked only (e.g. the Influencer 360
-  // "open logistics issue" banner links to /logistics?influencerId=…&hasOpenIssue=true).
+  // Not UI filter chips — deep-linked only (e.g. the Influencer 360
+  // "open logistics issue" banner links to /logistics?influencerId=…&hasOpenIssue=true,
+  // Needs Attention's "not sent yet" to /logistics?campaignId=…&status=PENDING).
   influencerId: string;
+  campaignId: string;
   courier: string;
   productName: string;
   dateFrom: string;
@@ -83,6 +86,7 @@ const EMPTY_FILTERS: Filters = {
   assigneeId: '',
   requesterId: '',
   influencerId: '',
+  campaignId: '',
   courier: '',
   productName: '',
   dateFrom: '',
@@ -188,6 +192,7 @@ export function LogisticsWorkspace({
 
   return (
     <div className="space-y-4">
+      <AwaitingShipments />
       <LogisticsCountryStrip
         filters={filters as unknown as Record<string, string | undefined>}
         selected={filters.destinationCountryCode}

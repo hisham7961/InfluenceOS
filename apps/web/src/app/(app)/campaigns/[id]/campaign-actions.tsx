@@ -135,6 +135,7 @@ function EditCampaignDialog({
   const [description, setDescription] = React.useState(campaign.description ?? '');
   const [brief, setBrief] = React.useState(campaign.brief ?? '');
   const [draftReview, setDraftReview] = React.useState(campaign.draftReview);
+  const [shipsProducts, setShipsProducts] = React.useState(campaign.shipsProducts);
   const numText = (v: number | null) => (v != null ? String(v) : '');
   const [targetViews, setTargetViews] = React.useState(numText(campaign.targetViews));
   const [targetEngagements, setTargetEngagements] = React.useState(
@@ -159,6 +160,7 @@ function EditCampaignDialog({
       setDescription(campaign.description ?? '');
       setBrief(campaign.brief ?? '');
       setDraftReview(campaign.draftReview);
+      setShipsProducts(campaign.shipsProducts);
       setTargetViews(numText(campaign.targetViews));
       setTargetEngagements(numText(campaign.targetEngagements));
       setTargetRate(numText(campaign.targetEngagementRate));
@@ -199,6 +201,7 @@ function EditCampaignDialog({
         description: description.trim() || null,
         brief: brief.trim() || null,
         draftReview,
+        shipsProducts,
         targetViews: parseTarget(targetViews, true),
         targetEngagements: parseTarget(targetEngagements, true),
         targetEngagementRate: parseTarget(targetRate, false),
@@ -329,6 +332,19 @@ function EditCampaignDialog({
               checked={draftReview}
               onCheckedChange={setDraftReview}
               aria-label={t('actions.draftReviewLabel')}
+            />
+          </label>
+          <label className="border-border col-span-2 flex items-start justify-between gap-3 rounded-lg border px-3 py-2.5">
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">{t('actions.shipsProductsLabel')}</span>
+              <span className="text-muted-foreground block text-xs">
+                {t('actions.shipsProductsHint')}
+              </span>
+            </span>
+            <Switch
+              checked={shipsProducts}
+              onCheckedChange={setShipsProducts}
+              aria-label={t('actions.shipsProductsLabel')}
             />
           </label>
 

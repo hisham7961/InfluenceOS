@@ -58,7 +58,9 @@
     "UNASSIGNED_CONTENT": "Resolve content",
     "CAMPAIGN_MISSING_OWNER": "Assign owner",
     "CREATOR_LICENCE": "Check licences",
-    "DISCLOSURE_MISSING": "Check posts"
+    "DISCLOSURE_MISSING": "Check posts",
+    "SHIPMENT_NEEDED": "Ask Logistics",
+    "SHIPMENT_NOT_SENT": "Open in Logistics"
   },
   "creatorLicence": {
     "title": "Creator licences — <name>{campaignName}</name>",
@@ -68,5 +70,13 @@
   "disclosureMissing": {
     "title": "Posts without an ad disclosure — <name>{campaignName}</name>",
     "description": "{count, plural, one {# live post doesn't} other {# live posts don't}} say in the caption that it's an ad."
+  },
+  "shipmentNeeded": {
+    "title": "Waiting for a shipment — <name>{campaignName}</name>",
+    "description": "{count, plural, one {# confirmed creator gets} other {# confirmed creators get}} products, but nothing has been asked of Logistics yet."
+  },
+  "shipmentNotSent": {
+    "title": "Shipments not sent yet — <name>{campaignName}</name>",
+    "description": "{count, plural, one {# shipment request has} other {# shipment requests have}} waited more than {days} days to be sent."
   }
 }

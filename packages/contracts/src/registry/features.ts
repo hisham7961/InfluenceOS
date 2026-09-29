@@ -188,7 +188,7 @@ export const FEATURES: FeatureEntry[] = [
     key: 'logistics',
     name: 'Logistics & Shipments',
     description:
-      "Product-shipment fulfilment requests with line items, evolved from single-shipment gifting (W3-5) into a country-aware operations workspace: a country-first summary strip, My Queue/Unassigned/Needs Attention views, a distinct destinationCountryCode per shipment (never re-derived from the creator's current profile country), a logistics assignee distinct from the requester, and cross-campaign status sync (activity + notifications). Recipient address/phone are redacted server-side for anyone without the LOGISTICS_ADDRESS_VIEW capability (Advanced Roles pass) — never just the legacy VIEWER role.",
+      "Product-shipment fulfilment requests with line items, evolved from single-shipment gifting (W3-5) into a country-aware operations workspace: a country-first summary strip, My Queue/Unassigned/Needs Attention views, a distinct destinationCountryCode per shipment (never re-derived from the creator's current profile country), a logistics assignee distinct from the requester, and cross-campaign status sync (activity + notifications). A committed creator who gets products (a gift in the deal, a campaign that ships to every creator, or a deliverable that needs the product) gets a pending request automatically, with their address copied in; the ones still waiting are listed in red. Recipient address/phone are redacted server-side for anyone without the LOGISTICS_ADDRESS_VIEW capability (Advanced Roles pass) — never just the legacy VIEWER role.",
     module: 'Logistics',
     classification: 'SHARED',
     apiStatus: 'READY',
@@ -200,9 +200,11 @@ export const FEATURES: FeatureEntry[] = [
     apiEndpoints: [
       'GET /api/v1/campaign-influencers/:id/shipments',
       'POST /api/v1/campaign-influencers/:id/shipments',
+      'POST /api/v1/campaign-influencers/:id/shipment-request',
       'GET /api/v1/campaigns/:id/shipments',
       'GET /api/v1/shipments',
       'GET /api/v1/shipments/summary',
+      'GET /api/v1/shipments/awaiting',
       'GET /api/v1/shipments/:id',
       'PATCH /api/v1/shipments/:id',
       'POST /api/v1/shipments/:id/status',

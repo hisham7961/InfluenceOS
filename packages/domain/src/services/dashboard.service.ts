@@ -18,13 +18,16 @@ import { moneyNumberOr0 } from '../lib/money';
 import { dueWithinWhere, overdueWhere } from '../lib/deliverable-rules';
 import { loadCampaignMoney, sumCampaignMoney } from '../lib/spend';
 import { toActivityDTO } from '../lib/mappers';
-import { scopedBrandIds } from '../lib/scope';
+import { scopedBrandIds, scopedCountryCodes } from '../lib/scope';
+import { awaitingShipmentWhere } from '../lib/shipment-needs';
 import { makeBrandService } from './brand.service';
 import { makeCampaignService } from './campaign.service';
 import { makeContentService } from './content.service';
 import { makeLicenceService } from './licence.service';
 
 const REMOVED_STATUSES = ['REMOVED', 'PRIVATE', 'UNAVAILABLE', 'BROKEN_LINK'] as const;
+/** A shipment request still unsent after this many days shows up in Needs Attention. */
+const SHIPMENT_NOT_SENT_DAYS = 3;
 // Real, already-recorded event categories worth surfacing in "What's New" —
 // deliberately excludes GENERAL/SYNC_FAILURE/DELIVERABLE_DUE_SOON/
 // CAMPAIGN_ENDING to avoid noise (item 38: this is not an ActivityLog dump).
@@ -339,6 +342,12 @@ export function makeDashboardService(ctx: DomainContext) {
     const deliverableBf = Object.keys(ciFilter).length ? { campaignInfluencer: ciFilter } : {};
     const shipmentBf = deliverableBf;
     const directCampaignFilter = campaignId ? { campaignId } : {};
+    // Shipment requests follow the creator's country as well as the brand
+    // (the same scope the Logistics lists use).
+    const countries = await scopedCountryCodes(ctx);
+    const countryCi = countries ? { influencer: { countryCode: { in: countries } } } : {};
+    const notSentBefore = new Date(now.getTime() - SHIPMENT_NOT_SENT_DAYS * 864e5);
+    const campaignSelect = { select: { id: true, name: true, brandId: true } } as const;
 
     const [
       overdue,
@@ -352,6 +361,8 @@ export function makeDashboardService(ctx: DomainContext) {
       logisticsIssues,
       licenceIssues,
       undisclosedPosts,
+      awaitingShipment,
+      notSent,
     ] = await Promise.all([
       prisma.deliverable.findMany({
         where: { AND: [overdueWhere(now), deliverableBf] },
@@ -490,6 +501,25 @@ export function makeDashboardService(ctx: DomainContext) {
         },
         select: { caption: true, campaign: { select: { id: true, name: true, brandId: true } } },
         orderBy: { sortAt: 'desc' },
+        take: 500,
+      }),
+      // Confirmed creators who get products with nothing asked of Logistics
+      // (lib/shipment-needs.ts) — one red line per campaign.
+      prisma.campaignInfluencer.findMany({
+        where: { AND: [awaitingShipmentWhere, ciFilter, countryCi] },
+        select: { updatedAt: true, campaign: campaignSelect },
+        orderBy: { updatedAt: 'asc' },
+        take: 500,
+      }),
+      // Requests Logistics hasn't sent after a few days — one line per campaign.
+      prisma.productShipment.findMany({
+        where: {
+          status: 'PENDING',
+          createdAt: { lt: notSentBefore },
+          campaignInfluencer: { ...ciFilter, ...countryCi },
+        },
+        select: { createdAt: true, campaignInfluencer: { select: { campaign: campaignSelect } } },
+        orderBy: { createdAt: 'asc' },
         take: 500,
       }),
     ]);
@@ -681,6 +711,65 @@ export function makeDashboardService(ctx: DomainContext) {
         influencerId: null,
         actionLabel: 'Check posts',
         params: { campaignName: c.name, count },
+      });
+    }
+
+    const byCampaign = <T>(
+      rows: T[],
+      pick: (r: T) => { id: string; name: string; brandId: string },
+      at: (r: T) => Date,
+    ) => {
+      const m = new Map<
+        string,
+        { campaign: { id: string; name: string; brandId: string }; count: number; since: Date }
+      >();
+      for (const r of rows) {
+        const c = pick(r);
+        const entry = m.get(c.id) ?? { campaign: c, count: 0, since: at(r) };
+        entry.count++;
+        if (at(r) < entry.since) entry.since = at(r);
+        m.set(c.id, entry);
+      }
+      return [...m.values()];
+    };
+    for (const { campaign: c, count, since } of byCampaign(
+      awaitingShipment,
+      (r) => r.campaign,
+      (r) => r.updatedAt,
+    )) {
+      out.push({
+        id: `shipment-needed-${c.id}`,
+        kind: 'SHIPMENT_NEEDED',
+        title: `Waiting for a shipment — ${c.name}`,
+        description: `${count} confirmed creator${count === 1 ? ' gets' : 's get'} products, but nothing has been asked of Logistics yet.`,
+        severity: 'danger',
+        link: appRoutes.campaign(c.id, 'shipments'),
+        at: since.toISOString(),
+        brandId: c.brandId,
+        campaignId: c.id,
+        influencerId: null,
+        actionLabel: 'Ask Logistics',
+        params: { campaignName: c.name, count },
+      });
+    }
+    for (const { campaign: c, count, since } of byCampaign(
+      notSent,
+      (r) => r.campaignInfluencer.campaign,
+      (r) => r.createdAt,
+    )) {
+      out.push({
+        id: `shipment-not-sent-${c.id}`,
+        kind: 'SHIPMENT_NOT_SENT',
+        title: `Shipments not sent yet — ${c.name}`,
+        description: `${count} shipment request${count === 1 ? ' has' : 's have'} waited more than ${SHIPMENT_NOT_SENT_DAYS} days to be sent.`,
+        severity: 'warning',
+        link: `/logistics?campaignId=${c.id}&status=PENDING`,
+        at: since.toISOString(),
+        brandId: c.brandId,
+        campaignId: c.id,
+        influencerId: null,
+        actionLabel: 'Open in Logistics',
+        params: { campaignName: c.name, count, days: SHIPMENT_NOT_SENT_DAYS },
       });
     }
 

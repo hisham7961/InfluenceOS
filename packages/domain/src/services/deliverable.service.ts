@@ -5,6 +5,7 @@ import { AppError } from '../errors';
 import { requireCapability } from '../lib/authz';
 import { iso, logActivity } from '../lib/helpers';
 import { makeCampaignService } from './campaign.service';
+import { makeShipmentRequestService } from './shipment-request.service';
 
 type DeliverableCreate = z.infer<typeof requests.deliverableCreateSchema>;
 type DeliverableUpdate = z.infer<typeof requests.deliverableUpdateSchema>;
@@ -95,6 +96,9 @@ export function makeDeliverableService(ctx: DomainContext) {
       influencerId: ci.influencerId,
       deliverableId: d.id,
     });
+    // A deliverable that needs the product makes its creator one who gets
+    // products — Logistics gets the request if they're confirmed.
+    if (d.requiresProduct) await makeShipmentRequestService(ctx).sync([input.campaignInfluencerId]);
     return toDeliverableDTO(d);
   }
 
@@ -138,6 +142,14 @@ export function makeDeliverableService(ctx: DomainContext) {
         meta: { from: existing.status, to: input.status },
       });
     }
+    const cancelledChanged =
+      input.status != null && (input.status === 'CANCELLED') !== (existing.status === 'CANCELLED');
+    if (
+      (input.requiresProduct !== undefined && input.requiresProduct !== existing.requiresProduct) ||
+      (cancelledChanged && d.requiresProduct)
+    ) {
+      await makeShipmentRequestService(ctx).sync([existing.campaignInfluencerId]);
+    }
     return toDeliverableDTO(d);
   }
 
@@ -150,6 +162,7 @@ export function makeDeliverableService(ctx: DomainContext) {
     if (!existing) throw AppError.notFound('Deliverable');
     await makeCampaignService(ctx).assertInScope(existing.campaignInfluencer.campaignId);
     await prisma.deliverable.delete({ where: { id } });
+    if (existing.requiresProduct) await makeShipmentRequestService(ctx).sync([existing.campaignInfluencerId]);
   }
 
   return { create, update, remove };

@@ -253,8 +253,18 @@ export function makeShipmentService(ctx: DomainContext) {
 
   /** Every shipment for a campaign's roster in one query (W3-5 web surface). */
   async function listForCampaign(campaignId: string): Promise<ProductShipmentDTO[]> {
+    await requireActor(ctx);
+    // Same posture as every sibling here: a campaign outside the person's
+    // brands reads as not found, and only shipments to their countries show.
+    const campaign = await prisma.campaign.findUnique({ where: { id: campaignId }, select: { brandId: true } });
+    if (!campaign) throw AppError.notFound('Campaign');
+    if (isBrandOutOfScope(await scopedBrandIds(ctx), campaign.brandId)) throw AppError.notFound('Campaign');
+    const countries = await scopedCountryCodes(ctx);
     const rows = await prisma.productShipment.findMany({
-      where: { campaignInfluencer: { campaignId } },
+      where: {
+        campaignInfluencer: { campaignId },
+        ...(countries ? { destinationCountryCode: { in: countries } } : {}),
+      },
       include: itemsInclude,
       orderBy: { updatedAt: 'desc' },
     });

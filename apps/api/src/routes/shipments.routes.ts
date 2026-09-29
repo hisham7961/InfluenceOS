@@ -49,6 +49,21 @@ export async function shipmentRoutes(app: FastifyInstance): Promise<void> {
     async (req) => servicesFor(req).shipments.summary(req.query),
   );
 
+  // Committed creators who get products but have no shipment yet — the red
+  // "waiting for a shipment" list (Logistics page, campaign Shipments tab).
+  r.get(
+    '/shipments/awaiting',
+    {
+      preHandler: [requireAuth],
+      schema: {
+        tags: ['Logistics'],
+        summary: 'Creators who get products but have nothing asked of Logistics yet',
+        querystring: requests.shipmentAwaitingFilterSchema,
+      },
+    },
+    async (req) => servicesFor(req).shipmentRequests.awaiting(req.query),
+  );
+
   r.get(
     '/shipments/:id',
     { preHandler: [requireAuth], schema: { tags: ['Logistics'], summary: 'Get one shipment', params: idParam } },

@@ -63,6 +63,7 @@ interface FormState {
   description: string;
   brief: string;
   draftReview: boolean;
+  shipsProducts: boolean;
 }
 
 const initialState: FormState = {
@@ -80,6 +81,9 @@ const initialState: FormState = {
   description: '',
   brief: '',
   draftReview: false,
+  // Most campaigns here send products — on by default, so a confirmed
+  // creator's shipment request reaches Logistics without anyone asking.
+  shipsProducts: true,
 };
 
 /** Multi-section "new campaign" form: brand + basics, timeline & budget, and brief — with a live preview aside. */
@@ -114,6 +118,7 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
         description: form.description.trim() || undefined,
         brief: form.brief.trim() || undefined,
         draftReview: form.draftReview,
+        shipsProducts: form.shipsProducts,
       });
     },
     onSuccess: (campaign) => {
@@ -329,6 +334,19 @@ export function NewCampaignForm({ brands }: NewCampaignFormProps) {
                 checked={form.draftReview}
                 onCheckedChange={(v) => set('draftReview', v)}
                 aria-label={t('actions.draftReviewLabel')}
+              />
+            </label>
+            <label className="border-border flex items-start justify-between gap-3 rounded-lg border px-3 py-2.5">
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">{t('actions.shipsProductsLabel')}</span>
+                <span className="text-muted-foreground block text-xs">
+                  {t('actions.shipsProductsHint')}
+                </span>
+              </span>
+              <Switch
+                checked={form.shipsProducts}
+                onCheckedChange={(v) => set('shipsProducts', v)}
+                aria-label={t('actions.shipsProductsLabel')}
               />
             </label>
           </CardContent>

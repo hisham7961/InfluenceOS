@@ -125,6 +125,24 @@ export function AttentionItemTitle({ item }: { item: AttentionItemDTO }) {
           })}
         </>
       );
+    case 'SHIPMENT_NEEDED':
+      return (
+        <>
+          {t.rich('shipmentNeeded.title', {
+            campaignName: String(p.campaignName ?? ''),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
+    case 'SHIPMENT_NOT_SENT':
+      return (
+        <>
+          {t.rich('shipmentNotSent.title', {
+            campaignName: String(p.campaignName ?? ''),
+            ...RICH_TAGS,
+          })}
+        </>
+      );
     default:
       // Reserved kinds dashboard.service.ts never emits today (SYNC_FAILURE,
       // OVER_BUDGET, MISSING_LINK, CREATOR_MISSING_INFO, INTEGRITY_ISSUE) —
@@ -251,6 +269,17 @@ export function AttentionItemDescription({ item }: { item: AttentionItemDTO }) {
         </>
       );
     }
+    case 'SHIPMENT_NEEDED':
+      return <>{t('shipmentNeeded.description', { count: Number(p.count ?? 0) })}</>;
+    case 'SHIPMENT_NOT_SENT':
+      return (
+        <>
+          {t('shipmentNotSent.description', {
+            count: Number(p.count ?? 0),
+            days: Number(p.days ?? 3),
+          })}
+        </>
+      );
     default:
       return <>{item.description}</>;
   }

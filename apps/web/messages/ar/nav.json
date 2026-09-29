@@ -5,6 +5,7 @@
   "campaigns": "الحملات",
   "liveContent": "المحتوى المنشور",
   "logistics": "الخدمات اللوجستية",
+  "logisticsWaiting": "{count, plural, one {مؤثر واحد بانتظار شحنة} two {مؤثران بانتظار شحنة} few {# مؤثرين بانتظار شحنة} many {# مؤثراً بانتظار شحنة} other {# مؤثر بانتظار شحنة}}",
   "team": "الفريق",
   "inspiration": "الترندات والإلهام",
   "dataQuality": "جودة البيانات",

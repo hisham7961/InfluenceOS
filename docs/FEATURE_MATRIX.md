@@ -123,9 +123,11 @@ contracts, media represented independently of the web UI — spec addendum §37)
 
 - `GET /api/v1/campaign-influencers/:id/shipments`
 - `POST /api/v1/campaign-influencers/:id/shipments`
+- `POST /api/v1/campaign-influencers/:id/shipment-request`
 - `GET /api/v1/campaigns/:id/shipments`
 - `GET /api/v1/shipments`
 - `GET /api/v1/shipments/summary`
+- `GET /api/v1/shipments/awaiting`
 - `GET /api/v1/shipments/:id`
 - `PATCH /api/v1/shipments/:id`
 - `POST /api/v1/shipments/:id/status`
