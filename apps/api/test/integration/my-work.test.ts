@@ -202,7 +202,10 @@ describe('P3.6 — my work and approvals', () => {
     // The out-of-scope campaign never shows, even though I own it.
     expect(work.items.some((i) => i.campaign?.id === foreignCampaign)).toBe(false);
 
-    expect(await me.api.work.counts()).toEqual({ myWork: 7, approvals: 3 });
+    const counts = await me.api.work.counts();
+    expect(counts).toMatchObject({ myWork: 7, approvals: 3 });
+    // Creators waiting for a shipment in my scope — none here (paid deals).
+    expect(counts.logistics).toBe(0);
   });
 
   it('approvals span campaigns, oldest first, and narrow to mine', async () => {
