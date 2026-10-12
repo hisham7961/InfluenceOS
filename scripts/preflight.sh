@@ -63,8 +63,8 @@ if [ "${STORAGE_DRIVER:-local}" = "s3" ]; then
   done
 fi
 # How browsers reach stored files (docker-compose.full.yml always uses s3).
-# Read the way the API reads it: spaces and case don't matter.
-case "$(printf '%s' "${S3_BROWSER_ACCESS:-}" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')" in
+# Read the way the API reads it: surrounding spaces and case don't matter.
+case "$(printf '%s' "${S3_BROWSER_ACCESS:-}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]')" in
   direct)
     case "${S3_PUBLIC_ENDPOINT:-}" in
       "") F "S3_BROWSER_ACCESS=direct but S3_PUBLIC_ENDPOINT is unset — remove S3_BROWSER_ACCESS to send files through the app" ;;

@@ -102,6 +102,20 @@ function isMissing(err: unknown): boolean {
 const DOWNLOAD_IDLE_TIMEOUT_MS = 60_000;
 const DOWNLOAD_MAX_SOCKETS = 100;
 
+/**
+ * Close a stream from storage once no bytes have moved for `ms` — the reader
+ * stopped reading, so the connection under it would otherwise stay taken.
+ * A steady reader, however slow, is never cut off. (The SDK's own
+ * requestTimeout only covers the wait for the response headers.)
+ */
+export function closeWhenIdle<T extends Readable>(body: T, ms: number): T {
+  const http = body as T & { setTimeout?: (ms: number, cb: () => void) => unknown };
+  if (typeof http.setTimeout === 'function') {
+    http.setTimeout(ms, () => body.destroy(new Error(`Storage read idle for ${ms} ms.`)));
+  }
+  return body;
+}
+
 class S3Driver implements StorageDriver {
   readonly name = 's3' as const;
   readonly presignedUpload: boolean;
@@ -219,7 +233,8 @@ class S3Driver implements StorageDriver {
         }),
       );
       // In Node the SDK's body is the HTTP response stream itself.
-      return (res.Body as Readable | undefined) ?? null;
+      const body = res.Body as Readable | undefined;
+      return body ? closeWhenIdle(body, DOWNLOAD_IDLE_TIMEOUT_MS) : null;
     } catch (err) {
       if (isMissing(err)) return null;
       throw err;

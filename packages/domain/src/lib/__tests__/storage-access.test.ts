@@ -1,5 +1,7 @@
+import { get, createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
-import { browserAccess, getStorage, parseByteRange, resetStorage } from '../storage';
+import { browserAccess, closeWhenIdle, getStorage, parseByteRange, resetStorage } from '../storage';
 import { signDownloadTicket, verifyDownloadTicket } from '../tokens';
 
 describe('how browsers reach stored files', () => {
@@ -52,6 +54,53 @@ describe('how browsers reach stored files', () => {
     expect(reads.httpAgent).not.toBe(main.httpAgent);
     expect(reads.requestTimeout).toBe(60_000);
     expect(reads.httpAgent.maxSockets).toBe(100);
+  });
+});
+
+describe('closeWhenIdle', () => {
+  /** Read a response from `send` through closeWhenIdle(…, 300 ms). */
+  async function readWith(send: (res: ServerResponse) => void) {
+    const server = createServer((_req, res) => send(res));
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const { port } = server.address() as AddressInfo;
+    try {
+      // The SDK listens for the request's own error the same way.
+      const res = await new Promise<IncomingMessage>((r) =>
+        get(`http://127.0.0.1:${port}/`, r).on('error', () => undefined),
+      );
+      closeWhenIdle(res, 300);
+      return await new Promise<{ bytes: number; error: string | null }>((resolve) => {
+        let bytes = 0;
+        res.on('data', (c: Buffer) => (bytes += c.length));
+        res.on('end', () => resolve({ bytes, error: null }));
+        res.on('error', (e) => resolve({ bytes, error: e.message }));
+      });
+    } finally {
+      server.closeAllConnections();
+      server.close();
+    }
+  }
+
+  it('closes a storage stream once nothing has moved for a while', async () => {
+    const started = Date.now();
+    // One chunk, then nothing (a stalled read keeps the connection taken).
+    const out = await readWith((res) => res.write('x'.repeat(10)));
+    expect(out).toEqual({ bytes: 10, error: 'Storage read idle for 300 ms.' });
+    expect(Date.now() - started).toBeLessThan(5_000);
+  });
+
+  it('never cuts off a slow but steady stream', async () => {
+    const out = await readWith((res) => {
+      let n = 0;
+      const tick = setInterval(() => {
+        res.write('y'.repeat(100));
+        if (++n === 8) {
+          clearInterval(tick);
+          res.end();
+        }
+      }, 100);
+    });
+    expect(out).toEqual({ bytes: 800, error: null });
   });
 });
 
