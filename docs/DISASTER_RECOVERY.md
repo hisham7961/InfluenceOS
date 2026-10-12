@@ -170,8 +170,8 @@ lost or unreachable.
 **Impact.** Attachment **blobs live in object storage**, not in the database. If
 the bucket is lost, those blobs are **gone unless the object store itself is
 backed up or replicated.** The database rows that reference them remain intact,
-so the app keeps running, but **attachment downloads 404** (the presigned URLs
-point at objects that no longer exist).
+so the app keeps running, but **attachment downloads 404** (the signed download
+links point at objects that no longer exist).
 
 Recovery:
 

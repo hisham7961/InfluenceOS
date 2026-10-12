@@ -65,7 +65,7 @@ AI features, API-first (business logic only in `@influenceos/domain`).
 | Backups (retention + off-host) | ✅ VERIFIED | `scripts/backup-db.sh` (daily/weekly/monthly + optional S3); ran locally producing a valid archive. |
 | Restore | ✅ VERIFIED | `scripts/restore-db.sh` (destructive, `--yes` guarded). |
 | Restore drill | ✅ VERIFIED | `scripts/restore-test.sh` ran locally: 29 tables + User rows round-tripped into a scratch DB and matched. `docs/BACKUP_AND_RESTORE.md`. |
-| Object storage durability | 🟡 PARTIAL | Private buckets + presigned URLs + two-phase uploads are verified (CI MinIO round-trip + browser `e2e-s3`). Operator MUST provide a durable, backed-up store (managed S3, or MinIO with erasure coding/replication) — DB backups do NOT cover object storage. `docs/OBJECT_STORAGE.md`. |
+| Object storage durability | 🟡 PARTIAL | Private buckets + signed app links (presigned URLs with `S3_BROWSER_ACCESS=direct`) + two-phase uploads are verified (CI MinIO round-trip + browser `e2e-s3`). Operator MUST provide a durable, backed-up store (managed S3, or MinIO with erasure coding/replication) — DB backups do NOT cover object storage. `docs/OBJECT_STORAGE.md`. |
 | Redis / queues | ✅ VERIFIED | `docs/REDIS_AND_QUEUES.md`; appendonly persistence in compose; inline fallback + rate-limit skipOnError degrade safely. |
 | Disaster recovery procedure | ✅ VERIFIED | `docs/DISASTER_RECOVERY.md` (DB loss, host loss, bad release, storage loss) with RTO/RPO. |
 
@@ -98,7 +98,7 @@ AI features, API-first (business logic only in `@influenceos/domain`).
 | CI: typecheck/lint/unit/integration (+MinIO)/contract/DoD/build | ✅ VERIFIED | `build` job. |
 | CI: image builds + env fail-fast smoke | ✅ VERIFIED | `images` job. |
 | CI: full-stack browser E2E (local driver) | ✅ VERIFIED | `e2e` job (API + worker + web + Playwright smoke & DoD). |
-| CI: browser S3 E2E | ✅ VERIFIED | `e2e-s3` job (whole stack on S3/MinIO; browser presigned upload→download→delete). Verified locally before wiring. |
+| CI: browser S3 E2E | ✅ VERIFIED | `e2e-s3` job (whole stack on a private S3/MinIO the browser can't reach; upload→download→delete through the app). Verified locally before wiring. |
 
 ### Explicitly out of scope
 

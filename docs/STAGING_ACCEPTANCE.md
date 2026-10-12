@@ -14,7 +14,7 @@ Status legend: ✅ PASS · 🟡 ACCEPTED LIMITATION · 🔴 BLOCKER · ⏳ PENDI
 | --- | --- |
 | Git SHA (deployed) | `⏳ <filled at deploy>` |
 | Staging hostname | `⏳ https://staging.influenceos.example.com` |
-| Files hostname | `⏳ https://staging-files.influenceos.example.com` (self-hosted MinIO) or managed S3 |
+| Files hostname | `⏳ https://staging-files.influenceos.example.com` (self-hosted MinIO) or managed S3 — browsers use it only with `S3_BROWSER_ACCESS=direct` |
 | Deployment date (UTC) | `⏳` |
 | Deployed by | `⏳` |
 | Object storage | `⏳ self-hosted MinIO | managed S3` |
@@ -45,7 +45,8 @@ Status legend: ✅ PASS · 🟡 ACCEPTED LIMITATION · 🔴 BLOCKER · ⏳ PENDI
 ## Browser acceptance (optional, strongest form)
 
 Run the browser Definition-of-Done journey against staging (proves the real UI
-+ presigned S3 upload path over the staging hostname):
++ S3 upload path — through the app by default, presigned with
+`S3_BROWSER_ACCESS=direct` — over the staging hostname):
 
 ```bash
 E2E_BASE_URL=https://staging.influenceos.example.com \

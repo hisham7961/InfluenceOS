@@ -195,17 +195,18 @@ Configured once in `apps/api/src/app.ts`:
 
 | Concern | Mechanism |
 |---|---|
-| Security headers | `@fastify/helmet` (registered with `contentSecurityPolicy: false` on the API — CSP is enforced by the web app's own headers instead, since the API is a JSON service consumed by app clients, not rendered in a browser). |
+| Security headers | `@fastify/helmet` (registered with `contentSecurityPolicy: false` on the API — CSP is enforced by the web app's own headers instead, since the API is a JSON service consumed by app clients, not rendered in a browser). The one exception is a stored file served by `GET /files/:id/blob`, which carries its own `Content-Security-Policy: sandbox` (not on PDFs). |
 | CORS | `@fastify/cors`, `origin: corsOrigins(env)` — an **explicit allowlist** parsed from the comma-separated `WEB_ORIGIN` env var (`apps/api/src/env.ts`), `credentials: true`, methods restricted to `GET, POST, PATCH, DELETE, OPTIONS`. |
 | Rate limiting | `@fastify/rate-limit`, global default `300 requests / minute` per client, with `/health` allowlisted. `POST /auth/login` overrides this to a stricter `20 / minute` (`config.rateLimit` on the route) to slow down credential-stuffing/brute-force. Limit breaches surface as the standard error envelope with code `RATE_LIMITED` (HTTP 429). |
 | Cookies | `@fastify/cookie` registered so the API can also read an `access_token`/`refresh_token` cookie as a fallback bearer source (`extractToken()` in `http.ts`), in addition to the `Authorization` header. |
-| Logging hygiene | Fastify logger `redact: ['req.headers.authorization', 'req.headers.cookie']` — tokens never land in API logs. |
+| Logging hygiene | Fastify logger `redact: ['req.headers.authorization', 'req.headers.cookie']` — tokens never land in API logs. The API's access-log line also replaces the `token`, `ticket` and `s` query parameters (signed file links) with `[redacted]`; the reverse proxy's own access log does not (§9). |
 | `trustProxy: true` | So client IP (`req.ip`, recorded on `DeviceSession.ip`) and rate limiting are correct behind a reverse proxy/load balancer. |
 
 ### Web response headers & CSP (`apps/web/next.config.mjs`)
 
 The Next.js app sets its own headers on every route (`headers()` in
-`next.config.mjs`):
+`next.config.mjs`) — on `/api/bff/*` all but the CSP, so a stored file keeps
+the API's `sandbox` policy:
 
 - `Content-Security-Policy` — `default-src 'self'`, `object-src 'none'`,
   `base-uri 'self'`, `frame-ancestors 'self'`, and a **`frame-src` allowlist that is
@@ -434,10 +435,14 @@ storage. Nothing is ever served from a public bucket, and no permanent public
 file URL is ever issued. Storage is abstracted behind two drivers
 (`packages/domain/src/lib/storage.ts`), selected by `STORAGE_DRIVER`:
 
-- **`s3`** — any S3-compatible store (MinIO in dev; S3/R2/etc. in prod). Uploads
-  use presigned `PUT` URLs; downloads use presigned `GET` URLs
-  (`ResponseContentDisposition` set). The bucket is created private and left
-  private (the dev compose deliberately does **not** run `mc anonymous set`).
+- **`s3`** — any S3-compatible store (MinIO in dev; S3/R2/etc. in prod). By
+  default (`S3_BROWSER_ACCESS=proxy`) the browser never talks to the store:
+  uploads and downloads go through the same signed API endpoints as `local`,
+  and the API reads and writes the store over the private network. Only with
+  `S3_BROWSER_ACCESS=direct` do uploads use presigned `PUT` URLs and downloads
+  presigned `GET` URLs (`ResponseContentDisposition` set) on
+  `S3_PUBLIC_ENDPOINT`. The bucket is created private and left private (the
+  dev compose deliberately does **not** run `mc anonymous set`).
 - **`local`** (default) — local disk under `LOCAL_UPLOAD_DIR`, with traversal
   guarding. Uploads and downloads go through signed API endpoints, never a
   static path.
@@ -448,20 +453,37 @@ file URL is ever issued. Storage is abstracted behind two drivers
    server-side allowlist and `sizeBytes` against `MAX_UPLOAD_MB` (default 50),
    confirms the target record exists, sanitizes the filename, builds a
    collision-free storage key, and returns a **short-lived HMAC-signed upload
-   ticket** (`jose`, `AUTH_SECRET`, 15-min TTL) plus a presigned `PUT` URL (S3)
-   or a signed proxy path (local). **No DB row is created yet**, so an abandoned
-   upload leaves no orphan record.
-2. Client `PUT`s the bytes (direct to S3, or to the signed local proxy, which
-   re-checks size).
+   ticket** (`jose`, `AUTH_SECRET`, 15-min TTL) plus the app's upload address
+   (`PUT /api/v1/files/blob?token=…`; a presigned `PUT` URL only with
+   `direct`). **No DB row is created yet**, so an abandoned upload leaves no
+   orphan record.
+2. Client `PUT`s the bytes to that address. The request is counted by the rate
+   limit, then the session and the ticket (which must belong to the sender)
+   are checked before the API reads the body, and the body must be exactly the
+   declared size. The web BFF still reads the body before forwarding it, so
+   that early check spares the API, not the web server; the reverse proxy's
+   body cap (120 MB as shipped) bounds both. With `direct` the bytes go
+   straight to S3 under a presigned URL that signs the declared size.
 3. `POST /api/v1/files/complete` — verifies the ticket, confirms the object
    landed with `HeadObject`/`stat`, re-checks the **actual stored size** against
    the limit (so a client can't under-declare then upload something larger), and
    only then creates the `Attachment` row.
 
-**Downloads** never expose a public URL: `downloadUrl` is a presigned S3 `GET`
-(absolute, expiring) or a signed local proxy link
-(`GET /api/v1/files/:id/blob?token=…`, a 10-min HMAC capability that also works
-in an `<img>`/`<a>` tag). Deletes remove the stored object then the row.
+**Downloads** never expose a public URL: `downloadUrl` is a signed app link
+(`GET /api/v1/files/:id/blob?token=…`, an HMAC capability that also works in
+an `<img>`/`<video>`/`<a>` tag), or a presigned S3 `GET` (absolute, 10-min
+expiry) only with `direct`. The app link streams from storage, serves byte
+ranges, and stays the same for an hour (valid one to two hours) so browsers
+can cache it (`Cache-Control: private, max-age=3600, no-transform`); it sends
+`nosniff` and `Content-Security-Policy: sandbox` (not on PDFs), which the BFF
+passes through. S3 downloads use their own connection pool (100 sockets,
+60-second idle timeout), so slow viewers can't hold up uploads. Deletes remove
+the stored object then the row.
+
+Only the API's own access log redacts the `token`, `ticket` and `s` query
+parameters. Reverse-proxy (Caddy/nginx) access logs record the full URL: if
+you keep them, treat them as sensitive — they hold download links valid up to
+two hours — or filter those query parameters.
 
 Defense-in-depth summary: private-by-default storage, server-side MIME allowlist
 + size ceiling (declared *and* actual), filename sanitization, path-safe

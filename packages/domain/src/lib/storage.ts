@@ -97,6 +97,11 @@ function isMissing(err: unknown): boolean {
   return status === 404 || name === 'NoSuchKey' || name === 'NotFound';
 }
 
+/** Downloads streamed to browsers: how long a storage connection may sit
+ *  idle (the viewer stopped reading) and how many may be open at once. */
+const DOWNLOAD_IDLE_TIMEOUT_MS = 60_000;
+const DOWNLOAD_MAX_SOCKETS = 100;
+
 class S3Driver implements StorageDriver {
   readonly name = 's3' as const;
   readonly presignedUpload: boolean;
@@ -104,6 +109,11 @@ class S3Driver implements StorageDriver {
   private direct: boolean;
   /** Used for server-side operations (API/worker → storage). */
   private client: S3Client;
+  /** Streams downloads to browsers (openRead). Its own connections, so slow
+   *  or stalled viewers can never use up the ones uploads and the rest need;
+   *  a connection a viewer has stopped reading from is closed after a minute
+   *  (a video player simply asks again for the range it needs). */
+  private readClient: S3Client;
   /** Used ONLY to construct presigned URLs the browser will call. Its endpoint
    *  is the browser-reachable origin, which in a containerized deployment
    *  differs from the internal service DNS name. */
@@ -132,6 +142,15 @@ class S3Driver implements StorageDriver {
     } as const;
 
     this.client = new S3Client({ ...common, endpoint: internalEndpoint });
+    this.readClient = new S3Client({
+      ...common,
+      endpoint: internalEndpoint,
+      requestHandler: {
+        requestTimeout: DOWNLOAD_IDLE_TIMEOUT_MS,
+        httpAgent: { maxSockets: DOWNLOAD_MAX_SOCKETS },
+        httpsAgent: { maxSockets: DOWNLOAD_MAX_SOCKETS },
+      },
+    });
     this.presignClient = new S3Client({ ...common, endpoint: presignEndpoint });
   }
 
@@ -192,7 +211,7 @@ class S3Driver implements StorageDriver {
 
   async openRead(key: string, range?: ByteRange): Promise<Readable | null> {
     try {
-      const res = await this.client.send(
+      const res = await this.readClient.send(
         new GetObjectCommand({
           Bucket: this.bucket,
           Key: key,

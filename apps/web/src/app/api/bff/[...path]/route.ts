@@ -81,21 +81,31 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
       if (v) ranged[h] = v;
     }
   }
+  // A download the browser gives up on (a video seek, a closed viewer) is
+  // stopped here too, so the API and storage don't keep sending it.
+  const signal = method === 'GET' ? req.signal : undefined;
   const fwd = (token: string | undefined) => {
     const headers: Record<string, string> = { ...relay, ...ranged, accept: 'application/json' };
     const ct = req.headers.get('content-type');
     if (ct) headers['content-type'] = ct;
     if (token) headers.authorization = `Bearer ${token}`;
-    return fetch(target, { method, headers, body: rawBody, redirect: 'manual' });
+    return fetch(target, { method, headers, body: rawBody, redirect: 'manual', signal });
   };
 
-  let res = await fwd(store.get(ACCESS_COOKIE)?.value);
-  if (res.status === 401) {
-    const refreshed = await tryRefresh(store, relay);
-    if (refreshed) {
-      await res.body?.cancel().catch(() => undefined);
-      res = await fwd(refreshed);
+  let res: Response;
+  try {
+    res = await fwd(store.get(ACCESS_COOKIE)?.value);
+    if (res.status === 401) {
+      const refreshed = await tryRefresh(store, relay);
+      if (refreshed) {
+        await res.body?.cancel().catch(() => undefined);
+        res = await fwd(refreshed);
+      }
     }
+  } catch (err) {
+    // The browser has gone; nobody is waiting for an answer.
+    if (signal?.aborted) return new NextResponse(null, { status: 499 });
+    throw err;
   }
 
   // 204/205/304 responses MUST have a null body — the Response constructor

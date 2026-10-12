@@ -70,7 +70,7 @@ entry). Two low-severity code-quality findings are tracked in §15 below.
 | Rotating refresh tokens (atomic rotation), account lockout | ✅ READY | `LOGIN_MAX_ATTEMPTS` / `LOGIN_LOCK_MINUTES` |
 | BFF token transport (httpOnly cookies, no tokens in JS storage) | ✅ READY | |
 | AES-GCM envelope encryption for integration secrets | ✅ READY | |
-| Private object storage, presigned URLs, signed-download tickets | ✅ READY | unsigned GET denied |
+| Private object storage, signed upload tickets and download links (presigned URLs only with `S3_BROWSER_ACCESS=direct`) | ✅ READY | unsigned GET denied |
 | Security headers / CSP (HSTS in prod, object-store origin allow-listed) | ✅ READY | |
 | Secret scanning (gitleaks) in CI | ✅ READY | real `.env.*` files git-ignored; only `*.example` tracked |
 | Static security audit (secrets, sinks, SQL, CORS, redaction, token storage) | ✅ READY | no high/medium findings |
@@ -131,7 +131,7 @@ the residual moderates/low are documented, not silently accepted.
 | --- | --- | --- |
 | S3 / MinIO / local-disk drivers | ✅ READY | `StorageDriver` incl. `list()` |
 | Two-phase signed uploads (initiate → PUT → complete) | ✅ READY | |
-| Private buckets, presigned URLs, CORS to web origin | ✅ READY | validated in `e2e-s3` |
+| Private buckets; files through the app by default (presigned URLs + CORS to web origin only with `S3_BROWSER_ACCESS=direct`) | ✅ READY | validated in `e2e-s3` (private MinIO, no CORS); direct mode in `s3-storage.test.ts` |
 | Abandoned-upload cleanup (24h grace) | ✅ READY | worker maintenance sweep |
 | Real managed-S3 bucket + credentials | ⚪ NOT EXECUTED | provided at deploy time |
 

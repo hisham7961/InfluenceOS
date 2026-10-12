@@ -128,6 +128,7 @@ adjust as needed. Grouped below, with which ones are actually required to boot.
 |---|---|---|---|
 | `STORAGE_DRIVER` | optional | `local` | `s3` to use S3/MinIO, `local` for signed-proxy disk storage. |
 | `S3_ENDPOINT` | s3 only | `http://localhost:9000` | S3-compatible endpoint (MinIO in dev). |
+| `S3_BROWSER_ACCESS` | optional | `proxy` | `proxy`: browsers upload and download through the app, the store stays private (no files host, no CORS). `direct`: presigned URLs on `S3_PUBLIC_ENDPOINT`, which must then be an https address browsers reach, with CORS for the web origin — see `docs/OBJECT_STORAGE.md`. |
 | `S3_REGION` | optional | `us-east-1` | |
 | `S3_ACCESS_KEY_ID` | s3 only | `minioadmin` | |
 | `S3_SECRET_ACCESS_KEY` | s3 only | `minioadmin` | |
@@ -137,8 +138,9 @@ adjust as needed. Grouped below, with which ones are actually required to boot.
 | `LOCAL_UPLOAD_DIR` | local only | `./uploads` | Disk location for the local driver (git-ignored, traversal-guarded). |
 
 > **No `S3_PUBLIC_URL`.** Objects are private; every download is served through a
-> short-lived **presigned GET** (S3) or a **signed proxy link** (local). There is
-> no public bucket and no permanent public file URL — see `docs/SECURITY.md §9`.
+> time-limited **signed app link** (both drivers), or a short-lived **presigned
+> GET** with `S3_BROWSER_ACCESS=direct`. There is no public bucket and no
+> permanent public file URL — see `docs/SECURITY.md §9`.
 
 Object storage is now **fully implemented**: two-phase signed uploads
 (`POST /files` → `PUT` → `POST /files/complete`), private-by-default buckets, and
@@ -228,14 +230,20 @@ production, since it doesn't scale across replicas.
 ```bash
 cd apps/web
 pnpm build
-pnpm start   # next start -p 3000
+pnpm start   # node scripts/start.cjs start -p 3000 (= next start)
 ```
+
+`scripts/start.cjs` runs `next start` with Node's request timeout raised from 5
+to 16 minutes, so a large upload on a slow connection isn't cut off (upload
+links are valid 15 minutes) — start the web server through it rather than
+`next start` directly.
 
 `next.config.mjs` does not currently set `output: 'standalone'`; `next start`
 requires the full `apps/web` + workspace `node_modules` to be present on the
 target. If you want a minimal standalone deployment (e.g. a slim container image),
 add `output: 'standalone'` to `apps/web/next.config.mjs` and run the generated
-`.next/standalone/server.js` instead.
+`.next/standalone/server.js` instead (preload `scripts/server-timeouts.cjs`
+with `node -r` to keep the upload window).
 
 For any of the three services, put them under a process supervisor for restarts
 and log management — PM2, systemd, or your container orchestrator's own restart

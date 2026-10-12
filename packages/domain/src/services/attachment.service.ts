@@ -84,9 +84,12 @@ const selectRow = attachmentSelect;
 export type AttachmentRow = Prisma.AttachmentGetPayload<{ select: typeof attachmentSelect }>;
 type Row = AttachmentRow;
 
-const SIGNED_URL_TTL = 600; // 10 minutes for download URLs
+// 10 minutes for a presigned link (S3_BROWSER_ACCESS=direct). The app's own
+// link stays the same for an hour and works for one to two
+// (resolveAttachmentDownloadUrl), so browsers can cache the file.
+const SIGNED_URL_TTL = 600;
 
-/** An attachment row as the API returns it, with a short-lived download link. */
+/** An attachment row as the API returns it, with a time-limited download link. */
 export async function toAttachmentDTO(row: AttachmentRow): Promise<AttachmentDTO> {
   const kind = (row.kind ?? 'other') as AttachmentKind;
   return {

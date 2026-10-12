@@ -13,12 +13,13 @@ const FRAME_SRC = [
 
 const isProd = process.env.NODE_ENV === 'production';
 
-// The browser uploads (presigned PUT) and downloads (presigned GET) directly to
-// the object store, so its public origin must be allowed by connect-src/img-src.
-// In real production this is an https host (already covered by `https:`), but
-// making it explicit also permits a non-https store (e.g. a MinIO endpoint on a
-// private network, or http://localhost:9000 in CI/dev). Derived from the
-// server-side S3_PUBLIC_ENDPOINT so no browser secret is involved.
+// By default files go through the app ('self'). With S3_BROWSER_ACCESS=direct
+// the browser uploads (presigned PUT) and downloads (presigned GET) straight
+// to the object store, so its public origin must be allowed by
+// connect-src/img-src. In real production this is an https host (already
+// covered by `https:`), but making it explicit also permits a non-https store
+// (e.g. http://localhost:9000 in dev). Derived from the server-side
+// S3_PUBLIC_ENDPOINT so no browser secret is involved.
 function originOf(url) {
   try {
     return new URL(url).origin;
@@ -110,7 +111,16 @@ const nextConfig = {
     remotePatterns: imageRemotePatterns,
   },
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    return [
+      { source: '/((?!api/bff/).*)', headers: securityHeaders },
+      // Stored files come through the BFF with the API's own policy
+      // (`sandbox`), which this app-wide one would replace: Next keeps a
+      // header set here over the one a route returns.
+      {
+        source: '/api/bff/:path*',
+        headers: securityHeaders.filter((h) => h.key !== 'Content-Security-Policy'),
+      },
+    ];
   },
 };
 

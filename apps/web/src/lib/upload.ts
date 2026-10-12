@@ -62,6 +62,9 @@ function serverMessageOf(xhr: XMLHttpRequest): string | null {
   }
 }
 
+/** Answers from a proxy or server on the way rather than from the app. */
+const INTERRUPTED = new Set([408, 502, 503, 504]);
+
 function putOnce(
   url: string,
   file: File,
@@ -86,6 +89,10 @@ function putOnce(
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) return resolve();
       const message = serverMessageOf(xhr);
+      // A proxy or server on the way gave up (timed out, restarting): the
+      // connection, not the file — the same as a dropped one.
+      if (!message && INTERRUPTED.has(xhr.status))
+        return reject(new UploadError('network', xhr.status));
       reject(
         new UploadError(
           xhr.status >= 400 && xhr.status < 500 ? 'rejected' : 'failed',
@@ -101,8 +108,9 @@ function putOnce(
 
 /**
  * Send the bytes. A dropped connection (a phone switching networks, a
- * moment without signal) is tried once more before giving up — sending the
- * same file to the same place again is harmless. A server answer is final.
+ * moment without signal, a proxy that gave up) is tried once more before
+ * giving up — sending the same file to the same place again is harmless.
+ * The app's own answer is final.
  */
 async function putBytes(
   url: string,

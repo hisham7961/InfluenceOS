@@ -30,11 +30,12 @@ Start from `.env.production.example` (production) or `.env.staging.example`
 (`apps/api/src/env.ts`). Mandatory: `NODE_ENV=production`, `APP_ENV`,
 `DATABASE_URL`, `DIRECT_DATABASE_URL`, `AUTH_SECRET` (≥32 chars, non-default),
 `NEXT_PUBLIC_APP_URL`, `WEB_ORIGIN`, `INTERNAL_API_URL`; with `STORAGE_DRIVER=s3`:
-`S3_INTERNAL_ENDPOINT`, `S3_PUBLIC_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`,
-`S3_SECRET_ACCESS_KEY`. Compose secrets: `POSTGRES_PASSWORD`, `MINIO_ROOT_USER`,
-`MINIO_ROOT_PASSWORD`, `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`.
-Tunables: `REDIS_URL`, `RATE_LIMIT_*`, `LOGIN_MAX_ATTEMPTS`/`LOGIN_LOCK_MINUTES`,
-`MAX_UPLOAD_MB`, `APP_VERSION`/`GIT_SHA`/`BUILD_TIME`, `BACKUP_*`.
+`S3_INTERNAL_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`
+(plus `S3_PUBLIC_ENDPOINT` only with `S3_BROWSER_ACCESS=direct`). Compose
+secrets: `POSTGRES_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`,
+`BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`. Tunables: `REDIS_URL`,
+`RATE_LIMIT_*`, `LOGIN_MAX_ATTEMPTS`/`LOGIN_LOCK_MINUTES`, `MAX_UPLOAD_MB`,
+`S3_BROWSER_ACCESS`, `APP_VERSION`/`GIT_SHA`/`BUILD_TIME`, `BACKUP_*`.
 
 ## C. Server preparation
 
@@ -49,7 +50,7 @@ Tunables: `REDIS_URL`, `RATE_LIMIT_*`, `LOGIN_MAX_ATTEMPTS`/`LOGIN_LOCK_MINUTES`
 | Record | Type | Target | Purpose |
 | --- | --- | --- | --- |
 | `<app-host>` | A/AAAA | proxy public IP | the platform |
-| `<files-host>` | A/AAAA | proxy public IP | browser object-storage endpoint (self-hosted MinIO only) |
+| `<files-host>` | A/AAAA | proxy public IP | browser object-storage endpoint (only with `S3_BROWSER_ACCESS=direct` on self-hosted MinIO) |
 
 Set `NEXT_PUBLIC_APP_URL`/`WEB_ORIGIN` to `https://<app-host>`. Do not change DNS
 as part of a routine redeploy.
@@ -62,11 +63,16 @@ Caddy obtains + renews certificates automatically (`deploy/caddy/Caddyfile`,
 
 ## F. Storage choice
 
-- **Self-hosted MinIO** (bundled): private bucket, presigned URLs, browser
-  reaches it via the proxy's files host. `MINIO_API_CORS_ALLOW_ORIGIN` = web
-  origin. `docs/OBJECT_STORAGE.md`.
+- **Self-hosted MinIO** (bundled): private bucket on the internal network.
+  Browsers upload and download through the app (`S3_BROWSER_ACCESS=proxy`, the
+  default) — no files host, no CORS, no `S3_PUBLIC_ENDPOINT`. Uploads still
+  pass the proxy's body cap (120 MB) and must fit `MAX_UPLOAD_MB`.
+  `docs/OBJECT_STORAGE.md`.
 - **Managed S3**: point `S3_*` at the managed endpoint; enable bucket versioning
-  + backups; configure CORS to the web origin.
+  + backups. No CORS needed by default.
+- **`S3_BROWSER_ACCESS=direct`** (opt-in, presigned URLs): `S3_PUBLIC_ENDPOINT`
+  must be an https address browsers reach (the proxy's files host for MinIO,
+  with `MINIO_API_CORS_ALLOW_ORIGIN` = web origin; bucket CORS on managed S3).
 - Object storage is NOT covered by DB backups — back it up separately.
 
 ## G. Database setup

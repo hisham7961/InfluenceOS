@@ -130,18 +130,20 @@ CONTENT_ID="$(echo "$PC" | pyget id)"; [ -n "$CONTENT_ID" ] || fail "publish con
 DEL_CONTENT+=("$CONTENT_ID"); pass "publish content ($CONTENT_ID)"
 
 # --- Attachment: upload → list → download → delete -------------------------
-INIT="$(api POST /files "{\"fileName\":\"$PREFIX.txt\",\"mimeType\":\"text/plain\",\"sizeBytes\":24,\"target\":{\"influencerId\":\"$INF1\"}}")"
+# The declared size must be the real one: the upload is refused otherwise.
+TMPF="$(mktemp)"; printf 'staging acceptance bytes!!' > "$TMPF"
+SIZE="$(wc -c < "$TMPF" | tr -d ' ')"
+INIT="$(api POST /files "{\"fileName\":\"$PREFIX.txt\",\"mimeType\":\"text/plain\",\"sizeBytes\":$SIZE,\"target\":{\"influencerId\":\"$INF1\"}}")"
 UPTOKEN="$(echo "$INIT" | pyget uploadToken)"
 UPURL="$(echo "$INIT" | pyget uploadUrl)"
 DIRECT="$(echo "$INIT" | pyget direct)"
-[ -n "$UPTOKEN" ] || fail "attachment initiate: $INIT"
-TMPF="$(mktemp)"; printf 'staging acceptance bytes!!' > "$TMPF"
+[ -n "$UPTOKEN" ] || { rm -f "$TMPF"; fail "attachment initiate: $INIT"; }
 if [ "$DIRECT" = "True" ] || [ "$DIRECT" = "true" ]; then
-  # Presigned S3 PUT (staging S3 driver): honor the signed Content-Type.
+  # Presigned S3 PUT (S3_BROWSER_ACCESS=direct): honor the signed Content-Type.
   CT="$(echo "$INIT" | python3 -c "import sys,json;print(json.load(sys.stdin).get('headers',{}).get('Content-Type','application/octet-stream'))" 2>/dev/null)"
   put="$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$UPURL" -H "content-type: ${CT:-text/plain}" --data-binary @"$TMPF")"
 else
-  # Local-driver proxy PUT (relative path → API origin).
+  # Through the API (the default; relative path → API origin).
   case "$UPURL" in
     http*) purl="$UPURL" ;;
     /api/*) purl="$BASE$UPURL" ;;

@@ -82,11 +82,16 @@ declared size against the ceiling `MAX_UPLOAD_MB`. On success the API returns an
 allowlist or the size ceiling.
 
 **Step 2 — transfer.** The client PUTs the bytes to the app's upload address
-(`proxy`, the default). The API checks the session and the ticket **before
-reading the body** (a forged ticket, or one made for someone else, never makes
-the server take in a large upload), requires **exactly** the declared number of
-bytes, and writes them to the store. With `direct`, the browser PUTs a presigned
-URL instead; the declared size is baked into its signature.
+(`proxy`, the default). The request is counted by the rate limit first, then the
+API checks the session and the ticket **before it reads the body** (a forged
+ticket, or one made for someone else, never makes the API take in a large
+upload), requires **exactly** the declared number of bytes, and writes them to
+the store. The web BFF in front still reads the whole body before forwarding
+it, so on the way the upload must fit the reverse proxy's body cap (120 MB as
+shipped) and the web server's request window (16 minutes, raised from Node's 5
+by `apps/web/scripts/start.cjs`; upload tickets are valid 15). With `direct`,
+the browser PUTs a presigned URL instead; the declared size is baked into its
+signature.
 
 **Step 3 — complete.** The client calls `complete`. The API **verifies the
 object actually landed** in the store, then creates the DB record holding the
@@ -102,11 +107,20 @@ Downloads never expose the bucket:
 
 | Mode | Download mechanism |
 |---|---|
-| `proxy` (default) and `local` | A **signed link** served by the API: `GET /files/:id/blob?token=...`. It streams the file, answers byte ranges (206 — video players need them), and stays the same for an hour (valid one to two hours) so browsers cache it. Pictures, video and PDF open inline; other files download. |
-| `direct` | A **presigned GET URL** to the object; expires. |
+| `proxy` (default) and `local` | A **signed link** served by the API: `GET /files/:id/blob?token=...`. It streams the file, answers byte ranges (206, or 416 out of range — video players need them), and stays the same for an hour (valid one to two hours) so browsers cache it (`Cache-Control: private, max-age=3600, no-transform`). Pictures, video and PDF open inline; other files download. Everything but PDFs carries `Content-Security-Policy: sandbox`, which the BFF passes through. |
+| `direct` | A **presigned GET URL** to the object; expires after 10 minutes. |
 
 In both cases the grant is scoped to a single object and time-limited. Saved
 post covers use their own day-stable signed link (`GET /covers/:id`).
+
+With the `s3` driver, downloads read the store over their own connection pool
+(100 sockets, a connection idle for 60 seconds is closed), so slow or stalled
+viewers can't use up the connections uploads need.
+
+> **Logs.** The API's access log replaces the `token`, `ticket` and `s` query
+> parameters with `[redacted]`. The reverse proxy's (Caddy/nginx) access log
+> records the full URL — if you keep it, treat it as sensitive (it holds
+> download links valid up to two hours) or filter those query parameters.
 
 ## 5. Internal vs public endpoint
 
@@ -135,14 +149,16 @@ S3_PUBLIC_ENDPOINT=https://files.example.com
 - **MIME allowlist** — enforced server-side at `initiate`. Only MIME types on
   the allowlist are accepted; the check cannot be skipped by the client.
 - **Size ceiling** — the declared size must be `<= MAX_UPLOAD_MB` (default
-  `100`). The declared size is checked at `initiate` before a ticket is issued.
+  `50`). The declared size is checked at `initiate` before a ticket is issued.
+  The shipped Caddy/nginx configs cap request bodies at 120 MB, so raise those
+  too before setting `MAX_UPLOAD_MB` above that.
 
 ## 7. Environment variables
 
 | Variable | Applies to | Required | Notes |
 |---|---|---|---|
 | `STORAGE_DRIVER` | all | yes | `local` or `s3` |
-| `MAX_UPLOAD_MB` | all | no | Upload size ceiling; default `100` |
+| `MAX_UPLOAD_MB` | all | no | Upload size ceiling; default `50` (the shipped proxies cap bodies at 120 MB) |
 | `S3_INTERNAL_ENDPOINT` | `s3` | yes* | Server-side endpoint on the private network |
 | `S3_BROWSER_ACCESS` | `s3` | no | `proxy` (default — files go through the app) or `direct` (presigned URLs) |
 | `S3_PUBLIC_ENDPOINT` | `s3` + `direct` | with `direct` | Browser-facing HTTPS endpoint presigned URLs are signed for |
@@ -160,8 +176,12 @@ legacy `S3_ENDPOINT` fallback) plus a bucket, access key, and secret — and
 ### Fail-fast contract
 
 The env contract in `apps/api/src/env.ts` **requires** endpoint + bucket + access
-key + secret when `STORAGE_DRIVER=s3`. If any of these is missing, the API
-**refuses to boot** — it does not start with a half-configured store.
+key + secret when `STORAGE_DRIVER=s3`, and `S3_PUBLIC_ENDPOINT` with
+`S3_BROWSER_ACCESS=direct`. If any of these is missing, the API **refuses to
+boot** — it does not start with a half-configured store. `scripts/preflight.sh`
+also fails `direct` with an address browsers can't reach (localhost, `127.*`,
+the example domain, the internal `minio` name), warns on `http://`, and fails
+any value other than `proxy` or `direct`.
 
 ```bash
 # Minimum valid s3 configuration (MinIO / path-style):

@@ -63,17 +63,25 @@ scripts/restore-test.sh
 
 ## 4. Object storage
 
-- [ ] Buckets are **private**; access is via presigned URLs only (two-phase
-      signed uploads: initiate → PUT → complete).
+- [ ] Buckets are **private**; access is via signed app links (two-phase
+      signed uploads: initiate → PUT → complete), and presigned URLs only with
+      `S3_BROWSER_ACCESS=direct`.
 - [ ] The storage backend is durable and backed up (`STORAGE_DRIVER=s3` for
       production-grade durability; `local` is the default and is not durable
       across hosts).
-- [ ] Internal vs public endpoints are correct: `S3_INTERNAL_ENDPOINT`
-      (server-side) and `S3_PUBLIC_ENDPOINT` (browser presign) are set to the
-      right values, along with `S3_BUCKET`, `S3_ACCESS_KEY_ID`,
+- [ ] Endpoints are correct: `S3_INTERNAL_ENDPOINT` (server-side) is set to
+      the right value, along with `S3_BUCKET`, `S3_ACCESS_KEY_ID`,
       `S3_SECRET_ACCESS_KEY`, `S3_REGION`, `S3_FORCE_PATH_STYLE`.
-- [ ] `MAX_UPLOAD_MB` (default 100) and the server-side MIME allowlist are
-      appropriate for the deployment.
+      `S3_BROWSER_ACCESS` is unset/`proxy` (files go through the app; no files
+      host or bucket CORS), or `direct` with `S3_PUBLIC_ENDPOINT` an https
+      address browsers reach and CORS for the web origin on the bucket.
+- [ ] `MAX_UPLOAD_MB` (default 50) and the server-side MIME allowlist are
+      appropriate for the deployment; the reverse proxy's body cap (120 MB as
+      shipped) is at least `MAX_UPLOAD_MB`.
+- [ ] If reverse-proxy access logs are kept, they are treated as sensitive (or
+      filter the `token`, `ticket` and `s` query parameters): they record
+      download links that stay valid up to two hours. Only the API's own
+      access log redacts them.
 
 ## 5. Redis
 

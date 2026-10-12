@@ -89,7 +89,7 @@ public. The web app, API, worker, database, Redis, object storage, and the
 | worker (`apps/worker`, BullMQ + ioredis) | 4100 (`WORKER_PORT`) | Background queues: `content-check`, `follower-sync`, `maintenance`; maintenance sweep cron | Redis, PostgreSQL, object storage |
 | PostgreSQL 16 (Prisma 6) | 5432 | System of record (cuid IDs) | — |
 | Redis | 6379 | Backs BullMQ queues; optional rate-limit store | — |
-| Object storage | local / S3 / MinIO (9000/9001) | Media storage; private buckets, presigned uploads | — |
+| Object storage | local / S3 / MinIO (9000/9001) | Media storage; private buckets — browsers upload and download through the app (presigned URLs only with `S3_BROWSER_ACCESS=direct`) | — |
 | Prometheus | (private) | Scrapes API `/metrics` | API |
 
 ## Request and data flow

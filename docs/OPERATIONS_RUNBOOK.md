@@ -32,7 +32,7 @@ backups are staged locally before the S3 upload.
 | Record | Type | Points to | Purpose |
 | --- | --- | --- | --- |
 | `influenceos.example.com` | A / AAAA | Reverse-proxy public IP | The platform (web + API via the proxy). |
-| `files.influenceos.example.com` | A / AAAA | Reverse-proxy (or object-store) public IP | Optional: browser-facing object-storage endpoint (`S3_PUBLIC_ENDPOINT`) when presigned URLs must resolve publicly. Only needed with the S3 driver. |
+| `files.influenceos.example.com` | A / AAAA | Reverse-proxy (or object-store) public IP | Optional: browser-facing object-storage endpoint (`S3_PUBLIC_ENDPOINT`) for presigned URLs. Only needed with `S3_BROWSER_ACCESS=direct` — by default browsers reach files through the app. |
 
 Set `NEXT_PUBLIC_APP_URL` and `WEB_ORIGIN` to the primary HTTPS URL. Caddy obtains
 certificates automatically for the names it serves; with nginx, issue them via
@@ -295,13 +295,33 @@ the restore is destructive.
 
 ### Object storage down
 
-- **Symptoms:** upload/download failures; presign or two-phase upload
-  (initiate → PUT → complete) errors.
-- **First look:** storage backend health; for S3/MinIO check
-  `S3_INTERNAL_ENDPOINT` (server-side) and `S3_PUBLIC_ENDPOINT` (browser
-  presign), bucket, and credentials.
-- **Action:** restore the storage backend; verify buckets remain private and
-  presigned URLs are being issued.
+- **Symptoms:** upload/download failures ("Upload failed — …", files that
+  don't show); two-phase upload (initiate → PUT → complete) errors.
+- **Path (default, `S3_BROWSER_ACCESS=proxy`):** browser → reverse proxy → web
+  BFF (`/api/bff/api/v1/files/blob?token=…`) → API (`PUT /api/v1/files/blob`)
+  → storage on the private network. Downloads come back the same way
+  (`GET /api/v1/files/:id/blob?token=…`); creator-link uploads use
+  `/api/v1/public/creator/:token/uploads?ticket=…`.
+- **First look, hop by hop:**
+  - *Reverse proxy:* a 413 means the body is over the proxy's cap (Caddy
+    `request_body max_size 120MB`, nginx `client_max_body_size 120m`) — keep
+    it ≥ `MAX_UPLOAD_MB` (default 50). Its access log records full URLs,
+    signed tokens included — treat it as sensitive.
+  - *Web:* web container logs for BFF errors. The web server allows a request 16
+    minutes (`apps/web/scripts/start.cjs`); a plain `next start` cuts slow
+    uploads off after 5 with a 408.
+  - *API:* the API's access-log line for the upload or download (tokens show
+    as `[redacted]`) — a refused session or ticket, a size that doesn't match
+    the declared one, or 429 from the rate limit.
+  - *Storage:* Settings → Storage (driver, bucket, endpoint, *How browsers
+    reach files*); storage backend health, `S3_INTERNAL_ENDPOINT`, bucket and
+    credentials.
+- **Only with `S3_BROWSER_ACCESS=direct`:** the browser talks to the store
+  itself — check `S3_PUBLIC_ENDPOINT` is an https address browsers reach
+  (`scripts/preflight.sh` fails localhost, `minio` and the example address),
+  the bucket's CORS allows the web origin, and presigned URLs are being issued.
+- **Action:** fix the failing hop or restore the storage backend; verify
+  buckets remain private.
 
 ### High 5xx
 
@@ -324,7 +344,7 @@ the restore is destructive.
 | API `/health` failing | API container + logs | API down |
 | `/ready` = 503, `influenceos_db_up` = 0 | PostgreSQL health, `DATABASE_URL` | DB down / unreachable |
 | worker `mode: "inline-fallback"` | Redis health, `REDIS_URL` | Redis down |
-| Upload/media errors | Storage backend, S3 endpoints/buckets | Object storage down |
+| Upload/media errors | Proxy body cap, web/API logs, storage backend and bucket | Object storage down |
 | High 5xx alert | API logs by `route`/`reqId`, `/ready`, memory | High 5xx |
 | Alerts generally | `deploy/observability/alerts.yml`, Grafana dashboard | (per alert above) |
 

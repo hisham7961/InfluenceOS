@@ -50,6 +50,24 @@ describe('P0.5 — rate limits per user and per real client address', () => {
     expect((await hit('198.51.100.8')).statusCode).toBe(401);
   });
 
+  it('counts refused uploads too — they are turned away before the bytes are read, but not before the limit', async () => {
+    const bytes = Buffer.from('not an upload');
+    const put = (url: string, ip: string) =>
+      app.inject({
+        method: 'PUT',
+        url,
+        headers: { 'x-forwarded-for': ip, 'content-type': 'application/octet-stream' },
+        payload: bytes,
+      });
+    // Not signed in.
+    for (let i = 0; i < 5; i++) expect((await put('/api/v1/files/blob?token=x', '198.51.100.21')).statusCode).toBe(401);
+    expect((await put('/api/v1/files/blob?token=x', '198.51.100.21')).statusCode).toBe(429);
+    // A link that doesn't exist (its own limit: 20 a minute).
+    const creator = '/api/v1/public/creator/no-such-link/uploads?ticket=x';
+    for (let i = 0; i < 20; i++) expect((await put(creator, '198.51.100.22')).statusCode).toBe(404);
+    expect((await put(creator, '198.51.100.22')).statusCode).toBe(429);
+  });
+
   it('throttles repeated wrong passwords per account and address, not for everyone', async () => {
     const login = (email: string, ip: string) =>
       app.inject({

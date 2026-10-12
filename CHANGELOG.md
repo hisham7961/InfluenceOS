@@ -26,16 +26,36 @@ validated baseline. No staging or production environment has been deployed.
   and stays the same for an hour so browsers cache it. Nothing about the store
   has to be public. `S3_BROWSER_ACCESS=direct` keeps presigned URLs for a store
   really served over HTTPS.
-- **Safer upload address:** the session and ticket are checked before the body
-  is read, the ticket must belong to the person sending it, and the bytes must
-  be exactly the declared size; signed-link tokens are kept out of the access
-  log; downloads have their own rate allowance.
+- **Safer upload address:** the session and ticket are checked before the API
+  reads the body (the web BFF in front still reads it), the ticket must belong
+  to the person sending it, and the bytes must be exactly the declared size;
+  signed-link tokens are kept out of the API's access log (the reverse proxy's
+  access log still records full URLs — treat kept proxy logs as sensitive, as
+  download links stay valid up to two hours, or filter the `token`, `ticket`
+  and `s` query parameters); downloads have their own rate allowance.
+- **Refused uploads still count toward the rate limit:** the limit is checked
+  before the session and ticket, so a flood of bad uploads gets "Too many
+  requests".
+- **Large uploads on slow connections:** the web server (`next start`, now run
+  through `apps/web/scripts/start.cjs`) gives a request 16 minutes instead of
+  Node's 5, so a big video isn't cut off with a 408 (upload links are valid 15
+  minutes). Uploads still pass the reverse proxy's 120 MB body cap and must fit
+  `MAX_UPLOAD_MB`.
+- **Stored files keep their sandbox through the BFF:** the app's CSP is no
+  longer applied to `/api/bff/*`, so a file keeps the API's own
+  `Content-Security-Policy: sandbox` (PDFs excluded).
+- **Slow viewers can't block uploads:** downloads from S3 use their own
+  connection pool (100 sockets), a connection a viewer stopped reading is
+  closed after 60 seconds, and a download the browser gives up on (a video
+  seek, a closed viewer) is stopped at the BFF too.
 - **Clear messages:** a failed upload says why, in Arabic or English, and a
   dropped connection is retried once. A Story whose file didn't upload is kept
   and "Retry upload" sends only the file (it used to create a second Story).
 - Settings → Storage shows how browsers reach files; `scripts/preflight.sh`
-  fails on a direct setup browsers can't reach. CI's MinIO browser job now runs
-  with an unreachable public endpoint, as in production, plus a Story upload spec.
+  fails on a direct setup browsers can't reach or an `S3_BROWSER_ACCESS` other
+  than `proxy`/`direct`. CI's MinIO browser job now runs with an unreachable
+  public endpoint, as in production, plus a Story upload spec. The staging
+  acceptance script now declares the real file size.
 
 ### Shipments follow the roster
 

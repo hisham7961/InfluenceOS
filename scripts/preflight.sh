@@ -63,17 +63,20 @@ if [ "${STORAGE_DRIVER:-local}" = "s3" ]; then
   done
 fi
 # How browsers reach stored files (docker-compose.full.yml always uses s3).
-case "$(printf '%s' "${S3_BROWSER_ACCESS:-proxy}" | tr '[:upper:]' '[:lower:]')" in
+# Read the way the API reads it: spaces and case don't matter.
+case "$(printf '%s' "${S3_BROWSER_ACCESS:-}" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')" in
   direct)
     case "${S3_PUBLIC_ENDPOINT:-}" in
       "") F "S3_BROWSER_ACCESS=direct but S3_PUBLIC_ENDPOINT is unset — remove S3_BROWSER_ACCESS to send files through the app" ;;
-      http://localhost*|http://127.*|*example.com*|*://minio*)
+      # Loopback, the placeholder, or MinIO's address inside Docker.
+      http://localhost*|http://127.*|*example.com*|*://minio|*://minio:*|*://minio/*)
         F "S3_BROWSER_ACCESS=direct but S3_PUBLIC_ENDPOINT=$S3_PUBLIC_ENDPOINT is not reachable by browsers — every upload would fail with 'network error'. Remove S3_BROWSER_ACCESS to send files through the app" ;;
       http://*) W "S3_PUBLIC_ENDPOINT=$S3_PUBLIC_ENDPOINT is not https — browsers block it on an https site" ;;
       *) P "Browsers use presigned URLs on $S3_PUBLIC_ENDPOINT (S3_BROWSER_ACCESS=direct)" ;;
     esac
     ;;
-  *) P "Browsers upload and download files through the app (S3_BROWSER_ACCESS=proxy)" ;;
+  proxy|"") P "Browsers upload and download files through the app (S3_BROWSER_ACCESS=proxy)" ;;
+  *) F "S3_BROWSER_ACCESS=$S3_BROWSER_ACCESS is not a choice — use proxy (or leave it unset) or direct; the API won't start otherwise" ;;
 esac
 
 echo

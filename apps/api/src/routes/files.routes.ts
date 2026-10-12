@@ -54,12 +54,15 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
   );
 
   // The upload address. Body is raw bytes (application/octet-stream). The
-  // session and the ticket are checked before the body is read, so a forged
-  // or someone else's ticket never makes the server take in a large upload.
+  // request is counted by the rate limit first (onRequest), then the session
+  // and the ticket are checked before the body is read (preParsing), so a
+  // forged or someone else's ticket never makes the API take in a large
+  // upload, and a flood of them still gets "Too many requests".
   r.put(
     '/files/blob',
     {
-      onRequest: [
+      config: { rateLimit: { hook: 'onRequest' } },
+      preParsing: [
         requireAuth,
         async (req: FastifyRequest) => {
           const token = (req.query as { token?: string }).token ?? '';

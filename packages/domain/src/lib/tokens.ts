@@ -2,11 +2,12 @@ import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { AppError } from '../errors';
 
 /**
- * Short-lived, HMAC-signed capability tokens for object storage. Used by the
- * two-phase upload flow (upload tickets) and by the local download proxy
- * (signed download URLs). These are NOT user sessions — they authorize a
- * single storage operation on a single key and always carry an expiry, so a
- * leaked URL grants only brief, scoped access to one object.
+ * Time-limited, HMAC-signed capability tokens for object storage. Used by the
+ * two-phase upload flow (upload tickets, 15 minutes) and by the app's
+ * download links (one to two hours, so browsers can cache them). These are
+ * NOT user sessions — they authorize a single storage operation on a single
+ * key and always carry an expiry, so a leaked URL grants only time-limited
+ * access to one object.
  */
 
 function secret(): Uint8Array {

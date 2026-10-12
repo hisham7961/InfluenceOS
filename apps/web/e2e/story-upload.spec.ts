@@ -83,4 +83,8 @@ test('Story screenshot: uploaded through the app and shown on the creator’s pa
   expect(part.status()).toBe(206);
   expect(part.headers()['content-range']).toBe(`bytes 0-7/${PNG.length}`);
   expect((await part.body()).equals(PNG.subarray(0, 8))).toBe(true);
+  // The stored file keeps the API's own policy (the app's page policy would
+  // otherwise replace it): it can never run as a page on this site.
+  expect(part.headers()['content-security-policy']).toBe('sandbox');
+  expect(part.headers()['x-content-type-options']).toBe('nosniff');
 });

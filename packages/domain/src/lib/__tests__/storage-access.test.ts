@@ -35,6 +35,24 @@ describe('how browsers reach stored files', () => {
     );
     expect(await direct.presignGet('a/b.png', 'b.png', 60)).toContain('X-Amz-Signature');
   });
+
+  it('streams downloads over their own storage connections, closed when a viewer stops reading', async () => {
+    type Handler = {
+      configProvider: Promise<{ requestTimeout?: number; httpAgent: { maxSockets: number } }>;
+    };
+    type Clients = Record<'client' | 'readClient', { config: { requestHandler: Handler } }>;
+    const driver = getStorage({
+      STORAGE_DRIVER: 's3',
+      S3_INTERNAL_ENDPOINT: 'http://minio:9000',
+      S3_ACCESS_KEY_ID: 'k',
+      S3_SECRET_ACCESS_KEY: 's',
+    }) as unknown as Clients;
+    const main = await driver.client.config.requestHandler.configProvider;
+    const reads = await driver.readClient.config.requestHandler.configProvider;
+    expect(reads.httpAgent).not.toBe(main.httpAgent);
+    expect(reads.requestTimeout).toBe(60_000);
+    expect(reads.httpAgent.maxSockets).toBe(100);
+  });
 });
 
 describe('parseByteRange', () => {

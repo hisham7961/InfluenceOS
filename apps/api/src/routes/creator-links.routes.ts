@@ -104,13 +104,14 @@ export async function creatorLinkRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // The link and ticket are checked before the body is read, so a bad link
-  // or ticket never makes the server take in a large upload.
+  // Counted by the rate limit first (onRequest), then the link and ticket
+  // are checked before the body is read (preParsing), so a bad link or
+  // ticket never makes the API take in a large upload.
   r.put(
     '/public/creator/:token/uploads',
     {
-      config: sendLimit,
-      onRequest: async (req) => {
+      config: { rateLimit: { ...sendLimit.rateLimit, hook: 'onRequest' } },
+      preParsing: async (req) => {
         const { token } = req.params as { token: string };
         const { ticket } = req.query as { ticket?: string };
         await servicesFor(req).creatorLinks.checkUpload(token, ticket ?? '');

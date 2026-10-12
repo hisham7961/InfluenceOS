@@ -26,7 +26,7 @@ Related: `docs/PRODUCTION_ARCHITECTURE.md`, `docs/GITHUB_RELEASE_WORKFLOW.md`,
 | Concern | Production | Staging |
 | --- | --- | --- |
 | Hostname | `influenceos.example.com` | `staging.influenceos.example.com` |
-| Files host | e.g. managed S3 / `files.…` | `staging-files.influenceos.example.com` |
+| Files host (`S3_BROWSER_ACCESS=direct` only) | e.g. managed S3 / `files.…` | `staging-files.influenceos.example.com` |
 | Database | `influenceos_production` | `influenceos_staging` |
 | Object bucket | production bucket | `influenceos-staging` |
 | Redis | production instance | dedicated staging instance |
@@ -109,16 +109,20 @@ docker compose -p influenceos-staging --env-file .env.staging \
 
 Two supported topologies:
 
-- **Self-hosted MinIO (bundled).** The compose runs a private MinIO; the browser
-  reaches presigned URLs via the proxy's files host (`FILES_ADDRESS` →
-  `minio:9000`, Host-preserving so SigV4 validates). MinIO keeps objects
-  private; `MINIO_API_CORS_ALLOW_ORIGIN` is set to the staging web origin so the
-  browser's cross-origin presigned PUT is allowed. Verify the round trip
-  (browser → presigned PUT → complete → presigned GET → delete) with
-  `scripts/acceptance-staging.sh`.
+- **Self-hosted MinIO (bundled).** The compose runs a private MinIO. By default
+  (`S3_BROWSER_ACCESS=proxy`, as in production) browsers upload and download
+  through the app, so the files host and CORS go unused. With
+  `S3_BROWSER_ACCESS=direct` the browser reaches presigned URLs via the proxy's
+  files host (`FILES_ADDRESS` → `minio:9000`, Host-preserving so SigV4
+  validates); `MINIO_API_CORS_ALLOW_ORIGIN` is set to the staging web origin so
+  the browser's cross-origin presigned PUT is allowed. MinIO keeps objects
+  private either way. Verify the round trip (upload → complete → download →
+  delete) with `scripts/acceptance-staging.sh`, which follows whichever mode
+  the API hands out.
 - **Managed S3.** Point `S3_INTERNAL_ENDPOINT`/`S3_PUBLIC_ENDPOINT` at the
-  managed endpoint, drop the MinIO service and the files site block from the
-  Caddyfile, and configure the bucket's CORS to allow the staging web origin.
+  managed endpoint and drop the MinIO service and the files site block from the
+  Caddyfile; with `S3_BROWSER_ACCESS=direct`, also configure the bucket's CORS
+  to allow the staging web origin.
 
 Either way the bucket is **private** — the smoke test asserts an unsigned GET is
 denied (403/404), never 200.
