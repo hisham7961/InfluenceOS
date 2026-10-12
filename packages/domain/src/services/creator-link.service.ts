@@ -446,13 +446,31 @@ export function makeCreatorLinkService(ctx: DomainContext) {
     return t;
   }
 
-  /** The file's bytes, when storage can't take them directly (local storage). */
+  /**
+   * Whether bytes may be sent for this upload: a live link and a ticket it
+   * issued. The API checks this before reading the request body, so a bad
+   * link or ticket never makes the server take in a large upload.
+   */
+  async function checkUpload(token: string, ticket: string): Promise<void> {
+    const link = await linkFor(token);
+    const t = await ticketFor(link, ticket);
+    if (t.sizeBytes > maxUploadBytes()) throw AppError.validation('The file is too big.');
+  }
+
+  /**
+   * The file's bytes through the link's own upload address (the default way
+   * creators upload, and the only one for local storage): exactly the size
+   * the ticket declared, written to private storage by the server.
+   */
   async function writeUpload(token: string, ticket: string, body: Buffer): Promise<void> {
     const link = await linkFor(token);
     const t = await ticketFor(link, ticket);
     if (body.length === 0) throw AppError.validation('The file is empty.');
     if (body.length > maxUploadBytes() || body.length > t.sizeBytes) {
       throw AppError.validation('The file is bigger than it said it was.');
+    }
+    if (body.length !== t.sizeBytes) {
+      throw AppError.validation('The file did not finish uploading. Please try again.');
     }
     await getStorage().save(t.storageKey, body, t.mimeType);
   }
@@ -603,7 +621,7 @@ export function makeCreatorLinkService(ctx: DomainContext) {
     return portal(link);
   }
 
-  return { list, create, revoke, open: openPortal, startUpload, writeUpload, sendDraft, sendPost };
+  return { list, create, revoke, open: openPortal, startUpload, checkUpload, writeUpload, sendDraft, sendPost };
 }
 
 export type CreatorLinkService = ReturnType<typeof makeCreatorLinkService>;

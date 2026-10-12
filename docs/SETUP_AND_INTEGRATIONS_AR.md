@@ -74,7 +74,8 @@ pnpm db:bootstrap    # إنشاء أول حساب أدمن (مرة واحدة ف
 | المتغير | ماذا يعني |
 |---|---|
 | `S3_INTERNAL_ENDPOINT` | العنوان الذي يصل منه الخادم للتخزين (أو `S3_ENDPOINT` القديم) |
-| `S3_PUBLIC_ENDPOINT` | العنوان الذي يوقّع به الروابط للمتصفح |
+| `S3_BROWSER_ACCESS` | كيف يصل المتصفح إلى الملفات: `proxy` (الافتراضي — الرفع والعرض يمرّان عبر التطبيق نفسه، والتخزين يبقى خاصاً لا يحتاج نطاقاً أو إعداداً) أو `direct` (روابط موقّعة على `S3_PUBLIC_ENDPOINT`) |
+| `S3_PUBLIC_ENDPOINT` | مع `direct` فقط: عنوان https للتخزين يصل إليه المتصفح فعلاً. إن كان غير قابل للوصول (مثل `localhost` أو عنوان المثال) يفشل كل رفع بخطأ «network error» |
 | `S3_BUCKET` | اسم الـ bucket |
 | `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | مفتاحا الوصول |
 | `S3_REGION` / `S3_FORCE_PATH_STYLE` | المنطقة ونمط المسار (MinIO: `true`) |

@@ -69,6 +69,17 @@ export default async function StorageSettingsPage() {
           {storage.endpoint ? (
             <Row label={t('storage.accessModel.endpoint')} value={<LtrText>{storage.endpoint}</LtrText>} />
           ) : null}
+          <Row
+            label={t('storage.accessModel.browserAccess')}
+            value={
+              storage.browserAccess === 'direct'
+                ? t('storage.accessModel.browserDirect')
+                : t('storage.accessModel.browserProxy')
+            }
+          />
+          {storage.publicEndpoint ? (
+            <Row label={t('storage.accessModel.publicEndpoint')} value={<LtrText>{storage.publicEndpoint}</LtrText>} />
+          ) : null}
         </CardContent>
       </Card>
 

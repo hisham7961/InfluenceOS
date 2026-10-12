@@ -230,8 +230,10 @@ export function AddContentFlow({
       return;
     }
     setLoading(true);
+    // The row this attempt created or reused — read from here, not from
+    // state, which still holds the previous render's value inside this call.
+    let contentId = storyContentId;
     try {
-      let contentId = storyContentId;
       if (!contentId) {
         const created = await api.content.createStory({
           platform: storyPlatform,
@@ -247,11 +249,14 @@ export function AddContentFlow({
       toast.success(t('addFlow.successToast'));
       onSuccess(finalContent);
     } catch (err) {
-      if (storyContentId) {
+      const reason = errMessage(err, tCommon('somethingWentWrong'));
+      if (contentId) {
+        // The Story is saved; only its file is missing. Re-submitting sends
+        // just the file to the same Story.
         setStoryUploadFailed(true);
-        toast.error(t('addFlow.storyUploadFailed'));
+        toast.error(`${t('addFlow.storyUploadFailed')} ${reason}`);
       } else {
-        toast.error(errMessage(err, tCommon('somethingWentWrong')));
+        toast.error(reason);
       }
     } finally {
       setLoading(false);

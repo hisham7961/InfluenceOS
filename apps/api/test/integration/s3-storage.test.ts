@@ -17,7 +17,19 @@ import { deleteUser, loginFresh } from '../helpers.ts';
  */
 const ENDPOINT = process.env.S3_TEST_ENDPOINT;
 
-describe.skipIf(!ENDPOINT)('files — real MinIO/S3 round-trip (s3 driver)', () => {
+const S3_KEYS = [
+  'STORAGE_DRIVER',
+  'S3_INTERNAL_ENDPOINT',
+  'S3_PUBLIC_ENDPOINT',
+  'S3_BROWSER_ACCESS',
+  'S3_BUCKET',
+  'S3_ACCESS_KEY_ID',
+  'S3_SECRET_ACCESS_KEY',
+  'S3_FORCE_PATH_STYLE',
+] as const;
+
+describe.skipIf(!ENDPOINT)('files — real MinIO/S3 round-trip (s3 driver, direct browser access)', () => {
+  const saved: Partial<Record<(typeof S3_KEYS)[number], string | undefined>> = {};
   let app: FastifyInstance;
   let auth: Record<string, string>;
   let userId: string;
@@ -26,6 +38,10 @@ describe.skipIf(!ENDPOINT)('files — real MinIO/S3 round-trip (s3 driver)', () 
   beforeAll(async () => {
     // Point the s3 driver at the test MinIO. In CI the test process and MinIO
     // share localhost, so internal and public endpoints are the same host.
+    // Presigned URLs are the opt-in `direct` mode (files-through-app.test.ts
+    // covers the default, where files go through the app).
+    for (const k of S3_KEYS) saved[k] = process.env[k];
+    process.env.S3_BROWSER_ACCESS = 'direct';
     process.env.STORAGE_DRIVER = 's3';
     process.env.S3_INTERNAL_ENDPOINT = ENDPOINT;
     process.env.S3_PUBLIC_ENDPOINT = ENDPOINT;
@@ -58,8 +74,11 @@ describe.skipIf(!ENDPOINT)('files — real MinIO/S3 round-trip (s3 driver)', () 
     await prisma.$disconnect();
     await app?.close();
     if (userId) await deleteUser(userId);
-    // Restore local driver for any suite that runs afterwards.
-    process.env.STORAGE_DRIVER = 'local';
+    // Restore the storage settings for any suite that runs afterwards.
+    for (const k of S3_KEYS) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
     resetStorage();
   });
 

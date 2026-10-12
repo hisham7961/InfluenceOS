@@ -45,6 +45,12 @@ const schema = z
     S3_INTERNAL_ENDPOINT: z.string().optional(),
     S3_PUBLIC_ENDPOINT: z.string().optional(),
     S3_ENDPOINT: z.string().optional(), // legacy fallback for both of the above
+    // How browsers reach stored files: through the app (default — nothing
+    // about the store needs to be public) or presigned URLs on S3_PUBLIC_ENDPOINT.
+    S3_BROWSER_ACCESS: z.preprocess(
+      (v) => (typeof v === 'string' && v.trim() !== '' ? v.trim().toLowerCase() : undefined),
+      z.enum(['proxy', 'direct']).default('proxy'),
+    ),
     S3_REGION: z.string().optional(),
     S3_BUCKET: z.string().optional(),
     S3_ACCESS_KEY_ID: z.string().optional(),
@@ -121,6 +127,15 @@ const schema = z
           code: z.ZodIssueCode.custom,
           path: ['S3_ACCESS_KEY_ID'],
           message: 'STORAGE_DRIVER=s3 requires S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY.',
+        });
+      }
+      // Presigned URLs only work when the browser can really reach them.
+      if (env.S3_BROWSER_ACCESS === 'direct' && !env.S3_PUBLIC_ENDPOINT) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['S3_PUBLIC_ENDPOINT'],
+          message:
+            'S3_BROWSER_ACCESS=direct requires S3_PUBLIC_ENDPOINT (an https address browsers can reach). Leave S3_BROWSER_ACCESS unset to send files through the app instead.',
         });
       }
     }

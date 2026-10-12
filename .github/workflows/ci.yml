@@ -645,11 +645,14 @@ jobs:
       WEB_ORIGIN: http://localhost:3000
       E2E_BASE_URL: http://localhost:3000
       CI: 'true'
-      # The whole stack runs on the S3 driver so the browser exercises presigned
-      # PUT/GET against MinIO (internal == public endpoint on localhost in CI).
+      # The whole stack runs on the S3 driver like production: MinIO is private
+      # and the browser can't reach it — the public endpoint is deliberately
+      # unreachable — so every upload and download must go through the app
+      # (S3_BROWSER_ACCESS defaults to proxy). Handing the browser a presigned
+      # URL again would fail here exactly as it failed in production.
       STORAGE_DRIVER: s3
       S3_INTERNAL_ENDPOINT: http://localhost:9000
-      S3_PUBLIC_ENDPOINT: http://localhost:9000
+      S3_PUBLIC_ENDPOINT: http://storage.invalid:9
       S3_REGION: us-east-1
       S3_BUCKET: influenceos
       S3_ACCESS_KEY_ID: minioadmin
@@ -674,14 +677,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Start MinIO
         run: |
-          # MINIO_API_CORS_ALLOW_ORIGIN="*" makes MinIO answer the browser's
-          # cross-origin presigned PUT/GET preflight — required for the browser
-          # to upload directly to object storage from the web origin.
+          # No CORS: like production, the browser never talks to MinIO.
           IMG="${{ env.MINIO_IMAGE }}"
           docker pull "$IMG" || { echo "::warning::$IMG unavailable, using $MINIO_FALLBACK_IMAGE"; IMG="$MINIO_FALLBACK_IMAGE"; }
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-            -e MINIO_API_CORS_ALLOW_ORIGIN="*" \
             "$IMG"
           for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break || sleep 1; done
           curl -sf http://localhost:9000/minio/health/live || { echo "MinIO failed"; docker logs minio; exit 1; }
@@ -737,10 +737,11 @@ jobs:
           curl -sf http://localhost:3000/login || { echo "Web failed"; cat /tmp/web.log; exit 1; }
 
       # The DoD journey uploads → lists → downloads (signed) → deletes an
-      # attachment through the browser; on this stack that path is presigned
-      # PUT/GET against MinIO, proving browser object storage end-to-end.
-      - name: Run browser S3 journey (DoD spec)
-        run: pnpm --filter @influenceos/web exec playwright test dod.spec.ts
+      # attachment through the browser, and the Story spec uploads a Story
+      # image and shows it; on this stack both go through the app to a
+      # private MinIO, proving browser file handling end to end.
+      - name: Run browser S3 journey (DoD + Story upload specs)
+        run: pnpm --filter @influenceos/web exec playwright test dod.spec.ts story-upload.spec.ts
 
       - name: Diagnostics on failure
         if: ${{ failure() }}

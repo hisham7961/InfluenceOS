@@ -220,7 +220,8 @@ export async function buildApp(): Promise<FastifyInstance> {
       {
         reqId: request.id,
         method: request.method,
-        url: request.url,
+        // Signed file links carry their capability in the query — never log it.
+        url: request.url.replace(/([?&](?:token|ticket|s)=)[^&]*/g, '$1[redacted]'),
         route,
         statusCode: reply.statusCode,
         responseTimeMs: Math.round(reply.elapsedTime),

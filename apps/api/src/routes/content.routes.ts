@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { requests, z } from '@influenceos/contracts';
 import { requireAuth, servicesFor } from '../http';
+import { downloadLimit } from './files.routes';
 
 const idParam = z.object({ id: z.string() });
 
@@ -14,6 +15,7 @@ export async function contentRoutes(app: FastifyInstance): Promise<void> {
   r.get(
     '/covers/:id',
     {
+      config: downloadLimit,
       schema: {
         tags: ['Content'],
         summary: "A post's saved cover image (signed link)",

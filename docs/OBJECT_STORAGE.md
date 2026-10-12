@@ -5,9 +5,9 @@ uploads and downloads work, how the store is configured, and what durability the
 store must provide in production. This is operational reference for anyone
 running or recovering the platform.
 
-> **Scope.** InfluenceOS is an internal, ADMIN/STAFF-only platform. There are no
-> influencer-facing portals. All object access is mediated by the API — the
-> browser never talks to the store with long-lived credentials.
+> **Scope.** All object access is mediated by the API — by default the browser
+> never talks to the store at all, and never with long-lived credentials.
+> Creators reach only their own task link's upload address.
 
 ## 1. Driver selection
 
@@ -22,34 +22,53 @@ The `local` driver keeps blobs on the host filesystem. It is single-host by
 construction: a second API/worker instance cannot see another host's `/uploads`,
 so it is a development-only convenience. Any real deployment uses `s3`.
 
-## 2. Private-by-default + presigned URLs
+## 2. Private by default — and how the browser reaches files
 
 Buckets are **PRIVATE**. Objects are **never** public and there is no anonymous
-read path. All access — upload and download — is granted through **presigned,
-expiring URLs** (or, for the `local` driver, short-lived signed proxy paths).
+read path. Every upload is authorized by a signed, expiring **upload ticket** and
+every download by a signed, expiring **download link**, each scoped to one object.
+
+How the browser moves the bytes is set by `S3_BROWSER_ACCESS` (`s3` driver only;
+the `local` driver always works like `proxy`):
+
+| `S3_BROWSER_ACCESS` | Upload | Download | Store reachable from the internet? |
+|---|---|---|---|
+| `proxy` **(default)** | Browser → app (`PUT /files/blob`) → API writes to the store over the private network | Browser ← app (`GET /files/:id/blob?token=…`, byte ranges) ← API reads the store | **No** — nothing to set up |
+| `direct` | Browser → presigned PUT on `S3_PUBLIC_ENDPOINT` | Presigned GET on `S3_PUBLIC_ENDPOINT` | **Yes**, over HTTPS, with CORS for the app's origin |
+
+`proxy` is the default because it needs nothing: the store stays on the private
+network, there is no files domain, no CORS, no mixed content and no CSP entry.
+`direct` is only for a store that is really served to browsers (a TLS files
+domain in front of MinIO, or S3/R2 with CORS) — and only worth it for very large
+files, where sending them through the app would cost bandwidth.
+
+> **Why this matters.** With `direct` and a store browsers can't reach — the
+> shipped `docker-compose.full.yml` binds MinIO to `127.0.0.1` and the shipped
+> Caddy/nginx configs don't route to it — every browser upload fails with
+> *"Upload failed — network error."* and stored images don't show. That was the
+> default before; `proxy` is the default now.
 
 - A client never holds the bucket credentials.
-- A presigned URL grants a single operation (PUT or GET) on a single object and
-  expires.
 - The reverse proxy does not expose the store; it is reachable only on the
-  private network (see §4).
+  private network.
 
 ## 3. Two-phase, signed upload flow
 
 Uploads are two-phase and signed. The API authorizes the transfer, the bytes go
-straight to the store (or through the local proxy), and the DB record is created
-only after the object is confirmed to have landed.
+to the API (or, with `direct`, straight to the store), and the DB record is
+created only after the object is confirmed to have landed.
 
 ```mermaid
 sequenceDiagram
-    participant C as Client (admin/staff UI)
-    participant API as API
-    participant S as Object store (S3/MinIO or local)
+    participant C as Browser
+    participant API as App (web BFF → API)
+    participant S as Object store (MinIO/S3 or local disk)
 
     C->>API: 1. initiate (declared MIME + size)
     API->>API: validate MIME (server allowlist) + size (<= MAX_UPLOAD_MB)
-    API-->>C: upload ticket (presigned PUT URL, or local proxy path)
-    C->>S: 2. PUT bytes (presigned S3 URL) — or PUT via API local proxy
+    API-->>C: upload ticket (+ where to send the bytes)
+    C->>API: 2. PUT bytes to /files/blob?token=…
+    API->>S: write the object (private network)
     C->>API: 3. complete
     API->>S: verify object landed
     API->>API: create DB record (metadata + key)
@@ -58,69 +77,57 @@ sequenceDiagram
 
 **Step 1 — initiate.** The client declares the file's MIME type and size. The
 API validates the MIME type against a **server-side allowlist** and checks the
-declared size against the ceiling `MAX_UPLOAD_MB` (default **100**). On success
-the API returns an **upload ticket**. Validation is server-side; a client cannot
-bypass the allowlist or the size ceiling.
+declared size against the ceiling `MAX_UPLOAD_MB`. On success the API returns an
+**upload ticket**. Validation is server-side; a client cannot bypass the
+allowlist or the size ceiling.
 
-**Step 2 — transfer.** The client PUTs the bytes:
-
-- `s3` driver: directly to a **presigned S3 PUT URL** (browser → store,
-  cross-origin).
-- `local` driver: through the **API's local-driver proxy** (the API writes the
-  bytes to `/uploads`).
+**Step 2 — transfer.** The client PUTs the bytes to the app's upload address
+(`proxy`, the default). The API checks the session and the ticket **before
+reading the body** (a forged ticket, or one made for someone else, never makes
+the server take in a large upload), requires **exactly** the declared number of
+bytes, and writes them to the store. With `direct`, the browser PUTs a presigned
+URL instead; the declared size is baked into its signature.
 
 **Step 3 — complete.** The client calls `complete`. The API **verifies the
 object actually landed** in the store, then creates the DB record holding the
 attachment's metadata and object key. If the object is not present, no DB record
 is created.
 
-> **MinIO CORS.** MinIO's default CORS configuration permits the browser's
-> cross-origin presigned PUT in step 2, so no extra CORS wiring is required for
-> the standard flow.
+A creator's draft file from their task link follows the same three steps through
+the link's own address (`PUT /public/creator/:token/uploads?ticket=…`).
 
 ## 4. Downloads
 
-Downloads never expose the bucket. The path depends on the driver:
+Downloads never expose the bucket:
 
-| Driver | Download mechanism |
+| Mode | Download mechanism |
 |---|---|
-| `s3` | A **presigned GET URL** to the object; expires. |
-| `local` | A **short-lived signed proxy path** served by the API: `GET /files/:id/blob?token=...` |
+| `proxy` (default) and `local` | A **signed link** served by the API: `GET /files/:id/blob?token=...`. It streams the file, answers byte ranges (206 — video players need them), and stays the same for an hour (valid one to two hours) so browsers cache it. Pictures, video and PDF open inline; other files download. |
+| `direct` | A **presigned GET URL** to the object; expires. |
 
-In both cases the grant is scoped to a single object and time-limited.
+In both cases the grant is scoped to a single object and time-limited. Saved
+post covers use their own day-stable signed link (`GET /covers/:id`).
 
 ## 5. Internal vs public endpoint
 
-Presigned URLs embed a hostname. When the store sits behind a private network,
-the hostname the **server** uses to reach the store is not the hostname the
-**browser** can reach. InfluenceOS splits these:
-
 | Env var | Used by | Purpose |
 |---|---|---|
-| `S3_INTERNAL_ENDPOINT` | The server (API/worker) | Reach the store on the **private network** |
-| `S3_PUBLIC_ENDPOINT` | The browser | The **browser-facing** endpoint baked into presigned URLs |
+| `S3_INTERNAL_ENDPOINT` | The server (API/worker) | Reach the store on the **private network** — all reads and writes |
+| `S3_PUBLIC_ENDPOINT` | The browser (`direct` only) | The browser-facing endpoint presigned URLs are **signed for** |
 | `S3_ENDPOINT` (legacy) | Both (fallback) | Fallback for both of the above when the split pair is unset |
 
-The server signs the request against the store using `S3_INTERNAL_ENDPOINT`, but
-the URL handed to the browser is rewritten to `S3_PUBLIC_ENDPOINT` so the browser
-can actually reach it. They may be identical (store on the same reachable
-network) or differ.
-
-**Example — they differ.** MinIO runs on the private Docker network; the browser
-reaches the store through a public TLS hostname:
+With `direct`, presigned URLs are signed directly against `S3_PUBLIC_ENDPOINT`
+(the signature covers its scheme, host and port), so whatever fronts the store
+must forward requests with that same `Host`, no added path prefix, and HTTPS.
 
 ```bash
-# Server reaches MinIO on the private network:
+# Default — nothing about the store is public:
 S3_INTERNAL_ENDPOINT=http://minio:9000
-# The browser cannot resolve "minio"; presigned URLs must use the public host:
+# S3_BROWSER_ACCESS unset (= proxy); S3_PUBLIC_ENDPOINT is not used.
+
+# Opt-in direct access through a TLS files domain in front of MinIO:
+S3_BROWSER_ACCESS=direct
 S3_PUBLIC_ENDPOINT=https://files.example.com
-```
-
-**Example — they are the same** (managed AWS S3, publicly reachable both ways):
-
-```bash
-S3_INTERNAL_ENDPOINT=https://s3.eu-central-1.amazonaws.com
-S3_PUBLIC_ENDPOINT=https://s3.eu-central-1.amazonaws.com
 ```
 
 ## 6. MIME allowlist and size ceiling
@@ -137,7 +144,8 @@ S3_PUBLIC_ENDPOINT=https://s3.eu-central-1.amazonaws.com
 | `STORAGE_DRIVER` | all | yes | `local` or `s3` |
 | `MAX_UPLOAD_MB` | all | no | Upload size ceiling; default `100` |
 | `S3_INTERNAL_ENDPOINT` | `s3` | yes* | Server-side endpoint on the private network |
-| `S3_PUBLIC_ENDPOINT` | `s3` | yes* | Browser-facing endpoint baked into presigned URLs |
+| `S3_BROWSER_ACCESS` | `s3` | no | `proxy` (default — files go through the app) or `direct` (presigned URLs) |
+| `S3_PUBLIC_ENDPOINT` | `s3` + `direct` | with `direct` | Browser-facing HTTPS endpoint presigned URLs are signed for |
 | `S3_ENDPOINT` | `s3` | fallback | Legacy single endpoint; fallback for both of the above |
 | `S3_BUCKET` | `s3` | yes | Bucket name (private) |
 | `S3_ACCESS_KEY_ID` | `s3` | yes | Access key |
@@ -145,9 +153,9 @@ S3_PUBLIC_ENDPOINT=https://s3.eu-central-1.amazonaws.com
 | `S3_REGION` | `s3` | no | Region |
 | `S3_FORCE_PATH_STYLE` | `s3` | no | `true` for MinIO / path-style addressing |
 
-\* The env contract requires **an endpoint** (`S3_INTERNAL_ENDPOINT`/
-`S3_PUBLIC_ENDPOINT`, or the legacy `S3_ENDPOINT` fallback) plus a bucket, access
-key, and secret. See §8.
+\* The env contract requires **an endpoint** (`S3_INTERNAL_ENDPOINT`, or the
+legacy `S3_ENDPOINT` fallback) plus a bucket, access key, and secret — and
+`S3_PUBLIC_ENDPOINT` when `S3_BROWSER_ACCESS=direct`.
 
 ### Fail-fast contract
 
@@ -159,7 +167,6 @@ key + secret when `STORAGE_DRIVER=s3`. If any of these is missing, the API
 # Minimum valid s3 configuration (MinIO / path-style):
 STORAGE_DRIVER=s3
 S3_INTERNAL_ENDPOINT=http://minio:9000
-S3_PUBLIC_ENDPOINT=https://files.example.com
 S3_BUCKET=influenceos
 S3_ACCESS_KEY_ID=...
 S3_SECRET_ACCESS_KEY=...
@@ -211,12 +218,19 @@ Object storage is exercised by CI, not just asserted:
 
 - **MinIO round-trip (integration test).** CI runs a real MinIO round-trip
   against the `s3` driver.
-- **`e2e-s3` CI job.** The full browser journey — **upload → download → delete**
-  — is tested end-to-end against S3/MinIO, including the presigned PUT and GET
-  paths and the cross-origin CORS behaviour.
+- **Files through the app (integration test).** `files-through-app.test.ts`
+  runs the `s3` driver with an **unreachable** public endpoint: upload,
+  complete, download, byte ranges, a Story image, a creator's draft, and the
+  upload checks (session, ticket owner, exact size). Real MinIO in CI, an
+  in-process stand-in elsewhere.
+- **`e2e-s3` CI job.** The browser journeys — **upload → download → delete**,
+  and a **Story image** upload — run against a private MinIO the browser can't
+  reach (no CORS, unreachable public endpoint), exactly like production.
+- **Direct mode.** `s3-storage.test.ts` keeps the presigned PUT/GET round-trip
+  (`S3_BROWSER_ACCESS=direct`), including the signed-size edge cap.
 
-These jobs are the guard against regressions in the two-phase upload, the
-presigned-URL model, and the internal/public endpoint split.
+These are the guard against regressions in the two-phase upload, the
+browser access modes, and the internal/public endpoint split.
 
 ## 11. A bucket-only storage account (recommended)
 

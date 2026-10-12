@@ -93,6 +93,11 @@ describe('files — two-phase signed uploads (local driver)', () => {
     const dl = await app.inject({ method: 'GET', url: created.downloadUrl });
     expect(dl.statusCode).toBe(200);
     expect(dl.rawPayload.length).toBe(bytes.length);
+    // A byte range (what a video player asks for) comes back as 206.
+    const part = await app.inject({ method: 'GET', url: created.downloadUrl, headers: { range: 'bytes=4-6' } });
+    expect(part.statusCode).toBe(206);
+    expect(part.headers['content-range']).toBe(`bytes 4-6/${bytes.length}`);
+    expect([...part.rawPayload]).toEqual([1, 2, 3]);
 
     // Tampering with / dropping the token is refused.
     const noToken = await app.inject({ method: 'GET', url: `/api/v1/files/${created.id}/blob` });

@@ -61,8 +61,20 @@ if [ "${STORAGE_DRIVER:-local}" = "s3" ]; then
   for v in S3_INTERNAL_ENDPOINT S3_BUCKET S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY; do
     [ -n "${!v:-}" ] || F "STORAGE_DRIVER=s3 but $v missing"
   done
-  [ -n "${S3_PUBLIC_ENDPOINT:-}" ] || W "S3_PUBLIC_ENDPOINT unset (browser presigned URLs may not resolve)"
 fi
+# How browsers reach stored files (docker-compose.full.yml always uses s3).
+case "$(printf '%s' "${S3_BROWSER_ACCESS:-proxy}" | tr '[:upper:]' '[:lower:]')" in
+  direct)
+    case "${S3_PUBLIC_ENDPOINT:-}" in
+      "") F "S3_BROWSER_ACCESS=direct but S3_PUBLIC_ENDPOINT is unset — remove S3_BROWSER_ACCESS to send files through the app" ;;
+      http://localhost*|http://127.*|*example.com*|*://minio*)
+        F "S3_BROWSER_ACCESS=direct but S3_PUBLIC_ENDPOINT=$S3_PUBLIC_ENDPOINT is not reachable by browsers — every upload would fail with 'network error'. Remove S3_BROWSER_ACCESS to send files through the app" ;;
+      http://*) W "S3_PUBLIC_ENDPOINT=$S3_PUBLIC_ENDPOINT is not https — browsers block it on an https site" ;;
+      *) P "Browsers use presigned URLs on $S3_PUBLIC_ENDPOINT (S3_BROWSER_ACCESS=direct)" ;;
+    esac
+    ;;
+  *) P "Browsers upload and download files through the app (S3_BROWSER_ACCESS=proxy)" ;;
+esac
 
 echo
 echo "== Host resources =="

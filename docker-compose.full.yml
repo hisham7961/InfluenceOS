@@ -7,9 +7,11 @@
 #   docker compose -f docker-compose.full.yml up --build
 #
 # The `migrate` one-shot applies migrations and bootstraps a first admin before
-# the app services start. Object storage is PRIVATE (S3 driver against MinIO);
-# the browser reaches presigned URLs at S3_PUBLIC_ENDPOINT while the API/worker
-# use the internal service DNS name.
+# the app services start. Object storage is PRIVATE (S3 driver against MinIO):
+# browsers upload and download files through the app itself (the API reads
+# and writes MinIO over the internal network), so MinIO never needs to be
+# reachable from the internet. S3_BROWSER_ACCESS=direct switches to presigned
+# URLs on S3_PUBLIC_ENDPOINT — only for a store really served over HTTPS.
 x-app-env: &app-env
   NODE_ENV: production
   # The app's login. With APP_DB_USER + APP_DB_PASSWORD in .env it's a
@@ -21,6 +23,9 @@ x-app-env: &app-env
   AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required (min 16 chars)}
   STORAGE_DRIVER: s3
   S3_INTERNAL_ENDPOINT: http://minio:9000
+  # proxy (default): files go through the app. direct: presigned URLs on
+  # S3_PUBLIC_ENDPOINT, which must then be an https address browsers reach.
+  S3_BROWSER_ACCESS: ${S3_BROWSER_ACCESS:-proxy}
   S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
   S3_REGION: us-east-1
   S3_BUCKET: influenceos
@@ -94,10 +99,11 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
     # Bound to loopback only — the API/worker reach MinIO over the internal
-    # Docker network (minio:9000), never the host port. Never expose the object
-    # store or its console to the public internet. To serve presigned URLs to
-    # browsers, front MinIO with the reverse proxy (TLS) and set
-    # S3_PUBLIC_ENDPOINT to that URL.
+    # Docker network (minio:9000), never the host port, and browsers reach
+    # files through the app. Never expose the object store or its console to
+    # the public internet. (Only with S3_BROWSER_ACCESS=direct does a browser
+    # talk to the store: then front MinIO with the reverse proxy over TLS and
+    # set S3_PUBLIC_ENDPOINT to that URL.)
     ports:
       - '127.0.0.1:9000:9000'
       - '127.0.0.1:9001:9001'

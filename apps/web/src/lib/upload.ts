@@ -3,8 +3,9 @@
 import type { AttachmentDTO, AttachmentTarget, UploadTicketDTO } from '@influenceos/contracts';
 import { api } from '@/lib/api-browser';
 import { toBrowserUrl } from '@/lib/browser-url';
+import { UploadError } from '@/lib/upload-error';
 
-export { toBrowserUrl };
+export { toBrowserUrl, UploadError };
 
 /**
  * Two-phase signed upload from the browser:
@@ -51,7 +52,17 @@ export async function uploadCreatorDraftFile(
   return ticket.uploadToken;
 }
 
-function putBytes(
+/** The API's error message from an error body, if it is one. */
+function serverMessageOf(xhr: XMLHttpRequest): string | null {
+  try {
+    const body = JSON.parse(xhr.responseText) as { error?: { message?: unknown } };
+    return typeof body.error?.message === 'string' ? body.error.message : null;
+  } catch {
+    return null;
+  }
+}
+
+function putOnce(
   url: string,
   file: File,
   ticket: UploadTicketDTO,
@@ -60,8 +71,9 @@ function putBytes(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', url);
-    // Direct S3 uploads use the ticket's headers (Content-Type); the local
-    // proxy expects raw octet-stream and reads the token from the query string.
+    // Direct S3 uploads use the ticket's headers (Content-Type); the app's
+    // upload address expects raw octet-stream and reads the token from the
+    // query string.
     if (ticket.direct) {
       for (const [k, v] of Object.entries(ticket.headers)) xhr.setRequestHeader(k, v);
     } else {
@@ -72,10 +84,38 @@ function putBytes(
       if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
     };
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error(`Upload failed (${xhr.status}).`));
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      const message = serverMessageOf(xhr);
+      reject(
+        new UploadError(
+          xhr.status >= 400 && xhr.status < 500 ? 'rejected' : 'failed',
+          xhr.status,
+          message,
+        ),
+      );
     };
-    xhr.onerror = () => reject(new Error('Upload failed — network error.'));
+    xhr.onerror = () => reject(new UploadError('network'));
     xhr.send(file);
   });
+}
+
+/**
+ * Send the bytes. A dropped connection (a phone switching networks, a
+ * moment without signal) is tried once more before giving up — sending the
+ * same file to the same place again is harmless. A server answer is final.
+ */
+async function putBytes(
+  url: string,
+  file: File,
+  ticket: UploadTicketDTO,
+  onProgress?: (fraction: number) => void,
+): Promise<void> {
+  try {
+    await putOnce(url, file, ticket, onProgress);
+  } catch (err) {
+    if (!(err instanceof UploadError) || err.reason !== 'network') throw err;
+    onProgress?.(0);
+    await new Promise((r) => setTimeout(r, 1500));
+    await putOnce(url, file, ticket, onProgress);
+  }
 }

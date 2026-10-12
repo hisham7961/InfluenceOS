@@ -12,6 +12,31 @@ versions are fabricated. Dates are UTC.
 Pre-deployment platform-completion and freeze-candidate work on top of the
 validated baseline. No staging or production environment has been deployed.
 
+### Uploads work on the production setup
+
+- **Fixed: every upload failed with "Upload failed — network error."** (Story
+  images, attachments, receipts, licences, creators' draft files) and stored
+  files didn't show. With the s3 driver the browser was handed a presigned URL
+  on `S3_PUBLIC_ENDPOINT` — `http://localhost:9000` in `docker-compose.full.yml`,
+  with MinIO bound to loopback and no proxy route — which no browser can reach
+  (and the CSP blocked it first).
+- **Files now go through the app by default** (`S3_BROWSER_ACCESS=proxy`): the
+  browser sends the bytes to the API, which writes them to the private store;
+  downloads stream back through a signed link that serves byte ranges (video)
+  and stays the same for an hour so browsers cache it. Nothing about the store
+  has to be public. `S3_BROWSER_ACCESS=direct` keeps presigned URLs for a store
+  really served over HTTPS.
+- **Safer upload address:** the session and ticket are checked before the body
+  is read, the ticket must belong to the person sending it, and the bytes must
+  be exactly the declared size; signed-link tokens are kept out of the access
+  log; downloads have their own rate allowance.
+- **Clear messages:** a failed upload says why, in Arabic or English, and a
+  dropped connection is retried once. A Story whose file didn't upload is kept
+  and "Retry upload" sends only the file (it used to create a second Story).
+- Settings → Storage shows how browsers reach files; `scripts/preflight.sh`
+  fails on a direct setup browsers can't reach. CI's MinIO browser job now runs
+  with an unreachable public endpoint, as in production, plus a Story upload spec.
+
 ### Shipments follow the roster
 
 - **Confirming a creator who gets products now puts a shipment request in

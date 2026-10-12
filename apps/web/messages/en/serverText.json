@@ -380,6 +380,7 @@
   "e_file_is_empty": "The file is empty.",
   "e_file_bigger_than_declared": "The file is bigger than it said it was.",
   "e_file_did_not_finish_uploading": "The file did not finish uploading. Please try again.",
+  "e_file_doesnt_match_declared": "The file doesn't match what was declared. Please choose it again.",
   "e_file_is_too_big": "The file is too big.",
   "e_file_already_sent": "This file was already sent."
 }

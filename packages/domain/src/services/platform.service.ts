@@ -27,7 +27,7 @@ import { ActivityType, Prisma } from '@influenceos/database';
 import type { DomainContext } from '../context';
 import { requireAdmin } from '../lib/authz';
 import { windowArgs, windowPage } from '../lib/cursor';
-import { getStorage } from '../lib/storage';
+import { browserAccess, getStorage } from '../lib/storage';
 import { diskUsage } from '../lib/disk';
 import { maxUploadBytes } from './attachment.service';
 import { iso, logActivity } from '../lib/helpers';
@@ -252,6 +252,9 @@ export function makePlatformService(ctx: DomainContext) {
       privateByDefault: true,
       bucket: driver.name === 's3' ? process.env.S3_BUCKET ?? 'influenceos' : null,
       endpoint: driver.name === 's3' ? process.env.S3_INTERNAL_ENDPOINT ?? process.env.S3_ENDPOINT ?? null : null,
+      browserAccess: browserAccess(process.env),
+      publicEndpoint:
+        browserAccess(process.env) === 'direct' ? process.env.S3_PUBLIC_ENDPOINT || process.env.S3_PRESIGN_ENDPOINT || null : null,
       maxUploadMb: Math.round(maxUploadBytes() / (1024 * 1024)),
       allowedMimeTypes: [
         'image/png',

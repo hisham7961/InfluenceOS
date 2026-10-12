@@ -6,8 +6,16 @@ import { AppError } from '../errors';
 import { requireActor, requireAnyCapability, requireCapability, requireOwnerOrAdmin } from '../lib/authz';
 import { logActivity } from '../lib/helpers';
 import { isBrandOutOfScope, isCountryOutOfScope, scopedBrandIds, scopedCountryCodes } from '../lib/scope';
-import { buildStorageKey, getStorage, resolveAttachmentDownloadUrl, sanitizeFileName } from '../lib/storage';
-import { signUploadTicket, verifyDownloadTicket, verifyUploadTicket } from '../lib/tokens';
+import type { Readable } from 'node:stream';
+import {
+  buildStorageKey,
+  getStorage,
+  parseByteRange,
+  resolveAttachmentDownloadUrl,
+  sanitizeFileName,
+  type ByteRange,
+} from '../lib/storage';
+import { signUploadTicket, verifyDownloadTicket, verifyUploadTicket, type UploadTicket } from '../lib/tokens';
 import { makeCampaignService } from './campaign.service';
 
 type Target = z.infer<typeof requests.attachmentTargetSchema>;
@@ -374,15 +382,35 @@ export function makeAttachmentService(ctx: DomainContext) {
   }
 
   /**
-   * Local-driver upload proxy: verify the ticket, enforce the declared size,
-   * and persist to private storage. S3 clients never hit this path.
+   * An upload ticket this person may send bytes for: genuine, unexpired, not a
+   * creator's task-link ticket (those go through their own address), minted
+   * for this signed-in person, and within the size limit. The API checks it
+   * before reading the request body, so a forged or someone else's ticket
+   * never makes the server take in a large upload.
+   */
+  async function uploadTicketFor(token: string): Promise<UploadTicket> {
+    const actor = requireActor(ctx);
+    const ticket = await verifyUploadTicket(token);
+    if (ticket.target.creatorLinkId || ticket.actorId !== actor.id) {
+      throw AppError.badRequest('This upload/download link is invalid or has expired.');
+    }
+    if (ticket.sizeBytes > maxUploadBytes()) throw AppError.badRequest('File exceeds the maximum allowed size.');
+    return ticket;
+  }
+
+  /**
+   * The upload address (the default way browsers upload, and the only one
+   * for local storage): check the ticket, require exactly the bytes it
+   * declared, and write them to private storage over the server's own
+   * connection.
    */
   async function writeBlob(token: string, body: Buffer): Promise<void> {
-    const ticket = await verifyUploadTicket(token);
-    // A creator's task-link upload goes through its own address (creator-link.service).
-    if (ticket.target.creatorLinkId) throw AppError.badRequest('This upload/download link is invalid or has expired.');
+    const ticket = await uploadTicketFor(token);
     if (body.length === 0) throw AppError.badRequest('The uploaded file is empty.');
     if (body.length > maxUploadBytes()) throw AppError.badRequest('File exceeds the maximum allowed size.');
+    if (body.length !== ticket.sizeBytes) {
+      throw AppError.badRequest("The file doesn't match what was declared. Please choose it again.");
+    }
     await storage.save(ticket.storageKey, body, ticket.mimeType);
   }
 
@@ -469,18 +497,33 @@ export function makeAttachmentService(ctx: DomainContext) {
   }
 
   /**
-   * Local-driver download proxy: verify the signed download ticket, then
-   * stream bytes. The signed token is the capability — no session required —
-   * so the URL works in an <img>/<a> tag but expires quickly.
+   * The download link (the default way browsers fetch stored files): verify
+   * the signed download ticket, then stream the bytes — the whole file, or
+   * the byte range a video player asks for. The signed token is the
+   * capability — no session required — so the URL works in an <img>/<video>/
+   * <a> tag but expires.
    */
-  async function readBlobSigned(id: string, token: string): Promise<{ buffer: Buffer; mimeType: string; fileName: string }> {
+  async function openBlobSigned(
+    id: string,
+    token: string,
+    rangeHeader?: string,
+  ): Promise<
+    | { status: 200 | 206; stream: Readable; mimeType: string; fileName: string; size: number; range: ByteRange | null }
+    | { status: 416; size: number }
+  > {
     const ticket = await verifyDownloadTicket(token);
     if (ticket.attachmentId !== id) throw AppError.badRequest('This download link is invalid.');
-    const row = await prisma.attachment.findUnique({ where: { id } });
+    const row = await prisma.attachment.findUnique({
+      where: { id },
+      select: { storageKey: true, mimeType: true, fileName: true, sizeBytes: true },
+    });
     if (!row) throw AppError.notFound('Attachment');
-    const buffer = await storage.read(row.storageKey);
-    if (!buffer) throw AppError.notFound('File');
-    return { buffer, mimeType: row.mimeType, fileName: row.fileName };
+    const size = row.sizeBytes;
+    const range = parseByteRange(rangeHeader, size);
+    if (range === 'unsatisfiable') return { status: 416, size };
+    const stream = await storage.openRead(row.storageKey, range ?? undefined);
+    if (!stream) throw AppError.notFound('File');
+    return { status: range ? 206 : 200, stream, mimeType: row.mimeType, fileName: row.fileName, size, range };
   }
 
   async function remove(id: string): Promise<void> {
@@ -603,7 +646,8 @@ export function makeAttachmentService(ctx: DomainContext) {
     complete,
     list,
     get,
-    readBlobSigned,
+    openBlobSigned,
+    uploadTicketFor,
     remove,
     cleanupAbandonedUploads,
     maxUploadBytes,

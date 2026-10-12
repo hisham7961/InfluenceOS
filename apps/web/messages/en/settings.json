@@ -216,9 +216,13 @@
       "privateByDefault": "Private by default",
       "enabled": "Enabled",
       "disabled": "Disabled",
-      "explanation": "Objects are never publicly readable. Every upload uses a signed, expiring URL and every download is served through a short-lived signed URL (presigned S3 GET, or a signed proxy link for the local driver). There is no public bucket and no permanent public file URL.",
+      "explanation": "Objects are never publicly readable. Every upload uses a signed, expiring ticket and every download a signed, expiring link. There is no public bucket and no permanent public file URL.",
       "bucket": "Bucket",
-      "endpoint": "Endpoint"
+      "endpoint": "Endpoint",
+      "browserAccess": "How browsers reach files",
+      "browserProxy": "Through the app (the store stays private to the server)",
+      "browserDirect": "Directly from the store (presigned URLs)",
+      "publicEndpoint": "Browser-facing address"
     },
     "allowedTypes": {
       "title": "Allowed file types",

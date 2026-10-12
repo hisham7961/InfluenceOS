@@ -104,13 +104,20 @@ export async function creatorLinkRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // The link and ticket are checked before the body is read, so a bad link
+  // or ticket never makes the server take in a large upload.
   r.put(
     '/public/creator/:token/uploads',
     {
       config: sendLimit,
+      onRequest: async (req) => {
+        const { token } = req.params as { token: string };
+        const { ticket } = req.query as { ticket?: string };
+        await servicesFor(req).creatorLinks.checkUpload(token, ticket ?? '');
+      },
       schema: {
         tags: ['Campaigns'],
-        summary: "The draft file's bytes (when storage can't take them directly)",
+        summary: "The draft file's bytes (the API writes them to private storage)",
         security: [],
         params: tokenParam,
         querystring: z.object({ ticket: z.string().min(1).max(4000) }),

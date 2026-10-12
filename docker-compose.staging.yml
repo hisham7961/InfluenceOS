@@ -30,6 +30,9 @@ x-staging-env: &staging-env
   AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required (staging-only, >=32 chars)}
   STORAGE_DRIVER: s3
   S3_INTERNAL_ENDPOINT: http://minio:9000
+  # Like production: files go through the app unless S3_BROWSER_ACCESS=direct
+  # (then browsers use the files host at S3_PUBLIC_ENDPOINT).
+  S3_BROWSER_ACCESS: ${S3_BROWSER_ACCESS:-proxy}
   S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?S3_PUBLIC_ENDPOINT is required (browser-facing)}
   S3_REGION: us-east-1
   S3_BUCKET: ${S3_BUCKET:-influenceos-staging}

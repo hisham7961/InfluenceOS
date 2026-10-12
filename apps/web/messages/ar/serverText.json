@@ -380,6 +380,7 @@
   "e_file_is_empty": "الملف فارغ.",
   "e_file_bigger_than_declared": "حجم الملف أكبر مما ذُكر عند بدء الرفع.",
   "e_file_did_not_finish_uploading": "لم يكتمل رفع الملف. يرجى المحاولة مرة أخرى.",
+  "e_file_doesnt_match_declared": "الملف لا يطابق ما أُعلن عنه. اختره مرة أخرى.",
   "e_file_is_too_big": "الملف كبير جدًا.",
   "e_file_already_sent": "تم إرسال هذا الملف من قبل."
 }

@@ -73,8 +73,16 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
     method === 'GET' || method === 'HEAD' ? undefined : Buffer.from(await req.arrayBuffer());
 
   const relay = forwardedHeaders(req.headers);
+  // A video player asks for byte ranges of a stored file; pass that through.
+  const ranged: Record<string, string> = {};
+  if (method === 'GET') {
+    for (const h of ['range', 'if-range']) {
+      const v = req.headers.get(h);
+      if (v) ranged[h] = v;
+    }
+  }
   const fwd = (token: string | undefined) => {
-    const headers: Record<string, string> = { ...relay, accept: 'application/json' };
+    const headers: Record<string, string> = { ...relay, ...ranged, accept: 'application/json' };
     const ct = req.headers.get('content-type');
     if (ct) headers['content-type'] = ct;
     if (token) headers.authorization = `Bearer ${token}`;
@@ -84,25 +92,40 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<NextResponse> {
   let res = await fwd(store.get(ACCESS_COOKIE)?.value);
   if (res.status === 401) {
     const refreshed = await tryRefresh(store, relay);
-    if (refreshed) res = await fwd(refreshed);
+    if (refreshed) {
+      await res.body?.cancel().catch(() => undefined);
+      res = await fwd(refreshed);
+    }
   }
 
-  const buf = await res.arrayBuffer();
   // 204/205/304 responses MUST have a null body — the Response constructor
   // throws otherwise (e.g. a 204 from delete/upload/logout).
   const nullBody = res.status === 204 || res.status === 205 || res.status === 304;
-  const out = new NextResponse(nullBody ? null : buf, { status: res.status });
+  if (nullBody) await res.body?.cancel().catch(() => undefined);
+  // Streamed, not buffered: a stored video or a large file passes through
+  // without being held in memory here.
+  const out = new NextResponse(nullBody ? null : res.body, { status: res.status });
   const ct = res.headers.get('content-type');
   if (ct && !nullBody) out.headers.set('content-type', ct);
   const cd = res.headers.get('content-disposition');
   if (cd) out.headers.set('content-disposition', cd);
-  // Images (saved post covers) keep the API's caching, so a cover isn't
-  // downloaded again on every page.
-  if (ct?.startsWith('image/')) {
-    for (const h of ['cache-control', 'x-content-type-options']) {
+  // Stored files (attachments, Story media, saved post covers) keep the API's
+  // caching and safety headers, and byte ranges for video.
+  if (ct && !ct.startsWith('application/json')) {
+    for (const h of [
+      'cache-control',
+      'x-content-type-options',
+      'content-security-policy',
+      'accept-ranges',
+      'content-range',
+      'content-length',
+    ]) {
       const v = res.headers.get(h);
       if (v) out.headers.set(h, v);
     }
+  } else if (res.status === 416) {
+    const v = res.headers.get('content-range');
+    if (v) out.headers.set('content-range', v);
   }
   // Rate-limit and request-id headers let the browser back off and let a
   // support request be matched to the server log.

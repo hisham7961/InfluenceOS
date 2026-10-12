@@ -19,13 +19,17 @@ function secret(): Uint8Array {
 
 const ISSUER = 'influenceos:storage';
 
-async function sign(payload: JWTPayload, purpose: string, ttlSeconds: number): Promise<string> {
-  return new SignJWT({ ...payload, purpose })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setIssuer(ISSUER)
-    .setExpirationTime(`${ttlSeconds}s`)
-    .sign(secret());
+async function sign(
+  payload: JWTPayload,
+  purpose: string,
+  ttlSeconds: number,
+  window?: { issuedAt: number; expiresAt: number },
+): Promise<string> {
+  const jwt = new SignJWT({ ...payload, purpose }).setProtectedHeader({ alg: 'HS256' }).setIssuer(ISSUER);
+  return (window
+    ? jwt.setIssuedAt(window.issuedAt).setExpirationTime(window.expiresAt)
+    : jwt.setIssuedAt().setExpirationTime(`${ttlSeconds}s`)
+  ).sign(secret());
 }
 
 async function verify<T extends JWTPayload>(token: string, purpose: string): Promise<T> {
@@ -60,7 +64,23 @@ export interface DownloadTicket extends JWTPayload {
   attachmentId: string;
 }
 
-export function signDownloadTicket(attachmentId: string, ttlSeconds = 600): Promise<string> {
+/**
+ * A download link's token. With `stable`, the token is the same for every
+ * call within one `stable`-second window (issued at the window's start,
+ * expiring one window after it ends, so it always works for at least a
+ * window) — the link a page shows doesn't change on every refresh, and the
+ * browser can cache what it points at.
+ */
+export function signDownloadTicket(
+  attachmentId: string,
+  ttlSeconds = 600,
+  opts: { stable?: number; now?: number } = {},
+): Promise<string> {
+  if (opts.stable && opts.stable > 0) {
+    const nowSec = Math.floor((opts.now ?? Date.now()) / 1000);
+    const issuedAt = nowSec - (nowSec % opts.stable);
+    return sign({ attachmentId }, 'download', ttlSeconds, { issuedAt, expiresAt: issuedAt + 2 * opts.stable });
+  }
   return sign({ attachmentId }, 'download', ttlSeconds);
 }
 

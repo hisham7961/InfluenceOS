@@ -6,6 +6,8 @@ x-app-env: &app-env
   AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required (min 16 chars)}
   STORAGE_DRIVER: s3
   S3_INTERNAL_ENDPOINT: http://minio:9000
+  # proxy (default): files go through the app; direct: presigned URLs below.
+  S3_BROWSER_ACCESS: ${S3_BROWSER_ACCESS:-proxy}
   S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
   S3_REGION: us-east-1
   S3_BUCKET: influenceos

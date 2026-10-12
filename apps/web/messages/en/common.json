@@ -69,6 +69,11 @@
   "acceptedFileTypes": "Images, PDF, video and documents",
   "fileRemoved": "File removed",
   "fileUploaded": "Uploaded {name}",
+  "uploadError": {
+    "network": "The upload was interrupted. Check your connection and try again.",
+    "rejected": "The file couldn't be uploaded — it may be too big or a type that isn't allowed.",
+    "failed": "The upload failed on the server. Please try again in a moment."
+  },
   "failed": "Failed",
   "noFilesYet": "No files yet",
   "noFilesDescription": "Upload briefs, contracts, references and assets.",

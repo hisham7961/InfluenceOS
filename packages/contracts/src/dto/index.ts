@@ -1996,6 +1996,10 @@ export interface StorageStatusDTO {
   privateByDefault: boolean;
   bucket: string | null;
   endpoint: string | null;
+  /** How browsers reach files: through the app (`proxy`) or presigned URLs on the public endpoint (`direct`). */
+  browserAccess: 'proxy' | 'direct';
+  /** The browser-facing store address, only when browsers use it (`direct`). */
+  publicEndpoint: string | null;
   maxUploadMb: number;
   allowedMimeTypes: string[];
   objectCount: number;
